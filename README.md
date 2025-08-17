@@ -38,13 +38,10 @@ This makes it useful both for personal Linux machines and production environment
 ## 🔹 Configuration
 
 ### 1. Disk usage threshold
-Inside the script:
-```bash
 THRESHOLD=90
 Modify this value if you want a different threshold (e.g., 80%).
 
 ### 2. Server list
-```bash
 📌 /etc/linux_maint/servers.txt
 One server per line (hostname or IP).
 Example:
