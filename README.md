@@ -43,7 +43,7 @@ Inside the script:
 THRESHOLD=90
 Modify this value if you want a different threshold (e.g., 80%).
 
-### 2. Server list
+### **2. Server list**
 📌 /etc/linux_maint/servers.txt
 One server per line (hostname or IP).
 Example:
