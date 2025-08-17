@@ -1,5 +1,13 @@
-# linux_Maint_Scripts
-This repository contains a collection of Linux maintenance and automation scripts designed to simplify common system administration tasks.
+# Linux Maintenance Scripts
+
+Collection of useful Linux system maintenance scripts (monitoring, cleanup, automation).
+
+---
+
+## 📑 Table of Contents
+- [Disk Monitor (`disk_monitor.sh`)](#-disk-monitorsh--linux-disk-usage-monitoring-script)
+- [Another Script (future)](#-another-script-name)
+
 # 📄 disk_monitor.sh — Linux Disk Usage Monitoring Script
 
 ## 🔹 Overview
