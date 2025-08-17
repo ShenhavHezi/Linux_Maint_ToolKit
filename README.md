@@ -6,7 +6,7 @@ Collection of useful Linux system maintenance scripts (monitoring, cleanup, auto
 
 ## 📑 Table of Contents
 - [Disk Monitor (`disk_monitor.sh`)](#disk_monitorsh--linux-disk-usage-monitoring-script)
-- [Another Script (future)](#another-script-name)
+- [Health_Monitor (`health_monitor.sh`)](#health_monitosh--linux-health-check-script)
 
 ---
 
@@ -101,10 +101,10 @@ ssh configured for passwordless login to target servers
 mail command available (mailx or mailutils)
 
 
-# 📄 distributed_health_monitor.sh — Linux Health Check Script
+# 📄 health_monitor.sh — Linux Health Check Script <a name="#health_monitosh--linux-health-check-script"></a>
 
 ## 🔹 Overview
-`distributed_health_monitor.sh` is a **Bash script** designed to monitor the overall health of one or more Linux servers.  
+`health_monitor.sh` is a **Bash script** designed to monitor the overall health of one or more Linux servers.  
 It collects CPU, memory, load average, and disk usage, then generates a daily report.  
 
 The script can run in two modes:
