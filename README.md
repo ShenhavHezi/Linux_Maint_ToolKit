@@ -15,6 +15,7 @@ Collection of useful Linux system maintenance scripts (monitoring, cleanup, auto
 - [NTP_Drift_Monitor (`ntp_drift_monitor.sh`)](#ntp_drift_monitorsh--ntpchrony-time-drift-monitoring-script)
 - [Log_Growth_Guard.sh (`log_growth_guard.sh`)](#log_growth_guardsh--log-size--growth-monitoring-script)
 - [Ports_Baseline_Monitor.sh (`ports_baseline_monitor.sh`)](#ports_baseline_monitorsh--listening-ports-baseline--drift-monitor)
+- [Backup_Check.sh (`backup_check.sh`)](#backup_checksh--backup-freshness-size--integrity-monitor)
 ---
 
 
@@ -1150,5 +1151,101 @@ mail/mailx on the monitoring node (only if you want email alerts).
 Process names may be - if permissions are insufficient or the tool can’t resolve PIDs.
 Some daemons spawn short-lived listeners; frequent intervals reduce false negatives.
 Baseline management: set BASELINE_UPDATE="true" temporarily to accept legitimate changes after a rollout.
+
+
+# 📄 backup_check.sh — Backup Freshness, Size & Integrity Monitor <a name="backup_checksh--backup-freshness-size--integrity-monitor"></a>
+
+## 🔹 Overview
+`backup_check.sh` is a **Bash script** that verifies your backups actually exist, are recent, large enough, and (optionally) pass a quick integrity test.  
+It can run locally or across multiple servers via SSH from a central node.
+
+---
+
+## 🔹 Features
+- ✅ Finds the **latest backup file** per target pattern  
+- ✅ Checks **age** (max hours) and **minimum size** (MB)  
+- ✅ Optional **integrity verification** (`tar`, `gzip`, or custom `cmd:<shell>`)  
+- ✅ Supports **multiple servers** and wildcard `*` host entries  
+- ✅ Logs to `/var/log/backup_check.log`  
+- ✅ Optional email alerts to recipients in `emails.txt`  
+- ✅ Works unattended via **cron**  
+- ✅ Clean design: configuration files in `/etc/linux_maint/`
+
+---
+
+## 🔹 File Locations
+By convention:  
+- Script itself:  
+  `/usr/local/bin/backup_check.sh`
+
+- Configuration files:  
+  `/etc/linux_maint/servers.txt`         # list of servers  
+  `/etc/linux_maint/excluded.txt`        # optional skip list  
+  `/etc/linux_maint/backup_targets.csv`  # backup definitions (see below)  
+  `/etc/linux_maint/emails.txt`          # optional recipients  
+
+- Log file:  
+  `/var/log/backup_check.log`
+
+---
+
+## 🔹 Targets Configuration (`backup_targets.csv`)
+CSV format with **five columns** (no headers required). One target per line:
+host,pattern,min_size_mb,max_age_hours,verify
+- `host` — hostname/IP from `servers.txt` or `*` for all hosts  
+- `pattern` — file glob on the target host (e.g., `/var/backups/*.tar.gz`)  
+- `min_size_mb` — minimum file size in MB  
+- `max_age_hours` — maximum allowed age for the newest matching file  
+- `verify` — one of:
+  - `none` — skip integrity test  
+  - `tar` — run `tar -tzf <file>`  
+  - `gzip` — run `gzip -t <file>`  
+  - `cmd:<shell>` — run custom command; `<file>` is appended as the last arg
+
+**Examples**
+/var/backups/.tar.gz,100,36,tar
+db01,/pg_backups/.dump,500,24,none
+app01,/opt/app/backup/.gz,200,24,gzip
+app02,/opt/app/snapshots/*.tgz,150,24,cmd:/usr/local/bin/verify_snapshot.sh
+
+🔹 Usage
+Run manually
+bash /usr/local/bin/backup_check.sh
+
+Run daily via cron
+
+Edit crontab:
+crontab -e
+
+Add line to run every day at 02:30:
+`30 2 * * * /usr/local/bin/backup_check.sh`
+
+🔹 Example Log Output
+==============================================
+ Backup Check
+ Date: 2025-08-20 02:30:00
+==============================================
+===== Checking backups on db01 =====
+[OK] /pg_backups/base_2025-08-19.dump size=812.4MB age=23.8h verify=none
+===== Completed db01 =====
+
+===== Checking backups on app01 =====
+[CRIT] /opt/app/backup/app_2025-08-18.tar.gz size=88.3MB age=47.1h verify=tar notes=too_small:88.3MB<100MB too_old:47.1h>36h
+===== Completed app01 =====
+
+
+🔹 Requirements
+
+Linux targets with bash, find, stat, and standard coreutils
+SSH key-based login for distributed mode
+mail/mailx on the monitoring node (only if you want email alerts)
+For integrity tests: appropriate tools on targets (tar, gzip, or your custom verifier)
+
+
+🔹 Limitations
+
+Integrity checks are lightweight sanity tests, not full restores.
+Very large backups may exceed the VERIFY_TIMEOUT (default 60s); adjust as needed.
+Patterns match files in a single directory (non-recursive). If you need recursion, create separate targets per directory.
 
 
