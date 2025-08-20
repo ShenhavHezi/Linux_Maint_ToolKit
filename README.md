@@ -1826,21 +1826,21 @@ By convention:
 
 ## 🔹 Configuration (inside the script)
 
-# Thresholds (%); memory uses %MEM
+### Thresholds (%); memory uses %MEM
 `CPU_WARN=70`
 `CPU_CRIT=90`
 `MEM_WARN=30`
 `MEM_CRIT=60`
 
-# Must remain above for this long before alerting
+### Must remain above for this long before alerting
 `DURATION_WARN_SEC=120`
 `DURATION_CRIT_SEC=300`
 
-# Limit to top N by CPU (0 = all)
+### Limit to top N by CPU (0 = all)
 `MAX_PROCESSES=0`
 `EMAIL_ON_ALERT="true"`
 
-Ignore list (optional)
+### Ignore list (optional)
 📌 /etc/linux_maint/process_hog_ignore.txt
 Case-insensitive substrings of command names to ignore:
 node_exporter
