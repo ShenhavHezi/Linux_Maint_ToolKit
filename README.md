@@ -167,13 +167,11 @@ alice2@example.com
 
 ---
 
-## 🔹 Usage
-
-### Run manually
-```bash
+### 🔹 Usage
+Run manually
 bash /usr/local/bin/health_monitor.sh
-Run daily via cron
 
+Run daily via cron
 Edit crontab:
 crontab -e
 Add line to run every day at 8:00 AM:
