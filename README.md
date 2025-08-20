@@ -789,8 +789,11 @@ Add line to run every day at 3:00 AM:
  Date: 2025-08-20 01:00:01
 ==============================================
 [OK] example.com:443 (SNI=example.com) days_left=82 verify=0/ok
+
 [WARN] internal.example:8443 (SNI=internal.example) days_left=14 verify=0/ok note=near_expiry
+
 [CRIT] legacy.example:443 (SNI=legacy.example) days_left=-3 verify=10/certificate has expired note=expired
+
 [WARN] mail.example.com:25 (SNI=mail.example.com) days_left=28 verify=0/ok note=near_expiry
 
 
