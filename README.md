@@ -16,6 +16,7 @@ Collection of useful Linux system maintenance scripts (monitoring, cleanup, auto
 - [Log_Growth_Guard.sh (`log_growth_guard.sh`)](#log_growth_guardsh--log-size--growth-monitoring-script)
 - [Ports_Baseline_Monitor.sh (`ports_baseline_monitor.sh`)](#ports_baseline_monitorsh--listening-ports-baseline--drift-monitor)
 - [Backup_Check.sh (`backup_check.sh`)](#backup_checksh--backup-freshness-size--integrity-monitor)
+- [NFS_mount_monitor.sh (`nfs_mount_monitor.sh`)](#nfs_mount_monitorsh--nfscifs-mount-health-monitor)
 ---
 
 
@@ -1247,5 +1248,113 @@ For integrity tests: appropriate tools on targets (tar, gzip, or your custom ver
 Integrity checks are lightweight sanity tests, not full restores.
 Very large backups may exceed the VERIFY_TIMEOUT (default 60s); adjust as needed.
 Patterns match files in a single directory (non-recursive). If you need recursion, create separate targets per directory.
+
+
+# 📄 nfs_mount_monitor.sh — NFS/CIFS Mount Health Monitor <a name="nfs_mount_monitorsh--nfscifs-mount-health-monitor"></a>
+
+## 🔹 Overview
+`nfs_mount_monitor.sh` is a **Bash script** that verifies required network filesystems (NFS/CIFS) are **mounted and healthy**.  
+It checks presence, filesystem type, and remote target; detects **stale** mounts with timed operations; can perform an optional **RW test**; and (optionally) tries to **auto-(re)mount** on failure.
+
+The script can run in two modes:
+- **Local mode** → check the server it’s running on.  
+- **Distributed mode** → check multiple servers via SSH from a central node.
+
+---
+
+## 🔹 Features
+- ✅ Validates **mountpoint**, **fstype**, and **remote** match expectations  
+- ✅ Health checks with timeout to detect **stale/unresponsive** mounts  
+- ✅ Optional **RW test** (touch + delete in the mount)  
+- ✅ Optional **auto-remount** (disabled by default)  
+- ✅ Supports **multiple servers** and **per-host** target rows  
+- ✅ Logs to `/var/log/nfs_mount_monitor.log`  
+- ✅ Optional email alerts (`emails.txt`)  
+- ✅ Works unattended via **cron**  
+- ✅ Clean design: configuration in `/etc/linux_maint/`
+
+---
+
+## 🔹 File Locations
+By convention:  
+- Script itself:  
+  `/usr/local/bin/nfs_mount_monitor.sh`
+
+- Configuration files:  
+  `/etc/linux_maint/servers.txt`   # list of servers  
+  `/etc/linux_maint/excluded.txt`  # optional skip list  
+  `/etc/linux_maint/mounts.txt`    # required mounts per host (CSV)  
+  `/etc/linux_maint/emails.txt`    # optional recipients  
+
+- Log file:  
+  `/var/log/nfs_mount_monitor.log`
+
+---
+
+## 🔹 Mounts Configuration (`/etc/linux_maint/mounts.txt`)
+**CSV** with up to **7 columns** (no header). One row per required mount:
+host, mountpoint, fstype, remote, options, mode, timeout
+- `host` — hostname/IP from `servers.txt` or `*` for all hosts  
+- `mountpoint` — local directory to be mounted (must exist; script will `mkdir -p` on auto-mount)  
+- `fstype` — e.g., `nfs`, `nfs4`, `cifs`  
+- `remote` — e.g., `server:/export/share` or `//filesrv/shared` (for CIFS)  
+- `options` — mount options (e.g., `rw,_netdev,vers=3,timeo=600,retrans=2`), empty to skip  
+- `mode` — `ro` (default) or `rw` (perform a write test)  
+- `timeout` — per-operation timeout seconds (defaults to `8`)
+
+**Examples**
+*,/mnt/share,nfs,fs01:/export/share,rw,_netdev,5
+app01,/mnt/appdata,nfs,fs02:/export/appdata,rsize=262144,wsize=262144,rw,rw,8
+db01,/mnt/backup,nfs,backup:/vol/backup,_netdev,ro,10
+files1,/mnt/smb,cifs,//filesrv/shared,credentials=/root/.smbcred,ro,8
+
+
+> For CIFS, ensure credentials/options are present and readable by root on the target host.
+
+---
+
+## 🔹 Configuration (inside script)
+
+`EMAIL_ON_FAILURE="true"`
+`AUTO_REMOUNT="false"             # change to "true" to allow auto (re)mount`
+`UMOUNT_FLAGS="-fl"               # tune for your environment`
+`DEFAULT_TIMEOUT=8`
+
+🔹 Usage
+Run manually
+bash /usr/local/bin/nfs_mount_monitor.sh
+
+Edit crontab:
+crontab -e
+
+Run every 10 minutes via cron (example)
+`*/10 * * * * /usr/local/bin/nfs_mount_monitor.sh`
+
+🔹 Example Log Output==============================================
+ NFS/CIFS Mount Monitor
+ Date: 2025-08-20 12:00:00
+==============================================
+===== Checking mounts on app01 =====
+[app01] [OK] /mnt/share fstype=nfs remote=fs01:/export/share mode=ro
+[app01] [WARN] /mnt/appdata fstype=nfs remote=fs02:/export/appdata mode=rw notes=rw_test_failed
+[app01] [CRIT] /mnt/backup not mounted (expected fstype=nfs remote=backup:/vol/backup)
+===== Completed app01 =====
+
+
+🔹 Requirements
+
+Linux targets with bash, timeout, /proc/mounts, and mount/umount
+SSH key-based login for distributed mode
+For CIFS: cifs-utils (or equivalent) installed on targets
+For email: mail/mailx on the monitoring node
+
+🔹 Limitations
+
+Auto-remount can be disruptive on busy hosts; keep disabled unless you have a safe window.
+RW test creates/removes a temporary file inside the mount; use mode=ro for read-only mounts.
+Stale NFS can hang some tools; the script uses timeout aggressively to avoid blocking.
+
+
+
 
 
