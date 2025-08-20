@@ -811,3 +811,100 @@ Date parsing relies on GNU date. On non-GNU systems, adjust the parsing or insta
 This script checks endpoint certificates, not files on disk (e.g., local PEMs/keystores).
 
 
+# 📄 ntp_drift_monitor.sh — NTP/Chrony Time Drift Monitoring Script <a name="ntp_drift_monitorsh--ntpchrony-time-drift-monitoring-script"></a>
+
+## 🔹 Overview
+`ntp_drift_monitor.sh` is a **Bash script** that checks whether your Linux servers are properly time-synchronized and how far their clocks drift from NTP.  
+It supports **chrony**, **ntpd**, and **systemd-timesyncd**, reporting **offset (ms)**, **stratum**, **time source**, and an overall status (**OK/WARN/CRIT**).
+
+The script can run in two modes:
+- **Local mode** → check the server it’s running on.  
+- **Distributed mode** → check multiple servers via SSH from a central master node.
+
+---
+
+## 🔹 Features
+- ✅ Detects installed time-sync implementation (chrony / ntpd / timesyncd)  
+- ✅ Reports **offset (ms)**, **stratum**, **source**, and **sync state**  
+- ✅ Thresholds for **WARN**/**CRIT** based on offset (default 100ms / 500ms)  
+- ✅ Logs results to `/var/log/ntp_drift_monitor.log`  
+- ✅ Supports **multiple servers** (`servers.txt`) and **excluded hosts** (`excluded.txt`)  
+- ✅ Optional **email alerts** to recipients in `emails.txt`  
+- ✅ Works unattended via **cron**  
+- ✅ Clean design: configuration files in `/etc/linux_maint/`  
+
+---
+
+## 🔹 File Locations
+By convention:  
+- Script itself:  
+  `/usr/local/bin/ntp_drift_monitor.sh`
+
+- Configuration files:  
+  `/etc/linux_maint/servers.txt`   # list of servers  
+  `/etc/linux_maint/excluded.txt`  # list of excluded servers (optional)  
+  `/etc/linux_maint/emails.txt`    # list of email recipients (optional)  
+
+- Log file:  
+  `/var/log/ntp_drift_monitor.log`
+
+---
+
+## 🔹 Configuration
+
+### 1) Thresholds
+Inside the script:
+OFFSET_WARN_MS=100
+OFFSET_CRIT_MS=500
+EMAIL_ON_ISSUE="true"
+
+### 2) Server list
+📌 /etc/linux_maint/servers.txt
+server1
+server2
+server3
+
+### 3) Excluded servers (optional)
+📌 /etc/linux_maint/excluded.txt
+server2
+
+### 4) Email recipients (optional)
+📌 /etc/linux_maint/emails.txt
+alice@example.com
+bob@example.com
+
+## 🔹 Usage
+
+### Run manually
+bash /usr/local/bin/ntp_drift_monitor.sh
+
+Run hourly via cron (recommended)
+Edit crontab:
+crontab -e
+`0 * * * * /usr/local/bin/ntp_drift_monitor.sh`
+
+🔹 Example Log Output
+==============================================
+ NTP Drift Check
+ Date: 2025-08-20 12:00:00
+==============================================
+===== Checking time sync on server1 =====
+[OK] server1 impl=chrony offset_ms=12 stratum=3 source=POOL 2.aub/* synced=yes note=leap:Normal
+===== Checking time sync on server2 =====
+[WARN] server2 impl=ntpd offset_ms=142 stratum=2 source=*192.0.2.10 synced=yes note=peerline
+===== Checking time sync on server3 =====
+[CRIT] server3 impl=timesyncd offset_ms=? stratum=3 source=time.google.com synced=no note=timesync
+
+🔹 Requirements
+
+Linux systems with at least one of: chronyc, ntpq, or timedatectl show-timesync
+SSH configured for passwordless login to target servers (for distributed mode)
+mail/mailx installed on the monitoring node (only if you want email alerts)
+
+🔹 Limitations
+
+Offset parsing uses tool outputs and may vary slightly with distro/localization.
+For systemd-timesyncd, offset is derived from LastOffsetNSec and may be ? on older versions.
+The script reports sync health; it does not attempt any time correction.
+
+
