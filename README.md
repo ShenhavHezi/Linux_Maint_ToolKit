@@ -18,6 +18,7 @@ Collection of useful Linux system maintenance scripts (monitoring, cleanup, auto
 - [Backup_Check.sh (`backup_check.sh`)](#backup_checksh--backup-freshness-size--integrity-monitor)
 - [NFS_mount_monitor.sh (`nfs_mount_monitor.sh`)](#nfs_mount_monitorsh--nfscifs-mount-health-monitor)
 - [Config_Drift_Monitor.sh (`config_drift_monitor.sh`)](#config_drift_monitorsh--configuration-baseline--drift-monitor)
+- [Inode_Monitor.sh (`inode_monitor.sh`)](#inode_monitorsh--inode-usage-monitoring-script)
 ---
 
 
@@ -1478,6 +1479,114 @@ mail/mailx on the monitoring node (optional, for alerts)
 This script detects that content changed, not what changed inside a file. For diffs, investigate manually or extend the script to fetch and diff text configs.
 Hashing large recursive trees can be heavy; scope your patterns to key config areas.
 On systems lacking sha256sum, md5sum is used (baseline lines record the algorithm).
+
+
+# 📄 inode_monitor.sh — Inode Usage Monitoring Script <a name="inode_monitorsh--inode-usage-monitoring-script"></a>
+
+## 🔹 Overview
+`inode_monitor.sh` is a **Bash script** that watches inode usage per filesystem and alerts when usage crosses configurable thresholds.  
+It’s the perfect safety net for issues where disk **space** looks fine but inode **count** is exhausted (common with tiny-file workloads, logs, caches).
+
+The script can run in two modes:
+- **Local mode** → monitor the server it’s running on.  
+- **Distributed mode** → monitor multiple servers via SSH from a central node.  
+
+---
+
+## 🔹 Features
+- ✅ Collects inode usage from `df -PTi`  
+- ✅ Per-mount **WARN/CRIT thresholds** with a global default (`*`)  
+- ✅ Skips pseudo filesystems (tmpfs, proc, cgroup, etc.)  
+- ✅ Optional mountpoint **exclude list**  
+- ✅ Supports **multiple servers** (`servers.txt`) and **excluded hosts** (`excluded.txt`)  
+- ✅ Logs all results to `/var/log/inode_monitor.log`  
+- ✅ Optional email alerts to recipients in `emails.txt`  
+- ✅ Works unattended via **cron**  
+- ✅ Clean design: configuration files in `/etc/linux_maint/`  
+
+---
+
+## 🔹 File Locations
+By convention:  
+- Script itself:  
+  `/usr/local/bin/inode_monitor.sh`
+
+- Configuration files:  
+  `/etc/linux_maint/servers.txt`           # list of servers  
+  `/etc/linux_maint/excluded.txt`          # list of excluded servers (optional)  
+  `/etc/linux_maint/inode_thresholds.txt`  # per-mount thresholds (see below)  
+  `/etc/linux_maint/inode_exclude.txt`     # optional mountpoints to skip  
+  `/etc/linux_maint/emails.txt`            # list of email recipients (optional)  
+
+- Log file:  
+  `/var/log/inode_monitor.log`
+
+---
+
+## 🔹 Thresholds Configuration (`/etc/linux_maint/inode_thresholds.txt`)
+CSV with **three columns** (no header):  
+mountpoint,warn%,crit%
+- Use `*` for a default rule applied when no exact mount rule exists.  
+- Example:
+`*,80,95`
+`/,80,95`
+`/var,85,95`
+`/home,90,97`
+
+
+> If `inode_thresholds.txt` is missing, defaults are **warn=80%**, **crit=95%**.
+
+---
+
+## 🔹 Exclude Mounts (optional)
+📌 `/etc/linux_maint/inode_exclude.txt`  
+One mountpoint per line to ignore:
+
+`/snap`
+
+`/var/lib/docker`
+
+
+> The script already ignores pseudo FS types (tmpfs, proc, sysfs, overlay, …). Use this file for extra noise reduction.
+
+---
+
+## 🔹 Usage
+
+### Run manually
+
+bash /usr/local/bin/inode_monitor.sh
+
+Run hourly via cron (recommended)
+
+`crontab -e`
+
+`0 * * * * /usr/local/bin/inode_monitor.sh`
+
+🔹 Example Log Output
+==============================================
+ Inode Monitor
+ Date: 2025-08-20 12:00:00
+==============================================
+===== Checking inode usage on app01 =====
+[app01] [OK] / type=ext4 inodes=3276800 used=120345 use%=7 warn=80 crit=95
+[app01] [WARN] /var type=ext4 inodes=1048576 used=908763 use%=86 warn=85 crit=95
+[app01] [CRIT] /var/cache type=ext4 inodes=524288 used=506044 use%=96 warn=85 crit=95
+===== Completed app01 =====
+
+
+🔹 Requirements
+
+Linux systems with df (coreutils)
+SSH configured for passwordless login to target servers (for distributed mode)
+mail/mailx installed on the monitoring node (only if you want email alerts)
+
+🔹 Limitations
+
+Mountpoints with spaces are unusual; -P format minimizes issues but avoid them where possible.
+Some minimal distros may not support df -T; script falls back gracefully without filesystem type.
+This script reports inode pressure; cleanup policies (e.g., log rotation) should be handled separately.
+
 
 
 
