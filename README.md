@@ -963,12 +963,19 @@ One target per line. Comments start with `#`. Supported forms:
 
 ### 2) Thresholds & behavior
 Inside the script:
+
 SIZE_WARN_MB=1024
+
 SIZE_CRIT_MB=2048
+
 RATE_WARN_MBPH=200
+
 RATE_CRIT_MBPH=500
+
 EMAIL_ON_ALERT="true"
+
 AUTO_ROTATE="false"        # keep false unless you know exactly what you want to run
+
 ROTATE_CMD=""              # e.g., 'logrotate -f /etc/logrotate.d/myapp'
 
 ## 🔹 Usage
