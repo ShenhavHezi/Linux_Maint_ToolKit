@@ -665,7 +665,6 @@ alice@example.com
 ## 🔹 Usage
 
 ### Run manually
-```bash
 bash /usr/local/bin/patch_monitor.sh
 Run daily via cron
 
