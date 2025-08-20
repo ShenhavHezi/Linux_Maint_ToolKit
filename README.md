@@ -262,16 +262,20 @@ By convention:
 ## 🔹 Configuration
 
 ### 1. Server list
-📌 `/etc/linux_maint/servers.txt`  
-One server per line (hostname or IP).  
+📌 /etc/linux_maint/servers.txt
+One server per line (hostname or IP).
 Example:
+By convention:  
+- Script itself: 
 server1
 server2
 server3
+If you don’t want a file, you can write directly in the script:
+SERVERLIST="server1.example.com,server2.example.com"
 
 
 ### 2. User baseline
-📌 `/etc/linux_maint/baseline_users.txt`  
+📌 /etc/linux_maint/baseline_users.txt  
 Initial list of valid system users. Generate on a trusted server:
 ```bash
 cut -d: -f1 /etc/passwd > /etc/linux_maint/baseline_users.txt
