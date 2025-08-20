@@ -578,6 +578,7 @@ SELinux: disabled
 
 >>> PACKAGE UPDATES
 3 packages can be upgraded:
+>>> 
 openssl
 bash
 libc6
