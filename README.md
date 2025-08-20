@@ -403,8 +403,7 @@ alice@example.com
 
 ### 4. Auto-restart setting
 Inside the script:  
-```bash
-AUTO_RESTART="false"
+`AUTO_RESTART="false"`
 Change to true if you want failed services to be restarted automatically.
 
 🔹 Usage
