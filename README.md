@@ -988,9 +988,13 @@ crontab -e
 ==============================================
 ===== Checking log growth on app01 =====
 [OK] /var/log/syslog size=128MB rate=0.4MB/h
+
 [WARN] /opt/app/logs/app.log size=1350MB rate=22.7MB/h
+
 [CRIT] /opt/app/logs/audit.log size=2150MB rate=610.2MB/h note=rotated_or_truncated
+
 [INFO] /opt/app/logs/old.log no longer present (rotated/removed)
+
 ===== Completed app01 =====
 
 🔹 Requirements
