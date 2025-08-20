@@ -8,6 +8,7 @@ Collection of useful Linux system maintenance scripts (monitoring, cleanup, auto
 - [Disk Monitor (`disk_monitor.sh`)](#disk_monitorsh--linux-disk-usage-monitoring-script)
 - [Health_Monitor (`health_monitor.sh`)](#health_monitorsh--linux-health-monitoring-script)
 - [User_Monitor (`user_monitor.sh`)](#user_monitorsh--linux-user--access-monitoring-script)
+- [Service_Monitor (`service_monitor.sh`)](#service_monitorsh--linux-service-monitoring-script)
 ---
 
 
@@ -330,6 +331,123 @@ Failed SSH login detection is limited to the last 24h and depends on log rotatio
 Does not yet monitor user group changes (can be added later).
 
 
+📄 service_monitor.sh — Linux Service Monitoring Script <a name="service_monitorsh--linux-service-monitoring-script"></a>
+
+## 🔹 Overview
+`service_monitor.sh` is a **Bash script** designed to monitor the status of critical services on one or more Linux servers.  
+It checks whether services like `sshd`, `cron`, `nginx`, `postgresql`, etc. are running and alerts if any are inactive or failed.  
+
+The script can run in two modes:
+- **Local mode** → monitor the server it’s running on.  
+- **Distributed mode** → monitor multiple servers remotely via SSH from a central master server.  
+
+This makes it suitable for both security hardening and production monitoring.
+
+---
+
+## 🔹 Features
+- ✅ Monitors **critical services** (systemd or SysV init)  
+- ✅ Supports **multiple servers** using an external `servers.txt`  
+- ✅ Configurable **list of services** in `services.txt`  
+- ✅ Logs all results to `/var/log/service_monitor.log`  
+- ✅ Optional **auto-restart** of failed services  
+- ✅ Optional email alerts to recipients in `emails.txt`  
+- ✅ Works unattended via `cron` scheduling  
+- ✅ Clean design: configuration files in `/etc/linux_maint/`  
+
+---
+
+## 🔹 File Locations
+By convention:  
+- Script itself:  
+  `/usr/local/bin/service_monitor.sh`
+
+- Configuration files:  
+  `/etc/linux_maint/servers.txt`   # list of servers  
+  `/etc/linux_maint/services.txt`  # list of services to check  
+  `/etc/linux_maint/emails.txt`    # list of email recipients (optional)  
+
+- Log file:  
+  `/var/log/service_monitor.log`
+
+---
+
+## 🔹 Configuration
+
+### 1. Server list
+📌 `/etc/linux_maint/servers.txt`  
+One server per line (hostname or IP).  
+Example:
+server1
+server2
+server3
+
+
+### 2. Service list
+📌 `/etc/linux_maint/services.txt`  
+One service per line.  
+Example:
+sshd
+cron
+nginx
+postgresql
+
+
+### 3. Email recipients (optional)
+📌 `/etc/linux_maint/emails.txt`  
+One email per line.  
+Example:
+bob@example.com
+alice@example.com
+
+
+### 4. Auto-restart setting
+Inside the script:  
+```bash
+AUTO_RESTART="false"
+Change to true if you want failed services to be restarted automatically.
+
+🔹 Usage
+Run manually
+bash /usr/local/bin/service_monitor.sh
+
+Run daily via cron
+
+Edit crontab:
+crontab -e
+
+Add line to run every hour:
+0 * * * * /usr/local/bin/service_monitor.sh
+
+🔹 Example Log Output
+==============================================
+ Linux Distributed Service Check
+ Date: 2025-08-20 12:00:00
+==============================================
+>>> Service check on server1 (2025-08-20 12:00:00)
+[OK] sshd is active
+[OK] cron is active
+[FAIL] nginx is NOT active
+Attempted restart of nginx
+----------------------------------------------
+
+>>> Service check on server2 (2025-08-20 12:00:03)
+[OK] sshd is active
+[OK] cron is active
+----------------------------------------------
+
+🔹 Requirements
+
+Linux system (RHEL, CentOS, Fedora, Ubuntu, Debian)
+SSH configured for passwordless login to target servers
+systemctl or service command available on target servers
+mail command available for email alerts (mailx or mailutils)
+
+🔹 Limitations
+
+Auto-restart is disabled by default to avoid unintended restarts in production.
+If a service is missing entirely, the script reports it as inactive but does not attempt installation.
+Currently does not check service configuration files or resource usage (can be added later).
 
 
 
