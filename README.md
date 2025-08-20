@@ -17,6 +17,7 @@ Collection of useful Linux system maintenance scripts (monitoring, cleanup, auto
 - [Ports_Baseline_Monitor.sh (`ports_baseline_monitor.sh`)](#ports_baseline_monitorsh--listening-ports-baseline--drift-monitor)
 - [Backup_Check.sh (`backup_check.sh`)](#backup_checksh--backup-freshness-size--integrity-monitor)
 - [NFS_mount_monitor.sh (`nfs_mount_monitor.sh`)](#nfs_mount_monitorsh--nfscifs-mount-health-monitor)
+- [Config_Drift_Monitor.sh (`config_drift_monitor.sh`)](#config_drift_monitorsh--configuration-baseline--drift-monitor)
 ---
 
 
@@ -1358,6 +1359,125 @@ RW test creates/removes a temporary file inside the mount; use mode=ro for read-
 Stale NFS can hang some tools; the script uses timeout aggressively to avoid blocking.
 
 
+# 📄 config_drift_monitor.sh — Configuration Baseline & Drift Monitor <a name="config_drift_monitorsh--configuration-baseline--drift-monitor"></a>
+
+## 🔹 Overview
+`config_drift_monitor.sh` is a **Bash script** that tracks changes in critical configuration files.  
+It hashes a configured set of files (supports **files**, **globs**, **directories**, and **recursive** patterns), compares against a per-host **baseline**, and reports **MODIFIED**, **NEW**, and **REMOVED** items.
+
+The script can run in two modes:
+- **Local mode** → check the server it’s running on.  
+- **Distributed mode** → check multiple servers via SSH from a central node.
+
+---
+
+## 🔹 Features
+- ✅ Supports **files**, **globs** (`*.conf`), **dir/** (non-recursive) and **dir/**`**` (recursive)  
+- ✅ Stores per-host **baseline** in `/etc/linux_maint/baselines/configs/<host>.baseline`  
+- ✅ Detects **MODIFIED**, **NEW**, **REMOVED** files  
+- ✅ **Allowlist** to ignore known/expected changes (path-based)  
+- ✅ Uses `sha256sum` (falls back to `md5sum`) and records the algorithm with each hash  
+- ✅ Logs to `/var/log/config_drift_monitor.log`  
+- ✅ Optional **email alerts** to recipients in `emails.txt`  
+- ✅ Optional **auto-baseline init** and **post-report baseline update**  
+- ✅ Works unattended via **cron**  
+- ✅ Clean design: configuration files in `/etc/linux_maint/`
+
+---
+
+## 🔹 File Locations
+By convention:  
+- Script itself:  
+  `/usr/local/bin/config_drift_monitor.sh`
+
+- Configuration files:  
+  `/etc/linux_maint/servers.txt`            # list of servers  
+  `/etc/linux_maint/excluded.txt`           # optional skip list  
+  `/etc/linux_maint/config_paths.txt`       # what to monitor (see below)  
+  `/etc/linux_maint/config_allowlist.txt`   # paths to ignore (optional)  
+  `/etc/linux_maint/emails.txt`             # email recipients (optional)
+
+- Baselines:  
+  `/etc/linux_maint/baselines/configs/<host>.baseline`
+
+- Log file:  
+  `/var/log/config_drift_monitor.log`
+
+---
+
+## 🔹 Paths Configuration (`/etc/linux_maint/config_paths.txt`)
+One target per line. Comments start with `#`. Supported forms:
+
+`/etc/ssh/sshd_config # single file`
+`/etc/.conf # glob (expanded on the host)`
+`/etc/ # all files at top-level of /etc (non-recursive)`
+`/etc/** # recursively all files under /etc`
+`/opt/app/conf/.yaml`
+
+
+> Tip: be selective. Start with the most sensitive configs: `sshd_config`, `sudoers`, `sysctl.conf`, `limits.conf`, app configs, etc.
+
+---
+
+## 🔹 Allowlist (`/etc/linux_maint/config_allowlist.txt`)
+Lines are **paths** to ignore for drift reporting.  
+Matches are **exact** or **substring** (case-insensitive).  
+Examples:
+
+`/etc/machine-id`
+`/etc/adjtime`
+`/var/lib/myapp/runtime.yaml`
+
+
+---
+
+## 🔹 Script Configuration (inside the script)
+
+`AUTO_BASELINE_INIT="true"   # create baseline if missing`
+
+`BASELINE_UPDATE="false"     # accept current snapshot as new baseline after reporting`
+
+`EMAIL_ON_DRIFT="true"       # send email when drift detected`
+
+
+🔹 Usage
+Run manually
+bash /usr/local/bin/config_drift_monitor.sh
+
+Run daily via cron
+
+Edit crontab:
+crontab -e
+
+Add line to run every day at 02:30:
+`30 2 * * * /usr/local/bin/config_drift_monitor.sh`
+
+🔹 Example Log Output
+==============================================
+ Config Drift Monitor
+ Date: 2025-08-20 01:00:00
+==============================================
+===== Checking config drift on web01 =====
+[web01] MODIFIED files:
+  * /etc/ssh/sshd_config (old:sha256|d3adbeef... new:sha256|9f1c2a... )
+[web01] NEW files:
+  + /etc/nginx/conf.d/new-site.conf
+[web01] REMOVED files:
+  - /etc/sysctl.d/99-tuning.conf
+===== Completed web01 =====
+
+
+🔹 Requirements
+
+Linux targets with bash, find, sha256sum/md5sum, standard coreutils
+SSH key-based login for distributed mode
+mail/mailx on the monitoring node (optional, for alerts)
+
+🔹 Limitations
+
+This script detects that content changed, not what changed inside a file. For diffs, investigate manually or extend the script to fetch and diff text configs.
+Hashing large recursive trees can be heavy; scope your patterns to key config areas.
+On systems lacking sha256sum, md5sum is used (baseline lines record the algorithm).
 
 
 
