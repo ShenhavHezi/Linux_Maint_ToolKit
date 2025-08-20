@@ -7,7 +7,7 @@ Collection of useful Linux system maintenance scripts (monitoring, cleanup, auto
 ## 📑 Table of Contents
 - [Disk Monitor (`disk_monitor.sh`)](#disk_monitorsh--linux-disk-usage-monitoring-script)
 - [Health_Monitor (`health_monitor.sh`)](#health_monitorsh--linux-health-monitoring-script)
-
+- [User_Monitor (`user_monitor.sh`)](#user_monitorsh--linux-user--access-monitoring-script)
 ---
 
 
@@ -217,6 +217,54 @@ Sends one email per execution with the entire report
 Does not currently monitor network statistics or service health (can be added later)
 Requires SSH key setup for multi-server environments
 
+📄 user_monitor.sh — Linux User & Access Monitoring Script <a name="user_monitorsh--linux-user--access-monitoring-script"></a>
+
+## 🔹 Overview
+`user_monitor.sh` is a **Bash script** designed to monitor user accounts and SSH access activity across one or more Linux servers.  
+It detects new or removed system users, changes in sudo privileges, and failed SSH login attempts.  
+
+The script can run in two modes:
+- **Local mode** → monitor the server it’s running on.  
+- **Distributed mode** → monitor multiple servers remotely via SSH from a central master server.  
+
+This makes it suitable for both security auditing and operational monitoring in production environments.
+
+---
+
+## 🔹 Features
+- ✅ Detects **newly added or removed system users** (compared to baseline)  
+- ✅ Monitors for **changes in sudoers configuration**  
+- ✅ Reports **failed SSH login attempts in the last 24h**  
+- ✅ Supports **multiple servers** using an external `servers.txt`  
+- ✅ Logs all results to `/var/log/user_monitor.log`  
+- ✅ Optional email alerts to recipients in `emails.txt`  
+- ✅ Works unattended via `cron` scheduling  
+- ✅ Clean design: configuration files in `/etc/linux_maint/`  
+
+---
+
+## 🔹 File Locations
+By convention:  
+- Script itself:  
+  `/usr/local/bin/user_monitor.sh`
+
+- Configuration files:  
+  `/etc/linux_maint/servers.txt`      # list of servers  
+  `/etc/linux_maint/baseline_users.txt`   # baseline user list  
+  `/etc/linux_maint/baseline_sudoers.txt` # baseline sudoers hash  
+  `/etc/linux_maint/emails.txt`       # list of email recipients  
+
+- Log file:  
+  `/var/log/user_monitor.log`
+
+---
+
+## 🔹 Configuration
+
+### 1. Server list
+📌 `/etc/linux_maint/servers.txt`  
+One server per line (hostname or IP).  
+Example:
 
 
 
