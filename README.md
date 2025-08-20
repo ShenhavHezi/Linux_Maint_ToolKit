@@ -9,7 +9,8 @@ Collection of useful Linux system maintenance scripts (monitoring, cleanup, auto
 - [Health_Monitor (`health_monitor.sh`)](#health_monitorsh--linux-health-monitoring-script)
 - [User_Monitor (`user_monitor.sh`)](#user_monitorsh--linux-user--access-monitoring-script)
 - [Service_Monitor (`service_monitor.sh`)](#service_monitorsh--linux-service-monitoring-script)
-- [Servers_Info (`servers_info.sh`)](#servers_infosh--linux-server-information-snapshot-script) 
+- [Servers_Info (`servers_info.sh`)](#servers_infosh--linux-server-information-snapshot-script)
+- [Patch_Monitor (`patch_monitor.sh`)](#patch_monitorsh--linux-patch--reboot-monitoring-script)
 ---
 
 
@@ -593,6 +594,114 @@ Does not check databases, application configs, or cron jobs by default (can be e
 Package update check depends on distro (apt or yum).
 AIX systems will need AIX-specific extensions (using lsvg, lslpp, etc.).
 
+
+# 📄 patch_monitor.sh — Linux Patch & Reboot Monitoring Script <a name="patch_monitorsh--linux-patch--reboot-monitoring-script"></a>
+
+## 🔹 Overview
+`patch_monitor.sh` is a **Bash script** that checks one or many Linux servers for:
+- Pending package updates (total)
+- **Security** updates
+- **Kernel** updates
+- Whether a **reboot is required**
+
+It supports the common package managers (`apt`, `dnf`, `yum`, `zypper`) and can run either locally or against multiple hosts via SSH. The script logs a concise report and can email you whenever action is required.
+
+---
+
+## 🔹 Features
+- ✅ Detects **pending updates** per server (APT/DNF/YUM/ZYPPER)
+- ✅ Flags **security** and **kernel** updates
+- ✅ Detects **reboot required** state (Debian/Ubuntu, RHEL/Fedora, SUSE best-effort)
+- ✅ Supports **multiple servers** (`servers.txt`) and **excluded hosts** (`excluded.txt`)
+- ✅ Logs all results to `/var/log/patch_monitor.log`
+- ✅ Optional **email alerts** to recipients in `emails.txt`
+- ✅ Works unattended via **cron**
+- ✅ Clean design: configuration files in `/etc/linux_maint/`
+
+---
+
+## 🔹 File Locations
+By convention:  
+- Script itself:  
+  `/usr/local/bin/patch_monitor.sh`
+
+- Configuration files:  
+  `/etc/linux_maint/servers.txt`   # list of servers  
+  `/etc/linux_maint/excluded.txt`  # list of excluded servers (optional)  
+  `/etc/linux_maint/emails.txt`    # list of email recipients (optional)  
+
+- Log file:  
+  `/var/log/patch_monitor.log`
+
+---
+
+## 🔹 Configuration
+
+### 1) Server list
+📌 `/etc/linux_maint/servers.txt`  
+One server per line (hostname or IP).  
+Example:
+server1
+server2
+server3
+
+
+### 2) Excluded servers (optional)
+📌 `/etc/linux_maint/excluded.txt`  
+Servers here will be skipped.
+server2
+
+
+### 3) Email recipients (optional)
+📌 `/etc/linux_maint/emails.txt`  
+One email per line:
+bob@example.com
+alice@example.com
+
+> The script emails only when **security updates** or **kernel updates** exist, or when a **reboot is required**.
+
+---
+
+## 🔹 Usage
+
+### Run manually
+```bash
+bash /usr/local/bin/patch_monitor.sh
+Run daily via cron
+
+Edit crontab:
+crontab -e
+Add line to run every day at 3:00 AM:
+
+`0 3 * * * /usr/local/bin/patch_monitor.sh`
+
+🔹 Example Log Output
+==============================================
+ Linux Patch & Reboot Check
+ Date: 2025-08-20 03:00:01
+==============================================
+===== Checking patches on server1 =====
+[server1] OS: Ubuntu 22.04.4 LTS | PkgMgr: apt
+[server1] Pending updates: total=12, security=3, kernel=1, reboot_required=yes
+===== Completed server1 =====
+
+===== Checking patches on server2 =====
+[server2] OS: AlmaLinux 9.4 | PkgMgr: dnf
+[server2] Pending updates: total=8, security=2, kernel=0, reboot_required=no
+===== Completed server2 =====
+
+🔹 Requirements
+
+Linux targets with one of: apt, dnf, yum, or zypper
+SSH configured for passwordless login to target servers (for distributed mode)
+mail/mailx installed on the host running the script (only if you want email alerts)
+For better reboot detection on RHEL/Fedora, install dnf-utils / yum-utils (needs-restarting)
+
+🔹 Limitations
+
+Security update detection relies on distro metadata; if repositories lack security advisories, counts may be incomplete.
+Reboot detection is best-effort on RPM/SUSE systems when needs-restarting is missing.
+The script does not apply updates; it only reports. (Can be extended with a safe window + approval flow.)
 
 
 
