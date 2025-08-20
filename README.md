@@ -21,6 +21,7 @@ Collection of useful Linux system maintenance scripts (monitoring, cleanup, auto
 - [Inode_Monitor.sh (`inode_monitor.sh`)](#inode_monitorsh--inode-usage-monitoring-script)
 - [Inventory_Export.sh (`inventory_export.sh`)](#inventory_exportsh--hardwaresoftware-inventory-export-script)
 - [Network_Monitor.sh (`network_monitor.sh`)](#network_monitorsh--ping--tcp--http-network-monitor)
+- [Process_Hog_Monitor.sh (`process_hog_monitor.sh`)](#process_hog_monitorsh--sustained-cpuram-process-monitor)
 ---
 
 
@@ -1784,6 +1785,114 @@ mail/mailx on the monitoring node (only if you want email alerts)
 ICMP ping may require setuid or capabilities depending on distro; if ping is restricted, results may show tool failure.
 TCP latency via /dev/tcp is a simple connect timing; it does not include TLS handshakes (use http for full request timing).
 http check validates only status code and total time; extend to match response bodies if needed.
+
+
+# 📄 process_hog_monitor.sh — Sustained CPU/RAM Process Monitor <a name="process_hog_monitorsh--sustained-cpuram-process-monitor"></a>
+
+## 🔹 Overview
+`process_hog_monitor.sh` watches for **sustained** CPU and memory hogs and alerts only when a process stays above thresholds for a configured duration.  
+It tracks state per host to ignore short spikes and supports local or distributed runs via SSH.
+
+---
+
+## 🔹 Features
+- ✅ Alerts on **sustained** CPU and/or MEM usage (not one-shot spikes)  
+- ✅ Per-host **state file** to track “time above threshold”  
+- ✅ Uses `/proc/<pid>/stat` start time to avoid PID reuse confusion  
+- ✅ Optional ignore list (`process_hog_ignore.txt`) for known noisy daemons  
+- ✅ Logs to `/var/log/process_hog_monitor.log`  
+- ✅ Optional email alerts to recipients in `emails.txt`  
+- ✅ Works unattended via **cron**  
+- ✅ Clean design: configuration files in `/etc/linux_maint/`
+
+---
+
+## 🔹 File Locations
+By convention:  
+- Script itself:  
+  `/usr/local/bin/process_hog_monitor.sh`
+
+- Configuration files:  
+  `/etc/linux_maint/servers.txt`             # list of servers  
+  `/etc/linux_maint/excluded.txt`            # optional skip list  
+  `/etc/linux_maint/emails.txt`              # optional recipients  
+  `/etc/linux_maint/process_hog_ignore.txt`  # optional command substrings to ignore (one per line)
+
+- Logs & state:  
+  `/var/log/process_hog_monitor.log`  
+  `/var/tmp/process_hog_monitor.<host>.state`
+
+---
+
+## 🔹 Configuration (inside the script)
+
+# Thresholds (%); memory uses %MEM
+`CPU_WARN=70`
+`CPU_CRIT=90`
+`MEM_WARN=30`
+`MEM_CRIT=60`
+
+# Must remain above for this long before alerting
+`DURATION_WARN_SEC=120`
+`DURATION_CRIT_SEC=300`
+
+# Limit to top N by CPU (0 = all)
+`MAX_PROCESSES=0`
+`EMAIL_ON_ALERT="true"`
+
+Ignore list (optional)
+📌 /etc/linux_maint/process_hog_ignore.txt
+Case-insensitive substrings of command names to ignore:
+node_exporter
+backup-agent
+chrome
+
+🔹 Usage
+Run manually
+`bash /usr/local/bin/process_hog_monitor.sh`
+
+Run every minute via cron (recommended)
+
+`crontab -e`
+
+`* * * * * /usr/local/bin/process_hog_monitor.sh`
+Because alerts are duration-based, run it frequently (every 1–2 minutes).
+
+🔹 Example Log Output
+==============================================
+ Process Hog Monitor
+ Date: 2025-08-20 12:00:00
+==============================================
+===== Checking process hogs on app01 =====
+[app01] [OK] pid=1234 start=12345678 cmd=nginx cpu=2% mem=1% warn_t=0s crit_t=0s
+[app01] [WARN] pid=4321 start=87654321 cmd=java cpu=75% mem=28% warn_t=135s crit_t=0s
+[app01] [CRIT] pid=5678 start=88888888 cmd=postgres cpu=92% mem=65% warn_t=300s crit_t=305s
+===== Completed app01 =====
+
+
+
+🔹 Requirements
+
+Linux targets with /proc, ps, awk, and coreutils
+SSH key-based login for distributed mode
+mail/mailx on the monitoring node (only if you want email alerts)
+
+
+
+🔹 Limitations
+
+CPU and MEM come from ps (instantaneous). Alerting is based on time above threshold, not load averages.
+Extremely short-lived or renice’d processes may not be captured between samples. Run the monitor at a short interval to minimize misses.
+On very large systems, reading /proc/*/stat for every PID is O(n) but usually fine; use MAX_PROCESSES to cap by CPU ranking if needed.
+
+
+
+
+
+
+
+
+
 
 
 
