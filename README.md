@@ -10,12 +10,12 @@ A curated set of lightweight Bash tools for day-to-day Linux ops: monitoring, in
 - [Quickstart](#quickstart)
 - [Script Matrix](#script--matrix)
 
-Script:
-- [Disk Monitor (`disk_monitor.sh`)](#disk_monitorsh--linux-disk-usage-monitoring-script)
-- [Health_Monitor (`health_monitor.sh`)](#health_monitorsh--linux-health-monitoring-script)
-- [User_Monitor (`user_monitor.sh`)](#user_monitorsh--linux-user--access-monitoring-script)
-- [Service_Monitor (`service_monitor.sh`)](#service_monitorsh--linux-service-monitoring-script)
-- [Servers_Info (`servers_info.sh`)](#servers_infosh--linux-server-information-snapshot-script)
+### Scripts:
+- [Disk Monitor (`disk_monitor.sh`)](#disk--monitor)
+- [Health_Monitor (`health_monitor.sh`)](#health--monitor)
+- [User_Monitor (`user_monitor.sh`)](#user--monitor)
+- [Service_Monitor (`service_monitor.sh`)](#service--monitor)
+- [Servers_Info (`servers_info.sh`)](#servers--info)
 - [Patch_Monitor (`patch_monitor.sh`)](#patch_monitorsh--linux-patch--reboot-monitoring-script)
 - [Cert_Monitor (`cert_monitor.sh`)](#cert_monitorsh--tls-certificate-expiry--validity-monitor)
 - [NTP_Drift_Monitor (`ntp_drift_monitor.sh`)](#ntp_drift_monitorsh--ntpchrony-time-drift-monitoring-script)
@@ -141,13 +141,87 @@ sudo crontab -e
 
 
 
-# 📄 disk_monitor.sh — Linux Disk Usage Monitoring Script <a name="disk_monitorsh--linux-disk-usage-monitoring-script"></a>
+## 📄 disk_monitor.sh — Linux Disk Usage Monitoring Script <a name="disk--monitor"></a>
+**What it does:** Checks all mounted filesystems (skips tmpfs/devtmpfs) and alerts above a threshold.
+
+#### Config: 
+`THRESHOLD=90`
+
+`/etc/linux_maint/servers.txt`
+
+`/etc/linux_maint/emails.txt`
+
+**Log:** `/var/log/disks_monitor.log`
+
+**Run:** `bash /usr/local/bin/distributed_disk_monitor.sh`
+
+**Cron:**` 0 8 * * * /usr/local/bin/distributed_disk_monitor.sh`
 
 
+## 📄 health_monitor.sh — System Health <a name="health--monitor"></a>
+
+**What it does:** Collects uptime, load, CPU/mem, disk usage, top processes; emails full report.
+
+#### Config: 
+`/etc/linux_maint/servers.txt`
+
+`/etc/linux_maint/excluded.txt`
+
+`/etc/linux_maint/emails.txt`
 
 
+**Log:** `/var/log/health_monitor.log`
+
+**Cron:** ` 0 8 * * * /usr/local/bin/distributed_health_monitor.sh`
 
 
+## 📄 user_monitor.sh — Users & SSH Access <a name="user--monitor"></a>
+
+**What it does:** Detects new/removed users vs baseline, sudoers checksum drift, and failed SSH logins today.
+
+#### Config: 
+`/etc/linux_maint/servers.txt`
+
+`/etc/linux_maint/baseline_users.txt (from cut -d: -f1 /etc/passwd)`
+
+`/etc/linux_maint/baseline_sudoers.txt (from md5sum /etc/sudoers | awk '{print $1}')`
+
+`/etc/linux_maint/emails.txt (optional)`
+
+**Log:** `/var/log/user_monitor.log`
+
+**Cron:** `0 0 * * * /usr/local/bin/user_monitor.sh`
+
+Update baselines when legitimate changes occur.
+
+## 📄 service_monitor.sh — Critical Services <a name="service--monitor"></a>
+
+**What it does:** Checks `systemctl is-active` (or SysV fallback) for services in services.txt; optional auto-restart.
+
+#### Config:
+`/etc/linux_maint/servers.txt`
+
+`/etc/linux_maint/services.txt`
+
+`/etc/linux_maint/emails.txt`
+
+`AUTO_RESTART="false" (set true to enable)`
+
+**Log:** `/var/log/service_monitor.log`
+
+**Cron:** ` 0 * * * * /usr/local/bin/service_monitor.sh`
+
+
+## 📄 servers_info.sh — Daily Server Snapshot <a name="servers--info"></a>
+
+**What it does:** One comprehensive log per host: CPU/mem/load, disks/mounts/LVM, RAID/multipath, net, users, services, firewall, updates.
+
+#### Config: 
+`/etc/linux_maint/servers.txt`
+
+**Logs:** `/var/log/server_info/<host>_info_<date>.log`
+
+**Cron:** `0 2 * * * /usr/local/bin/servers_info.sh`
 
 
 
