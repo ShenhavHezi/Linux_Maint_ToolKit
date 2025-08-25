@@ -1,65 +1,108 @@
 #!/bin/bash
 # distributed_health_monitor.sh - Run health checks on multiple Linux servers
 # Author: Shenhav_Hezi
-# Version: 1.0
+# Version: 2.0 (refactored to use linux_maint.sh)
 # Description:
-#   Collects CPU, memory, load average, and disk usage from all servers listed in SERVERLIST.
-#   Skips servers listed in EXCLUDELIST.
-#   Logs results to LOGFILE and emails report to addresses in ALERT_EMAIL.
+#   Collects CPU, memory, load average, and disk usage from all servers.
+#   Skips excluded hosts, logs to a file, and emails the per-run report.
 
-# --- Configuration ---
-SERVERLIST="/etc/linux_maint/servers.txt"      # List of servers
-EXCLUDELIST="/etc/linux_maint/excluded.txt"    # List of excluded servers
-ALERT_EMAIL="/etc/linux_maint/emails.txt"      # Email recipients
-LOGFILE="/var/log/health_monitor.log"          # Log file
-DATE=$(date '+%Y-%m-%d %H:%M:%S')
+# ===== Shared helpers =====
+. /usr/local/lib/linux_maint.sh || { echo "Missing /usr/local/lib/linux_maint.sh"; exit 1; }
+LM_PREFIX="[health_monitor] "
+LM_LOGFILE="/var/log/health_monitor.log"
+: "${LM_MAX_PARALLEL:=0}"     # 0 = sequential; >0 runs hosts concurrently
+: "${LM_EMAIL_ENABLED:=true}" # master toggle for lm_mail
 
-# --- Ensure log directory exists ---
-mkdir -p "$(dirname "$LOGFILE")"
+lm_require_singleton "distributed_health_monitor"
 
-# --- Start log ---
-echo "==============================================" >> "$LOGFILE"
-echo " Linux Distributed Health Check "              >> "$LOGFILE"
-echo " Date: $DATE"                                  >> "$LOGFILE"
-echo "==============================================" >> "$LOGFILE"
+MAIL_SUBJECT_PREFIX='[Health Monitor]'
 
-# --- Function to check if a server is excluded ---
-is_excluded() {
-    grep -qx "$1" "$EXCLUDELIST" 2>/dev/null
+# ========================
+# Report buffer (per run)
+# ========================
+REPORT_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" health_report.XXXXXX)"
+REPORT_LOCK="${REPORT_FILE}.lock"
+
+append_report() {
+  # Append stdin to report with a lock (safe under parallelism)
+  (
+    flock -x 9
+    cat >> "$REPORT_FILE"
+  ) 9>"$REPORT_LOCK"
 }
 
-# --- Loop through servers ---
-while read -r server; do
-    # Skip empty lines or comments
-    [[ -z "$server" || "$server" =~ ^# ]] && continue
+write_report_header() {
+  {
+    echo "=============================================="
+    echo " Linux Distributed Health Check "
+    echo " Date: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "=============================================="
+  } | append_report
+}
 
-    if is_excluded "$server"; then
-        echo "Skipping excluded server: $server" >> "$LOGFILE"
-        continue
-    fi
+# ========================
+# Remote snippet
+# ========================
+read -r -d '' remote_health_cmd <<'EOS'
+echo "--- Hostname: $(hostname)"
+echo "--- Uptime:"
+uptime || true
+echo "--- CPU Load:"
+( command -v top >/dev/null 2>&1 && top -bn1 2>/dev/null | grep -E "load average|load:" ) || uptime || true
+echo "--- Memory Usage (MB):"
+free -m 2>/dev/null || true
+echo "--- Disk Usage:"
+( df -hT 2>/dev/null | awk 'NR==1 || /^\/dev/' ) || true
+echo "--- Top 5 Processes by CPU:"
+ps -eo pid,comm,%cpu,%mem --sort=-%cpu 2>/dev/null | head -n 6 || true
+echo "--- Top 5 Processes by Memory:"
+ps -eo pid,comm,%cpu,%mem --sort=-%mem 2>/dev/null | head -n 6 || true
+echo "----------------------------------------------"
+EOS
 
-    echo ">>> Health check on $server ($DATE)" >> "$LOGFILE"
+# ========================
+# Per-host runner
+# ========================
+run_for_host() {
+  local host="$1"
+  lm_info "===== Health check on $host ====="
 
-    ssh -o ConnectTimeout=10 "$server" bash -s << 'EOF' >> "$LOGFILE" 2>&1
-        echo "--- Hostname: $(hostname)"
-        echo "--- Uptime:"
-        uptime
-        echo "--- CPU Load:"
-        top -bn1 | grep "load average"
-        echo "--- Memory Usage (MB):"
-        free -m
-        echo "--- Disk Usage:"
-        df -hT | grep -E "^/dev"
-        echo "--- Top 5 Processes by CPU:"
-        ps -eo pid,comm,%cpu,%mem --sort=-%cpu | head -6
-        echo "--- Top 5 Processes by Memory:"
-        ps -eo pid,comm,%cpu,%mem --sort=-%mem | head -6
-        echo "----------------------------------------------"
-EOF
+  if ! lm_reachable "$host"; then
+    lm_err "[$host] SSH unreachable; skipping"
+    {
+      echo ">>> Health check on $host ($(date '+%Y-%m-%d %H:%M:%S'))"
+      echo "--- ERROR: SSH unreachable"
+      echo "----------------------------------------------"
+    } | append_report
+    return
+  fi
 
-done < "$SERVERLIST"
+  # Capture remote output then append to report atomically
+  {
+    echo ">>> Health check on $host ($(date '+%Y-%m-%d %H:%M:%S'))"
+    lm_ssh "$host" bash -lc "$remote_health_cmd"
+  } | append_report
 
-# --- Email report ---
-if [ -s "$ALERT_EMAIL" ]; then
-    mail -s "Linux Health Check Report - $DATE" $(cat "$ALERT_EMAIL") < "$LOGFILE"
+  lm_info "===== Completed $host ====="
+}
+
+# ========================
+# Main
+# ========================
+write_report_header
+lm_info "=== Health Monitor Started ==="
+
+# Run checks for each host from LM_SERVERLIST (or localhost if missing)
+lm_for_each_host run_for_host
+
+# Persist this run into the log file for history
+append_report < /dev/null  # ensure file exists
+cat "$REPORT_FILE" >> "$LM_LOGFILE" 2>/dev/null || true
+
+# Email just this run's report (if recipients configured)
+if [ -s "${LM_EMAILS:-/etc/linux_maint/emails.txt}" ]; then
+  lm_mail "$MAIL_SUBJECT_PREFIX Linux Health Check Report - $(date '+%Y-%m-%d %H:%M:%S')" "$(cat "$REPORT_FILE")"
 fi
+
+rm -f "$REPORT_FILE" "$REPORT_LOCK" 2>/dev/null || true
+lm_info "=== Health Monitor Finished ==="
