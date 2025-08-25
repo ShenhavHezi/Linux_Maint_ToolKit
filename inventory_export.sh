@@ -1,72 +1,81 @@
 #!/bin/bash
 # inventory_export.sh - Export concise HW/SW inventory per host to a daily CSV (+details)
 # Author: Shenhav_Hezi
-# Version: 1.0
-# Description:
-#   Collects key inventory facts from one or many Linux servers and appends a row
-#   to a daily CSV file. Also saves a per-host "details" snapshot (lscpu, lsblk, df, LVM, ip).
-#
-#   CSV fields:
-#     date,host,fqdn,os,kernel,arch,virt,uptime,cpu_model,
-#     sockets,cores_per_socket,threads_per_core,vcpus,mem_mb,swap_mb,
-#     disk_total_gb,rootfs_use,vgs,lvs,pvs,vgs_size_gb,ip_list,default_gw,dns_servers,pkg_count
-#
-# Usage:
-#   /usr/local/bin/inventory_export.sh
-#
-# Notes:
-#   - Works in local or distributed mode (via servers.txt + SSH keys).
-#   - Commands that aren't available on a host are skipped gracefully.
+# Version: 2.0 (refactored to use linux_maint.sh)
+
+# ===== Shared helpers =====
+. /usr/local/lib/linux_maint.sh || { echo "Missing /usr/local/lib/linux_maint.sh"; exit 1; }
+LM_PREFIX="[inventory_export] "
+LM_LOGFILE="/var/log/inventory_export.log"
+: "${LM_MAX_PARALLEL:=0}"     # 0=sequential; set >0 to run hosts concurrently
+: "${LM_EMAIL_ENABLED:=true}" # master email toggle
+
+lm_require_singleton "inventory_export"
 
 # ========================
-# Configuration Variables
+# Script configuration
 # ========================
-SERVERLIST="/etc/linux_maint/servers.txt"      # One host per line; if missing → local mode
-EXCLUDED="/etc/linux_maint/excluded.txt"       # Optional: hosts to skip
-LOGFILE="/var/log/inventory_export.log"        # Script log
-
 OUTPUT_DIR="/var/log/inventory"
 DETAILS_DIR="${OUTPUT_DIR}/details"
 
-SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=no"
-
 # Email (optional): send a short summary when the run finishes
-ALERT_EMAILS="/etc/linux_maint/emails.txt"     # Optional recipients (one per line)
 MAIL_ON_RUN="false"
 MAIL_SUBJECT_PREFIX='[Inventory Export]'
 
 # ========================
 # Helpers
 # ========================
-log(){ echo "$(date '+%Y-%m-%d %H:%M:%S') - $*" | tee -a "$LOGFILE"; }
-ensure_dirs(){ mkdir -p "$(dirname "$LOGFILE")" "$OUTPUT_DIR" "$DETAILS_DIR"; }
-
-is_excluded(){
-  local host="$1"
-  [ -f "$EXCLUDED" ] || return 1
-  grep -Fxq "$host" "$EXCLUDED"
-}
-
-ssh_do(){
-  local host="$1"; shift
-  if [ "$host" = "localhost" ]; then
-    bash -lc "$*" 2>/dev/null
-  else
-    ssh $SSH_OPTS "$host" "$@" 2>/dev/null
-  fi
-}
-
-send_mail(){
-  local subject="$1" body="$2"
-  [ "$MAIL_ON_RUN" = "true" ] || return 0
-  [ -s "$ALERT_EMAILS" ] || return 0
-  command -v mail >/dev/null || return 0
-  while IFS= read -r to; do
-    [ -n "$to" ] && printf "%s\n" "$body" | mail -s "$MAIL_SUBJECT_PREFIX $subject" "$to"
-  done < "$ALERT_EMAILS"
-}
-
+ensure_dirs(){ mkdir -p "$(dirname "$LM_LOGFILE")" "$OUTPUT_DIR" "$DETAILS_DIR"; }
 csv_escape(){ local s="$1"; s="${s//\"/\"\"}"; printf "\"%s\"" "$s"; }
+
+# ---- CSV header + append with flock (safe under parallelism) ----
+write_csv_header_if_needed(){
+  local csv_file="$1"
+  local lock="${csv_file}.lock"
+  mkdir -p "$(dirname "$csv_file")"
+  (
+    flock -x 9
+    if [ ! -f "$csv_file" ]; then
+      printf "%s\n" "date,host,fqdn,os,kernel,arch,virt,uptime,cpu_model,sockets,cores_per_socket,threads_per_core,vcpus,mem_mb,swap_mb,disk_total_gb,rootfs_use,vgs,lvs,pvs,vgs_size_gb,ip_list,default_gw,dns_servers,pkg_count" > "$csv_file"
+    fi
+  ) 9>"$lock"
+}
+
+append_csv_row_locked(){
+  local csv_file="$1"; shift
+  local lock="${csv_file}.lock"
+  (
+    flock -x 9
+    {
+      csv_escape "$1";  printf ",";   # date
+      csv_escape "$2";  printf ",";   # host
+      csv_escape "$3";  printf ",";   # fqdn
+      csv_escape "$4";  printf ",";   # os
+      csv_escape "$5";  printf ",";   # kernel
+      csv_escape "$6";  printf ",";   # arch
+      csv_escape "$7";  printf ",";   # virt
+      csv_escape "$8";  printf ",";   # uptime
+      csv_escape "$9";  printf ",";   # cpu_model
+      csv_escape "${10}"; printf ","; # sockets
+      csv_escape "${11}"; printf ","; # cores_per_socket
+      csv_escape "${12}"; printf ","; # threads_per_core
+      csv_escape "${13}"; printf ","; # vcpus
+      csv_escape "${14}"; printf ","; # mem_mb
+      csv_escape "${15}"; printf ","; # swap_mb
+      csv_escape "${16}"; printf ","; # disk_total_gb
+      csv_escape "${17}"; printf ","; # rootfs_use
+      csv_escape "${18}"; printf ","; # vgs
+      csv_escape "${19}"; printf ","; # lvs
+      csv_escape "${20}"; printf ","; # pvs
+      csv_escape "${21}"; printf ","; # vgs_size_gb
+      csv_escape "${22}"; printf ","; # ip_list
+      csv_escape "${23}"; printf ","; # default_gw
+      csv_escape "${24}"; printf ","; # dns_servers
+      csv_escape "${25}";             # pkg_count
+      printf "\n"
+    } >> "$csv_file"
+  ) 9>"$lock"
+}
 
 # Remote collector: emit KEY=value lines for all fields the CSV expects.
 remote_inv_cmd='
@@ -147,55 +156,23 @@ echo
 echo "===== Routes ====="; ip route 2>/dev/null || true
 '
 
-write_csv_header_if_needed(){
-  local csv_file="$1"
-  if [ ! -f "$csv_file" ]; then
-    printf "%s\n" "date,host,fqdn,os,kernel,arch,virt,uptime,cpu_model,sockets,cores_per_socket,threads_per_core,vcpus,mem_mb,swap_mb,disk_total_gb,rootfs_use,vgs,lvs,pvs,vgs_size_gb,ip_list,default_gw,dns_servers,pkg_count" > "$csv_file"
-  fi
-}
+# ========================
+# Globals for this run
+# ========================
+DATE_SHORT="$(date +%Y-%m-%d)"
+CSV_FILE="${OUTPUT_DIR}/inventory_${DATE_SHORT}.csv"
 
-append_csv_row(){
-  local csv_file="$1"; shift
-  # args: 25 fields in order
-  {
-    csv_escape "$1";  printf ",";  # date
-    csv_escape "$2";  printf ",";  # host
-    csv_escape "$3";  printf ",";  # fqdn
-    csv_escape "$4";  printf ",";  # os
-    csv_escape "$5";  printf ",";  # kernel
-    csv_escape "$6";  printf ",";  # arch
-    csv_escape "$7";  printf ",";  # virt
-    csv_escape "$8";  printf ",";  # uptime
-    csv_escape "$9";  printf ",";  # cpu_model
-    csv_escape "${10}"; printf ",";# sockets
-    csv_escape "${11}"; printf ",";# cores_per_socket
-    csv_escape "${12}"; printf ",";# threads_per_core
-    csv_escape "${13}"; printf ",";# vcpus
-    csv_escape "${14}"; printf ",";# mem_mb
-    csv_escape "${15}"; printf ",";# swap_mb
-    csv_escape "${16}"; printf ",";# disk_total_gb
-    csv_escape "${17}"; printf ",";# rootfs_use
-    csv_escape "${18}"; printf ",";# vgs
-    csv_escape "${19}"; printf ",";# lvs
-    csv_escape "${20}"; printf ",";# pvs
-    csv_escape "${21}"; printf ",";# vgs_size_gb
-    csv_escape "${22}"; printf ",";# ip_list
-    csv_escape "${23}"; printf ",";# default_gw
-    csv_escape "${24}"; printf ",";# dns_servers
-    csv_escape "${25}";          # pkg_count
-    printf "\n"
-  } >> "$csv_file"
-}
+# ========================
+# Per-host worker
+# ========================
+run_for_host(){
+  local host="$1"
 
-collect_one_host(){
-  local host="$1" date_short="$2" csv_file="$3"
+  lm_info "===== Collecting inventory on $host ====="
 
-  # reachability (skip check for localhost)
-  if [ "$host" != "localhost" ]; then
-    if ! ssh_do "$host" "echo ok" | grep -q ok; then
-      log "[$host] ERROR: SSH unreachable."
-      return
-    fi
+  if ! lm_reachable "$host"; then
+    lm_err "[$host] SSH unreachable"
+    return
   fi
 
   # --- inventory values ---
@@ -203,46 +180,36 @@ collect_one_host(){
   while IFS='=' read -r k v; do
     [ -z "$k" ] && continue
     V["$k"]="$v"
-  done < <(ssh_do "$host" bash -lc "'$remote_inv_cmd'")
+  done < <(lm_ssh "$host" bash -lc "'$remote_inv_cmd'")
 
-  append_csv_row "$csv_file" \
+  write_csv_header_if_needed "$CSV_FILE"
+  append_csv_row_locked "$CSV_FILE" \
     "${V[DATE]}" "${V[HOST]}" "${V[FQDN]}" "${V[OS]}" "${V[KERNEL]}" "${V[ARCH]}" "${V[VIRT]}" "${V[UPTIME]}" \
     "${V[CPU_MODEL]}" "${V[SOCKETS]}" "${V[CORES_PER_SOCKET]}" "${V[THREADS_PER_CORE]}" "${V[VCPUS]}" \
     "${V[MEM_MB]}" "${V[SWAP_MB]}" "${V[DISK_TOTAL_GB]}" "${V[ROOTFS_USE]}" \
     "${V[VGS]}" "${V[LVS]}" "${V[PVS]}" "${V[VGS_SIZE_GB]}" \
     "${V[IPS]}" "${V[GW]}" "${V[DNS]}" "${V[PKG_COUNT]}"
 
-  log "[$host] row appended: os=${V[OS]} arch=${V[ARCH]} cpu=${V[CPU_MODEL]} mem=${V[MEM_MB]}MB disks=${V[DISK_TOTAL_GB]}GB vgs=${V[VGS]} lvs=${V[LVS]}"
+  lm_info "[$host] row appended: os=${V[OS]} arch=${V[ARCH]} cpu=${V[CPU_MODEL]} mem=${V[MEM_MB]}MB disks=${V[DISK_TOTAL_GB]}GB vgs=${V[VGS]} lvs=${V[LVS]}"
 
   # --- details snapshot ---
-  local details="${DETAILS_DIR}/${V[HOST]}_${date_short}.txt"
-  ssh_do "$host" bash -lc "'$remote_details_cmd'" > "$details"
-  log "[$host] details -> $details"
+  local details="${DETAILS_DIR}/${V[HOST]}_${DATE_SHORT}.txt"
+  lm_ssh "$host" bash -lc "'$remote_details_cmd'" > "$details"
+  lm_info "[$host] details -> $details"
+
+  lm_info "===== Completed $host ====="
 }
 
 # ========================
 # Main
 # ========================
 ensure_dirs
-DATE_SHORT="$(date +%Y-%m-%d)"
-CSV_FILE="${OUTPUT_DIR}/inventory_${DATE_SHORT}.csv"
+lm_info "=== Inventory Export Started (CSV: $CSV_FILE) ==="
 
-write_csv_header_if_needed "$CSV_FILE"
+lm_for_each_host run_for_host
 
-log "=== Inventory Export Started (CSV: $CSV_FILE) ==="
-
-if [ -f "$SERVERLIST" ]; then
-  while IFS= read -r HOST; do
-    [ -z "$HOST" ] && continue
-    is_excluded "$HOST" && { log "Skipping $HOST (excluded)"; continue; }
-    collect_one_host "$HOST" "$DATE_SHORT" "$CSV_FILE"
-  done < "$SERVERLIST"
-else
-  collect_one_host "localhost" "$DATE_SHORT" "$CSV_FILE"
-fi
-
-log "=== Inventory Export Finished ==="
+lm_info "=== Inventory Export Finished ==="
 
 if [ "$MAIL_ON_RUN" = "true" ]; then
-  send_mail "Inventory CSV ready" "Inventory written to: $CSV_FILE"
+  lm_mail "$MAIL_SUBJECT_PREFIX Inventory CSV ready" "Inventory written to: $CSV_FILE"
 fi
