@@ -1,83 +1,53 @@
 #!/bin/bash
 # config_drift_monitor.sh - Detect drift in critical config files vs baseline (distributed)
 # Author: Shenhav_Hezi
-# Version: 1.0
-# Description:
-#   Hashes a configured set of config files (supports files, globs, directories, recursive),
-#   compares against a per-host baseline, and reports:
-#     - MODIFIED files (hash changed)
-#     - NEW files (present now, absent in baseline)
-#     - REMOVED files (present in baseline, missing now)
-#   Supports an allowlist, optional baseline auto-init/update, and email alerts.
+# Version: 2.0 (refactored to use linux_maint.sh)
+
+# ===== Shared helpers =====
+. /usr/local/lib/linux_maint.sh || { echo "Missing /usr/local/lib/linux_maint.sh"; exit 1; }
+LM_PREFIX="[config_drift] "
+LM_LOGFILE="/var/log/config_drift_monitor.log"
+: "${LM_MAX_PARALLEL:=0}"     # 0=sequential; set >0 to run hosts in parallel
+: "${LM_EMAIL_ENABLED:=true}" # master email toggle (library-level)
+
+lm_require_singleton "config_drift_monitor"
 
 # ========================
-# Configuration Variables
+# Script configuration
 # ========================
-SERVERLIST="/etc/linux_maint/servers.txt"              # One host per line; if missing → local mode
-EXCLUDED="/etc/linux_maint/excluded.txt"               # Optional: hosts to skip
-CONFIG_PATHS="/etc/linux_maint/config_paths.txt"       # Targets (files/dirs/globs); see README
-ALLOWLIST_FILE="/etc/linux_maint/config_allowlist.txt" # Optional: paths to ignore (exact or substring)
-BASELINE_DIR="/etc/linux_maint/baselines/configs"      # Per-host baselines live here
-ALERT_EMAILS="/etc/linux_maint/emails.txt"             # Optional: recipients (one per line)
-
-LOGFILE="/var/log/config_drift_monitor.log"            # Report log
-SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=no"
+CONFIG_PATHS="/etc/linux_maint/config_paths.txt"        # Targets (files/dirs/globs)
+ALLOWLIST_FILE="/etc/linux_maint/config_allowlist.txt"  # Optional: paths to ignore (exact or substring)
+BASELINE_DIR="/etc/linux_maint/baselines/configs"       # Per-host baselines live here
 
 # Behavior
-AUTO_BASELINE_INIT="true"     # If baseline missing for a host, create it from current snapshot
-BASELINE_UPDATE="false"       # After reporting, accept current as new baseline
-EMAIL_ON_DRIFT="true"         # Send email when drift detected
+AUTO_BASELINE_INIT="true"   # If baseline missing for a host, create it from current snapshot
+BASELINE_UPDATE="false"     # After reporting, accept current as new baseline
+EMAIL_ON_DRIFT="true"       # Send email when drift detected
 
 MAIL_SUBJECT_PREFIX='[Config Drift Monitor]'
 
 # ========================
-# Helpers
+# Helpers (script-local)
 # ========================
-log(){ echo "$(date '+%Y-%m-%d %H:%M:%S') - $*" | tee -a "$LOGFILE"; }
+ensure_dirs(){ mkdir -p "$(dirname "$LM_LOGFILE")" "$BASELINE_DIR"; }
 
-is_excluded(){
-  local host="$1"
-  [ -f "$EXCLUDED" ] || return 1
-  grep -Fxq "$host" "$EXCLUDED"
-}
-
-ssh_do(){
-  local host="$1"; shift
-  if [ "$host" = "localhost" ]; then
-    bash -lc "$*" 2>/dev/null
-  else
-    ssh $SSH_OPTS "$host" "$@" 2>/dev/null
-  fi
-}
-
-send_mail(){
-  local subject="$1" body="$2"
+mail_if_enabled(){ 
   [ "$EMAIL_ON_DRIFT" = "true" ] || return 0
-  [ -s "$ALERT_EMAILS" ] || return 0
-  command -v mail >/dev/null || return 0
-  while IFS= read -r to; do
-    [ -n "$to" ] && printf "%s\n" "$body" | mail -s "$MAIL_SUBJECT_PREFIX $subject" "$to"
-  done < "$ALERT_EMAILS"
+  lm_mail "$1" "$2"
 }
 
 # Return 0 if path is allowlisted (skip drift for this path)
 is_allowed_path(){
   local path="$1"
   [ -f "$ALLOWLIST_FILE" ] || return 1
-  # Allow either exact match or substring (case-insensitive)
-  if grep -Fxq "$path" "$ALLOWLIST_FILE"; then return 0; fi
-  if grep -iFq -- "$path" "$ALLOWLIST_FILE"; then return 0; fi
+  # exact match OR substring (case-insensitive)
+  grep -Fxq -- "$path" "$ALLOWLIST_FILE" && return 0
+  grep -iFq -- "$path" "$ALLOWLIST_FILE" && return 0
   return 1
 }
 
-ensure_dirs(){ mkdir -p "$(dirname "$LOGFILE")" "$BASELINE_DIR"; }
-
 # Remote hasher for a single pattern ($1). Emits lines: "algo|hash|/absolute/path"
-# Supports:
-#  - file path            -> hash it
-#  - glob "*.conf"        -> expand and hash each file
-#  - "/dir/"              -> hash all files at depth 1
-#  - "/dir/**"            -> recursively hash all files
+# Supports file/glob/dir/dir/** (recursive)
 remote_hash_cmd='
 p="$1"
 hashbin="$(command -v sha256sum || command -v md5sum)"
@@ -98,6 +68,8 @@ elif [[ "$p" == */ ]]; then
   [ -d "$dir" ] && find "$dir" -maxdepth 1 -type f -print0 2>/dev/null | xargs -0r "$hashbin" 2>/dev/null | awk -v a="$algo" "{printf \"%s|%s|%s\\n\", a, \$1, \$2}"
 elif [[ "$p" == *\"* ]]; then
   : # ignore bad quotes
+elif [[ "$p" == *\"* ]]; then
+  : # guard
 elif [[ "$p" == *"*"* || "$p" == *"?"* ]]; then
   shopt -s nullglob dotglob
   for f in $p; do emit_file "$f"; done
@@ -109,42 +81,46 @@ fi
 collect_current(){
   local host="$1"
   local lines=""
-  [ -f "$CONFIG_PATHS" ] || { log "[$host] ERROR: config paths file $CONFIG_PATHS not found."; echo ""; return; }
+  [ -f "$CONFIG_PATHS" ] || { lm_err "[$host] config paths file $CONFIG_PATHS not found."; echo ""; return; }
+
   while IFS= read -r pat; do
     pat="$(echo "$pat" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
     [ -z "$pat" ] && continue
     [[ "$pat" =~ ^# ]] && continue
-    out=$(ssh_do "$host" bash -lc "'$remote_hash_cmd'" _ "$pat")
+    # Pass $pat as $1 to the remote snippet (bash -c 'code' _ "$pat")
+    out=$(lm_ssh "$host" bash -lc "'$remote_hash_cmd'" _ "$pat")
     [ -n "$out" ] && lines+="$out"$'\n'
   done < "$CONFIG_PATHS"
+
   # normalize + sort unique
   printf "%s" "$lines" | sed '/^$/d' | sort -u
 }
 
-# Compare baseline vs current. Expect lines "algo|hash|path"
+# Compare baseline vs current. Expect files containing "algo|hash|path"
 compare_and_report(){
   local host="$1" cur_file="$2" base_file="$3"
 
-  # Build path lists
   local cur_paths base_paths
   cur_paths="$(awk -F'|' '{print $3}' "$cur_file" | sort -u)"
   base_paths="$(awk -F'|' '{print $3}' "$base_file" | sort -u)"
 
   # NEW and REMOVED by set difference
   local new_file removed_file
-  new_file="$(mktemp)"; removed_file="$(mktemp)"
+  new_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
+  removed_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
   comm -13 <(printf "%s\n" "$base_paths") <(printf "%s\n" "$cur_paths") > "$new_file"
   comm -23 <(printf "%s\n" "$base_paths") <(printf "%s\n" "$cur_paths") > "$removed_file"
 
   # MODIFIED: paths in intersection where hash differs
   local modified_file
-  modified_file="$(mktemp)"
+  modified_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
   awk -F'|' 'NR==FNR{b[$3]=$1"|" $2; next} {c[$3]=$1"|" $2} END{for(p in b){if(p in c && b[p]!=c[p]) print p "|" b[p] "|" c[p]}}' \
       "$base_file" "$cur_file" > "$modified_file"
 
   # Apply allowlist to NEW and MODIFIED (path-based)
   local new_filtered modified_filtered
-  new_filtered="$(mktemp)"; modified_filtered="$(mktemp)"
+  new_filtered="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
+  modified_filtered="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
 
   if [ -s "$new_file" ]; then
     while IFS= read -r p; do
@@ -165,20 +141,20 @@ compare_and_report(){
 
   if [ -s "$modified_filtered" ]; then
     changes=1
-    log "[$host] MODIFIED files:"
-    awk -F'|' '{printf "  * %s (old:%s new:%s)\n",$1,$2,$3}' "$modified_filtered" | tee -a "$LOGFILE" >/dev/null
+    lm_info "[$host] MODIFIED files:"
+    awk -F'|' '{printf "  * %s (old:%s new:%s)\n",$1,$2,$3}' "$modified_filtered" | while IFS= read -r L; do lm_info "$L"; done
   fi
 
   if [ -s "$new_filtered" ]; then
     changes=1
-    log "[$host] NEW files:"
-    awk '{printf "  + %s\n",$0}' "$new_filtered" | tee -a "$LOGFILE" >/dev/null
+    lm_info "[$host] NEW files:"
+    awk '{printf "  + %s\n",$0}' "$new_filtered" | while IFS= read -r L; do lm_info "$L"; done
   fi
 
   if [ -s "$removed_file" ]; then
     changes=1
-    log "[$host] REMOVED files:"
-    awk '{printf "  - %s\n",$0}' "$removed_file" | tee -a "$LOGFILE" >/dev/null
+    lm_info "[$host] REMOVED files:"
+    awk '{printf "  - %s\n",$0}' "$removed_file" | while IFS= read -r L; do lm_info "$L"; done
   fi
 
   # Email summary if there were changes
@@ -197,42 +173,44 @@ $( [ -s "$removed_file" ] && awk '{printf "  - %s\n",$0}' "$removed_file" || ech
 
 Allowlist: $ALLOWLIST_FILE
 "
-    send_mail "$subj" "$body"
+    mail_if_enabled "$MAIL_SUBJECT_PREFIX $subj" "$body"
   fi
 
   rm -f "$new_file" "$removed_file" "$modified_file" "$new_filtered" "$modified_filtered"
   return 0
 }
 
-check_host(){
+# ========================
+# Per-host runner
+# ========================
+run_for_host(){
   local host="$1"
-  log "===== Checking config drift on $host ====="
+  lm_info "===== Checking config drift on $host ====="
 
-  # reachability
-  if [ "$host" != "localhost" ]; then
-    if ! ssh_do "$host" "echo ok" | grep -q ok; then
-      log "[$host] ERROR: SSH unreachable."
-      return
-    fi
+  if ! lm_reachable "$host"; then
+    lm_err "[$host] SSH unreachable"
+    return
   fi
 
-  local cur_file; cur_file="$(mktemp)"
+  local cur_file; cur_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
   collect_current "$host" > "$cur_file"
 
   if [ ! -s "$cur_file" ]; then
-    log "[$host] WARNING: No files matched from $CONFIG_PATHS"
+    lm_warn "[$host] No files matched from $CONFIG_PATHS"
   fi
 
   local base_file="$BASELINE_DIR/${host}.baseline"
   if [ ! -f "$base_file" ]; then
     if [ "$AUTO_BASELINE_INIT" = "true" ]; then
       cp -f "$cur_file" "$base_file"
-      log "[$host] Baseline created at $base_file (initial snapshot)."
+      lm_info "[$host] Baseline created at $base_file (initial snapshot)."
       rm -f "$cur_file"
+      lm_info "===== Completed $host ====="
       return
     else
-      log "[$host] WARNING: Baseline missing ($base_file). Set AUTO_BASELINE_INIT=true or create it manually."
+      lm_warn "[$host] Baseline missing ($base_file). Set AUTO_BASELINE_INIT=true or create it manually."
       rm -f "$cur_file"
+      lm_info "===== Completed $host ====="
       return
     fi
   fi
@@ -241,27 +219,19 @@ check_host(){
 
   if [ "$BASELINE_UPDATE" = "true" ]; then
     cp -f "$cur_file" "$base_file"
-    log "[$host] Baseline updated."
+    lm_info "[$host] Baseline updated."
   fi
 
   rm -f "$cur_file"
-  log "===== Completed $host ====="
+  lm_info "===== Completed $host ====="
 }
 
 # ========================
 # Main
 # ========================
 ensure_dirs
-log "=== Config Drift Monitor Started ==="
+lm_info "=== Config Drift Monitor Started ==="
 
-if [ -f "$SERVERLIST" ]; then
-  while IFS= read -r HOST; do
-    [ -z "$HOST" ] && continue
-    is_excluded "$HOST" && { log "Skipping $HOST (excluded)"; continue; }
-    check_host "$HOST"
-  done < "$SERVERLIST"
-else
-  check_host "localhost"
-fi
+lm_for_each_host run_for_host
 
-log "=== Config Drift Monitor Finished ==="
+lm_info "=== Config Drift Monitor Finished ==="
