@@ -1,88 +1,69 @@
 #!/bin/bash
 # ntp_drift_monitor.sh - Monitor NTP/chrony/timesyncd sync state & clock drift
 # Author: Shenhav_Hezi
-# Version: 1.0
+# Version: 2.0 (refactored to use linux_maint.sh)
 # Description:
 #   Checks one or many Linux servers for time-sync health:
 #     - current offset/drift from NTP (ms)
 #     - selected time source & stratum
-#     - sync status (OK / WARN / CRIT)
+#     - sync status (OK/WARN/CRIT)
 #   Supports chrony, ntpd, and systemd-timesyncd.
-#   Logs a concise report and can email alerts when drift exceeds thresholds
-#   or when a host is not synchronized.
+#   Logs a concise report and can email aggregated alerts.
+
+# ===== Shared helpers =====
+. /usr/local/lib/linux_maint.sh || { echo "Missing /usr/local/lib/linux_maint.sh"; exit 1; }
+LM_PREFIX="[ntp_drift] "
+LM_LOGFILE="/var/log/ntp_drift_monitor.log"
+: "${LM_MAX_PARALLEL:=0}"     # 0=sequential; >0 to run hosts in parallel
+: "${LM_EMAIL_ENABLED:=true}" # master email toggle
+
+lm_require_singleton "ntp_drift_monitor"
+
+MAIL_SUBJECT_PREFIX='[NTP Drift Monitor]'
 
 # ========================
-# Configuration Variables
+# Configuration
 # ========================
-SERVERLIST="/etc/linux_maint/servers.txt"     # One host per line
-EXCLUDED="/etc/linux_maint/excluded.txt"      # Optional: hosts to skip
-ALERT_EMAILS="/etc/linux_maint/emails.txt"    # Optional: recipients (one per line)
-LOGFILE="/var/log/ntp_drift_monitor.log"      # Log file
-SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=no"
-
 # Thresholds (milliseconds)
 OFFSET_WARN_MS=100
 OFFSET_CRIT_MS=500
-
-MAIL_SUBJECT_PREFIX='[NTP Drift Monitor]'
 EMAIL_ON_ISSUE="true"   # Send email on WARN/CRIT
 
 # ========================
-# Helpers
+# Helpers (script-local)
 # ========================
+mail_if_enabled(){ [ "$EMAIL_ON_ISSUE" = "true" ] || return 0; lm_mail "$1" "$2"; }
 
-log() { echo "$(date '+%Y-%m-%d %H:%M:%S') - $*" | tee -a "$LOGFILE"; }
-
-is_excluded() {
-  local host="$1"
-  [ -f "$EXCLUDED" ] || return 1
-  grep -Fxq "$host" "$EXCLUDED"
-}
-
-ssh_do() {
-  local host="$1"; shift
-  ssh $SSH_OPTS "$host" "$@" 2>/dev/null
-}
-
-send_mail() {
-  local subject="$1" body="$2"
-  [ "$EMAIL_ON_ISSUE" = "true" ] || return 0
-  [ -s "$ALERT_EMAILS" ] || return 0
-  command -v mail >/dev/null || return 0
-  while IFS= read -r to; do
-    [ -n "$to" ] && printf "%s\n" "$body" | mail -s "$MAIL_SUBJECT_PREFIX $subject" "$to"
-  done < "$ALERT_EMAILS"
-}
-
+# Echo one of: chrony | ntpd | timesyncd | unknown
 impl_detect() {
-  # Echo one of: chrony | ntpd | timesyncd | unknown
   local host="$1"
-  if ssh_do "$host" "command -v chronyc >/dev/null"; then echo chrony; return; fi
-  if ssh_do "$host" "command -v ntpq >/dev/null";     then echo ntpd; return; fi
-  if ssh_do "$host" "command -v timedatectl >/dev/null && timedatectl show-timesync >/dev/null 2>&1"; then echo timesyncd; return; fi
+  if lm_ssh "$host" "command -v chronyc >/dev/null"; then echo chrony; return; fi
+  if lm_ssh "$host" "command -v ntpq >/dev/null";     then echo ntpd; return; fi
+  if lm_ssh "$host" "command -v timedatectl >/dev/null 2>&1 && timedatectl show-timesync >/dev/null 2>&1"; then
+    echo timesyncd; return
+  fi
   echo unknown
 }
 
-# ---- Parsers for each implementation. Each should echo:
+# ---- Parsers for each implementation. Echo:
 # impl|offset_ms|stratum|source|synced|note
 # where synced is yes/no/unknown
 probe_chrony() {
   local host="$1"
-  local track; track=$(ssh_do "$host" "chronyc tracking") || track=""
+  local track; track="$(lm_ssh "$host" "chronyc tracking" 2>/dev/null)" || track=""
   [ -z "$track" ] && { echo "chrony|?|?|?|no|no_output"; return; }
 
   # System time: "X seconds fast/slow of NTP time"
-  local sysline; sysline=$(printf "%s\n" "$track" | awk -F': ' '/^System time/{print $2}')
-  local sec; sec=$(printf "%s\n" "$sysline" | awk '{print $1}')
-  local offset_ms; offset_ms=$(awk -v s="$sec" 'BEGIN{if(s=="")print "?"; else printf("%.0f", s*1000>=0?s*1000:-s*1000)}')
+  local sysline; sysline="$(printf "%s\n" "$track" | awk -F': ' '/^System time/{print $2}')"
+  local sec; sec="$(printf "%s\n" "$sysline" | awk '{print $1}')"
+  local offset_ms; offset_ms="$(awk -v s="$sec" 'BEGIN{ if(s==""){print "?"} else {m=s*1000; if(m<0)m=-m; printf("%.0f", m)} }')"
 
-  local stratum; stratum=$(printf "%s\n" "$track" | awk -F': ' '/^Stratum/{print $2}')
+  local stratum; stratum="$(printf "%s\n" "$track" | awk -F': ' '/^Stratum/{print $2}')"
   [ -z "$stratum" ] && stratum="?"
-  # Reference ID / Name appears on "Reference ID"
-  local source; source=$(printf "%s\n" "$track" | awk -F': ' '/^Reference ID/{print $2}')
+  local source; source="$(printf "%s\n" "$track" | awk -F': ' '/^Reference ID/{print $2}')"
   [ -z "$source" ] && source="?"
 
-  local leap; leap=$(printf "%s\n" "$track" | awk -F': ' '/^Leap status/{print $2}')
+  local leap; leap="$(printf "%s\n" "$track" | awk -F': ' '/^Leap status/{print $2}')"
   local synced="yes"; [ "$leap" = "Not synchronised" ] && synced="no"
 
   echo "chrony|$offset_ms|$stratum|$source|$synced|leap:$leap"
@@ -90,18 +71,18 @@ probe_chrony() {
 
 probe_ntpd() {
   local host="$1"
-  local line; line=$(ssh_do "$host" "ntpq -pn | awk '/^\\*/{print \$0}'") || line=""
+  local line; line="$(lm_ssh "$host" "ntpq -pn | awk '/^\\*/{print \$0}'" 2>/dev/null)" || line=""
   if [ -z "$line" ]; then
-    # Maybe not synced; still try to get best candidate ('+' or first line)
-    line=$(ssh_do "$host" "ntpq -pn | awk '/^\\+/{print \$0; exit} NR==3{print \$0}'")
+    line="$(lm_ssh "$host" "ntpq -pn | awk '/^\\+/{print \$0; exit} NR==3{print \$0}'" 2>/dev/null)"
   fi
   [ -z "$line" ] && { echo "ntpd|?|?|?|no|no_peers"; return; }
 
   # Columns: remote refid st t when poll reach delay offset jitter
-  local source; source=$(echo "$line" | awk '{print $1}')
-  local stratum; stratum=$(echo "$line" | awk '{print $3}')
-  local offset_ms; offset_ms=$(echo "$line" | awk '{print $9}')
-  local synced="no"; echo "$line" | grep -q '^\*' && synced="yes"
+  local source stratum offset_ms synced="no"
+  source="$(echo "$line" | awk '{print $1}')"
+  stratum="$(echo "$line" | awk '{print $3}')"
+  offset_ms="$(echo "$line" | awk '{print $9}')"
+  echo "$line" | grep -q '^\*' && synced="yes"
 
   [ -z "$stratum" ] && stratum="?"
   [ -z "$offset_ms" ] && offset_ms="?"
@@ -111,24 +92,23 @@ probe_ntpd() {
 
 probe_timesyncd() {
   local host="$1"
-  local out; out=$(ssh_do "$host" "timedatectl show-timesync --all") || out=""
+  local out; out="$(lm_ssh "$host" "timedatectl show-timesync --all" 2>/dev/null)" || out=""
   [ -z "$out" ] && { echo "timesyncd|?|?|?|unknown|no_output"; return; }
 
   # LastOffsetNSec may be negative; convert to absolute ms
-  local ns; ns=$(printf "%s\n" "$out" | awk -F'=' '/^LastOffsetNSec/{print $2}')
+  local ns; ns="$(printf "%s\n" "$out" | awk -F'=' '/^LastOffsetNSec/{print $2}')"
   local offset_ms="?"
   if [ -n "$ns" ] && [ "$ns" != "n/a" ]; then
-    offset_ms=$(awk -v n="$ns" 'BEGIN{m=n/1000000.0; if(m<0)m=-m; printf("%.0f", m)}')
+    offset_ms="$(awk -v n="$ns" 'BEGIN{m=n/1000000.0; if(m<0)m=-m; printf("%.0f", m)}')"
   fi
-  local stratum; stratum=$(printf "%s\n" "$out" | awk -F'=' '/^Stratum/{print $2}')
+  local stratum; stratum="$(printf "%s\n" "$out" | awk -F'=' '/^Stratum/{print $2}')"
   [ -z "$stratum" ] && stratum="?"
-  local server; server=$(printf "%s\n" "$out" | awk -F'=' '/^ServerName/{print $2}')
-  [ -z "$server" ] && server=$(printf "%s\n" "$out" | awk -F'=' '/^ServerAddress/{print $2}')
+  local server; server="$(printf "%s\n" "$out" | awk -F'=' '/^ServerName/{print $2}')"
+  [ -z "$server" ] && server="$(printf "%s\n" "$out" | awk -F'=' '/^ServerAddress/{print $2}')"
   [ -z "$server" ] && server="?"
 
-  # Sync flag from timedatectl show
   local synced="unknown"
-  if ssh_do "$host" "timedatectl show -p SystemClockSync --value" | grep -q '^yes$'; then
+  if lm_ssh "$host" "timedatectl show -p SystemClockSync --value" | grep -q '^yes$'; then
     synced="yes"
   else
     synced="no"
@@ -138,68 +118,70 @@ probe_timesyncd() {
 }
 
 rate_status() {
-  # Decide OK/WARN/CRIT based on offset, sync flag
+  # Decide OK/WARN/CRIT based on offset and sync flag
   local offset_ms="$1" synced="$2"
   if [ "$synced" = "no" ]; then echo "CRIT"; return; fi
   if [ "$offset_ms" = "?" ]; then echo "WARN"; return; fi
-  # numeric compare
   if [ "$offset_ms" -ge "$OFFSET_CRIT_MS" ]; then echo "CRIT"; return; fi
   if [ "$offset_ms" -ge "$OFFSET_WARN_MS" ]; then echo "WARN"; return; fi
   echo "OK"
 }
 
-check_host() {
-  local host="$1"
-  log "===== Checking time sync on $host ====="
+# ========================
+# Aggregation
+# ========================
+ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" ntp_drift.alerts.XXXXXX)"
+append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 
-  if ! ssh_do "$host" "echo ok" | grep -q ok; then
-    log "[$host] ERROR: SSH unreachable."
-    echo "ALERT:$host:unreachable"
+# ========================
+# Per-host runner
+# ========================
+run_for_host() {
+  local host="$1"
+  lm_info "===== Checking time sync on $host ====="
+
+  if ! lm_reachable "$host"; then
+    lm_err "[$host] SSH unreachable"
+    append_alert "$host|unreachable|?|?|?|no"
+    lm_info "===== Completed $host ====="
     return
   fi
 
-  local impl; impl=$(impl_detect "$host")
+  local impl; impl="$(impl_detect "$host")"
   local line
   case "$impl" in
-    chrony)     line=$(probe_chrony "$host") ;;
-    ntpd)       line=$(probe_ntpd "$host") ;;
-    timesyncd)  line=$(probe_timesyncd "$host") ;;
-    *)          log "[$host] WARNING: No known time-sync tool found."; echo "INFO:$host:unknown"; return ;;
+    chrony)     line="$(probe_chrony "$host")" ;;
+    ntpd)       line="$(probe_ntpd "$host")" ;;
+    timesyncd)  line="$(probe_timesyncd "$host")" ;;
+    *)          lm_warn "[$host] No known time-sync tool found"; lm_info "===== Completed $host ====="; return ;;
   esac
 
   # impl|offset_ms|stratum|source|synced|note
+  local offset_ms stratum source synced note
   IFS='|' read -r impl offset_ms stratum source synced note <<<"$line"
 
-  local status; status=$(rate_status "${offset_ms/\?/-1}" "$synced")
-  log "[$status] $host impl=$impl offset_ms=$offset_ms stratum=$stratum source=$source synced=$synced ${note:+note=$note}"
+  # Use -1 sentinel for numeric comparison when offset is "?"
+  local off_num="$offset_ms"; [ "$off_num" = "?" ] && off_num="-1"
+
+  local status; status="$(rate_status "$off_num" "$synced")"
+  lm_info "[$status] $host impl=$impl offset_ms=$offset_ms stratum=$stratum source=$source synced=$synced ${note:+note=$note}"
 
   if [ "$status" != "OK" ]; then
-    echo "ALERT:$host:$impl:$offset_ms:$stratum:$source:$synced"
+    append_alert "$host|$impl|$offset_ms|$stratum|$source|$synced"
   fi
+
+  lm_info "===== Completed $host ====="
 }
 
 # ========================
 # Main
 # ========================
-log "=== NTP Drift Monitor Started (warn=${OFFSET_WARN_MS}ms, crit=${OFFSET_CRIT_MS}ms) ==="
+lm_info "=== NTP Drift Monitor Started (warn=${OFFSET_WARN_MS}ms, crit=${OFFSET_CRIT_MS}ms) ==="
 
-alerts=""
-if [ -f "$SERVERLIST" ]; then
-  while IFS= read -r HOST; do
-    [ -z "$HOST" ] && continue
-    is_excluded "$HOST" && { log "Skipping $HOST (excluded)"; continue; }
-    res=$(check_host "$HOST")
-    case "$res" in
-      ALERT:*) alerts+="${res#ALERT:}"$'\n' ;;
-      *) : ;;
-    esac
-  done < "$SERVERLIST"
-else
-  res=$(check_host "localhost")
-  case "$res" in
-    ALERT:*) alerts+="${res#ALERT:}"$'\n' ;;
-  esac
-fi
+lm_for_each_host run_for_host
+
+alerts="$(cat "$ALERTS_FILE" 2>/dev/null)"
+rm -f "$ALERTS_FILE" 2>/dev/null || true
 
 if [ -n "$alerts" ]; then
   subject="Hosts with NTP drift or unsynced clocks"
@@ -207,10 +189,10 @@ if [ -n "$alerts" ]; then
 
 Host | Impl | Offset(ms) | Stratum | Source | Synced
 ----------------------------------------------------
-$(echo "$alerts" | awk -F: 'NF>=6{printf "%s | %s | %s | %s | %s | %s\n",$1,$2,$3,$4,$5,$6}') 
+$(echo "$alerts" | awk -F'|' 'NF>=6{printf "%s | %s | %s | %s | %s | %s\n",$1,$2,$3,$4,$5,$6}') 
 
 This is an automated message from ntp_drift_monitor.sh."
-  send_mail "$subject" "$body"
+  mail_if_enabled "$MAIL_SUBJECT_PREFIX $subject" "$body"
 fi
 
-log "=== NTP Drift Monitor Finished ==="
+lm_info "=== NTP Drift Monitor Finished ==="
