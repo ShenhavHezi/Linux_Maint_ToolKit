@@ -6,7 +6,7 @@ A curated set of lightweight Bash tools for day-to-day Linux ops: monitoring, in
 
 ## 📚 Table of Contents
 - [Conventions & Layout](#Conventions--and--Layout) 
-- [Shared Helpers (linux_maint.sh)](#Shared-Helpers)
+- [Shared Helpers (linux_maint.sh)](#shared--helpers)
 - Quickstart
 - Script Matrix
 
@@ -58,7 +58,7 @@ Script:
 **Cron:** All scripts are safe to run unattended; examples are provided in each section.
 
 
-## 🛠️ Shared Helpers (`linux_maint.sh`) <a name="Shared-Helpers"></a>
+## 🛠️ Shared Helpers (`linux_maint.sh`) <a name="shared--helpers"></a>
 Some scripts (currently `ntp_drift_monitor.sh` and `backup_check.sh`) are refactored to use this helper library.
 
 **Key env vars (optional):**
