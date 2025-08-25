@@ -1,66 +1,37 @@
 #!/bin/bash
 # inode_monitor.sh - Monitor inode usage per filesystem (distributed)
 # Author: Shenhav_Hezi
-# Version: 1.0
-# Description:
-#   Checks one or many Linux servers for inode pressure:
-#     - collects inode usage per mountpoint (df -PTi)
-#     - applies per-mount WARN/CRIT thresholds (or global defaults)
-#     - skips pseudo filesystems and optional excluded mountpoints
-#   Logs a concise report and can email alerts when thresholds are crossed.
+# Version: 2.0 (refactored to use linux_maint.sh)
+
+# ===== Shared helpers =====
+. /usr/local/lib/linux_maint.sh || { echo "Missing /usr/local/lib/linux_maint.sh"; exit 1; }
+LM_PREFIX="[inode_monitor] "
+LM_LOGFILE="/var/log/inode_monitor.log"
+: "${LM_MAX_PARALLEL:=0}"     # 0=sequential; set >0 to run hosts in parallel
+: "${LM_EMAIL_ENABLED:=true}" # master email toggle
+
+lm_require_singleton "inode_monitor"
 
 # ========================
-# Configuration Variables
+# Script configuration
 # ========================
-SERVERLIST="/etc/linux_maint/servers.txt"          # One host per line; if missing → local mode
-EXCLUDED="/etc/linux_maint/excluded.txt"           # Optional: hosts to skip
-THRESHOLDS="/etc/linux_maint/inode_thresholds.txt" # CSV: mountpoint,warn%,crit% (supports '*' default)
-EXCLUDE_MOUNTS="/etc/linux_maint/inode_exclude.txt"# Optional: list of mountpoints to skip
-ALERT_EMAILS="/etc/linux_maint/emails.txt"         # Optional: recipients (one per line)
+THRESHOLDS="/etc/linux_maint/inode_thresholds.txt"   # CSV: mountpoint,warn%,crit% (supports '*' default)
+EXCLUDE_MOUNTS="/etc/linux_maint/inode_exclude.txt"  # Optional: list of mountpoints to skip
 
-LOGFILE="/var/log/inode_monitor.log"               # Report log
-SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=7 -o StrictHostKeyChecking=no"
-
-# Default thresholds if not specified per mount / default row (*)
+# Defaults if not specified per mount / default row (*)
 DEFAULT_WARN=80
 DEFAULT_CRIT=95
 
 # Skip these filesystem types (regex). Tweak to your taste.
 EXCLUDE_FSTYPES_RE='^(tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup2?|debugfs|rpc_pipefs|autofs|devpts|mqueue|hugetlbfs|fuse\..*|binfmt_misc|pstore|nsfs)$'
 
-# Email behavior
 MAIL_SUBJECT_PREFIX='[Inode Monitor]'
-EMAIL_ON_ALERT="true"
 
 # ========================
-# Helpers
+# Helpers (script-local)
 # ========================
-log(){ echo "$(date '+%Y-%m-%d %H:%M:%S') - $*" | tee -a "$LOGFILE"; }
-
-is_excluded_host(){
-  local host="$1"
-  [ -f "$EXCLUDED" ] || return 1
-  grep -Fxq "$host" "$EXCLUDED"
-}
-
-ssh_do(){
-  local host="$1"; shift
-  if [ "$host" = "localhost" ]; then
-    bash -lc "$*" 2>/dev/null
-  else
-    ssh $SSH_OPTS "$host" "$@" 2>/dev/null
-  fi
-}
-
-send_mail(){
-  local subject="$1" body="$2"
-  [ "$EMAIL_ON_ALERT" = "true" ] || return 0
-  [ -s "$ALERT_EMAILS" ] || return 0
-  command -v mail >/dev/null || return 0
-  while IFS= read -r to; do
-    [ -n "$to" ] && printf "%s\n" "$body" | mail -s "$MAIL_SUBJECT_PREFIX $subject" "$to"
-  done < "$ALERT_EMAILS"
-}
+ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" inode_monitor.alerts.XXXXXX)"
+append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 
 is_mount_excluded(){
   local mp="$1"
@@ -96,10 +67,10 @@ lookup_thresholds(){
 collect_inodes(){
   # Prints: fs|type|inodes|iused|iuse%|mount
   local host="$1"
-  local out=""
-  out="$(ssh_do "$host" "df -PTi 2>/dev/null | awk 'NR>1{printf \"%s|%s|%s|%s|%s|%s\\n\",\$1,\$2,\$3,\$4,\$6,\$7}'")"
+  local out
+  out="$(lm_ssh "$host" "df -PTi 2>/dev/null | awk 'NR>1{printf \"%s|%s|%s|%s|%s|%s\\n\",\$1,\$2,\$3,\$4,\$6,\$7}'")"
   if [ -z "$out" ]; then
-    out="$(ssh_do "$host" "df -Pi 2>/dev/null | awk 'NR>1{printf \"%s|%s|%s|%s|%s|%s\\n\",\$1,\"-\",\$2,\$3,\$5,\$6}'")"
+    out="$(lm_ssh "$host" "df -Pi 2>/dev/null | awk 'NR>1{printf \"%s|%s|%s|%s|%s|%s\\n\",\$1,\"-\",\$2,\$3,\$5,\$6}'")"
   fi
   printf "%s\n" "$out" | sed '/^$/d'
 }
@@ -111,22 +82,22 @@ rate_status(){
   echo "OK"
 }
 
-check_host(){
+# ========================
+# Per-host runner
+# ========================
+run_for_host(){
   local host="$1"
-  log "===== Checking inode usage on $host ====="
+  lm_info "===== Checking inode usage on $host ====="
 
-  # reachability (skip for localhost)
-  if [ "$host" != "localhost" ]; then
-    if ! ssh_do "$host" "echo ok" | grep -q ok; then
-      log "[$host] ERROR: SSH unreachable."
-      echo "ALERT:$host:ssh_unreachable"
-      return
-    fi
+  if ! lm_reachable "$host"; then
+    lm_err "[$host] SSH unreachable"
+    append_alert "$host|ssh|unreachable"
+    return
   fi
 
   local lines; lines="$(collect_inodes "$host")"
   if [ -z "$lines" ]; then
-    log "[$host] WARNING: No df output."
+    lm_warn "[$host] No df output."
     return
   fi
 
@@ -146,37 +117,25 @@ check_host(){
     read warn crit <<<"$(lookup_thresholds "$mp")"
     st="$(rate_status "$use" "$warn" "$crit")"
 
-    log "[$host] [$st] $mp type=$type inodes=$inodes used=$iused use%=$use warn=$warn crit=$crit"
+    lm_info "[$host] [$st] $mp type=$type inodes=$inodes used=$iused use%=$use warn=$warn crit=$crit"
 
     if [ "$st" != "OK" ]; then
-      echo "ALERT:$host:$mp:$use% (warn=$warn crit=$crit)"
+      append_alert "$host|$mp|$use% (warn=$warn crit=$crit)"
     fi
   done <<< "$lines"
 
-  log "===== Completed $host ====="
+  lm_info "===== Completed $host ====="
 }
 
 # ========================
 # Main
 # ========================
-log "=== Inode Monitor Started (defaults warn=${DEFAULT_WARN}% crit=${DEFAULT_CRIT}%) ==="
+lm_info "=== Inode Monitor Started (defaults warn=${DEFAULT_WARN}% crit=${DEFAULT_CRIT}%) ==="
 
-alerts=""
-if [ -f "$SERVERLIST" ]; then
-  while IFS= read -r HOST; do
-    [ -z "$HOST" ] && continue
-    is_excluded_host "$HOST" && { log "Skipping $HOST (excluded)"; continue; }
-    res="$(check_host "$HOST")"
-    case "$res" in
-      *ALERT:*) alerts+=$(printf "%s\n" "$res" | sed 's/^.*ALERT://')$'\n' ;;
-    esac
-  done < "$SERVERLIST"
-else
-  res="$(check_host "localhost")"
-  case "$res" in
-    *ALERT:*) alerts+=$(printf "%s\n" "$res" | sed 's/^.*ALERT://')$'\n' ;;
-  esac
-fi
+lm_for_each_host run_for_host
+
+alerts="$(cat "$ALERTS_FILE" 2>/dev/null)"
+rm -f "$ALERTS_FILE" 2>/dev/null || true
 
 if [ -n "$alerts" ]; then
   subject="High inode usage detected"
@@ -184,10 +143,10 @@ if [ -n "$alerts" ]; then
 
 Host | Mount | Use% (warn/crit)
 -------------------------------
-$(echo "$alerts" | awk -F: 'NF>=3{printf "%s | %s | %s\n",$1,$2,$3}') 
+$(echo "$alerts" | awk -F'|' 'NF>=3{printf "%s | %s | %s\n",$1,$2,$3}')
 
 This is an automated message from inode_monitor.sh."
-  send_mail "$subject" "$body"
+  lm_mail "$MAIL_SUBJECT_PREFIX $subject" "$body"
 fi
 
-log "=== Inode Monitor Finished ==="
+lm_info "=== Inode Monitor Finished ==="
