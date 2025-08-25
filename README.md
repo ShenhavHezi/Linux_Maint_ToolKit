@@ -5,10 +5,10 @@ A curated set of lightweight Bash tools for day-to-day Linux ops: monitoring, in
 ---
 
 ## 📚 Table of Contents
-- [Conventions & Layout](#Conventions--and--Layout) 
+- [Conventions & Layout](#conventions--and--layout) 
 - [Shared Helpers (linux_maint.sh)](#shared--helpers)
-- Quickstart
-- Script Matrix
+- [Quickstart](#quickstart)
+- [Script Matrix](#script--matrix)
 
 Script:
 - [Disk Monitor (`disk_monitor.sh`)](#disk_monitorsh--linux-disk-usage-monitoring-script)
@@ -31,7 +31,7 @@ Script:
 ---
 
 
-## 🧭 Conventions & Layout <a name="Conventions--and--Layout"></a>
+## 🧭 Conventions & Layout <a name="conventions--and--layout"></a>
 **Install paths (convention):**
 
 `/usr/local/bin/                 # scripts`
@@ -88,7 +88,7 @@ Some scripts (currently `ntp_drift_monitor.sh` and `backup_check.sh`) are refact
 **Drop the file at** `/usr/local/lib/linux_maint.sh` **and source it from scripts that support it.**
 
 
-## ⚡ Quickstart
+## ⚡ Quickstart <a name="quickstart"></a>
 
 #### 1) Create config directory and seed files
 
@@ -114,7 +114,7 @@ sudo crontab -e
 ```
 
 
-## 🧾 Script Matrix
+## 🧾 Script Matrix <a name="script--matrix"></a>
 
 | Script                          | Purpose                                                 | Runs On      | Log                                           |
 | ------------------------------- | ------------------------------------------------------- | ------------ | --------------------------------------------- |
