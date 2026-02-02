@@ -192,6 +192,8 @@ run_for_host(){
   local host="$1"
   lm_info "===== Network checks from $host ====="
 
+  local checked=0
+
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
     append_alert "$host|ssh|$host|ssh_unreachable"
@@ -202,6 +204,7 @@ run_for_host(){
 
   # Rows for this host (* or exact), require at least 3 columns
   while IFS=',' read -r thost check target rest; do
+    checked=$((checked+1))
     IFS=',' read -r -a kv <<<"${rest}"
     case "$check" in
       ping) run_ping "$host" "$target" "${kv[@]}" ;;
@@ -212,8 +215,11 @@ run_for_host(){
   done < <(lm_csv_rows_for_host "$TARGETS" "$host" 3)
 
   lm_info "===== Completed $host ====="
-}
+  local failures=0
+  failures=$( [ -f "$ALERTS_FILE" ] && wc -l < "$ALERTS_FILE" 2>/dev/null || echo 0 )
+  echo network_monitor host=$host status=$([ $failures -gt 0 ] && echo CRIT || echo OK) checked=$checked failures=$failures
 
+}
 # ========================
 # Main
 # ========================

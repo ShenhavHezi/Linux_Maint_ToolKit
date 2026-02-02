@@ -75,9 +75,12 @@ run_for_host(){
   local host="$1"
   lm_info "===== Starting checks on $host ====="
 
+  local anomalies=0
+
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
     append_alert "$host|ssh|unreachable"
+    anomalies=$((anomalies+1))
     lm_info "===== Completed $host ====="
     return
   fi
@@ -106,12 +109,14 @@ run_for_host(){
       if [ -n "$new_users" ]; then
         while IFS= read -r u; do
           [ -n "$u" ] && append_alert "$host|user_new|$u"
+    anomalies=$((anomalies+1))
         done <<< "$new_users"
         lm_warn "[$host] NEW users: $(echo "$new_users" | paste -sd',' -)"
       fi
       if [ -n "$removed_users" ]; then
         while IFS= read -r u; do
           [ -n "$u" ] && append_alert "$host|user_removed|$u"
+    anomalies=$((anomalies+1))
         done <<< "$removed_users"
         lm_warn "[$host] REMOVED users: $(echo "$removed_users" | paste -sd',' -)"
       fi
@@ -140,6 +145,7 @@ run_for_host(){
       if [ "$sudo_hash" != "$sudo_base" ]; then
         lm_err "[$host] sudoers file changed (baseline vs current)"
         append_alert "$host|sudoers_changed|old=${sudo_base:0:8} new=${sudo_hash:0:8}"
+    anomalies=$((anomalies+1))
         [ "$BASELINE_UPDATE" = "true" ] && { echo "$sudo_hash" > "$sudo_base_file"; lm_info "[$host] sudoers baseline updated."; }
       else
         lm_info "[$host] sudoers unchanged"
@@ -155,15 +161,18 @@ run_for_host(){
   if [ "$failed" -ge "$FAILED_CRIT" ]; then
     failed_status="CRIT"
     append_alert "$host|failed_ssh|CRIT:$failed in ${FAILED_WINDOW_HOURS}h"
+    anomalies=$((anomalies+1))
   elif [ "$failed" -ge "$FAILED_WARN" ]; then
     failed_status="WARN"
     append_alert "$host|failed_ssh|WARN:$failed in ${FAILED_WINDOW_HOURS}h"
+    anomalies=$((anomalies+1))
   fi
   lm_info "[$host] failed SSH logins last ${FAILED_WINDOW_HOURS}h: $failed ($failed_status)"
 
-  lm_info "===== Completed $host ====="
-}
+  echo user_monitor host=$host status=$([ $anomalies -gt 0 ] && echo WARN || echo OK) anomalies=$anomalies
 
+lm_info "===== Completed $host ====="
+}
 # ========================
 # Main
 # ========================

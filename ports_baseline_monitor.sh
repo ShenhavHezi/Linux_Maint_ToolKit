@@ -174,6 +174,9 @@ run_for_host() {
   local host="$1"
   lm_info "===== Checking ports on $host ====="
 
+  local new_count=0
+  local removed_count=0
+
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
     lm_info "===== Completed $host ====="
@@ -205,6 +208,10 @@ run_for_host() {
 
   compare_and_report "$host" "$cur_file" "$base_file"
 
+  # Counts for one-line summary (raw diffs; allowlist not applied here)
+  new_count=$(comm -13 "$base_file" "$cur_file" 2>/dev/null | wc -l | tr -d ' ')
+  removed_count=$(comm -23 "$base_file" "$cur_file" 2>/dev/null | wc -l | tr -d ' ')
+
   if [ "$BASELINE_UPDATE" = "true" ]; then
     cp -f "$cur_file" "$base_file"
     lm_info "[$host] Baseline updated."
@@ -212,8 +219,14 @@ run_for_host() {
 
   rm -f "$cur_file"
   lm_info "===== Completed $host ====="
-}
 
+  local status=OK
+  if [ "$new_count" -gt 0 ] || [ "$removed_count" -gt 0 ]; then
+    status=WARN
+  fi
+  echo "ports_baseline_monitor host=$host status=$status new=$new_count removed=$removed_count"
+
+}
 # ========================
 # Main
 # ========================

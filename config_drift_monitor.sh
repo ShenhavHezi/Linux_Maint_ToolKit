@@ -187,6 +187,10 @@ run_for_host(){
   local host="$1"
   lm_info "===== Checking config drift on $host ====="
 
+  local modified=0
+  local added=0
+  local removed=0
+
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
     return
@@ -217,12 +221,19 @@ run_for_host(){
 
   compare_and_report "$host" "$cur_file" "$base_file"
 
+  modified=$( [ -f "$modified_filtered" ] && wc -l < "$modified_filtered" 2>/dev/null || echo 0)
+  added=$( [ -f "$new_filtered" ] && wc -l < "$new_filtered" 2>/dev/null || echo 0)
+  removed=$( [ -f "$removed_file" ] && wc -l < "$removed_file" 2>/dev/null || echo 0)
+
   if [ "$BASELINE_UPDATE" = "true" ]; then
     cp -f "$cur_file" "$base_file"
     lm_info "[$host] Baseline updated."
   fi
 
   rm -f "$cur_file"
+
+  echo config_drift_monitor host=$host status=$([ $((modified+added+removed)) -gt 0 ] && echo WARN || echo OK) modified=$modified added=$added removed=$removed
+
   lm_info "===== Completed $host ====="
 }
 

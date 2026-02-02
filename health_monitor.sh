@@ -104,5 +104,11 @@ if [ -s "${LM_EMAILS:-/etc/linux_maint/emails.txt}" ]; then
   lm_mail "$MAIL_SUBJECT_PREFIX Linux Health Check Report - $(date '+%Y-%m-%d %H:%M:%S')" "$(cat "$REPORT_FILE")"
 fi
 
+
+# One-line summary to stdout (for wrapper logs)
+hosts=0
+hosts=$(grep -c "^>>> Health check on" "$REPORT_FILE" 2>/dev/null || echo 0)
+lines=$(wc -l < "$REPORT_FILE" 2>/dev/null || echo 0)
+echo health_monitor summary status=OK hosts=$hosts report_lines=$lines
 rm -f "$REPORT_FILE" "$REPORT_LOCK" 2>/dev/null || true
 lm_info "=== Health Monitor Finished ==="

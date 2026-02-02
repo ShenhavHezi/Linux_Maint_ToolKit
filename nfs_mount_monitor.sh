@@ -1,184 +1,101 @@
-#!/bin/bash
-# ntp_drift_monitor.sh - Monitor NTP/chrony/timesyncd sync state & clock drift
+#!/usr/bin/env bash
+# nfs_mount_monitor.sh - Check NFS mounts are present and responsive (local/distributed)
 # Author: Shenhav_Hezi
-# Version: 2.1 (refined)
-# Description:
-#   Checks one or many Linux servers for time-sync health:
-#     - current offset/drift from NTP (ms)
-#     - selected time source & stratum
-#     - sync status (OK/WARN/CRIT)
-#   Supports chrony, ntpd, and systemd-timesyncd.
-#   Logs a concise report and can email aggregated alerts.
+# Version: 1.0
+#
+# What it does:
+# - Lists NFS mounts via findmnt (fallback: /proc/mounts)
+# - For each NFS mountpoint:
+#     * checks it is still mounted
+#     * checks it is responsive using a bounded timeout (stat)
+# - Produces one-line stdout summary for wrapper logs.
 
-# ===== Shared helpers =====
+set -euo pipefail
+
 . /usr/local/lib/linux_maint.sh || { echo "Missing /usr/local/lib/linux_maint.sh"; exit 1; }
-LM_PREFIX="[ntp_drift] "
-LM_LOGFILE="/var/log/ntp_drift_monitor.log"
-: "${LM_MAX_PARALLEL:=0}"     # 0=sequential; >0 to run hosts in parallel
-: "${LM_EMAIL_ENABLED:=true}" # master email toggle
+LM_PREFIX="[nfs_mount] "
+LM_LOGFILE="/var/log/nfs_mount_monitor.log"
+: "${LM_MAX_PARALLEL:=0}"
+: "${LM_EMAIL_ENABLED:=true}"
 
-lm_require_singleton "ntp_drift_monitor"
+lm_require_singleton "nfs_mount_monitor"
 
-MAIL_SUBJECT_PREFIX='[NTP Drift Monitor]'
+MAIL_SUBJECT_PREFIX='[NFS Mount Monitor]'
+EMAIL_ON_ISSUE="true"
 
-# ========================
-# Configuration
-# ========================
-# Thresholds (milliseconds)
-OFFSET_WARN_MS=100
-OFFSET_CRIT_MS=500
-EMAIL_ON_ISSUE="true"   # Send email on WARN/CRIT
+# timeout for responsiveness check per mount
+: "${NFS_STAT_TIMEOUT:=5}"
 
-# ========================
-# Helpers (script-local)
-# ========================
+ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" nfs_mount_monitor.alerts.XXXXXX)"
+append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 mail_if_enabled(){ [ "$EMAIL_ON_ISSUE" = "true" ] || return 0; lm_mail "$1" "$2"; }
 
-# Echo one of: chrony | ntpd | timesyncd | unknown
-impl_detect() {
+# remote command: print mountpoint|source per nfs mount
+collect_nfs_mounts_cmd='
+if command -v findmnt >/dev/null 2>&1; then
+  findmnt -rn -t nfs,nfs4 -o TARGET,SOURCE 2>/dev/null | awk "NF>=1{print $1 \"|\" ($2?$2:"-") }"
+else
+  awk "$3 ~ /^nfs/ {print $2 \"|\" $1}" /proc/mounts 2>/dev/null
+fi
+'
+
+run_for_host(){
   local host="$1"
-  if lm_ssh "$host" "command -v chronyc >/dev/null"; then echo chrony; return; fi
-  if lm_ssh "$host" "command -v ntpq    >/dev/null"; then echo ntpd;   return; fi
-  # Prefer checking a real property so we don't mis-detect
-  if lm_ssh "$host" "command -v timedatectl >/dev/null 2>&1 && (timedatectl show -p NTPSynchronized --value >/dev/null 2>&1 || timedatectl show-timesync >/dev/null 2>&1)"; then
-    echo timesyncd; return
-  fi
-  echo unknown
-}
+  lm_info "===== Checking NFS mounts on $host ====="
 
-# ---- Parsers for each implementation. Echo:
-# impl|offset_ms|stratum|source|synced|note
-# where synced is yes/no/unknown
-probe_chrony() {
-  local host="$1"
-  local track; track="$(lm_ssh "$host" "chronyc tracking" 2>/dev/null)" || track=""
-  [ -z "$track" ] && { echo "chrony|?|?|?|no|no_output"; return; }
-
-  # System time: "X seconds fast/slow of NTP time"
-  local sysline; sysline="$(printf "%s\n" "$track" | awk -F': ' '/^System time/{print $2}')"
-  local sec; sec="$(printf "%s\n" "$sysline" | awk '{print $1}')"
-  local offset_ms; offset_ms="$(awk -v s="$sec" 'BEGIN{ if(s==""){print "?"} else {m=s*1000; if(m<0)m=-m; printf("%.0f", m)} }')"
-
-  local stratum; stratum="$(printf "%s\n" "$track" | awk -F': ' '/^Stratum/{print $2}')"
-  [ -z "$stratum" ] && stratum="?"
-  local source; source="$(printf "%s\n" "$track" | awk -F': ' '/^Reference ID/{print $2}')"
-  [ -z "$source" ] && source="?"
-
-  local leap; leap="$(printf "%s\n" "$track" | awk -F': ' '/^Leap status/{print $2}')"
-  local synced="yes"; [ "$leap" = "Not synchronised" ] && synced="no"
-
-  echo "chrony|$offset_ms|$stratum|$source|$synced|leap:$leap"
-}
-
-probe_ntpd() {
-  local host="$1"
-  local line; line="$(lm_ssh "$host" "ntpq -pn | awk '/^\\*/{print \$0}'" 2>/dev/null)" || line=""
-  if [ -z "$line" ]; then
-    line="$(lm_ssh "$host" "ntpq -pn | awk '/^\\+/{print \$0; exit} NR==3{print \$0}'" 2>/dev/null)"
-  fi
-  [ -z "$line" ] && { echo "ntpd|?|?|?|no|no_peers"; return; }
-
-  # Columns: remote refid st t when poll reach delay offset jitter
-  local source stratum offset_ms synced="no"
-  source="$(echo "$line" | awk '{print $1}')"
-  stratum="$(echo "$line" | awk '{print $3}')"
-  # Normalize to integer ms for consistent numeric comparisons
-  offset_ms="$(echo "$line" | awk '{printf("%.0f", $9)}')"
-  echo "$line" | grep -q '^\*' && synced="yes"
-
-  [ -z "$stratum" ] && stratum="?"
-  [ -z "$offset_ms" ] && offset_ms="?"
-
-  echo "ntpd|$offset_ms|$stratum|$source|$synced|peerline"
-}
-
-probe_timesyncd() {
-  local host="$1"
-  local out; out="$(lm_ssh "$host" "timedatectl show-timesync --all" 2>/dev/null)" || out=""
-  [ -z "$out" ] && { echo "timesyncd|?|?|?|unknown|no_output"; return; }
-
-  # LastOffsetNSec may be negative; convert to absolute ms
-  local ns; ns="$(printf "%s\n" "$out" | awk -F'=' '/^LastOffsetNSec/{print $2}')"
-  local offset_ms="?"
-  if [ -n "$ns" ] && [ "$ns" != "n/a" ]; then
-    offset_ms="$(awk -v n="$ns" 'BEGIN{m=n/1000000.0; if(m<0)m=-m; printf("%.0f", m)}')"
-  fi
-  local stratum; stratum="$(printf "%s\n" "$out" | awk -F'=' '/^Stratum/{print $2}')"
-  [ -z "$stratum" ] && stratum="?"
-  local server; server="$(printf "%s\n" "$out" | awk -F'=' '/^ServerName/{print $2}')"
-  [ -z "$server" ] && server="$(printf "%s\n" "$out" | awk -F'=' '/^ServerAddress/{print $2}')"
-  [ -z "$server" ] && server="?"
-
-  # Sync flag: prefer NTPSynchronized; fall back to SystemClockSync
-  local syncflag
-  syncflag="$(lm_ssh "$host" "timedatectl show -p NTPSynchronized --value 2>/dev/null || timedatectl show -p SystemClockSync --value 2>/dev/null" | tr -d '\r')"
-  local synced="unknown"
-  if [ "$syncflag" = "yes" ]; then
-    synced="yes"
-  else
-    synced="no"
-  fi
-
-  echo "timesyncd|$offset_ms|$stratum|$server|$synced|timesync"
-}
-
-rate_status() {
-  # Decide OK/WARN/CRIT based on offset and sync flag
-  local offset_ms="$1" synced="$2"
-  if [ "$synced" = "no" ]; then echo "CRIT"; return; fi
-  if [ "$offset_ms" = "?" ]; then echo "WARN"; return; fi
-  if [ "$offset_ms" -ge "$OFFSET_CRIT_MS" ]; then echo "CRIT"; return; fi
-  if [ "$offset_ms" -ge "$OFFSET_WARN_MS" ]; then echo "WARN"; return; fi
-  echo "OK"
-}
-
-# ========================
-# Aggregation
-# ========================
-ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" ntp_drift.alerts.XXXXXX)"
-append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
-
-# ========================
-# Per-host runner
-# ========================
-run_for_host() {
-  local host="$1"
-  lm_info "===== Checking time sync on $host ====="
+  local checked=0 bad=0
 
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
-    append_alert "$host|unreachable|?|?|?|no"
+    append_alert "$host|ssh|unreachable"
+    bad=$((bad+1))
+    echo "nfs_mount_monitor host=$host status=CRIT checked=$checked bad=$bad"
     lm_info "===== Completed $host ====="
     return
   fi
 
-  local impl; impl="$(impl_detect "$host")"
-  local line
-  case "$impl" in
-    chrony)     line="$(probe_chrony "$host")" ;;
-    ntpd)       line="$(probe_ntpd "$host")" ;;
-    timesyncd)  line="$(probe_timesyncd "$host")" ;;
-    *)          lm_warn "[$host] No known time-sync tool found"; lm_info "===== Completed $host ====="; return ;;
-  esac
-
-  # impl|offset_ms|stratum|source|synced|note
-  local offset_ms stratum source synced note
-  IFS='|' read -r impl offset_ms stratum source synced note <<<"$line"
-
-  local status; status="$(rate_status "$offset_ms" "$synced")"
-  lm_info "[$status] $host impl=$impl offset_ms=$offset_ms stratum=$stratum source=$source synced=$synced ${note:+note=$note}"
-
-  if [ "$status" != "OK" ]; then
-    append_alert "$host|$impl|$offset_ms|$stratum|$source|$synced"
+  local mounts
+  mounts="$(lm_ssh "$host" bash -lc "$collect_nfs_mounts_cmd" || true)"
+  if [ -z "$mounts" ]; then
+    lm_info "[$host] No NFS mounts found."
+    echo "nfs_mount_monitor host=$host status=OK checked=0 bad=0"
+    lm_info "===== Completed $host ====="
+    return
   fi
 
+  while IFS='|' read -r mp src; do
+    mp="${mp//[[:space:]]/}"
+    src="${src:-}"; src="${src# }"
+    [ -z "$mp" ] && continue
+    checked=$((checked+1))
+
+    # Still mounted?
+    if ! lm_ssh "$host" bash -lc "mountpoint -q '$mp'"; then
+      lm_err "[$host] [CRIT] NFS mountpoint not mounted: $mp (src=${src:-?})"
+      append_alert "$host|unmounted|$mp|${src:-?}"
+      bad=$((bad+1))
+      continue
+    fi
+
+    # Responsiveness: stat with timeout
+    if ! lm_ssh "$host" bash -lc "timeout ${NFS_STAT_TIMEOUT}s stat -f '$mp' >/dev/null 2>&1"; then
+      lm_err "[$host] [CRIT] NFS mount unresponsive: $mp (src=${src:-?})"
+      append_alert "$host|unresponsive|$mp|${src:-?}"
+      bad=$((bad+1))
+      continue
+    fi
+
+    lm_info "[$host] [OK] NFS mount healthy: $mp (src=${src:-?})"
+  done <<<"$mounts"
+
+  local status=OK
+  [ "$bad" -gt 0 ] && status=CRIT
+
+  echo "nfs_mount_monitor host=$host status=$status checked=$checked bad=$bad"
   lm_info "===== Completed $host ====="
 }
 
-# ========================
-# Main
-# ========================
-lm_info "=== NTP Drift Monitor Started (warn=${OFFSET_WARN_MS}ms, crit=${OFFSET_CRIT_MS}ms) ==="
+lm_info "=== NFS Mount Monitor Started (stat_timeout=${NFS_STAT_TIMEOUT}s) ==="
 
 lm_for_each_host run_for_host
 
@@ -186,15 +103,9 @@ alerts="$(cat "$ALERTS_FILE" 2>/dev/null)"
 rm -f "$ALERTS_FILE" 2>/dev/null || true
 
 if [ -n "$alerts" ]; then
-  subject="Hosts with NTP drift or unsynced clocks"
-  body="Thresholds: WARN=${OFFSET_WARN_MS}ms, CRIT=${OFFSET_CRIT_MS}ms
-
-Host | Impl | Offset(ms) | Stratum | Source | Synced
-----------------------------------------------------
-$(echo "$alerts" | awk -F'|' 'NF>=6{printf "%s | %s | %s | %s | %s | %s\n",$1,$2,$3,$4,$5,$6}') 
-
-This is an automated message from ntp_drift_monitor.sh."
+  subject="NFS mount issues detected"
+  body="Host | Issue | Mount | Source\n-----|-------|-------|-------\n$(echo "$alerts" | awk -F'|' 'NF>=4{printf "%s | %s | %s | %s\n",$1,$2,$3,$4}')\n\nThis is an automated message from nfs_mount_monitor.sh."
   mail_if_enabled "$MAIL_SUBJECT_PREFIX $subject" "$body"
 fi
 
-lm_info "=== NTP Drift Monitor Finished ==="
+lm_info "=== NFS Mount Monitor Finished ==="

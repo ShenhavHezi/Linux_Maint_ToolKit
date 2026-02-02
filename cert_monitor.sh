@@ -152,12 +152,16 @@ lm_info "=== Cert Monitor Started (warn=${THRESHOLD_WARN_DAYS}d crit=${THRESHOLD
 [ -s "$TARGETS_FILE" ] || { lm_err "Targets file not found/empty: $TARGETS_FILE"; exit 1; }
 
 ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" cert_monitor.alerts.XXXXXX)"
+checked=0
+warn=0
+crit=0
 while IFS= read -r raw; do
   raw="$(echo "$raw" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
   [ -z "$raw" ] && continue
   [[ "$raw" =~ ^# ]] && continue
 
   IFS='|' read -r HOST PORT SNI STARTTLS <<<"$(parse_target_line "$raw")"
+  checked=$((checked+1))
   res="$(check_one "$HOST" "$PORT" "$SNI" "$STARTTLS")"
 
   status="$(printf "%s\n" "$res" | awk '{for(i=1;i<=NF;i++) if($i ~ /^status=/){print substr($i,8)}}')"
@@ -167,10 +171,15 @@ while IFS= read -r raw; do
 
   lm_info "[$status] $HOST:$PORT (SNI=$SNI) days_left=${days:-?} verify=$verify ${note:+note=$note}"
 
+  [ "$status" = "WARN" ] && warn=$((warn+1))
+  [ "$status" = "CRIT" ] && crit=$((crit+1))
+
   if [ "$status" = "WARN" ] || [ "$status" = "CRIT" ]; then
     printf "%s|%s|%s|%s|%s|%s\n" "$HOST:$PORT" "$SNI" "${days:-?}" "$verify" "$status" "$note" >> "$ALERTS_FILE"
   fi
 done < "$TARGETS_FILE"
+
+echo cert_monitor summary status=$([ ${crit:-0} -gt 0 ] && echo CRIT || ([ ${warn:-0} -gt 0 ] && echo WARN || echo OK)) checked=${checked:-0} warn=${warn:-0} crit=${crit:-0}
 
 alerts="$(cat "$ALERTS_FILE" 2>/dev/null)"
 rm -f "$ALERTS_FILE" 2>/dev/null || true
@@ -188,3 +197,5 @@ This is an automated message from cert_monitor.sh."
 fi
 
 lm_info "=== Cert Monitor Finished ==="
+
+# cert_monitor summary (end)

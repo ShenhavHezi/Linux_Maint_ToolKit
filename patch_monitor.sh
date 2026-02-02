@@ -105,6 +105,8 @@ run_for_host() {
   local host="$1"
   lm_info "===== Checking patches on $host ====="
 
+  local status=OK
+
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable; skipping"
     lm_info "===== Completed $host ====="
@@ -129,6 +131,11 @@ run_for_host() {
 
   lm_info "[$host] Pending updates: total=$total, security=$sec, kernel=$kern, reboot_required=$reboot"
 
+
+  if [ "${sec:-0}" -gt 0 ] || [ "${kern:-0}" -gt 0 ] || [ "$reboot" = "yes" ]; then
+    status=WARN
+  fi
+
   # Per-host email if action needed
   if { [ "${sec:-0}" -gt 0 ] || [ "${kern:-0}" -gt 0 ] || [ "$reboot" = "yes" ]; }; then
     local subj="$host: security=${sec:-0} kernel=${kern:-0} reboot=$reboot"
@@ -141,6 +148,9 @@ Reboot required: $reboot
 This is an automated notice from patch_monitor.sh."
     mail_if_enabled "$MAIL_SUBJECT_PREFIX $subj" "$body"
   fi
+  echo patch_monitor host=$host status=$status total=${total:-0} security=${sec:-0} kernel=${kern:-0} reboot_required=$reboot
+
+
 
   lm_info "===== Completed $host ====="
 }

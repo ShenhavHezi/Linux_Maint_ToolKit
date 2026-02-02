@@ -91,6 +91,10 @@ run_for_host(){
   local host="$1"
   lm_info "===== Checking inode usage on $host ====="
 
+  local checked=0
+  local warn_count=0
+  local crit_count=0
+
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
     append_alert "$host|ssh|unreachable"
@@ -119,6 +123,11 @@ run_for_host(){
     read warn crit <<<"$(lookup_thresholds "$mp")"
     st="$(rate_status "$use" "$warn" "$crit")"
 
+
+    checked=$((checked+1))
+    [ \"$st\" = \"WARN\" ] && warn_count=$((warn_count+1))
+    [ \"$st\" = \"CRIT\" ] && crit_count=$((crit_count+1))
+
     lm_info "[$host] [$st] $mp type=$type inodes=$inodes used=$iused use%=$use warn=$warn crit=$crit"
 
     if [ "$st" != "OK" ]; then
@@ -127,8 +136,10 @@ run_for_host(){
   done <<< "$lines"
 
   lm_info "===== Completed $host ====="
-}
 
+  echo inode_monitor host=$host status=$([ $crit_count -gt 0 ] && echo CRIT || ([ $warn_count -gt 0 ] && echo WARN || echo OK)) checked=$checked warn=$warn_count crit=$crit_count
+
+}
 # ========================
 # Main
 # ========================

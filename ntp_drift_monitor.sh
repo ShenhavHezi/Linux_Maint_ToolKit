@@ -140,6 +140,10 @@ run_for_host() {
   local host="$1"
   lm_info "===== Checking time sync on $host ====="
 
+  local checked=0
+  local warn_count=0
+  local crit_count=0
+
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
     append_alert "$host|unreachable|?|?|?|no"
@@ -156,6 +160,8 @@ run_for_host() {
     *)          lm_warn "[$host] No known time-sync tool found"; lm_info "===== Completed $host ====="; return ;;
   esac
 
+  checked=1
+
   # impl|offset_ms|stratum|source|synced|note
   local offset_ms stratum source synced note
   IFS='|' read -r impl offset_ms stratum source synced note <<<"$line"
@@ -166,13 +172,20 @@ run_for_host() {
   local status; status="$(rate_status "$off_num" "$synced")"
   lm_info "[$status] $host impl=$impl offset_ms=$offset_ms stratum=$stratum source=$source synced=$synced ${note:+note=$note}"
 
+  [ "$status" = "WARN" ] && warn_count=$((warn_count+1))
+  [ "$status" = "CRIT" ] && crit_count=$((crit_count+1))
+
   if [ "$status" != "OK" ]; then
     append_alert "$host|$impl|$offset_ms|$stratum|$source|$synced"
   fi
 
   lm_info "===== Completed $host ====="
-}
 
+  local overall=OK
+  [ $crit_count -gt 0 ] && overall=CRIT || { [ $warn_count -gt 0 ] && overall=WARN || true; }
+  echo ntp_drift_monitor host=$host status=$overall checked=$checked warn=$warn_count crit=$crit_count
+
+}
 # ========================
 # Main
 # ========================

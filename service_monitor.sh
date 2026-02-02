@@ -76,6 +76,9 @@ run_for_host(){
   local host="$1"
   lm_info "===== Starting service checks on $host ====="
 
+  local checked=0
+  local fail_count=0
+
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
     append_alert "$host|ssh|unreachable"
@@ -87,6 +90,8 @@ run_for_host(){
   while IFS= read -r svc; do
     [ -z "$svc" ] && continue
 
+    checked=$((checked+1))
+
     local st en
     IFS='|' read -r st en <<<"$(query_service_status "$host" "$svc")"
 
@@ -97,6 +102,7 @@ run_for_host(){
       *)
         lm_err  "[$host] [FAIL] $svc status=$st (enabled=$en)"
         append_alert "$host|$svc|$st"
+        fail_count=$((fail_count+1))
         if [ "$AUTO_RESTART" = "true" ]; then
           lm_info "[$host] attempting restart: $svc"
           restart_service "$host" "$svc"
@@ -113,8 +119,10 @@ run_for_host(){
   done < <(list_services)
 
   lm_info "===== Completed $host ====="
-}
 
+  echo service_monitor host=$host status=$([ $fail_count -gt 0 ] && echo CRIT || echo OK) checked=$checked failures=$fail_count
+
+}
 # ========================
 # Main
 # ========================
