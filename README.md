@@ -1,5 +1,12 @@
 # Linux Maintenance Scripts
 
+## TL;DR
+
+- Install: `sudo cp *.sh /usr/local/bin/ && sudo cp linux_maint.sh /usr/local/lib/linux_maint.sh`
+- Seed config: `sudo mkdir -p /etc/linux_maint && echo localhost | sudo tee /etc/linux_maint/servers.txt`
+- Run full daily report (single file): `sudo /usr/local/sbin/run_full_health_monitor.sh`
+- View latest combined log: `sudo less /var/log/health/full_health_monitor_latest.log`
+
 A curated set of lightweight Bash tools for day-to-day Linux ops: monitoring, inventory, baselines, and drift detection. Most scripts support **distributed mode** (run checks on many hosts via SSH) and **email alerts**.
 
 ---

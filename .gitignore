@@ -1,0 +1,11 @@
+# local state/logs (should not be committed)
+*.log
+*.swp
+*~
+.DS_Store
+
+# local inventory exports / generated reports
+*.csv
+
+# optional local config copies
+/etc_linux_maint/
