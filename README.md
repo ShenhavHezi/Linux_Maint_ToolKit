@@ -97,6 +97,14 @@ Some scripts (currently `ntp_drift_monitor.sh` and `backup_check.sh`) are refact
 
 ## ⚡ Quickstart <a name="quickstart"></a>
 
+### Distributed mode (default)
+
+This repo is designed to be run from an *admin/control host* against many Linux servers over SSH.
+
+**Assumptions:**
+- You have SSH key-based access to each target host (no interactive password prompts).
+- Targets are listed in `/etc/linux_maint/servers.txt` (one host per line).
+
 #### 1) Create config directory and seed files
 
 ```
@@ -119,6 +127,29 @@ sudo cp linux_maint.sh /usr/local/lib/
 sudo crontab -e
 0 3 * * * /usr/local/bin/patch_monitor.sh
 ```
+
+---
+
+### Single-host (local) mode (optional)
+
+Most scripts also work when run directly on a single machine (no SSH fan-out).
+
+**Setup options:**
+- Easiest: keep `servers.txt` with just `localhost`
+- Or: put the machine's hostname/IP in `servers.txt`
+
+Example:
+```
+sudo mkdir -p /etc/linux_maint
+echo localhost | sudo tee /etc/linux_maint/servers.txt
+```
+
+Then run any script normally, e.g.:
+
+```
+sudo bash /usr/local/bin/health_monitor.sh
+```
+
 
 
 ## 🧾 Script Matrix <a name="script--matrix"></a>
