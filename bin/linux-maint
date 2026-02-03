@@ -3,15 +3,36 @@
 
 set -euo pipefail
 
+# If running from a git checkout, prefer repo paths automatically.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+
 PREFIX="${PREFIX:-/usr/local}"
 SBIN="$PREFIX/sbin"
 LIBEXEC="$PREFIX/libexec/linux_maint"
 SHARE="$PREFIX/share/linux_maint"
 
+REPO_MONITORS="$REPO_ROOT/monitors"
+REPO_LIB="$REPO_ROOT/lib/linux_maint.sh"
+REPO_WRAPPER="$REPO_ROOT/run_full_health_monitor.sh"
+
+# installed defaults
 wrapper="$SBIN/run_full_health_monitor.sh"
+preflight="$LIBEXEC/preflight_check.sh"
+validate="$LIBEXEC/config_validate.sh"
+
+if [[ -d "$REPO_MONITORS" && -f "$REPO_LIB" ]]; then
+  # repo mode
+  export LINUX_MAINT_LIB="${LINUX_MAINT_LIB:-$REPO_LIB}"
+  export LM_LOCKDIR="${LM_LOCKDIR:-/tmp}"
+  export LM_LOGFILE="${LM_LOGFILE:-/tmp/linux_maint.log}"
+  wrapper="$REPO_WRAPPER"
+  preflight="$REPO_MONITORS/preflight_check.sh"
+  validate="$REPO_MONITORS/config_validate.sh"
+fi
 
 usage(){
-  cat <<EOF
+  cat <<EOF2
 Usage: linux-maint <command> [args]
 
 Commands:
@@ -27,8 +48,11 @@ Commands:
   help                Show this help
 
 Environment:
-  PREFIX=/usr/local    installation prefix override
-EOF
+  PREFIX=/usr/local             installation prefix override
+  LINUX_MAINT_LIB=...           override library path (useful in repo mode)
+  LM_LOCKDIR=/tmp               override lock dir (useful when not root)
+  LM_LOGFILE=/tmp/linux_maint.log override default log file
+EOF2
 }
 
 cmd="${1:-help}"; shift || true
@@ -39,16 +63,22 @@ case "$cmd" in
     ;;
 
   run)
-    exec sudo -n "$wrapper" 2>/dev/null || exec "$wrapper"
+    # In installed mode, try sudo -n first. In repo mode, just run.
+    if [[ "$wrapper" == "$SBIN"/* ]]; then
+      exec sudo -n "$wrapper" 2>/dev/null || exec "$wrapper"
+    else
+      exec bash "$wrapper"
+    fi
     ;;
 
   logs)
     n="${1:-200}"
-    exec sudo -n tail -n "$n" /var/log/health/full_health_monitor_latest.log 2>/dev/null || tail -n "$n" /var/log/health/full_health_monitor_latest.log
+    exec sudo -n tail -n "$n" /var/log/health/full_health_monitor_latest.log 2>/dev/null \
+      || tail -n "$n" /var/log/health/full_health_monitor_latest.log
     ;;
 
   version)
-    if [ -f "$SHARE/BUILD_INFO" ]; then
+    if [[ -f "$SHARE/BUILD_INFO" ]]; then
       cat "$SHARE/BUILD_INFO"
     else
       echo "BUILD_INFO not found at $SHARE/BUILD_INFO"
@@ -57,23 +87,33 @@ case "$cmd" in
     ;;
 
   preflight)
-    exec "$LIBEXEC/preflight_check.sh"
+    exec bash "$preflight"
     ;;
 
   validate)
-    exec "$LIBEXEC/config_validate.sh"
+    exec bash "$validate"
     ;;
 
   status)
     status_file="/var/log/health/last_status_full"
-    echo "=== Installed ==="
-    echo "wrapper: $wrapper"
+    echo "=== Mode ==="
+    if [[ -d "$REPO_MONITORS" && -f "$REPO_LIB" && "$wrapper" == "$REPO_WRAPPER" ]]; then
+      echo "repo"
+      echo "repo_root: $REPO_ROOT"
+      echo "linux_maint_lib: ${LINUX_MAINT_LIB:-}"
+    else
+      echo "installed"
+      echo "prefix: $PREFIX"
+    fi
+
+    echo ""; echo "=== Installed paths (if installed) ==="
+    echo "wrapper: $SBIN/run_full_health_monitor.sh"
     echo "libexec: $LIBEXEC"
     echo "build_info: $SHARE/BUILD_INFO"
-    [ -f "$SHARE/BUILD_INFO" ] && { echo ""; cat "$SHARE/BUILD_INFO"; }
+    [[ -f "$SHARE/BUILD_INFO" ]] && { echo ""; cat "$SHARE/BUILD_INFO"; }
 
     echo ""; echo "=== Last run status ==="
-    if [ -f "$status_file" ]; then
+    if [[ -f "$status_file" ]]; then
       cat "$status_file"
     else
       echo "No status file: $status_file"
@@ -81,14 +121,12 @@ case "$cmd" in
 
     echo ""; echo "=== Recent WARN/CRIT/UNKNOWN lines (latest log) ==="
     log="/var/log/health/full_health_monitor_latest.log"
-    if [ -f "$log" ]; then
+    if [[ -f "$log" ]]; then
       grep -E ' status=(WARN|CRIT|UNKNOWN)|SKIP:|SUMMARY_RESULT' "$log" | tail -n 80 || true
     else
       echo "No log: $log"
     fi
     ;;
-
-
 
   install)
     exec sudo ./install.sh "$@"
@@ -101,6 +139,7 @@ case "$cmd" in
   make-tarball)
     exec ./tools/make_tarball.sh "$@"
     ;;
+
   *)
     echo "Unknown command: $cmd" >&2
     usage
