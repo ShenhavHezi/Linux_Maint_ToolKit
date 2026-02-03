@@ -1,6 +1,20 @@
 # Linux Maintenance Scripts
 
 
+
+## Summary
+
+`linux_Maint_Scripts` is a lightweight Linux maintenance and health-monitoring toolkit designed to run on a monitoring node (typically via cron/systemd). It executes a set of modular checks locally and/or over SSH, writes structured logs, and returns automation-friendly exit codes.
+
+**What you get (high level):**
+- **Single entrypoint:** `linux-maint` CLI and `run_full_health_monitor.sh` wrapper
+- **Modular monitors:** CPU/memory/load, disk/inodes, services, network reachability, NTP drift, patch/reboot hints, kernel event scan, storage/SMART/NVMe/RAID best-effort checks, config drift, ports baseline drift, user/sudoers drift, backup freshness checks, and inventory export
+- **Distributed mode:** run checks against many hosts via `/etc/linux_maint/servers.txt` + SSH
+- **Operational output:** per-run aggregated log + per-monitor logs under `/var/log`, with `OK/WARN/CRIT/UNKNOWN` statuses
+- **Enterprise-friendly:** installer, systemd timer/logrotate options, and offline (dark-site) tarball releases
+
+**Designed operating model:** installed mode is intended to run as **root (or via sudo)** because it uses `/var/log` and `/var/lock` and some checks require privileged access.
+
 ## Table of Contents
 
 - [Installation (recommended Linux paths)](#installation-recommended-linux-paths)
