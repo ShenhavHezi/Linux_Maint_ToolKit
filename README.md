@@ -135,6 +135,32 @@ Baselines created by monitors:
 - `/etc/linux_maint/baselines/users/<host>.users`
 - `/etc/linux_maint/baselines/sudoers/<host>.sudoers`
 
+
+
+### Enabling config drift monitoring (optional)
+
+`config_drift_monitor.sh` is skipped until you define what to track.
+Create `/etc/linux_maint/config_paths.txt` with one path/pattern per line.
+
+Minimal example:
+
+```bash
+sudo tee /etc/linux_maint/config_paths.txt >/dev/null <<'EOF'
+/etc/ssh/sshd_config
+/etc/sudoers
+/etc/fstab
+/etc/sysctl.conf
+/etc/cron.d/
+EOF
+```
+
+Then run the wrapper again:
+
+```bash
+sudo /usr/local/sbin/run_full_health_monitor.sh
+sudo grep -n "config_drift" -n /var/log/health/full_health_monitor_latest.log | tail -n 30
+```
+
 ## Quick manual run
 Run the full package now:
 
