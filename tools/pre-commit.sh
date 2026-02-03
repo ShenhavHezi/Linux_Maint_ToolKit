@@ -5,7 +5,8 @@
 set -euo pipefail
 
 echo "[pre-commit] Running shellcheck..."
-if ! command -v shellcheck >/dev/null 2>&1; then
+if ! command -v shellcheck -x -e SC2016,SC2034,SC2155,SC2317 -- ./*.sh ./install.sh ./linux-maint ./tools/*.sh
+
   echo "shellcheck not found. Install it (e.g. apt-get install shellcheck / dnf install ShellCheck)" >&2
   exit 1
 fi

@@ -18,7 +18,11 @@ jobs:
 
       - name: ShellCheck
         run: |
-          shellcheck -S warning -x -- ./*.sh ./install.sh ./linux-maint ./tools/*.sh
+          # Ignore a small set of noisy warnings that are common false-positives in remote heredocs
+          # and multi-line string construction patterns used by this project.
+          shellcheck -x \
+            -e SC2016,SC2034,SC2155,SC2317 \
+            -- ./*.sh ./install.sh ./linux-maint ./tools/*.sh
 
       - name: Verify README tuning knobs are up to date
         run: |

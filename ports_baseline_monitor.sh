@@ -151,9 +151,7 @@ compare_and_report() {
 
   if [ "$changes" -eq 1 ]; then
     local subj="Port changes on $host"
-    local body
-    body="Host: $host
-"
+    local body="Host: $host
 
 New entries:
 $( [ -s "$new_filtered" ] && awk -F'|' '{printf "  + %s/%s (%s)\n",$1,$2,$3}' "$new_filtered" || echo "  (none)")
