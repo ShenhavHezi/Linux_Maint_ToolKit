@@ -29,6 +29,16 @@ sudo mkdir -p /etc/linux_maint /etc/linux_maint/baselines /var/log/health
 ```
 
 
+### Permissions / hardening (recommended)
+After installation, keep the scripts directory root-owned and not writable by non-root users:
+
+```bash
+sudo chown -R root:root /usr/local/libexec/linux_maint
+sudo chmod -R go-w /usr/local/libexec/linux_maint
+```
+
+
+
 
 
 
