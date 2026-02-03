@@ -38,6 +38,14 @@ REPO_STATUS_FILE="$REPO_LOG_DIR/last_status_full"
 REPO_LATEST_LOG="$REPO_LOG_DIR/full_health_monitor_latest.log"
 
 
+need_root(){
+  if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+    echo "ERROR: This command requires root." >&2
+    echo "Hint: run: sudo linux-maint <command>" >&2
+    exit 1
+  fi
+}
+
 usage(){
   cat <<EOF2
 Usage: linux-maint <command> [args]
@@ -70,6 +78,9 @@ case "$cmd" in
     ;;
 
   run)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root
+    fi
     # In installed mode, try sudo -n first. In repo mode, just run.
     if [[ "$wrapper" == "$SBIN"/* ]]; then
       exec sudo -n "$wrapper" 2>/dev/null || exec "$wrapper"
@@ -79,6 +90,9 @@ case "$cmd" in
     ;;
 
   logs)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root
+    fi
         n="${1:-200}"
         if [[ "$MODE" == "repo" ]]; then
           mkdir -p "$REPO_LOG_DIR"
@@ -107,6 +121,9 @@ case "$cmd" in
     ;;
 
   status)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root
+    fi
         if [[ "$MODE" == "repo" ]]; then
           echo "=== Mode ==="
           echo "repo"
