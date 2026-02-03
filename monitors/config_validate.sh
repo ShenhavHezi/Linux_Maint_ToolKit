@@ -104,15 +104,23 @@ validate(){
   fi
 
   if [ "$crit" -gt 0 ]; then
-    echo "config_validate status=CRIT warn=$warn crit=$crit"
+    lm_summary "config_validate" "localhost" "CRIT" warn=$warn crit=$crit
+    # legacy:
+    # echo "config_validate status=CRIT warn=$warn crit=$crit"
     exit 2
   fi
   if [ "$warn" -gt 0 ]; then
-    echo "config_validate status=WARN warn=$warn crit=$crit"
+    lm_summary "config_validate" "localhost" "WARN" warn=$warn crit=$crit
+    # legacy:
+    # echo "config_validate status=WARN warn=$warn crit=$crit"
     exit 1
   fi
-  echo "config_validate status=OK warn=$warn crit=$crit"
+  lm_summary "config_validate" "localhost" "OK" warn=$warn crit=$crit
+  # legacy:
+  # echo "config_validate status=OK warn=$warn crit=$crit"
   exit 0
 }
 
-validate "$@" | tee -a "$LM_LOGFILE" >/dev/null
+out="$(validate "$@")"
+printf "%s
+" "$out" | tee -a "$LM_LOGFILE"
