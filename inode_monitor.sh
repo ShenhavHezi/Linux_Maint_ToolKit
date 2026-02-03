@@ -107,7 +107,7 @@ run_for_host(){
     return
   fi
 
-  while IFS='|' read -r fs type inodes iused iusepct mp; do
+  while IFS='|' read -r _fs type inodes iused iusepct mp; do
     # Normalize
     use="${iusepct%%%}"
     [ -z "$use" ] && continue
@@ -137,7 +137,9 @@ run_for_host(){
 
   lm_info "===== Completed $host ====="
 
-  echo inode_monitor host=$host status=$([ $crit_count -gt 0 ] && echo CRIT || ([ $warn_count -gt 0 ] && echo WARN || echo OK)) checked=$checked warn=$warn_count crit=$crit_count
+  status="OK"
+  if [ "$crit_count" -gt 0 ]; then status="CRIT"; elif [ "$warn_count" -gt 0 ]; then status="WARN"; fi
+  echo "inode_monitor host=$host status=$status checked=$checked warn=$warn_count crit=$crit_count"
 
 }
 # ========================

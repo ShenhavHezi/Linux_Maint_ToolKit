@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # linux_maint.sh - Shared helpers for Linux_Maint_Scripts
 # Author: Shenhav_Hezi
 # Version: 1.0

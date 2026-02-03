@@ -120,7 +120,8 @@ run_for_host(){
 
   lm_info "===== Completed $host ====="
 
-  echo service_monitor host=$host status=$([ $fail_count -gt 0 ] && echo CRIT || echo OK) checked=$checked failures=$fail_count
+  status=$( [ "$fail_count" -gt 0 ] && echo CRIT || echo OK )
+  echo "service_monitor host=$host status=$status checked=$checked failures=$fail_count"
 
 }
 # ========================

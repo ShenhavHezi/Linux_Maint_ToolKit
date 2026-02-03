@@ -203,7 +203,7 @@ run_for_host(){
   [ -s "$TARGETS" ] || { lm_err "[$host] targets file $TARGETS missing/empty"; return; }
 
   # Rows for this host (* or exact), require at least 3 columns
-  while IFS=',' read -r thost check target rest; do
+  while IFS=',' read -r _thost check target rest; do
     checked=$((checked+1))
     IFS=',' read -r -a kv <<<"${rest}"
     case "$check" in
