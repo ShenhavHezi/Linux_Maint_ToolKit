@@ -18,6 +18,7 @@
 - [Configuration files under `/etc/linux_maint/`](#configuration-files-under-etclinux_maint)
 - [Optional monitors: enablement examples](#optional-monitors-enablement-examples)
 - [Quick manual run](#quick-manual-run)
+- [Development / CI](#development--ci)
 - [Uninstall](#uninstall)
 - [Log rotation (recommended)](#log-rotation-recommended)
 - [Upgrading](#upgrading)
@@ -518,6 +519,13 @@ sudo /usr/local/sbin/run_full_health_monitor.sh
 sudo tail -n 200 /var/log/health/full_health_monitor_latest.log
 ```
 
+
+
+## Development / CI
+
+This repository includes a GitHub Actions workflow that:
+- runs `shellcheck` on scripts
+- verifies the README "Tuning knobs" section is in sync (`tools/update_readme_defaults.py`)
 
 ## Uninstall
 
