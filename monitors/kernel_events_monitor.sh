@@ -59,7 +59,9 @@ run_for_host(){
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
     append_alert "$host|ssh|unreachable"
-    echo "kernel_events_monitor host=$host status=CRIT matches=?"
+    lm_summary "kernel_events_monitor" "$host" "CRIT" matches=?
+    # legacy:
+    # echo "kernel_events_monitor host=$host status=CRIT matches=?"
     return 2
   fi
 
@@ -68,7 +70,9 @@ run_for_host(){
   out="$(lm_ssh "$host" bash -lc "$cmd" _ "$KERNEL_WINDOW_HOURS" "$PATTERNS" 2>/dev/null || true)"
   if [ -z "$out" ]; then
     lm_warn "[$host] unable to read kernel logs (permissions/tools)"
-    echo "kernel_events_monitor host=$host status=UNKNOWN matches=?"
+    lm_summary "kernel_events_monitor" "$host" "UNKNOWN" matches=?
+    # legacy:
+    # echo "kernel_events_monitor host=$host status=UNKNOWN matches=?"
     return 3
   fi
 
@@ -87,7 +91,9 @@ run_for_host(){
     append_alert "$host|kernel_events|matches=$count|sample=${sample:0:300}"
   fi
 
-  echo "kernel_events_monitor host=$host status=$status matches=$count window_h=$KERNEL_WINDOW_HOURS"
+  lm_summary "kernel_events_monitor" "$host" "$status" matches=$count window_h=$KERNEL_WINDOW_HOURS
+  # legacy:
+  # echo "kernel_events_monitor host=$host status=$status matches=$count window_h=$KERNEL_WINDOW_HOURS"
   return "$rc"
 }
 

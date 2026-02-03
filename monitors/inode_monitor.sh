@@ -139,7 +139,9 @@ run_for_host(){
 
   status="OK"
   if [ "$crit_count" -gt 0 ]; then status="CRIT"; elif [ "$warn_count" -gt 0 ]; then status="WARN"; fi
-  echo "inode_monitor host=$host status=$status checked=$checked warn=$warn_count crit=$crit_count"
+  lm_summary "inode_monitor" "$host" "$status" checked=$checked warn=$warn_count crit=$crit_count
+  # legacy:
+  # echo "inode_monitor host=$host status=$status checked=$checked warn=$warn_count crit=$crit_count"
 
 }
 # ========================

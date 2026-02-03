@@ -189,7 +189,9 @@ run_for_host() {
   else
     overall=OK
   fi
-  echo "ntp_drift_monitor host=$host status=$overall checked=$checked warn=$warn_count crit=$crit_count"
+  lm_summary "ntp_drift_monitor" "$host" "$overall" checked=$checked warn=$warn_count crit=$crit_count
+  # legacy:
+  # echo "ntp_drift_monitor host=$host status=$overall checked=$checked warn=$warn_count crit=$crit_count"
 
 }
 # ========================

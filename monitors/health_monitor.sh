@@ -109,6 +109,8 @@ fi
 hosts=0
 hosts=$(grep -c "^>>> Health check on" "$REPORT_FILE" 2>/dev/null || echo 0)
 lines=$(wc -l < "$REPORT_FILE" 2>/dev/null || echo 0)
-echo health_monitor summary status=OK hosts=$hosts report_lines=$lines
+lm_summary "health_monitor" "all" "OK" hosts=$hosts report_lines=$lines
+# legacy:
+# echo health_monitor summary status=OK hosts=$hosts report_lines=$lines
 rm -f "$REPORT_FILE" "$REPORT_LOCK" 2>/dev/null || true
 lm_info "=== Health Monitor Finished ==="
