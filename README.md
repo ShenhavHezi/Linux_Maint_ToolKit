@@ -1,6 +1,29 @@
 # Linux Maintenance Scripts
 
 
+## Installation (recommended Linux paths)
+
+This layout matches common Linux conventions:
+- Wrapper (entrypoint): `/usr/local/sbin/run_full_health_monitor.sh`
+- Scripts (monitors): `/usr/local/libexec/linux_maint/`
+- Shared library: `/usr/local/lib/linux_maint.sh`
+
+```bash
+# Clone
+git clone https://github.com/ShenhavHezi/linux_Maint_Scripts.git
+cd linux_Maint_Scripts
+
+# Install
+sudo install -D -m 0755 linux_maint.sh /usr/local/lib/linux_maint.sh
+sudo install -D -m 0755 run_full_health_monitor.sh /usr/local/sbin/run_full_health_monitor.sh
+sudo install -D -m 0755 *.sh /usr/local/libexec/linux_maint/
+
+# Create config/log directories
+sudo mkdir -p /etc/linux_maint /etc/linux_maint/baselines /var/log/health
+```
+
+
+
 
 
 
@@ -8,7 +31,7 @@
 The system cron (root) runs the wrapper:
 
 ```bash
-/usr/local/bin/run_full_health_monitor.sh
+/usr/local/sbin/run_full_health_monitor.sh
 ```
 
 That wrapper executes these scripts (in order):
@@ -44,7 +67,7 @@ Minimal files created/used:
 - `network_targets.txt` – network checks (CSV)
 - `certs.txt` – cert targets (one per line)
 - `ports_baseline.txt` – (legacy) initial ports baseline list
-- `config_baseline.txt` – list of critical config paths to baseline
+- `config_paths.txt` – list of critical config paths to baseline
 - `baseline_users.txt` / `baseline_sudoers.txt` – initial user/sudoers baseline inputs
 
 Baselines created by monitors:
@@ -58,6 +81,6 @@ Baselines created by monitors:
 Run the full package now:
 
 ```bash
-sudo /usr/local/bin/run_full_health_monitor.sh
+sudo /usr/local/sbin/run_full_health_monitor.sh
 sudo tail -n 200 /var/log/health/full_health_monitor_latest.log
 ```

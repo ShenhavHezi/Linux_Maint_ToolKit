@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # Repo-portable runner: place this file on a server and install to /usr/local/sbin/
-# It expects the repo scripts under /usr/local/bin by default.
+# It expects the repo scripts under /usr/local/libexec/linux_maint by default.
 
-SCRIPTS_DIR="${SCRIPTS_DIR:-/usr/local/bin}"
+SCRIPTS_DIR="${SCRIPTS_DIR:-/usr/local/libexec/linux_maint}"
 LOG_DIR="${LOG_DIR:-/var/log/health}"
 STATUS_FILE="$LOG_DIR/last_status_full"
 
@@ -78,7 +78,7 @@ run_one() {
       [ -s /etc/linux_maint/ports_baseline.txt ] || { echo "SKIP: /etc/linux_maint/ports_baseline.txt missing" >> "$tmp_report"; return 0; }
       ;;
     config_drift_monitor.sh)
-      [ -s /etc/linux_maint/config_baseline.txt ] || { echo "SKIP: /etc/linux_maint/config_baseline.txt missing" >> "$tmp_report"; return 0; }
+      [ -s /etc/linux_maint/config_paths.txt ] || { echo "SKIP: /etc/linux_maint/config_paths.txt missing" >> "$tmp_report"; return 0; }
       ;;
     user_monitor.sh)
       [ -s /etc/linux_maint/baseline_users.txt ] || { echo "SKIP: /etc/linux_maint/baseline_users.txt missing" >> "$tmp_report"; return 0; }
