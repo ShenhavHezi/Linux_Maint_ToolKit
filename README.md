@@ -16,6 +16,8 @@ cd linux_Maint_Scripts
 # Install
 sudo install -D -m 0755 linux_maint.sh /usr/local/lib/linux_maint.sh
 sudo install -D -m 0755 run_full_health_monitor.sh /usr/local/sbin/run_full_health_monitor.sh
+sudo install -d /usr/local/libexec/linux_maint
+
 # Install monitor scripts (exclude the wrapper)
 sudo install -D -m 0755 \
   backup_check.sh cert_monitor.sh config_drift_monitor.sh health_monitor.sh \
