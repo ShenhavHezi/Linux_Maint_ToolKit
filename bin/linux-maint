@@ -272,19 +272,6 @@ case "$cmd" in
     fi
 
     echo "== Config =="
-    # Heuristic: warn if servers.txt is missing or only contains localhost
-    if [[ -f /etc/linux_maint/servers.txt ]]; then
-      srv_noncomment="$(grep -vE "^[[:space:]]*(#|$)" /etc/linux_maint/servers.txt | tr -d "[:space:]" | head -n 50)"
-      if [[ -z "$srv_noncomment" ]]; then
-        echo "WARN: /etc/linux_maint/servers.txt has no active hosts (only comments/blank lines)."
-      elif [[ "$srv_noncomment" == "localhost" ]]; then
-        echo "WARN: /etc/linux_maint/servers.txt contains only localhost."
-        echo "      If you intended distributed monitoring, add one host per line."
-      fi
-    else
-      echo "WARN: /etc/linux_maint/servers.txt is missing (run: sudo ./bin/linux-maint init)"
-    fi
-
     for f in /etc/linux_maint/servers.txt /etc/linux_maint/excluded.txt /etc/linux_maint/services.txt /etc/linux_maint/emails.txt; do
       [[ -e "$f" ]] && echo "OK: $f" || echo "MISSING: $f"
     done
