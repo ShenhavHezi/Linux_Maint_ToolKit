@@ -138,7 +138,9 @@ run_for_host(){
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
     append_alert "$host|ssh|unreachable"
-    echo "disk_trend_monitor host=$host status=CRIT mounts=0 note=ssh_unreachable"
+    lm_summary "disk_trend_monitor" "$host" "CRIT" mounts=0 note=ssh_unreachable
+    # legacy:
+    # echo "disk_trend_monitor host=$host status=CRIT mounts=0 note=ssh_unreachable"
     WORST_RC=2
     return 2
   fi
@@ -146,7 +148,9 @@ run_for_host(){
   local cmd out
   cmd="$(remote_collect_cmd)"
   out="$(lm_ssh "$host" bash -lc "$cmd" 2>/dev/null || true)"
-  [ -z "$out" ] && { echo "disk_trend_monitor host=$host status=UNKNOWN mounts=0 note=no_df"; WORST_RC=3; return 3; }
+  [ -z "$out" ] && { lm_summary "disk_trend_monitor" "$host" "UNKNOWN" mounts=0 note=no_df; WORST_RC=3; return 3; }
+  # legacy:
+  # [ -z "$out" ] && { echo "disk_trend_monitor host=$host status=UNKNOWN mounts=0 note=no_df"; WORST_RC=3; return 3; }
 
   local mounts=0
   local warn=0
@@ -211,7 +215,9 @@ run_for_host(){
     fi
   fi
 
-  echo "disk_trend_monitor host=$host status=$status mounts=$mounts warn=$warn crit=$crit note=${note:-none}"
+  lm_summary "disk_trend_monitor" "$host" "$status" mounts=$mounts warn=$warn crit=$crit note=${note:-none}
+  # legacy:
+  # echo "disk_trend_monitor host=$host status=$status mounts=$mounts warn=$warn crit=$crit note=${note:-none}"
   [ "$rc" -gt "$WORST_RC" ] && WORST_RC="$rc"
   return "$rc"
 }

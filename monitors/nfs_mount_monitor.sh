@@ -49,7 +49,9 @@ run_for_host(){
     lm_err "[$host] SSH unreachable"
     append_alert "$host|ssh|unreachable"
     bad=$((bad+1))
-    echo "nfs_mount_monitor host=$host status=CRIT checked=$checked bad=$bad"
+    lm_summary "nfs_mount_monitor" "$host" "CRIT" checked=$checked bad=$bad
+    # legacy:
+    # echo "nfs_mount_monitor host=$host status=CRIT checked=$checked bad=$bad"
     lm_info "===== Completed $host ====="
     return
   fi
@@ -58,7 +60,9 @@ run_for_host(){
   mounts="$(lm_ssh "$host" bash -lc "$collect_nfs_mounts_cmd" || true)"
   if [ -z "$mounts" ]; then
     lm_info "[$host] No NFS mounts found."
-    echo "nfs_mount_monitor host=$host status=OK checked=0 bad=0"
+    lm_summary "nfs_mount_monitor" "$host" "OK" checked=0 bad=0
+    # legacy:
+    # echo "nfs_mount_monitor host=$host status=OK checked=0 bad=0"
     lm_info "===== Completed $host ====="
     return
   fi
@@ -91,7 +95,9 @@ run_for_host(){
   local status=OK
   [ "$bad" -gt 0 ] && status=CRIT
 
-  echo "nfs_mount_monitor host=$host status=$status checked=$checked bad=$bad"
+  lm_summary "nfs_mount_monitor" "$host" "$status" checked=$checked bad=$bad
+  # legacy:
+  # echo "nfs_mount_monitor host=$host status=$status checked=$checked bad=$bad"
   lm_info "===== Completed $host ====="
 }
 
