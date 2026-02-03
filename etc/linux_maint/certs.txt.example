@@ -1,0 +1,4 @@
+# Format: host,port,servername(optional)
+# Examples:
+# example.com,443
+# 10.0.0.10,443,my.internal.name

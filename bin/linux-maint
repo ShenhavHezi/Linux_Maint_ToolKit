@@ -208,6 +208,86 @@ case "$cmd" in
     exec ./tools/make_tarball.sh "$@"
     ;;
 
+  init)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for init
+    fi
+
+    CFG_DIR="/etc/linux_maint"
+    SRC_DIR="$REPO_ROOT/etc/linux_maint"
+    if [[ "$MODE" == "installed" && ! -d "$SRC_DIR" ]]; then
+      # When running the installed CLI, REPO_ROOT points to /usr/local/bin/.. which is not a checkout.
+      # User should run init from a git checkout OR copy templates manually.
+      SRC_DIR=""
+    fi
+    if [[ -z "$SRC_DIR" || ! -d "$SRC_DIR" ]]; then
+      echo "ERROR: templates not found at $SRC_DIR" >&2
+      echo "Run init from a git checkout:" >&2
+      echo "  git clone https://github.com/ShenhavHezi/linux_Maint_Scripts.git" >&2
+      echo "  cd linux_Maint_Scripts" >&2
+      echo "  sudo ./bin/linux-maint init" >&2
+      exit 1
+    fi
+
+    sudo mkdir -p "$CFG_DIR" "$CFG_DIR/baselines" "$CFG_DIR/baselines/ports" "$CFG_DIR/baselines/configs" "$CFG_DIR/baselines/users" "$CFG_DIR/baselines/sudoers"
+
+    shopt -s nullglob
+    for f in "$SRC_DIR"/*.example; do
+      base="$(basename "$f" .example)"
+      dest="$CFG_DIR/$base"
+      if [[ -e "$dest" ]]; then
+        echo "keep:   $dest (exists)"
+      else
+        sudo install -m 0644 "$f" "$dest"
+        echo "create: $dest"
+      fi
+    done
+
+    echo ""
+    echo "Next steps:"
+    echo "  - Edit /etc/linux_maint/servers.txt"
+    echo "  - Run: sudo linux-maint doctor"
+    ;;
+
+  doctor)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for doctor
+    fi
+
+    echo "=== linux-maint doctor ==="
+    echo "mode=$MODE"
+    echo "prefix=$PREFIX"
+    echo "wrapper=$wrapper"
+    echo "libexec=$LIBEXEC"
+    echo "lib=${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
+
+    echo "== Files =="
+    for path in "$wrapper" "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; do
+      if [[ -e "$path" ]]; then ls -la "$path"; else echo "MISSING: $path"; fi
+    done
+    if [[ "$MODE" == "installed" ]]; then
+      [[ -d "$LIBEXEC" ]] && ls -ld "$LIBEXEC" || echo "MISSING: $LIBEXEC"
+    else
+      [[ -d "$REPO_MONITORS" ]] && ls -ld "$REPO_MONITORS" || echo "MISSING: $REPO_MONITORS"
+    fi
+
+    echo "== Config =="
+    for f in /etc/linux_maint/servers.txt /etc/linux_maint/excluded.txt /etc/linux_maint/services.txt /etc/linux_maint/emails.txt; do
+      [[ -e "$f" ]] && echo "OK: $f" || echo "MISSING: $f"
+    done
+
+    echo "== Can write state/logs? =="
+    for d in /var/log/health /var/log/inventory /var/lib/linux_maint /var/lock; do
+      [[ -d "$d" ]] || { echo "NOTE: creating $d"; sudo mkdir -p "$d" 2>/dev/null || true; }
+      if touch "$d/.lm_write_test" 2>/dev/null; then rm -f "$d/.lm_write_test"; echo "OK: writable $d"; else echo "WARN: not writable $d"; fi
+    done
+
+    echo "== Next recommended actions =="
+    echo "- sudo linux-maint init      # if config is missing"
+    echo "- sudo linux-maint preflight"
+    echo "- sudo linux-maint run"
+    ;;
+
   *)
     echo "Unknown command: $cmd" >&2
     usage

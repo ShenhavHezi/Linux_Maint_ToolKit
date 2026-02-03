@@ -1,0 +1,5 @@
+# CSV: host,check,target,key=val,...
+# Examples:
+# localhost,ping,8.8.8.8
+# localhost,tcp,1.1.1.1:53
+# localhost,http,https://example.com,expect=200-399,timeout=5

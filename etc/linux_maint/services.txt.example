@@ -1,0 +1,7 @@
+# One systemd unit name per line.
+# Comments (#...) and blank lines are allowed.
+sshd
+cron
+crond
+rsyslog
+NetworkManager

@@ -1,0 +1,3 @@
+# Required gate file for ports_baseline_monitor.sh
+# Put any content here to enable, then generate baselines under /etc/linux_maint/baselines/ports/
+# Example: enable

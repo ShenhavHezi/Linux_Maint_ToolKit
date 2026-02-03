@@ -1,0 +1,6 @@
+# Paths/globs to track for drift. One per line.
+/etc/ssh/sshd_config
+/etc/sudoers
+/etc/fstab
+/etc/sysctl.conf
+/etc/cron.d/

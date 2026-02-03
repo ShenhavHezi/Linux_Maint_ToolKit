@@ -1,0 +1,3 @@
+# Gate file for user_monitor.sh (required).
+# Create baseline files under /etc/linux_maint/baselines/sudoers/<host>.sudoers
+# Example: enable
