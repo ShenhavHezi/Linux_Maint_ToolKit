@@ -213,7 +213,9 @@ lm_for_each_host run_for_host
 today_csv="$OUTPUT_DIR/inventory_$(date +%F).csv"
 rows=0
 [ -f "$today_csv" ] && rows=$(($(wc -l < "$today_csv" 2>/dev/null || echo 1)-1))
-echo inventory_export summary status=OK csv="$today_csv" hosts=${rows:-0}
+lm_summary "inventory_export" "all" "OK" csv="$today_csv" hosts=${rows:-0}
+# legacy:
+# echo inventory_export summary status=OK csv="$today_csv" hosts=${rows:-0}
 lm_info "=== Inventory Export Finished ==="
 
 if [ "$MAIL_ON_RUN" = "true" ]; then
