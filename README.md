@@ -40,13 +40,6 @@ sudo chmod -R go-w /usr/local/libexec/linux_maint
 ```
 
 
-
-
-
-
-
-
-
 ## Installed file layout (recommended)
 
 ```text
@@ -136,13 +129,70 @@ Baselines created by monitors:
 - `/etc/linux_maint/baselines/sudoers/<host>.sudoers`
 
 
+## Optional monitors: enablement examples
 
-### Enabling config drift monitoring (optional)
+Some monitors are intentionally **skipped** until you provide configuration files.
+This keeps first-run output clean and avoids false alerts.
 
-`config_drift_monitor.sh` is skipped until you define what to track.
-Create `/etc/linux_maint/config_paths.txt` with one path/pattern per line.
+### Enable `network_monitor.sh`
 
-Minimal example:
+Create `/etc/linux_maint/network_targets.txt` (CSV):
+
+```bash
+sudo tee /etc/linux_maint/network_targets.txt >/dev/null <<'EOF'
+# host,check,target,key=value...
+localhost,ping,8.8.8.8,count=3,timeout=3
+localhost,tcp,1.1.1.1:443,timeout=3
+localhost,http,https://example.com,timeout=5,expect=200-399
+EOF
+```
+
+### Enable `cert_monitor.sh`
+
+Create `/etc/linux_maint/certs.txt` (one target per line; supports optional params after `|`):
+
+```bash
+sudo tee /etc/linux_maint/certs.txt >/dev/null <<'EOF'
+# host:port
+example.com:443
+
+# SNI override (when hostname differs from certificate name)
+api.example.com:443|sni=api.example.com
+
+# STARTTLS example (if you monitor SMTP)
+smtp.example.com:587|starttls=smtp
+EOF
+```
+
+### Enable `backup_check.sh`
+
+Create `/etc/linux_maint/backup_targets.csv`:
+
+```bash
+sudo tee /etc/linux_maint/backup_targets.csv >/dev/null <<'EOF'
+# host,pattern,max_age_hours,min_size_mb,verify
+*,/backups/db/db_*.tar.gz,24,100,tar
+localhost,/var/backups/etc_*.tar.gz,48,10,gzip
+EOF
+```
+
+### Enable `ports_baseline_monitor.sh`
+
+`ports_baseline_monitor.sh` maintains per-host baselines under:
+- `/etc/linux_maint/baselines/ports/<host>.baseline`
+
+The wrapper only runs this monitor when `/etc/linux_maint/ports_baseline.txt` exists.
+Create it as an (optional) “gate” file (contents are not used by the monitor):
+
+```bash
+sudo install -D -m 0644 /dev/null /etc/linux_maint/ports_baseline.txt
+```
+
+On first run, the baseline will be auto-created (when `AUTO_BASELINE_INIT=true`).
+
+### Enable `config_drift_monitor.sh`
+
+Create `/etc/linux_maint/config_paths.txt` with one path/pattern per line:
 
 ```bash
 sudo tee /etc/linux_maint/config_paths.txt >/dev/null <<'EOF'
@@ -158,8 +208,8 @@ Then run the wrapper again:
 
 ```bash
 sudo /usr/local/sbin/run_full_health_monitor.sh
-sudo grep -n "config_drift" -n /var/log/health/full_health_monitor_latest.log | tail -n 30
 ```
+
 
 ## Quick manual run
 Run the full package now:
@@ -168,8 +218,6 @@ Run the full package now:
 sudo /usr/local/sbin/run_full_health_monitor.sh
 sudo tail -n 200 /var/log/health/full_health_monitor_latest.log
 ```
-
-
 
 
 ## Uninstall
