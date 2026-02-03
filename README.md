@@ -135,51 +135,80 @@ LM_EMAIL_ENABLED=true /usr/local/sbin/run_full_health_monitor.sh
 
 ## Tuning knobs (common configuration variables)
 
-Most monitors have sensible defaults but can be tuned by editing the script-local variables near the top of each script,
-or (where supported) by exporting environment variables before running the wrapper.
+Most defaults below are taken directly from the scripts (current repository version).
 
-Common knobs by monitor:
+### `inode_monitor.sh`
+- `THRESHOLDS` = `"/etc/linux_maint/inode_thresholds.txt"   # CSV: mountpoint,warn%,crit% (supports '*' default)`
+- `EXCLUDE_MOUNTS` = `"/etc/linux_maint/inode_exclude.txt"  # Optional: list of mountpoints to skip`
+- `DEFAULT_WARN` = `80`
+- `DEFAULT_CRIT` = `95`
+- `EXCLUDE_FSTYPES_RE` = `'^(tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup2?|debugfs|rpc_pipefs|autofs|devpts|mqueue|hugetlbfs|fuse\..*|binfmt_misc|pstore|nsfs)$'`
 
-- `inode_monitor.sh`
-  - `DEFAULT_WARN` / `DEFAULT_CRIT` (percentage thresholds)
-  - `THRESHOLDS`: `/etc/linux_maint/inode_thresholds.txt` (per-mount overrides)
-  - `EXCLUDE_MOUNTS`: `/etc/linux_maint/inode_excluded_mounts.txt`
+### `network_monitor.sh`
+- `TARGETS` = `"/etc/linux_maint/network_targets.txt"   # CSV: host,check,target,key=val,...`
+- `PING_COUNT` = `3`
+- `PING_TIMEOUT` = `3`
+- `PING_LOSS_WARN` = `20`
+- `PING_LOSS_CRIT` = `50`
+- `PING_RTT_WARN_MS` = `150`
+- `PING_RTT_CRIT_MS` = `500`
+- `TCP_TIMEOUT` = `3`
+- `TCP_LAT_WARN_MS` = `300`
+- `TCP_LAT_CRIT_MS` = `1000`
+- `HTTP_TIMEOUT` = `5`
+- `HTTP_LAT_WARN_MS` = `800`
+- `HTTP_LAT_CRIT_MS` = `2000`
+- `HTTP_EXPECT` = `""   # default: 200–399 when empty`
 
-- `network_monitor.sh`
-  - `PING_COUNT`, `PING_TIMEOUT`, `PING_LOSS_WARN`, `PING_LOSS_CRIT`
-  - `TCP_TIMEOUT`, `TCP_LAT_WARN_MS`, `TCP_LAT_CRIT_MS`
-  - `HTTP_TIMEOUT`, `HTTP_LAT_WARN_MS`, `HTTP_LAT_CRIT_MS`, `HTTP_EXPECT`
-  - Per-target overrides via `key=value` in `network_targets.txt`
+### `service_monitor.sh`
+- `SERVICES` = `"/etc/linux_maint/services.txt"     # One service per line (unit name). Comments (#…) and blanks allowed.`
+- `AUTO_RESTART` = `"false"                          # "true" to attempt restart on failure (requires root or sudo NOPASSWD)`
+- `EMAIL_ON_ALERT` = `"false"                        # "true" to email when any service is not active`
 
-- `service_monitor.sh`
-  - `AUTO_RESTART` (attempt restart on failure)
-  - `EMAIL_ON_ALERT`
+### `ports_baseline_monitor.sh`
+- `BASELINE_DIR` = `"/etc/linux_maint/baselines/ports"       # Per-host baselines live here`
+- `ALLOWLIST_FILE` = `"/etc/linux_maint/ports_allowlist.txt"  # Optional allowlist`
+- `AUTO_BASELINE_INIT` = `"true"       # If no baseline for a host, create it from current snapshot`
+- `BASELINE_UPDATE` = `"false"         # If true, replace baseline with current snapshot after reporting`
+- `INCLUDE_PROCESS` = `"true"          # Include process names in baseline when available`
+- `EMAIL_ON_CHANGE` = `"true"          # Send email when NEW/REMOVED entries are detected`
 
-- `ntp_drift_monitor.sh`
-  - Lookback/threshold variables (offset warn/crit) defined near the top of the script
+### `config_drift_monitor.sh`
+- `CONFIG_PATHS` = `"/etc/linux_maint/config_paths.txt"        # Targets (files/dirs/globs)`
+- `ALLOWLIST_FILE` = `"/etc/linux_maint/config_allowlist.txt"  # Optional: paths to ignore (exact or substring)`
+- `BASELINE_DIR` = `"/etc/linux_maint/baselines/configs"       # Per-host baselines live here`
+- `AUTO_BASELINE_INIT` = `"true"   # If baseline missing for a host, create it from current snapshot`
+- `BASELINE_UPDATE` = `"false"     # After reporting, accept current as new baseline`
+- `EMAIL_ON_DRIFT` = `"true"       # Send email when drift detected`
 
-- `patch_monitor.sh`
-  - Distro detection is automatic; behavior flags (email-on-action, etc.) are defined near the top of the script
+### `user_monitor.sh`
+- `USERS_BASELINE_DIR` = `"/etc/linux_maint/baselines/users"       # per-host: ${host}.users`
+- `SUDO_BASELINE_DIR` = `"/etc/linux_maint/baselines/sudoers"      # per-host: ${host}.sudoers`
+- `AUTO_BASELINE_INIT` = `"true"    # create baseline on first run`
+- `BASELINE_UPDATE` = `"false"      # update baseline to current after reporting`
+- `EMAIL_ON_ALERT` = `"true"        # send email if anomalies are detected`
+- `USER_MIN_UID` = `0`
+- `FAILED_WINDOW_HOURS` = `24`
+- `FAILED_WARN` = `10`
+- `FAILED_CRIT` = `50`
 
-- `ports_baseline_monitor.sh`
-  - `AUTO_BASELINE_INIT`, `BASELINE_UPDATE`, `INCLUDE_PROCESS`
-  - `ALLOWLIST_FILE`: `/etc/linux_maint/ports_allowlist.txt`
+### `backup_check.sh`
+- `TARGETS` = `"/etc/linux_maint/backup_targets.csv"  # CSV: host,pattern,min_size_mb,max_age_hours,verify`
 
-- `config_drift_monitor.sh`
-  - `AUTO_BASELINE_INIT`, `BASELINE_UPDATE`
-  - `ALLOWLIST_FILE`: `/etc/linux_maint/config_allowlist.txt`
+### `cert_monitor.sh`
+- `THRESHOLD_WARN_DAYS` = `30`
+- `THRESHOLD_CRIT_DAYS` = `7`
+- `TIMEOUT_SECS` = `10`
+- `EMAIL_ON_WARN` = `"true"`
 
-- `user_monitor.sh`
-  - `USER_MIN_UID` (focus on human users, e.g. 1000)
-  - `FAILED_WINDOW_HOURS`, `FAILED_WARN`, `FAILED_CRIT`
-  - `AUTO_BASELINE_INIT`, `BASELINE_UPDATE`
+### `nfs_mount_monitor.sh`
+- `NFS_STAT_TIMEOUT` = `5`
+- `EMAIL_ON_ISSUE` = `"true"`
 
-- `backup_check.sh`
-  - Backup policies live in `/etc/linux_maint/backup_targets.csv`
-  - Supports integrity verify modes (`tar`, `gzip`, `none`, or `cmd:<shell>`)
-
-Notes:
-- If you want a strict “config-only” operation model, we can move more of these settings into `/etc/linux_maint/*.conf` files.
+### `inventory_export.sh`
+- `OUTPUT_DIR` = `"/var/log/inventory"`
+- `DETAILS_DIR` = `"${OUTPUT_DIR}/details"`
+- `MAIL_ON_RUN` = `"false"`
 
 
 ## Exit codes (for automation)
