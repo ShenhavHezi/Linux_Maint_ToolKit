@@ -18,7 +18,7 @@
 - [Configuration files under `/etc/linux_maint/`](#configuration-files-under-etclinux_maint)
 - [Optional monitors: enablement examples](#optional-monitors-enablement-examples)
 - [Quick manual run](#quick-manual-run)
-- [Development / CI](#development--ci)
+- [Development / CI](#development-ci)
 - [Uninstall](#uninstall)
 - [Log rotation (recommended)](#log-rotation-recommended)
 - [Upgrading](#upgrading)
