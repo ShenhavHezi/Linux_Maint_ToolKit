@@ -20,11 +20,22 @@ jobs:
         run: |
           set -euo pipefail
           shellcheck -x \
-            -e SC1091,SC2016,SC2029,SC2034,SC2086,SC2155,SC2162,SC2317 \
-            -- ./*.sh ./install.sh ./linux-maint ./tools/*.sh
+            -e SC1090,SC1091,SC2016,SC2029,SC2034,SC2086,SC2155,SC2162,SC2317 \
+            -- ./monitors/*.sh ./install.sh ./bin/linux-maint ./tools/*.sh
 
       - name: Verify README tuning knobs are up to date
         run: |
           set -euo pipefail
           python3 tools/update_readme_defaults.py
           git diff --exit-code
+
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Smoke test (repo mode)
+        run: |
+          set -euo pipefail
+          bash tests/smoke.sh

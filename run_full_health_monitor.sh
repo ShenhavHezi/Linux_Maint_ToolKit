@@ -4,7 +4,16 @@ set -euo pipefail
 # Repo-portable runner: place this file on a server and install to /usr/local/sbin/
 # It expects the repo scripts under /usr/local/libexec/linux_maint by default.
 
-SCRIPTS_DIR="${SCRIPTS_DIR:-/usr/local/libexec/linux_maint}"
+# Default install location (can be overridden)
+SCRIPTS_DIR_BASE="${SCRIPTS_DIR:-/usr/local/libexec/linux_maint}"
+REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -d "$REPO_DIR/monitors" ]]; then
+  SCRIPTS_DIR_DEFAULT="$REPO_DIR/monitors"
+else
+  SCRIPTS_DIR_DEFAULT="$SCRIPTS_DIR_BASE"
+fi
+SCRIPTS_DIR="${SCRIPTS_DIR:-$SCRIPTS_DIR_DEFAULT}"
+
 LOG_DIR="${LOG_DIR:-/var/log/health}"
 STATUS_FILE="$LOG_DIR/last_status_full"
 

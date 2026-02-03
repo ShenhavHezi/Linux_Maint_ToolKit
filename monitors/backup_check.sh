@@ -10,7 +10,7 @@
 #   Logs concise lines and emails a single aggregated alert when checks fail.
 
 # ===== Shared helpers =====
-. /usr/local/lib/linux_maint.sh || { echo "Missing /usr/local/lib/linux_maint.sh"; exit 1; }
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[backup_check] "
 LM_LOGFILE="/var/log/backup_check.log"
 : "${LM_MAX_PARALLEL:=0}"     # 0=sequential; >0 parallelize hosts

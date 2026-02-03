@@ -9,7 +9,7 @@
 #   - Runs locally or across hosts defined in servers.txt.
 
 # ===== Shared helpers =====
-. /usr/local/lib/linux_maint.sh || { echo "Missing /usr/local/lib/linux_maint.sh"; exit 1; }
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[user_monitor] "
 LM_LOGFILE="/var/log/user_monitor.log"
 : "${LM_MAX_PARALLEL:=0}"     # 0=sequential; set >0 to run hosts in parallel

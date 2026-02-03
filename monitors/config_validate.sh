@@ -5,9 +5,9 @@
 
 set -euo pipefail
 
-. /usr/local/lib/linux_maint.sh || { echo "Missing /usr/local/lib/linux_maint.sh"; exit 1; }
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[config_validate] "
-LM_LOGFILE="/var/log/config_validate.log"
+LM_LOGFILE="${LM_LOGFILE:-/var/log/config_validate.log}"
 
 lm_require_singleton "config_validate"
 

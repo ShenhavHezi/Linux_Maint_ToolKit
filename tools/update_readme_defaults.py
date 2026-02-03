@@ -66,6 +66,10 @@ def generate_markdown() -> str:
     for script, keys in SCRIPTS_ORDER:
         script_path = REPO_DIR / script
         if not script_path.exists():
+            alt = REPO_DIR / "monitors" / script
+            if alt.exists():
+                script_path = alt
+        if not script_path.exists():
             continue
         vals = parse_assignments(script_path)
 

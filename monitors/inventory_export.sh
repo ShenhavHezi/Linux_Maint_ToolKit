@@ -4,7 +4,7 @@
 # Version: 2.0 (refactored to use linux_maint.sh)
 
 # ===== Shared helpers =====
-. /usr/local/lib/linux_maint.sh || { echo "Missing /usr/local/lib/linux_maint.sh"; exit 1; }
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[inventory_export] "
 LM_LOGFILE="/var/log/inventory_export.log"
 : "${LM_MAX_PARALLEL:=0}"     # 0=sequential; set >0 to run hosts concurrently

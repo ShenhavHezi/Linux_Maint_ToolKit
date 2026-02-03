@@ -7,7 +7,7 @@
 #   Logs results and alerts if any service is inactive/failed. Optional auto-restart.
 
 # ===== Shared helpers =====
-. /usr/local/lib/linux_maint.sh || { echo "Missing /usr/local/lib/linux_maint.sh"; exit 1; }
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[service_monitor] "
 LM_LOGFILE="/var/log/service_monitor.log"
 : "${LM_MAX_PARALLEL:=0}"     # 0 = sequential hosts; set >0 to run hosts in parallel

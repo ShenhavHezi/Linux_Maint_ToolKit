@@ -12,7 +12,7 @@
 #   Optionally emails a per-host summary when action is required.
 
 # ===== Shared helpers =====
-. /usr/local/lib/linux_maint.sh || { echo "Missing /usr/local/lib/linux_maint.sh"; exit 1; }
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[patch_monitor] "
 LM_LOGFILE="/var/log/patch_monitor.log"
 : "${LM_MAX_PARALLEL:=0}"     # 0=sequential; >0 run hosts in parallel

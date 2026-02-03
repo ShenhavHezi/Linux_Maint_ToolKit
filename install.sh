@@ -84,18 +84,18 @@ install_files(){
   echo "  library:  $lib/linux_maint.sh"
   echo "  monitors: $libexec/"
 
-  install -D -m 0755 linux_maint.sh "$lib/linux_maint.sh"
+  install -D -m 0755 lib/linux_maint.sh "$lib/linux_maint.sh"
   install -D -m 0755 run_full_health_monitor.sh "$sbin/run_full_health_monitor.sh"
-  install -D -m 0755 linux-maint "$prefix/bin/linux-maint"
+  install -D -m 0755 bin/linux-maint "$prefix/bin/linux-maint"
   install -d "$libexec"
 
   # Explicit monitors list (exclude wrapper + lib)
   install -D -m 0755 \
-    backup_check.sh cert_monitor.sh config_drift_monitor.sh health_monitor.sh \
-    inode_monitor.sh inventory_export.sh network_monitor.sh nfs_mount_monitor.sh \
-    ntp_drift_monitor.sh patch_monitor.sh storage_health_monitor.sh kernel_events_monitor.sh \
-    preflight_check.sh disk_trend_monitor.sh config_validate.sh \
-    ports_baseline_monitor.sh service_monitor.sh user_monitor.sh \
+    monitors/backup_check.sh monitors/cert_monitor.sh monitors/config_drift_monitor.sh monitors/health_monitor.sh \
+    monitors/inode_monitor.sh monitors/inventory_export.sh monitors/network_monitor.sh monitors/nfs_mount_monitor.sh \
+    monitors/ntp_drift_monitor.sh monitors/patch_monitor.sh monitors/storage_health_monitor.sh monitors/kernel_events_monitor.sh \
+    monitors/preflight_check.sh monitors/disk_trend_monitor.sh monitors/config_validate.sh \
+    monitors/ports_baseline_monitor.sh monitors/service_monitor.sh monitors/user_monitor.sh \
     "$libexec/"
 
   # Hardening

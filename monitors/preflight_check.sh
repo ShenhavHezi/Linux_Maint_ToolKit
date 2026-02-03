@@ -10,9 +10,9 @@
 
 set -euo pipefail
 
-. /usr/local/lib/linux_maint.sh || { echo "Missing /usr/local/lib/linux_maint.sh"; exit 1; }
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[preflight] "
-LM_LOGFILE="/var/log/preflight_check.log"
+LM_LOGFILE="${LM_LOGFILE:-/var/log/preflight_check.log}"
 : "${LM_MAX_PARALLEL:=0}"
 
 lm_require_singleton "preflight_check"
