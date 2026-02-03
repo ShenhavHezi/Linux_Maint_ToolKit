@@ -18,7 +18,9 @@
 - [Configuration files under `/etc/linux_maint/`](#configuration-files-under-etclinux_maint)
 - [Optional monitors: enablement examples](#optional-monitors-enablement-examples)
 - [Quick manual run](#quick-manual-run)
+- [Air-gapped / offline installation](#air-gapped--offline-installation)
 - [Development / CI](#development-ci)
+- [Developer hooks (optional)](#developer-hooks-optional)
 - [Uninstall](#uninstall)
 - [Log rotation (recommended)](#log-rotation-recommended)
 - [Upgrading](#upgrading)
@@ -521,11 +523,52 @@ sudo tail -n 200 /var/log/health/full_health_monitor_latest.log
 
 
 
+
+## Air-gapped / offline installation
+
+If your target servers cannot access GitHub/the Internet, you can still deploy this project.
+
+On a connected workstation:
+
+```bash
+git clone https://github.com/ShenhavHezi/linux_Maint_Scripts.git
+cd linux_Maint_Scripts
+
+tar -czf linux_Maint_Scripts.tgz .
+```
+
+Copy `linux_Maint_Scripts.tgz` to the dark-site server, extract, then install:
+
+```bash
+tar -xzf linux_Maint_Scripts.tgz
+sudo ./install.sh --with-logrotate
+# (optional)
+# sudo ./install.sh --with-user --with-timer --with-logrotate
+```
+
 ## Development / CI
 
 This repository includes a GitHub Actions workflow that:
 - runs `shellcheck` on scripts
 - verifies the README "Tuning knobs" section is in sync (`tools/update_readme_defaults.py`)
+
+
+## Developer hooks (optional)
+
+For contributors, you can enable a local pre-commit hook that runs the same checks as CI
+(`shellcheck` + README tuning-knobs sync).
+
+Enable repo-local git hooks:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Or run the checks manually:
+
+```bash
+./tools/pre-commit.sh
+```
 
 ## Uninstall
 
