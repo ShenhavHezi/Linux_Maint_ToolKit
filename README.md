@@ -84,3 +84,54 @@ Run the full package now:
 sudo /usr/local/sbin/run_full_health_monitor.sh
 sudo tail -n 200 /var/log/health/full_health_monitor_latest.log
 ```
+
+
+## Log rotation (recommended)
+
+These scripts write logs under `/var/log/` (plus an aggregated wrapper log under `/var/log/health/`).
+On most systems, these logs should be rotated.
+
+Example `logrotate` config (create `/etc/logrotate.d/linux_maint`):
+
+```conf
+/var/log/*monitor*.log /var/log/*_monitor.log /var/log/*_check.log /var/log/inventory_export.log {
+  daily
+  rotate 14
+  missingok
+  notifempty
+  compress
+  delaycompress
+  copytruncate
+}
+
+/var/log/health/*.log {
+  daily
+  rotate 14
+  missingok
+  notifempty
+  compress
+  delaycompress
+  copytruncate
+}
+```
+
+Notes:
+- `copytruncate` is used so rotation is safe even if a script is still writing.
+- Tune `rotate`/`daily` to match your retention needs.
+
+## Upgrading
+
+To upgrade on a node where you installed using the recommended paths:
+
+```bash
+cd /path/to/linux_Maint_Scripts
+git pull
+
+sudo install -D -m 0755 linux_maint.sh /usr/local/lib/linux_maint.sh
+sudo install -D -m 0755 run_full_health_monitor.sh /usr/local/sbin/run_full_health_monitor.sh
+sudo install -D -m 0755 *.sh /usr/local/libexec/linux_maint/
+```
+
+After upgrading:
+- Review `git diff` for config file name changes.
+- Re-run the wrapper once and check: `/var/log/health/full_health_monitor_latest.log`.
