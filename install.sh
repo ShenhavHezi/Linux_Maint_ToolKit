@@ -22,6 +22,7 @@ WITH_USER=false
 WITH_TIMER=false
 WITH_LOGROTATE=false
 UNINSTALL=false
+PURGE=false
 USER_NAME="linuxmaint"
 INSTALL_PREFIX="/usr/local"
 
@@ -36,6 +37,7 @@ Options:
   --user NAME            Set username (default: ${USER_NAME})
   --prefix PATH          Install prefix (default: ${INSTALL_PREFIX})
   --uninstall            Remove installed files (keeps /etc/linux_maint and logs)
+  --purge                With --uninstall: also remove systemd units + logrotate + optional dirs
   -h, --help             Show help
 EOF
 }
@@ -46,6 +48,7 @@ while [ $# -gt 0 ]; do
     --with-timer) WITH_TIMER=true; shift;;
     --with-logrotate) WITH_LOGROTATE=true; shift;;
     --uninstall) UNINSTALL=true; shift;;
+    --purge) PURGE=true; shift;;
     --user) USER_NAME="$2"; shift 2;;
     --prefix) INSTALL_PREFIX="$2"; shift 2;;
     -h|--help) usage; exit 0;;
@@ -164,6 +167,15 @@ uninstall_files(){
   rm -f "$prefix/lib/linux_maint.sh"
   rm -rf "$prefix/libexec/linux_maint"
   echo "Uninstall complete. (Kept /etc/linux_maint and /var/log by default.)"
+  if $PURGE; then
+    echo "Purging systemd units and logrotate (and optional dirs)"
+    rm -f /etc/systemd/system/linux-maint.service /etc/systemd/system/linux-maint.timer
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    rm -f /etc/logrotate.d/linux_maint
+    rm -rf /var/log/health || true
+    # Uncomment if you want to also remove config/baselines:
+    # rm -rf /etc/linux_maint
+  fi
 }
 
 need_root

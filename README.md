@@ -4,6 +4,7 @@
 ## Table of Contents
 
 - [Installation (recommended Linux paths)](#installation-recommended-linux-paths)
+  - [Installer script (recommended)](#installer-script-recommended)
 - [Recommended operating model](#recommended-operating-model)
 - [Distributed mode (recommended)](#distributed-mode-recommended)
 - [Least privilege / sudo (recommended)](#least-privilege-sudo-recommended)
@@ -66,6 +67,8 @@ To uninstall installed binaries (keeps `/etc/linux_maint` and logs by default):
 
 ```bash
 sudo ./install.sh --uninstall
+# Or, to also remove systemd units + logrotate:
+sudo ./install.sh --uninstall --purge
 ```
 
 ### Permissions / hardening (recommended)
