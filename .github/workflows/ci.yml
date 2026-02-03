@@ -20,7 +20,7 @@ jobs:
         run: |
           # Ignore a small set of noisy findings common with remote heredocs and dynamic bash patterns.
           shellcheck -x \
-            -e SC2016,SC2034,SC2086,SC2155,SC2162,SC2317 \
+            -e SC2016,SC2029,SC2034,SC2086,SC2155,SC2162,SC2317 \
             -- ./*.sh ./install.sh ./linux-maint ./tools/*.sh
 
       - name: Verify README tuning knobs are up to date
