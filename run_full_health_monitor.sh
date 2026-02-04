@@ -229,6 +229,7 @@ _tmp_human=$(mktemp /tmp/linux_maint_human.XXXXXX)
   echo "run_host=$(hostname -f 2>/dev/null || hostname)"
   echo "timestamp=$(date -Is)"
   echo "overall=$overall exit_code=$worst ok=$ok warn=$warn crit=$crit unknown=$unk skipped=$skipped"
+  echo "fleet_hosts_ok=$hosts_ok fleet_hosts_warn=$hosts_warn fleet_hosts_crit=$hosts_crit fleet_hosts_unknown=$hosts_unknown fleet_hosts_skipped=$hosts_skip"
 
   echo ""
   echo "Top CRIT/WARN/UNKNOWN (from monitor= lines)"
