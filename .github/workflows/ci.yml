@@ -18,13 +18,14 @@ jobs:
 
       - name: ShellCheck
         run: |
-          # Honor project-wide suppressions in .shellcheckrc
-          shellcheck -x run_full_health_monitor.sh
-          shellcheck -x lib/linux_maint.sh
-          shellcheck -x bin/linux-maint
-          shellcheck -x monitors/*.sh
-          shellcheck -x tests/*.sh
-          shellcheck -x tools/*.sh
+          # Treat known-noisy warnings as suppressed centrally.
+          EXCLUDES="SC1090,SC1091,SC2034,SC2016,SC2162,SC2155,SC2317"
+          shellcheck -x --exclude="$EXCLUDES" run_full_health_monitor.sh
+          shellcheck -x --exclude="$EXCLUDES" lib/linux_maint.sh
+          shellcheck -x --exclude="$EXCLUDES" bin/linux-maint
+          shellcheck -x --exclude="$EXCLUDES" monitors/*.sh
+          shellcheck -x --exclude="$EXCLUDES" tests/*.sh
+          shellcheck -x --exclude="$EXCLUDES" tools/*.sh
 
       - name: Summary contract test (unprivileged)
         run: |

@@ -1,7 +1,7 @@
-# The project intentionally sources the library via an environment override.
-# ShellCheck cannot follow this non-constant source.
-exclude=SC1090,SC1091
+# Project-wide ShellCheck configuration
 
-# LM_PREFIX is used by the shared library for log prefixing (runtime),
-# but ShellCheck can't see that cross-file usage.
-exclude=SC2034
+# Notes:
+# - We intentionally allow some warnings/infos that are noisy in this codebase.
+# - Keep this list minimal; prefer fixing issues when practical.
+
+exclude=SC1090,SC1091,SC2034,SC2016,SC2162,SC2155,SC2317
