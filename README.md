@@ -107,6 +107,10 @@ Each monitor emits lines like:
 monitor=<name> host=<target> status=<OK|WARN|CRIT|UNKNOWN|SKIP> node=<runner> key=value...
 ```
 
+Notes:
+- For non-`OK` statuses, monitors typically include a `reason=<token>` key (e.g. `ssh_unreachable`, `baseline_missing`, `collect_failed`).
+- Full contract details and artifact locations are documented in [`docs/reference.md`](docs/reference.md#output-contract-machine-parseable-summary-lines).
+
 ## Common knobs
 
 ### Optional email notification (single summary per run)
