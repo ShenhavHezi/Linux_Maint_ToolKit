@@ -19,4 +19,7 @@ LM_LOGFILE=/tmp/preflight_check.log LM_LOCKDIR=/tmp bash "$ROOT_DIR/monitors/pre
 # Validate config formats (should succeed even if config files are absent; best-effort)
 LM_LOGFILE=/tmp/config_validate.log LM_LOCKDIR=/tmp bash "$ROOT_DIR/monitors/config_validate.sh" >/dev/null || true
 
+# lm_for_each_host_rc aggregation test
+bash "$ROOT_DIR/tests/lm_for_each_host_rc_test.sh" >/dev/null
+
 echo "smoke ok"

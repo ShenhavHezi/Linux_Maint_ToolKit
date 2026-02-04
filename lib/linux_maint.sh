@@ -274,9 +274,21 @@ lm_for_each_host() {
 lm_for_each_host_rc() {
   local fn="$1"
   local -a PIDS=()
-  local -a HOSTS_FOR_PID=()
   local running=0
   local worst=0
+
+  wait_one_oldest(){
+    local pid rc
+    pid="${PIDS[0]}"
+    if [ -n "$pid" ]; then
+      wait "$pid" 2>/dev/null
+      rc=$?
+      [ "$rc" -gt "$worst" ] && worst="$rc"
+      # pop front
+      PIDS=("${PIDS[@]:1}")
+      running=$((running-1))
+    fi
+  }
 
   while read -r HOST; do
     [ -z "$HOST" ] && continue
@@ -285,17 +297,12 @@ lm_for_each_host_rc() {
     if [ "${LM_MAX_PARALLEL:-0}" -gt 0 ]; then
       "$fn" "$HOST" &
       PIDS+=($!)
-      HOSTS_FOR_PID+=("$HOST")
       running=$((running+1))
-      if [ "$running" -ge "$LM_MAX_PARALLEL" ]; then
-        # wait for the next job to finish (bash >=4.3). If not supported, fall back to waiting one PID.
-        if wait -n 2>/dev/null; then
-          :
-        else
-          wait "${PIDS[0]}" 2>/dev/null || true
-        fi
-        running=$((running-1))
-      fi
+
+      # throttle
+      while [ "$running" -ge "$LM_MAX_PARALLEL" ]; do
+        wait_one_oldest
+      done
     else
       "$fn" "$HOST"
       rc=$?
@@ -303,16 +310,10 @@ lm_for_each_host_rc() {
     fi
   done < <(lm_hosts)
 
-  if [ "${LM_MAX_PARALLEL:-0}" -gt 0 ] && [ "${#PIDS[@]}" -gt 0 ]; then
-    # Wait all remaining and aggregate rc.
-    local i pid rc
-    for i in "${!PIDS[@]}"; do
-      pid="${PIDS[$i]}"
-      wait "$pid" 2>/dev/null
-      rc=$?
-      [ "$rc" -gt "$worst" ] && worst="$rc"
-    done
-  fi
+  # wait remaining
+  while [ "$running" -gt 0 ]; do
+    wait_one_oldest
+  done
 
   return "$worst"
 }
