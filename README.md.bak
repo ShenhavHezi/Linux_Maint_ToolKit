@@ -1,82 +1,30 @@
-# Linux Maintenance Toolkit (linux-maint)
+# Linux Maintenance Scripts
 
-## Overview
 
-`linux-maint` is a lightweight Linux maintenance and health-monitoring toolkit for administrators.
-It runs a curated set of checks locally and/or across many hosts via SSH, writes structured logs,
-and returns automation-friendly exit codes.
 
-**Typical use cases**
-- Nightly/periodic health checks from a monitoring node (cron or systemd timer)
-- Detecting drift (ports, config, users/sudoers) against known-good baselines
-- Producing machine-parseable summaries for alerting/automation
+## Summary
 
-## Features
+`linux_Maint_Scripts` is a lightweight Linux maintenance and health-monitoring toolkit designed to run on a monitoring node (typically via cron/systemd). It executes a set of modular checks locally and/or over SSH, writes structured logs, and returns automation-friendly exit codes.
 
-- **Single entry point**: `linux-maint` CLI and `run_full_health_monitor.sh` wrapper
-- **Modular monitors**: disk/inode, CPU/memory/load, services, network reachability, NTP drift, patch/reboot hints,
-  kernel event scan, certificates expiry, NFS mounts, storage health (best-effort), backups freshness, inventory export,
-  and drift/baseline checks
-- **Distributed mode**: iterate many targets from `/etc/linux_maint/servers.txt` over SSH
-- **Operational output**: per-run aggregated log + per-monitor logs with `OK/WARN/CRIT/UNKNOWN/SKIP`
-- **Safe by default**: per-monitor timeout; email disabled unless explicitly enabled
-- **Admin-friendly deployment**: installer (`install.sh`), optional systemd timer/logrotate, offline tarball support
+**What you get (high level):**
+- **Single entrypoint:** `linux-maint` CLI and `run_full_health_monitor.sh` wrapper
+- **Modular monitors:** CPU/memory/load, disk/inodes, services, network reachability, NTP drift, patch/reboot hints, kernel event scan, storage/SMART/NVMe/RAID best-effort checks, config drift, ports baseline drift, user/sudoers drift, backup freshness checks, and inventory export
+- **Distributed mode:** run checks against many hosts via `/etc/linux_maint/servers.txt` + SSH
+- **Operational output:** per-run aggregated log + per-monitor logs under `/var/log`, with `OK/WARN/CRIT/UNKNOWN` statuses
+- **Enterprise-friendly:** installer, systemd timer/logrotate options, and offline (dark-site) tarball releases
 
-## Quickstart (local)
-
-From a host where you want to run checks locally:
-
-```bash
-git clone https://github.com/ShenhavHezi/linux_Maint_Scripts.git
-cd linux_Maint_Scripts
-
-# Run directly from the repo (best with sudo/root)
-sudo ./run_full_health_monitor.sh
-
-# Show a concise status summary
-sudo ./bin/linux-maint status
-```
-
-## Quickstart (distributed over SSH)
-
-1. Choose a **monitoring node** (can be one of your servers).
-2. Ensure the monitoring node can SSH to each target host without prompts.
-3. Create and populate `/etc/linux_maint/servers.txt` on the monitoring node.
-4. Run the wrapper from the monitoring node.
-
-```bash
-# Example servers file
-sudo install -d -m 0755 /etc/linux_maint
-printf '%s
-' server-a server-b server-c | sudo tee /etc/linux_maint/servers.txt
-
-# Run against all targets
-sudo /usr/local/sbin/run_full_health_monitor.sh
-```
+**Designed operating model:** installed mode is intended to run as **root (or via sudo)** because it uses `/var/log` and `/var/lock` and some checks require privileged access.
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Features](#features)
-- [Quickstart (local)](#quickstart-local)
-- [Quickstart (distributed over SSH)](#quickstart-distributed-over-ssh)
-- [Installation](#installation)
+- [Installation (recommended Linux paths)](#installation-recommended-linux-paths)
 -   [Installer script (recommended)](#installer-script-recommended)
--   [Manual installation (recommended Linux paths)](#manual-installation-recommended-linux-paths)
--   [Permissions / hardening](#permissions-hardening)
-- [Operating model](#operating-model)
-- [Configuration](#configuration)
--   [Tuning knobs (common environment variables)](#tuning-knobs-common-environment-variables)
-- [Output contract (machine-parseable summaries)](#output-contract-machine-parseable-summaries)
-- [Wrapper behavior (`run_full_health_monitor.sh`)](#wrapper-behavior-runfullhealthmonitorsh)
-- [CLI usage (`linux-maint`)](#cli-usage-linux-maint)
--   [Common commands](#common-commands)
--   [Notes](#notes)
-- [Monitor reference](#monitor-reference)
--   [Optional packages for full coverage (bare metal)](#optional-packages-for-full-coverage-bare-metal)
-- [Troubleshooting](#troubleshooting)
-- [Development / CI](#development-ci)
-- [Uninstall / upgrading](#uninstall-upgrading)
+-   [Permissions / hardening (recommended)](#permissions-hardening-recommended)
+- [Recommended operating model](#recommended-operating-model)
+- [Distributed mode (recommended)](#distributed-mode-recommended)
+-   [SSH key setup (example)](#ssh-key-setup-example)
+- [Least privilege / sudo (recommended)](#least-privilege-sudo-recommended)
+- [Alerting model (email)](#alerting-model-email)
 - [Optional packages for full coverage (recommended on bare metal)](#optional-packages-for-full-coverage-recommended-on-bare-metal)
 -   [Vendor RAID controller tooling (optional)](#vendor-raid-controller-tooling-optional)
 -   [RHEL / CentOS / Rocky / Alma / Fedora](#rhel-centos-rocky-alma-fedora)
@@ -101,7 +49,7 @@ sudo /usr/local/sbin/run_full_health_monitor.sh
 -   [`inventory_export.sh`](#inventoryexportsh)
 - [Exit codes (for automation)](#exit-codes-for-automation)
 - [Installed file layout (recommended)](#installed-file-layout-recommended)
-- [CLI usage (`linux-maint`) (appendix)](#cli-usage-linux-maint-appendix)
+- [CLI usage (`linux-maint`)](#cli-usage-linux-maint)
 -   [Commands](#commands)
 -   [Environment](#environment)
 -   [Root requirement](#root-requirement)
@@ -118,27 +66,53 @@ sudo /usr/local/sbin/run_full_health_monitor.sh
 -   [Installed mode requires root (recommended)](#installed-mode-requires-root-recommended)
 - [Offline releases / version tracking](#offline-releases-version-tracking)
 - [Air-gapped / offline installation](#air-gapped-offline-installation)
-- [Development / CI (appendix)](#development-ci-appendix)
+- [Development / CI](#development-ci)
 - [Developer hooks (optional)](#developer-hooks-optional)
 - [Uninstall](#uninstall)
 - [Log rotation (recommended)](#log-rotation-recommended)
 - [Upgrading](#upgrading)
-## Installation
 
-This project supports two common modes:
+## Installation (recommended Linux paths)
 
-- **Installed mode (recommended for production)**: files under `/usr/local/*`, configs under `/etc/linux_maint`, logs under `/var/log`.
-- **Repo mode (developer/POC)**: run scripts directly from the git checkout.
+This layout matches common Linux conventions:
+- CLI entrypoint: `/usr/local/bin/linux-maint`
+- Wrapper (entrypoint): `/usr/local/sbin/run_full_health_monitor.sh`
+- Scripts (monitors): `/usr/local/libexec/linux_maint/`
+- Shared library: `/usr/local/lib/linux_maint.sh`
+
+```bash
+# Clone
+git clone https://github.com/ShenhavHezi/linux_Maint_Scripts.git
+cd linux_Maint_Scripts
+
+# Install
+sudo install -D -m 0755 lib/linux_maint.sh /usr/local/lib/linux_maint.sh
+sudo install -D -m 0755 run_full_health_monitor.sh /usr/local/sbin/run_full_health_monitor.sh
+sudo install -d /usr/local/libexec/linux_maint
+
+# Install monitor scripts (exclude the wrapper)
+sudo install -D -m 0755 \
+  monitors/backup_check.sh monitors/cert_monitor.sh monitors/config_drift_monitor.sh monitors/health_monitor.sh \
+  monitors/inode_monitor.sh monitors/inventory_export.sh monitors/network_monitor.sh monitors/nfs_mount_monitor.sh \
+  monitors/ntp_drift_monitor.sh monitors/patch_monitor.sh monitors/storage_health_monitor.sh monitors/kernel_events_monitor.sh monitors/preflight_check.sh monitors/disk_trend_monitor.sh monitors/config_validate.sh monitors/ports_baseline_monitor.sh \
+  monitors/service_monitor.sh monitors/user_monitor.sh \
+  /usr/local/libexec/linux_maint/
+
+# Create config/log directories
+sudo mkdir -p /etc/linux_maint /etc/linux_maint/baselines /var/log/health
+```
+
+
 
 ### Installer script (recommended)
 
-The installer can optionally create a dedicated user, systemd timer, and logrotate config:
+For a one-command installation (including optional systemd timer/logrotate/user creation):
 
 ```bash
 sudo ./install.sh --with-user --with-timer --with-logrotate
 ```
 
-Uninstall binaries (keeps `/etc/linux_maint` and logs by default):
+To uninstall installed binaries (keeps `/etc/linux_maint` and logs by default):
 
 ```bash
 sudo ./install.sh --uninstall
@@ -146,152 +120,92 @@ sudo ./install.sh --uninstall
 sudo ./install.sh --uninstall --purge
 ```
 
-### Manual installation (recommended Linux paths)
-
-This layout matches common Linux conventions:
-
-- CLI: `/usr/local/bin/linux-maint`
-- Wrapper: `/usr/local/sbin/run_full_health_monitor.sh`
-- Monitor scripts: `/usr/local/libexec/linux_maint/`
-- Shared library: `/usr/local/lib/linux_maint.sh`
+### Permissions / hardening (recommended)
+After installation, keep the scripts directory root-owned and not writable by non-root users:
 
 ```bash
-sudo install -D -m 0755 lib/linux_maint.sh /usr/local/lib/linux_maint.sh
-sudo install -D -m 0755 run_full_health_monitor.sh /usr/local/sbin/run_full_health_monitor.sh
-sudo install -d /usr/local/libexec/linux_maint
-sudo install -D -m 0755 monitors/*.sh /usr/local/libexec/linux_maint/
-sudo install -D -m 0755 bin/linux-maint /usr/local/bin/linux-maint
-
-sudo mkdir -p /etc/linux_maint /etc/linux_maint/baselines /var/log/health
+sudo chown -R root:root /usr/local/libexec/linux_maint
+sudo chmod -R go-w /usr/local/libexec/linux_maint
 ```
 
-### Permissions / hardening
 
-**Recommended**: run the wrapper as `root` (cron/systemd). Several checks read privileged system state,
-write to `/var/log`, and may need access to package managers or systemd.
+## Recommended operating model
 
-If you prefer a dedicated user, run as `linuxmaint` and grant **minimal sudo** for the commands you need.
-Example (tighten for your environment):
+This project is designed as a **daily (or hourly) health check + drift detection toolkit**.
+The most common deployment is a single *monitoring node* that connects to one or more Linux hosts over SSH,
+collects signals, and writes an aggregated run log.
+
+- Primary use: scheduled execution via **cron** or a **systemd timer**
+- Output: per-script logs under `/var/log/` and an aggregated wrapper log under `/var/log/health/`
+- Automation: wrapper exit code reflects the worst status across monitors (`OK/WARN/CRIT/UNKNOWN`)
+
+## Distributed mode (recommended)
+
+1. Choose a monitoring node (can be one of your servers).
+2. Create a dedicated user on the monitoring node (and optionally on targets): `linuxmaint`.
+3. Configure SSH keys so the monitoring node can reach each target without prompts.
+4. Populate `/etc/linux_maint/servers.txt` on the monitoring node.
+
+### SSH key setup (example)
+
+```bash
+# On the monitoring node
+sudo useradd -r -m -s /bin/bash linuxmaint || true
+sudo -u linuxmaint ssh-keygen -t ed25519 -N '' -f /home/linuxmaint/.ssh/id_ed25519
+
+# Copy key to each target host (repeat per host)
+sudo -u linuxmaint ssh-copy-id linuxmaint@server-a
+```
+
+If you prefer not to create `linuxmaint` on target hosts, you can SSH as an existing user with the required permissions.
+
+## Least privilege / sudo (recommended)
+
+Some checks may require elevated privileges (examples: service status on some distros, reading certain logs,
+collecting process names for listening ports, package manager queries).
+
+Recommended approach:
+- Run the wrapper as root **on the monitoring node** *or*
+- Run as `linuxmaint` and allow limited sudo as needed.
+
+Example `/etc/sudoers.d/linux_maint` (review and tighten for your environment):
 
 ```sudoers
+# Allow linuxmaint to run specific commands without a password
 linuxmaint ALL=(root) NOPASSWD: /usr/bin/systemctl
 linuxmaint ALL=(root) NOPASSWD: /usr/sbin/ss, /bin/ss
 linuxmaint ALL=(root) NOPASSWD: /usr/bin/journalctl
 linuxmaint ALL=(root) NOPASSWD: /usr/bin/apt, /usr/bin/apt-get, /usr/bin/dnf, /usr/bin/yum, /usr/bin/zypper
 ```
 
-## Operating model
+Notes:
+- Paths vary by distro; adjust accordingly.
+- If you run everything as root (cron/systemd), you may not need sudo at all.
 
-- Run `run_full_health_monitor.sh` periodically via **cron** or **systemd timer**.
-- Logs:
-  - Per-monitor logs under `/var/log/` (or overridden via `LM_LOGFILE`)
-  - Aggregated wrapper log under `/var/log/health/`
-- Exit code: wrapper returns the **worst** status across monitors.
+## Alerting model (email)
 
-## Configuration
+Email is **disabled by default** for safe first deployment.
 
-Default configs live under `/etc/linux_maint/` (templates in `etc/linux_maint/*.example`).
+- Global toggle: `LM_EMAIL_ENABLED` (exported by the wrapper)
+  - `false` (default): do not send mail
+  - `true`: allow scripts to send alerts
 
-Common files:
-- `servers.txt` — targets for distributed mode (one host per line)
-- `excluded_servers.txt` — targets to skip
-- `services.txt` — services to validate (for `service_monitor.sh`)
-- `network_targets.csv` — reachability targets (for `network_monitor.sh`)
-- `cert_targets.txt` — certificate endpoints to validate
-- `config_paths.txt` — paths checked for config drift
-- `baselines/` — known-good baselines written when privileged
+Per-script flags (examples):
+- `EMAIL_ON_ALERT`, `EMAIL_ON_CHANGE`, `EMAIL_ON_DRIFT`, `EMAIL_ON_ISSUE`
 
-### Tuning knobs (common environment variables)
+Recommended workflow:
+1. Deploy and tune config/baselines first.
+2. Enable email only after you are satisfied with noise level.
 
-These can be exported in cron/systemd units, or set in your environment:
-
-- `MONITOR_TIMEOUT_SECS` (default `600`): per-monitor hard timeout
-- `LM_EMAIL_ENABLED` (`false` by default): allow monitors to send email
-- `LM_LOCAL_ONLY=true`: run monitors locally (library `lm_ssh()` bypasses SSH)
-- `LM_SSH_OPTS`: SSH options (e.g., `-o BatchMode=yes -o ConnectTimeout=3`)
-- `LM_LOGFILE`, `LM_STATE_DIR`, `LM_LOCKDIR`: override paths (useful for CI)
-
-## Output contract (machine-parseable summaries)
-
-Monitors are expected to emit machine-parseable summary lines using `lm_summary()` (from `lib/linux_maint.sh`).
-Automation and the wrapper rely on these lines:
-
-```text
-monitor=<name> host=<target> status=<OK|WARN|CRIT|UNKNOWN|SKIP> node=<runner> key=value...
-```
-
-The wrapper extracts only `monitor=` lines into the final status section.
-
-## Wrapper behavior (`run_full_health_monitor.sh`)
-
-- Runs monitors in a defined order
-- Enforces `MONITOR_TIMEOUT_SECS` per monitor to prevent hangs
-- Aggregates results and returns worst status:
-  - `0` OK
-  - `1` WARN
-  - `2` CRIT
-  - `3` UNKNOWN
-
-## CLI usage (`linux-maint`)
-
-### Common commands
+To enable email for scheduled runs, set it in your cron or systemd unit:
 
 ```bash
-linux-maint run        # run wrapper/monitors
-linux-maint status     # summarize latest run
-linux-maint logs       # show recent logs
-linux-maint preflight  # dependency/SSH/config readiness checks
-linux-maint validate   # validate config formats
+LM_EMAIL_ENABLED=true /usr/local/sbin/run_full_health_monitor.sh
 ```
 
-### Notes
-- `linux-maint status` prefers `summary_latest.log` (machine summary) and falls back to grepping the aggregated log.
+Wrapper execution safety:
 
-## Monitor reference
-
-See `monitors/` for the full list. Monitors follow the summary contract above.
-
-### Optional packages for full coverage (bare metal)
-
-Some storage checks are best-effort and depend on vendor tools:
-
-- **Vendor RAID controller tooling** (optional)
-- Distro packages vary; see sections below.
-
-#### RHEL / CentOS / Rocky / Alma / Fedora
-(see README below for package suggestions)
-
-#### Debian / Ubuntu
-(see README below for package suggestions)
-
-#### SUSE / openSUSE
-(see README below for package suggestions)
-
-## Troubleshooting
-
-- **SSH hangs / slow runs**: ensure `BatchMode=yes` and a low `ConnectTimeout` in `LM_SSH_OPTS`.
-- **Permission denied writing logs/baselines**: run as root or ensure `/var/log` and `/etc/linux_maint` permissions.
-- **Missing `monitor=` lines**: a monitor must emit at least one summary line or explicitly `SKIP`.
-- **Noisy alerts**: tune monitor config/baselines first, then enable email.
-
-## Development / CI
-
-- ShellCheck is run in CI.
-- `tests/summary_contract.sh` ensures each monitor emits at least one `monitor=` line or `SKIP:`.
-- CI forces local-only mode (`LM_LOCAL_ONLY=true`) and uses temp dirs.
-
-## Uninstall / upgrading
-
-- Use `install.sh --uninstall` (and optionally `--purge`).
-- For upgrades, reinstall over the existing paths or replace the deployed tarball.
-
-
----
-
-# Detailed reference (appendix)
-
-> The sections below are preserved from the original README as a deep reference.
-> The top part of this README is the recommended operator view.
+- `MONITOR_TIMEOUT_SECS` (default: `600`) — hard timeout per monitor to prevent a single script from hanging the full run.
 
 
 ## Optional packages for full coverage (recommended on bare metal)
@@ -480,7 +394,7 @@ The wrapper returns the **worst** exit code across all executed monitors.
 
 ## Installed file layout (recommended)
 
-## CLI usage (`linux-maint`) (appendix)
+## CLI usage (`linux-maint`)
 
 After installation, use the `linux-maint` CLI as the primary interface.
 
@@ -780,7 +694,7 @@ sudo ./install.sh --with-logrotate
 # sudo ./install.sh --with-user --with-timer --with-logrotate
 ```
 
-## Development / CI (appendix)
+## Development / CI
 
 This repository includes a GitHub Actions workflow that:
 - runs `shellcheck` on scripts
