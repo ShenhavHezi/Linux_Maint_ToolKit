@@ -1,6 +1,6 @@
 # Dark-site / air-gapped deployment guide
 
-This project supports offline installation by generating a self-contained tarball that includes build metadata.
+This project supports offline installation by generating a self-contained tarball.
 
 ## 1) Build the tarball (connected workstation)
 
@@ -12,11 +12,31 @@ cd linux_Maint_Scripts
 # output: dist/linux_Maint_Scripts-<version>-<sha>.tgz
 ```
 
-## 2) Transfer to the offline server
+Optional (recommended) integrity file:
 
-Copy the `dist/linux_Maint_Scripts-*.tgz` file via your approved media/channel.
+```bash
+sha256sum dist/linux_Maint_Scripts-*.tgz > dist/SHA256SUMS
+```
 
-## 3) Install on the offline server
+## 2) Transfer into the offline environment (staging / hop)
+
+Move the tarball using your approved process. In many environments this is a multi-step “hop”, for example:
+
+- connected workstation → staging machine / scanning station → removable media → offline network → target servers
+
+Copy:
+- `dist/linux_Maint_Scripts-*.tgz`
+- `dist/SHA256SUMS` (optional)
+
+On the offline side you can verify:
+
+```bash
+sha256sum -c SHA256SUMS
+```
+
+## 3) Install on the offline server(s)
+
+On each target server:
 
 ```bash
 tar -xzf linux_Maint_Scripts-*.tgz
@@ -42,3 +62,4 @@ sudo linux-maint logs 200
 
 - Installed mode is intended to run as root (or via sudo) because it uses `/var/log` and `/var/lock`.
 - For per-monitor configuration, see files under `/etc/linux_maint/` (created by the installer).
+- Full reference: [`reference.md`](reference.md)
