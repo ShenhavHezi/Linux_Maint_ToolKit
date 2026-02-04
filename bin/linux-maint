@@ -97,6 +97,14 @@ need_root_for(){
       tail -n 200 "$summary_file" || true
     else
       echo "No summary file: $summary_file"
+      echo "Possible reasons:"
+      echo "- linux-maint has not been run yet"
+      echo "- wrapper ran with a different LOG_DIR/SUMMARY_DIR"
+      echo "- permission issue creating/writing in /var/log/health (try sudo)"
+      echo "Tips:"
+      echo "- Run: sudo linux-maint run"
+      echo "- Or inspect latest wrapper log: sudo linux-maint logs 200"
+      echo "- Or run: sudo linux-maint doctor"
       echo "Falling back to grepping latest wrapper log"
       log="/var/log/health/full_health_monitor_latest.log"
       [[ "$MODE" == "repo" ]] && log="$REPO_LATEST_LOG"
@@ -204,6 +212,8 @@ Commands:
   uninstall [args]    Run ./install.sh --uninstall (pass-through)
   make-tarball        Build offline release tarball (tools/make_tarball.sh)
   logs [n]            Tail latest wrapper log (default n=200)
+  init                Install /etc/linux_maint templates (from repo checkout)
+  doctor              Diagnose installation/config/state permissions
   help                Show this help
 
 Environment:
@@ -365,6 +375,14 @@ case "$cmd" in
       tail -n 200 "$summary_file" || true
     else
       echo "No summary file: $summary_file"
+      echo "Possible reasons:"
+      echo "- linux-maint has not been run yet"
+      echo "- wrapper ran with a different LOG_DIR/SUMMARY_DIR"
+      echo "- permission issue creating/writing in /var/log/health (try sudo)"
+      echo "Tips:"
+      echo "- Run: sudo linux-maint run"
+      echo "- Or inspect latest wrapper log: sudo linux-maint logs 200"
+      echo "- Or run: sudo linux-maint doctor"
       echo "Falling back to grepping latest wrapper log"
       log="/var/log/health/full_health_monitor_latest.log"
       [[ "$MODE" == "repo" ]] && log="$REPO_LATEST_LOG"
