@@ -18,6 +18,7 @@ jobs:
 
       - name: ShellCheck
         run: |
+          # Honor project-wide suppressions in .shellcheckrc
           shellcheck -x run_full_health_monitor.sh
           shellcheck -x lib/linux_maint.sh
           shellcheck -x bin/linux-maint
