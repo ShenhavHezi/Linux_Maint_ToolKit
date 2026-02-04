@@ -73,7 +73,12 @@ lm_ssh() {
   if [ "$host" = "localhost" ] || [ "$host" = "127.0.0.1" ]; then
     bash -lc "$*" 2>/dev/null
   else
-    ssh $LM_SSH_OPTS "$host" "$@" 2>/dev/null
+    # LM_SSH_OPTS may contain multiple ssh arguments. Split intentionally into an array.
+    local -a _ssh_opts=()
+    # shellcheck disable=SC2206
+    _ssh_opts=(${LM_SSH_OPTS:-})
+    # shellcheck disable=SC2029
+    ssh "${_ssh_opts[@]}" "$host" "$@" 2>/dev/null
   fi
 }
 # quick reachability probe (0=ok)
