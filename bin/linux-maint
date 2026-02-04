@@ -153,6 +153,9 @@ make_list_tmpfile(){
 
 parse_run_args(){
   DRY_RUN=0
+  DEBUG=0
+  LIMIT=0
+  SHUFFLE=0
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -168,10 +171,16 @@ parse_run_args(){
         LM_LOCAL_ONLY="true"; export LM_LOCAL_ONLY; shift 1;;
       --ssh-opts)
         LM_SSH_OPTS="$2"; export LM_SSH_OPTS; shift 2;;
+      --limit)
+        LIMIT="$2"; shift 2;;
+      --shuffle)
+        SHUFFLE=1; shift 1;;
+      --debug|--print-env)
+        DEBUG=1; shift 1;;
       --dry-run)
         DRY_RUN=1; shift 1;;
       -h|--help)
-        echo "Usage: linux-maint run [--group G] [--hosts h1,h2] [--exclude h3,h4] [--parallel N] [--local-only] [--ssh-opts '...'] [--dry-run]"
+        echo "Usage: linux-maint run [--group G] [--hosts h1,h2] [--exclude h3,h4] [--parallel N] [--local-only] [--ssh-opts '...'] [--limit N] [--shuffle] [--debug|--print-env] [--dry-run]"
         exit 0;;
       *)
         echo "Unknown run flag: $1" >&2
@@ -218,25 +227,51 @@ case "$cmd" in
     fi
     parse_run_args "$@"
 
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-      # best-effort host resolution using library if available
+    if [[ "${DEBUG:-0}" -eq 1 ]]; then
+      echo "=== linux-maint run debug ==="
+      echo "MODE=${MODE}"
+      echo "wrapper=${wrapper}"
+      echo "LM_GROUP=${LM_GROUP:-}"
+      echo "LM_HOSTS_DIR=${LM_HOSTS_DIR:-}"
+      echo "LM_SERVERLIST=${LM_SERVERLIST:-}"
+      echo "LM_EXCLUDED=${LM_EXCLUDED:-}"
+      echo "LM_MAX_PARALLEL=${LM_MAX_PARALLEL:-}"
+      echo "LM_LOCAL_ONLY=${LM_LOCAL_ONLY:-}"
+      echo "LM_SSH_OPTS=${LM_SSH_OPTS:-}"
+      echo "LIMIT=${LIMIT:-0}"
+      echo "SHUFFLE=${SHUFFLE:-0}"
+      echo "DRY_RUN=${DRY_RUN:-0}"
+      echo "============================="
+    fi
+
+    if [[ "${DRY_RUN:-0}" -eq 1 ]]; then
       if [[ -n "${LM_GROUP:-}" ]]; then
         gf="${LM_HOSTS_DIR:-/etc/linux_maint/hosts.d}/${LM_GROUP}.txt"
         [[ -f "$gf" ]] || echo "NOTE: LM_GROUP=$LM_GROUP but group file not found: $gf (will fall back)" >&2
       fi
 
+      # best-effort host resolution using library if available
       if [[ -f "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" ]]; then
         # shellcheck disable=SC1090
         . "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" >/dev/null 2>&1 || true
         if command -v lm_hosts >/dev/null 2>&1; then
-          echo "Resolved hosts:"
-          lm_hosts
+          mapfile -t _hosts < <(lm_hosts)
+          if [[ "${SHUFFLE:-0}" -eq 1 ]]; then
+            mapfile -t _hosts < <(printf '%s\n' "${_hosts[@]}" | shuf)
+          fi
+          if [[ "${LIMIT:-0}" -gt 0 ]]; then
+            mapfile -t _hosts < <(printf '%s\n' "${_hosts[@]}" | head -n "${LIMIT}")
+          fi
+
+          echo "Resolved hosts (${#_hosts[@]}):"
+          printf '%s\n' "${_hosts[@]}"
           exit 0
         fi
       fi
-      echo "DRY RUN requested, but cannot resolve hosts (library not available)."
+      echo "DRY RUN requested, but cannot resolve hosts (library not available)." >&2
       exit 0
     fi
+
     # In installed mode, try sudo -n first. In repo mode, just run.
     if [[ "$wrapper" == "$SBIN"/* ]]; then
       exec sudo -n "$wrapper" 2>/dev/null || exec "$wrapper"

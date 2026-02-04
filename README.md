@@ -59,6 +59,14 @@ sudo linux-maint run --group prod --parallel 10
 sudo linux-maint run --hosts server-a,server-b --exclude server-c
 ```
 
+Planning safely (no execution):
+
+```bash
+sudo linux-maint run --group prod --dry-run
+sudo linux-maint run --group prod --dry-run --shuffle --limit 10
+sudo linux-maint run --group prod --debug --dry-run
+```
+
 ```bash
 sudo install -d -m 0755 /etc/linux_maint
 printf '%s
