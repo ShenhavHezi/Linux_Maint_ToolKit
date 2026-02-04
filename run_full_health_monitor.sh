@@ -28,7 +28,14 @@ chmod 0755 "$LOG_DIR"
 logfile="$LOG_DIR/full_health_monitor_$(date +%F_%H%M%S).log"
 
 tmp_report="/tmp/full_health_monitor_report.$$"
-trap 'rm -f "$tmp_report"' EXIT
+tmp_summary="/tmp/full_health_monitor_summary.$$"
+
+# Optional: write machine-parseable summaries to a separate file
+# Defaults to /var/log/health/full_health_monitor_summary_latest.log
+SUMMARY_DIR="${SUMMARY_DIR:-$LOG_DIR}"
+SUMMARY_LATEST_FILE="${SUMMARY_LATEST_FILE:-$SUMMARY_DIR/full_health_monitor_summary_latest.log}"
+SUMMARY_FILE="${SUMMARY_FILE:-$SUMMARY_DIR/full_health_monitor_summary_$(date +%F_%H%M%S).log}"
+trap 'rm -f "$tmp_report" "$tmp_summary"' EXIT
 
 # Minimal config (local mode)
 mkdir -p /etc/linux_maint
@@ -147,10 +154,24 @@ esac
 {
   echo "SUMMARY_RESULT overall=$overall ok=$ok warn=$warn crit=$crit unknown=$unk finished=$(date -Is) exit_code=$worst"
   echo "============================================================"
+  # Final status summary: explicitly extract only standardized machine lines.
+  # These come from lib/linux_maint.sh: lm_summary() -> lines starting with "monitor=".
+  echo "FINAL_STATUS_SUMMARY (monitor= lines only)"
+  grep -a '^monitor=' "$tmp_report" 2>/dev/null || true
+  echo "============================================================"
+
   cat "$tmp_report"
 } | awk '{ print strftime("[%F %T]"), $0 }' | tee "$logfile" >/dev/null
 
 ln -sfn "$logfile" "$LOG_DIR/full_health_monitor_latest.log"
+
+# Write a separate, machine-parseable summary file (optional but enabled by default).
+# Contains only "monitor=" lines (no timestamps) so it can be parsed by tools/CI.
+mkdir -p "$SUMMARY_DIR" 2>/dev/null || true
+grep -a '^monitor=' "$tmp_report" > "$tmp_summary" 2>/dev/null || :
+cat "$tmp_summary" > "$SUMMARY_FILE" 2>/dev/null || true
+ln -sfn "$SUMMARY_FILE" "$SUMMARY_LATEST_FILE" 2>/dev/null || true
+rm -f "$tmp_summary" 2>/dev/null || true
 
 {
   echo "timestamp=$(date -Is)"
