@@ -17,6 +17,15 @@ Run it locally or from a monitoring node over SSH, get structured logs + a simpl
 - **Execution**: local host checks and/or distributed checks over SSH from a monitoring node.
 - **Schedulers**: cron or systemd timer (installer can set these up).
 
+
+## Requirements (minimal)
+
+- `bash` + standard core utilities (`awk`, `sed`, `grep`, `df`, `ps`, etc.)
+- `ssh` client for distributed mode
+- `sudo`/root recommended (many checks read privileged state and write to `/var/log` and `/etc/linux_maint`)
+
+Optional (improves coverage): `smartctl` (smartmontools), `nvme` (nvme-cli), vendor RAID CLIs.
+
 ## Dark-site / offline (air-gapped) use
 
 This project is designed to work in environments without direct Internet access.
@@ -91,6 +100,7 @@ monitor=<name> host=<target> status=<OK|WARN|CRIT|UNKNOWN|SKIP> node=<runner> ke
 
 - [What it does](#what-it-does)
 - [Supported environments (high level)](#supported-environments-high-level)
+- [Requirements (minimal)](#requirements-minimal)
 - [Dark-site / offline (air-gapped) use](#dark-site-offline-air-gapped-use)
 - [Quickstart](#quickstart)
 -   [Local run (from the repo)](#local-run-from-the-repo)
