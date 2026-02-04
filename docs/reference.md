@@ -73,6 +73,9 @@ python3 tools/update_readme_defaults.py
 
 ### Wrapper-level notification (single summary email per run)
 
+Notifications can optionally include a `DIFF_SINCE_LAST_RUN` section (new failures, recovered, still failing) computed from the summary artifacts.
+
+
 By default, the wrapper does **not** send email. You can enable a single per-run summary email using either environment variables or `/etc/linux_maint/notify.conf`.
 
 Supported settings:
@@ -248,7 +251,7 @@ Common `reason` values used in this project:
 
 When running the full wrapper (`run_full_health_monitor.sh`) in installed mode:
 - Full log: `/var/log/health/full_health_monitor_<timestamp>.log` and `..._latest.log` symlink
-- Summary-only file (only `monitor=` lines, no timestamps): `/var/log/health/summary_<timestamp>.txt` and `summary_latest.txt` symlink
+- Summary-only file (only `monitor=` lines, no timestamps): `/var/log/health/full_health_monitor_summary_<timestamp>.log` and `full_health_monitor_summary_latest.log` symlink
 
 These artifacts are designed to be consumed by automation/CI or log shipping tools.
 
@@ -376,6 +379,13 @@ That wrapper executes these scripts (in order):
 - `user_monitor.sh` – detect user/sudoers anomalies vs baseline
 - `backup_check.sh` – verify backups from `/etc/linux_maint/backup_targets.csv`
 - `inventory_export.sh` – write daily inventory CSV under `/var/log/inventory/`
+
+
+### Wrapper summary counters
+
+The wrapper emits two types of summary counters:
+- `SUMMARY_RESULT ... ok/warn/crit/unknown/skipped` — per-monitor *script exit codes*
+- `SUMMARY_HOSTS ok=.. warn=.. crit=.. unknown=.. skipped=..` — derived from `monitor=` lines (fleet-accurate in distributed mode)
 
 ### Wrapper log output
 The wrapper writes an aggregated log to:
