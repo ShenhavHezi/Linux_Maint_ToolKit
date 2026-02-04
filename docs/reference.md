@@ -200,6 +200,58 @@ Most defaults below are taken directly from the scripts (current repository vers
 - `MAIL_ON_RUN` = `"false"`
 
 
+## Output contract (machine-parseable summary lines)
+
+Most monitors emit one or more standardized *summary lines* using `lm_summary()` (from `lib/linux_maint.sh`).
+The wrapper (`run_full_health_monitor.sh`) also extracts these lines into a summary-only artifact.
+
+### Summary line format
+
+Each summary line is a single line of space-separated `key=value` pairs. The first keys are always:
+
+```text
+monitor=<monitor_name> host=<target> status=<OK|WARN|CRIT|UNKNOWN|SKIP> node=<runner_fqdn> [key=value ...]
+```
+
+Notes:
+- `monitor` is the script/monitor logical name (e.g. `patch_monitor`).
+- `host` is the target host being evaluated. For fleet/global summaries some monitors use `host=all`.
+- `status` is the logical result (see below).
+- `node` is the machine that executed the monitor (runner).
+- Additional keys are monitor-specific metrics (counts, thresholds, paths, etc.).
+
+### Status values (semantic meaning)
+
+- `OK`: check succeeded; no action required.
+- `WARN`: potential issue / attention suggested; not necessarily an outage.
+- `CRIT`: actionable failure / immediate attention required.
+- `UNKNOWN`: the check could not be completed reliably (tool missing, permission issue, unexpected error).
+- `SKIP`: the check intentionally did not evaluate (missing optional config/baseline, unsupported environment).
+
+### `reason=` key (recommended on non-OK paths)
+
+For non-`OK` outcomes, monitors should emit a `reason=<token>` key when possible.
+This makes automation and triage much easier than relying on free-form logs.
+
+Common `reason` values used in this project:
+- `ssh_unreachable`
+- `collect_failed`
+- `kernel_log_unreadable`
+- `missing_targets_file`
+- `unsupported_pkg_mgr`
+- `baseline_missing`
+- `baseline_created`
+- `no_timesync_tool`
+- `early_exit`
+
+### Artifacts written by the wrapper
+
+When running the full wrapper (`run_full_health_monitor.sh`) in installed mode:
+- Full log: `/var/log/health/full_health_monitor_<timestamp>.log` and `..._latest.log` symlink
+- Summary-only file (only `monitor=` lines, no timestamps): `/var/log/health/summary_<timestamp>.txt` and `summary_latest.txt` symlink
+
+These artifacts are designed to be consumed by automation/CI or log shipping tools.
+
 ## Exit codes (for automation)
 
 The wrapper prints a final `SUMMARY_RESULT` line that includes counters: `ok`, `warn`, `crit`, `unknown`, and `skipped` (for monitors skipped due to missing config gates).
