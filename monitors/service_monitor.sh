@@ -15,6 +15,10 @@ LM_LOGFILE="${LM_LOGFILE:-/var/log/service_monitor.log}"
 
 lm_require_singleton "service_monitor"
 
+_summary_emitted=0
+emit_summary(){ _summary_emitted=1; lm_summary "service_monitor" "$@"; }
+trap 'rc=$?; if [ "${_summary_emitted:-0}" -eq 0 ]; then lm_summary "service_monitor" "localhost" "UNKNOWN" reason=early_exit rc=$rc; fi' EXIT
+
 # ========================
 # Script configuration
 # ========================
@@ -121,7 +125,7 @@ run_for_host(){
   lm_info "===== Completed $host ====="
 
   status=$( [ "$fail_count" -gt 0 ] && echo CRIT || echo OK )
-  lm_summary "service_monitor" "$host" "$status" checked=$checked failures=$fail_count
+  emit_summary "$host" "$status" checked=$checked failures=$fail_count
   # legacy:
   # echo "service_monitor host=$host status=$status checked=$checked failures=$fail_count"
 

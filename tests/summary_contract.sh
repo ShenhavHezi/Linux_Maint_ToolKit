@@ -33,6 +33,10 @@ export LM_LOGFILE="/tmp/linux_maint_contract_test.log"
 export LM_EMAIL_ENABLED="false"
 export LM_STATE_DIR="/tmp"
 export LM_SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=3"
+# Force local-only during CI contract test to avoid SSH delays/hangs
+export LM_SERVERLIST="/dev/null"
+export LM_EXCLUDED="/dev/null"
+export LM_LOCAL_ONLY="true"
 
 fail=0
 for m in "${monitors[@]}"; do
@@ -46,7 +50,7 @@ for m in "${monitors[@]}"; do
   out="$(mktemp)"
   # run best-effort; monitor may exit nonzero due to real system state
   set +e
-  LM_LOGFILE="/tmp/${m%.sh}.log" bash "$path" >"$out" 2>&1
+  LM_LOGFILE="/tmp/${m%.sh}.log" bash -lc "bash \"$path\"" >"$out" 2>&1
   rc=$?
   if [[ "$rc" -ne 0 && ! -s "$out" ]]; then
     echo "NOTE: $m exited rc=$rc with empty output" >&2

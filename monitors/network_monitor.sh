@@ -12,6 +12,10 @@ LM_LOGFILE="${LM_LOGFILE:-/var/log/network_monitor.log}"
 
 lm_require_singleton "network_monitor"
 
+_summary_emitted=0
+emit_summary(){ _summary_emitted=1; lm_summary "network_monitor" "$@"; }
+trap 'rc=$?; if [ "${_summary_emitted:-0}" -eq 0 ]; then lm_summary "network_monitor" "localhost" "UNKNOWN" reason=early_exit rc=$rc; fi' EXIT
+
 # ========================
 # Configuration
 # ========================
@@ -218,7 +222,7 @@ run_for_host(){
   local failures=0
   failures=$( [ -f "$ALERTS_FILE" ] && wc -l < "$ALERTS_FILE" 2>/dev/null || echo 0 )
   status=$( [ "$failures" -gt 0 ] && echo CRIT || echo OK )
-  lm_summary "network_monitor" "$host" "$status" checked=$checked failures=$failures
+  emit_summary "$host" "$status" checked=$checked failures=$failures
   # legacy:
   # echo "network_monitor host=$host status=$status checked=$checked failures=$failures"
 

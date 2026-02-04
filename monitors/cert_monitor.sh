@@ -13,6 +13,10 @@ LM_PREFIX="[cert_monitor] "
 LM_LOGFILE="${LM_LOGFILE:-/var/log/cert_monitor.log}"
 : "${LM_EMAIL_ENABLED:=true}"
 lm_require_singleton "cert_monitor"
+
+_summary_emitted=0
+emit_summary(){ _summary_emitted=1; lm_summary "cert_monitor" "$@"; }
+trap 'rc=$?; if [ "${_summary_emitted:-0}" -eq 0 ]; then lm_summary "cert_monitor" "localhost" "UNKNOWN" reason=early_exit rc=$rc; fi' EXIT
 mkdir -p "$(dirname "$LM_LOGFILE")"
 
 MAIL_SUBJECT_PREFIX='[Cert Monitor]'
@@ -181,7 +185,7 @@ done < "$TARGETS_FILE"
 
 overall="OK"
 if [ ${crit:-0} -gt 0 ]; then overall="CRIT"; elif [ ${warn:-0} -gt 0 ]; then overall="WARN"; fi
-lm_summary "cert_monitor" "all" "$overall" checked=${checked:-0} warn=${warn:-0} crit=${crit:-0}
+emit_summary "all" "$overall" checked=${checked:-0} warn=${warn:-0} crit=${crit:-0}
 # legacy:
 # echo "cert_monitor summary status=$overall checked=${checked:-0} warn=${warn:-0} crit=${crit:-0}"
 
