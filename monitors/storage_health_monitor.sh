@@ -167,7 +167,7 @@ run_for_host(){
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
     append_alert "$host|ssh|unreachable"
-    lm_summary "storage_health_monitor" "$host" "CRIT" mdraid=? smart=? nvme=?
+    lm_summary "storage_health_monitor" "$host" "CRIT" reason=ssh_unreachable mdraid=? smart=? nvme=?
     # legacy:
     # echo "storage_health_monitor host=$host status=CRIT mdraid=? smart=? nvme=?"
     return 2
@@ -179,7 +179,7 @@ run_for_host(){
   if [ -z "$out" ]; then
     lm_warn "[$host] unable to collect storage health"
     append_alert "$host|collect|failed"
-    lm_summary "storage_health_monitor" "$host" "UNKNOWN"
+    lm_summary "storage_health_monitor" "$host" "UNKNOWN" reason=collect_failed
     # legacy:
     # echo "storage_health_monitor host=$host status=UNKNOWN"
     return 3
