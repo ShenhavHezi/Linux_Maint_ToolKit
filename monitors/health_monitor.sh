@@ -9,7 +9,7 @@
 # ===== Shared helpers =====
 . "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[health_monitor] "
-LM_LOGFILE="/var/log/health_monitor.log"
+LM_LOGFILE="${LM_LOGFILE:-/var/log/health_monitor.log}"
 : "${LM_MAX_PARALLEL:=0}"     # 0 = sequential; >0 runs hosts concurrently
 : "${LM_EMAIL_ENABLED:=true}" # master toggle for lm_mail
 
@@ -72,6 +72,7 @@ run_for_host() {
     {
       echo ">>> Health check on $host ($(date '+%Y-%m-%d %H:%M:%S'))"
       echo "--- ERROR: SSH unreachable"
+      echo "--- ERROR_CODE: ssh_unreachable"
       echo "----------------------------------------------"
     } | append_report
     return
@@ -108,8 +109,12 @@ fi
 # One-line summary to stdout (for wrapper logs)
 hosts=0
 hosts=$(grep -c "^>>> Health check on" "$REPORT_FILE" 2>/dev/null || echo 0)
+unreachable=0
+unreachable=$(grep -c "^--- ERROR_CODE: ssh_unreachable" "$REPORT_FILE" 2>/dev/null || echo 0)
 lines=$(wc -l < "$REPORT_FILE" 2>/dev/null || echo 0)
-lm_summary "health_monitor" "all" "OK" hosts=$hosts report_lines=$lines
+status="OK"
+if [ "$unreachable" -gt 0 ]; then status="CRIT"; fi
+lm_summary "health_monitor" "all" "$status" hosts=$hosts unreachable=$unreachable report_lines=$lines
 # legacy:
 # echo health_monitor summary status=OK hosts=$hosts report_lines=$lines
 rm -f "$REPORT_FILE" "$REPORT_LOCK" 2>/dev/null || true
