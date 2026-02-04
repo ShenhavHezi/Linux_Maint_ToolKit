@@ -35,7 +35,9 @@ Typical workflow:
 2. Transfer it to the dark-site environment.
 3. Install using `install.sh` and your internal package repos/mirrors.
 
-See the full steps and release/version tracking notes in [`docs/reference.md`](docs/reference.md).
+Full offline install steps: [`docs/DARK_SITE.md`](docs/DARK_SITE.md).
+
+Release/version tracking notes and deeper configuration reference: [`docs/reference.md`](docs/reference.md).
 
 
 ## Quickstart
