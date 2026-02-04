@@ -12,6 +12,15 @@ LM_LOGFILE="${LM_LOGFILE:-/var/log/ports_baseline_monitor.log}"
 
 lm_require_singleton "ports_baseline_monitor"
 
+# If running unprivileged and /etc/linux_maint is not writable, skip to avoid failing CI/contract tests.
+if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+  if ! mkdir -p /etc/linux_maint 2>/dev/null; then
+    echo "SKIP: requires root (cannot write /etc/linux_maint)"
+    lm_summary "ports_baseline_monitor" "localhost" "SKIP" reason="unprivileged_no_etc"
+    exit 0
+  fi
+fi
+
 # ========================
 # Script configuration
 # ========================

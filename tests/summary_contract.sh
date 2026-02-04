@@ -48,6 +48,10 @@ for m in "${monitors[@]}"; do
   set +e
   LM_LOGFILE="/tmp/${m%.sh}.log" bash "$path" >"$out" 2>&1
   rc=$?
+  if [[ "$rc" -ne 0 && ! -s "$out" ]]; then
+    echo "NOTE: $m exited rc=$rc with empty output" >&2
+    echo "env: LINUX_MAINT_LIB=$LINUX_MAINT_LIB LM_LOCKDIR=$LM_LOCKDIR LM_STATE_DIR=$LM_STATE_DIR LM_LOGFILE=/tmp/${m%.sh}.log" >&2
+  fi
   set -e
 
   # Contract: if it ran, it should emit at least one monitor= line OR explicitly SKIP inside output.
@@ -55,7 +59,7 @@ for m in "${monitors[@]}"; do
     if grep -q '^SKIP:' "$out"; then
       echo "OK (skipped): $m"
     else
-      echo "FAIL: $m produced no '^monitor=' summary line" >&2
+      echo "FAIL: $m produced no '^monitor=' summary line (rc=$rc)" >&2
       echo "--- output ---" >&2
       tail -n 60 "$out" >&2 || true
       echo "-------------" >&2
