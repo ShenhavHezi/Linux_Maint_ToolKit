@@ -483,10 +483,18 @@ The wrapper writes an aggregated log to:
 It also writes a machine-parseable summary (only `monitor=` lines) to:
 
 - `/var/log/health/full_health_monitor_summary_latest.log`
+- `/var/log/health/full_health_monitor_summary_latest.json` *(same content as JSON array)*
 
 This file is intended for automation/CI ingestion and is what `linux-maint status` will prefer when present.
 
+Optional: Prometheus export (textfile collector format)
+
+- Default path: `/var/lib/node_exporter/textfile_collector/linux_maint.prom`
+- Metric: `linux_maint_monitor_status{monitor="...",host="..."}` where OK=0, WARN=1, CRIT=2, UNKNOWN/SKIP=3
+
 Each script prints a **single one-line summary** to stdout so the wrapper log stays readable.
+
+If a monitor is skipped by the wrapper due to missing config gates, the wrapper emits a standardized summary line with `status=SKIP` and a `reason=` field.
 Detailed logs are still written per-script under `/var/log/*.log`.
 
 ## Configuration files under `/etc/linux_maint/`

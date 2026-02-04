@@ -14,6 +14,13 @@ else
 fi
 SCRIPTS_DIR="${SCRIPTS_DIR:-$SCRIPTS_DIR_DEFAULT}"
 
+# Ensure monitors use the repo library when running from a checkout
+if [[ -f "$REPO_DIR/lib/linux_maint.sh" ]]; then
+  export LINUX_MAINT_LIB="$REPO_DIR/lib/linux_maint.sh"
+fi
+export LM_LOCKDIR="${LM_LOCKDIR:-/tmp}"
+export LM_STATE_DIR="${LM_STATE_DIR:-/tmp}"
+
 if [[ -d "$REPO_DIR/monitors" ]]; then
   LOG_DIR_DEFAULT="$REPO_DIR/.logs"
 else
@@ -34,6 +41,10 @@ tmp_summary="/tmp/full_health_monitor_summary.$$"
 # Defaults to /var/log/health/full_health_monitor_summary_latest.log
 SUMMARY_DIR="${SUMMARY_DIR:-$LOG_DIR}"
 SUMMARY_LATEST_FILE="${SUMMARY_LATEST_FILE:-$SUMMARY_DIR/full_health_monitor_summary_latest.log}"
+SUMMARY_JSON_LATEST_FILE="${SUMMARY_JSON_LATEST_FILE:-$SUMMARY_DIR/full_health_monitor_summary_latest.json}"
+SUMMARY_JSON_FILE="${SUMMARY_JSON_FILE:-$SUMMARY_DIR/full_health_monitor_summary_$(date +%F_%H%M%S).json}"
+PROM_DIR="${PROM_DIR:-/var/lib/node_exporter/textfile_collector}"
+PROM_FILE="${PROM_FILE:-$PROM_DIR/linux_maint.prom}"
 SUMMARY_FILE="${SUMMARY_FILE:-$SUMMARY_DIR/full_health_monitor_summary_$(date +%F_%H%M%S).log}"
 trap 'rm -f "$tmp_report" "$tmp_summary"' EXIT
 
@@ -98,20 +109,29 @@ run_one() {
   echo "" >> "$tmp_report"
   echo "==== RUN $s @ $(date '+%F %T') ====" >> "$tmp_report"
 
+  # Emit standardized SKIP summary lines when wrapper gates skip a monitor
+  skip_monitor() {
+    local reason="$1"
+    echo "SKIP: $reason" >> "$tmp_report"
+    echo "monitor=${s%.sh} host=all status=SKIP node=$(hostname -f 2>/dev/null || hostname) reason=$reason" >> "$tmp_report"
+    skipped=$((skipped+1))
+    return 0
+  }
+
   # Skip monitors that require config/baselines unless present
   case "$s" in
     cert_monitor.sh)
-      [ -s /etc/linux_maint/certs.txt ] || { echo "SKIP: /etc/linux_maint/certs.txt missing" >> "$tmp_report"; skipped=$((skipped+1)); return 0; }
+      [ -s /etc/linux_maint/certs.txt ] || { skip_monitor "missing:/etc/linux_maint/certs.txt"; }
       ;;
     ports_baseline_monitor.sh)
-      [ -s /etc/linux_maint/ports_baseline.txt ] || { echo "SKIP: /etc/linux_maint/ports_baseline.txt missing" >> "$tmp_report"; skipped=$((skipped+1)); return 0; }
+      [ -s /etc/linux_maint/ports_baseline.txt ] || { skip_monitor "missing:/etc/linux_maint/ports_baseline.txt"; }
       ;;
     config_drift_monitor.sh)
-      [ -s /etc/linux_maint/config_paths.txt ] || { echo "SKIP: /etc/linux_maint/config_paths.txt missing" >> "$tmp_report"; skipped=$((skipped+1)); return 0; }
+      [ -s /etc/linux_maint/config_paths.txt ] || { skip_monitor "missing:/etc/linux_maint/config_paths.txt"; }
       ;;
     user_monitor.sh)
-      [ -s /etc/linux_maint/baseline_users.txt ] || { echo "SKIP: /etc/linux_maint/baseline_users.txt missing" >> "$tmp_report"; skipped=$((skipped+1)); return 0; }
-      [ -s /etc/linux_maint/baseline_sudoers.txt ] || { echo "SKIP: /etc/linux_maint/baseline_sudoers.txt missing" >> "$tmp_report"; skipped=$((skipped+1)); return 0; }
+      [ -s /etc/linux_maint/baseline_users.txt ] || { skip_monitor "missing:/etc/linux_maint/baseline_users.txt"; }
+      [ -s /etc/linux_maint/baseline_sudoers.txt ] || { skip_monitor "missing:/etc/linux_maint/baseline_sudoers.txt"; }
       ;;
   esac
 
@@ -181,6 +201,52 @@ grep -a '^monitor=' "$tmp_report" > "$tmp_summary" 2>/dev/null || :
 cat "$tmp_summary" > "$SUMMARY_FILE" 2>/dev/null || true
 ln -sfn "$SUMMARY_FILE" "$SUMMARY_LATEST_FILE" 2>/dev/null || true
 rm -f "$tmp_summary" 2>/dev/null || true
+
+# Also write JSON + Prometheus outputs (best-effort)
+SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" python3 - <<'PY' || true
+import json, os, re
+summary_file=os.environ.get("SUMMARY_FILE")
+json_file=os.environ.get("SUMMARY_JSON_FILE")
+json_latest=os.environ.get("SUMMARY_JSON_LATEST_FILE")
+prom_file=os.environ.get("PROM_FILE")
+def parse_kv(line):
+    parts=line.strip().split()
+    d={}
+    for p in parts:
+        if "=" in p:
+            k,v=p.split("=",1)
+            d[k]=v
+    return d
+rows=[]
+if summary_file and os.path.exists(summary_file):
+    with open(summary_file,"r",encoding="utf-8",errors="ignore") as f:
+        for line in f:
+            if line.startswith("monitor="):
+                rows.append(parse_kv(line))
+if json_file and rows:
+    os.makedirs(os.path.dirname(json_file), exist_ok=True)
+    with open(json_file,"w",encoding="utf-8") as f:
+        json.dump(rows,f,indent=2,sort_keys=True)
+    if json_latest:
+        try:
+            if os.path.islink(json_latest) or os.path.exists(json_latest):
+                try: os.unlink(json_latest)
+                except: pass
+            os.symlink(json_file,json_latest)
+        except: pass
+status_map={"OK":0,"WARN":1,"CRIT":2,"UNKNOWN":3,"SKIP":3}
+if prom_file and rows:
+    try:
+        os.makedirs(os.path.dirname(prom_file), exist_ok=True)
+        with open(prom_file,"w",encoding="utf-8") as f:
+            f.write("# HELP linux_maint_monitor_status Monitor status as exit-code scale (OK=0,WARN=1,CRIT=2,UNKNOWN/SKIP=3)\n")
+            f.write("# TYPE linux_maint_monitor_status gauge\n")
+            for r in rows:
+                mon=r.get("monitor","unknown"); host=r.get("host","all"); st=r.get("status","UNKNOWN")
+                val=status_map.get(st,3)
+                f.write(f"linux_maint_monitor_status{{monitor=\"{mon}\",host=\"{host}\"}} {val}\n")
+    except: pass
+PY
 
 {
   echo "timestamp=$(date -Is)"
