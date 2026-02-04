@@ -14,7 +14,7 @@
 # ===== Shared helpers =====
 . "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[patch_monitor] "
-LM_LOGFILE="/var/log/patch_monitor.log"
+LM_LOGFILE="${LM_LOGFILE:-/var/log/patch_monitor.log}"
 : "${LM_MAX_PARALLEL:=0}"     # 0=sequential; >0 run hosts in parallel
 : "${LM_EMAIL_ENABLED:=true}" # master toggle for lm_mail
 
@@ -108,9 +108,10 @@ run_for_host() {
   local status=OK
 
   if ! lm_reachable "$host"; then
-    lm_err "[$host] SSH unreachable; skipping"
+    lm_err "[$host] SSH unreachable"
+    lm_summary "patch_monitor" "$host" "CRIT" reason=ssh_unreachable total=0 security=0 kernel=0 reboot_required=unknown
     lm_info "===== Completed $host ====="
-    return
+    return 2
   fi
 
   local os mgr
@@ -124,7 +125,10 @@ run_for_host() {
     dnf)    read total sec kern <<<"$(probe_dnf "$host")" ;;
     yum)    read total sec kern <<<"$(probe_yum "$host")" ;;
     zypper) read total sec kern <<<"$(probe_zypper "$host")" ;;
-    *)      lm_warn "[$host] Unsupported package manager; skipping"; lm_info "===== Completed $host ====="; return ;;
+    *)      lm_warn "[$host] Unsupported package manager: $mgr"
+            lm_summary "patch_monitor" "$host" "SKIP" reason=unsupported_pkg_mgr mgr=$mgr total=0 security=0 kernel=0 reboot_required=unknown
+            lm_info "===== Completed $host ====="
+            return 0 ;;
   esac
 
   local reboot; reboot="$(reboot_required "$host" "$mgr")"
@@ -160,5 +164,7 @@ This is an automated notice from patch_monitor.sh."
 # Main
 # ========================
 lm_info "=== Patch Monitor Started ==="
-lm_for_each_host run_for_host
+lm_for_each_host_rc run_for_host
+worst=$?
+exit "$worst"
 lm_info "=== Patch Monitor Finished ==="

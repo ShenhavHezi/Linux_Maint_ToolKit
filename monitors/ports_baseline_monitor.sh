@@ -188,8 +188,9 @@ run_for_host() {
 
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
+    lm_summary "ports_baseline_monitor" "$host" "CRIT" reason=ssh_unreachable new=0 removed=0
     lm_info "===== Completed $host ====="
-    return
+    return 2
   fi
 
   local cur_file; cur_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
@@ -204,14 +205,16 @@ run_for_host() {
     if [ "$AUTO_BASELINE_INIT" = "true" ]; then
       cp -f "$cur_file" "$base_file"
       lm_info "[$host] Baseline created at $base_file (initial snapshot)."
+      lm_summary "ports_baseline_monitor" "$host" "SKIP" reason=baseline_created new=0 removed=0
       rm -f "$cur_file"
       lm_info "===== Completed $host ====="
-      return
+      return 0
     else
       lm_warn "[$host] Baseline missing ($base_file). Set AUTO_BASELINE_INIT=true or create it manually."
+      lm_summary "ports_baseline_monitor" "$host" "SKIP" reason=baseline_missing new=0 removed=0
       rm -f "$cur_file"
       lm_info "===== Completed $host ====="
-      return
+      return 0
     fi
   fi
 
@@ -244,6 +247,8 @@ run_for_host() {
 ensure_dirs
 lm_info "=== Ports Baseline Monitor Started ==="
 
-lm_for_each_host run_for_host
+lm_for_each_host_rc run_for_host
+worst=$?
+exit "$worst"
 
 lm_info "=== Ports Baseline Monitor Finished ==="
