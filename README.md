@@ -174,6 +174,10 @@ To enable email for scheduled runs, set it in your cron or systemd unit:
 LM_EMAIL_ENABLED=true /usr/local/sbin/run_full_health_monitor.sh
 ```
 
+Wrapper execution safety:
+
+- `MONITOR_TIMEOUT_SECS` (default: `600`) — hard timeout per monitor to prevent a single script from hanging the full run.
+
 
 ## Optional packages for full coverage (recommended on bare metal)
 
@@ -348,6 +352,8 @@ Most defaults below are taken directly from the scripts (current repository vers
 
 ## Exit codes (for automation)
 
+The wrapper prints a final `SUMMARY_RESULT` line that includes counters: `ok`, `warn`, `crit`, `unknown`, and `skipped` (for monitors skipped due to missing config gates).
+
 All scripts aim to follow:
 - `0` = OK
 - `1` = WARN
@@ -473,6 +479,12 @@ That wrapper executes these scripts (in order):
 The wrapper writes an aggregated log to:
 
 - `/var/log/health/full_health_monitor_latest.log`
+
+It also writes a machine-parseable summary (only `monitor=` lines) to:
+
+- `/var/log/health/full_health_monitor_summary_latest.log`
+
+This file is intended for automation/CI ingestion and is what `linux-maint status` will prefer when present.
 
 Each script prints a **single one-line summary** to stdout so the wrapper log stays readable.
 Detailed logs are still written per-script under `/var/log/*.log`.
