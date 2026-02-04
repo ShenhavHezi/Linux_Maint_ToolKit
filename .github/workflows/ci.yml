@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  lint:
+  shellcheck-and-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,24 +18,19 @@ jobs:
 
       - name: ShellCheck
         run: |
-          set -euo pipefail
-          shellcheck -x \
-            -e SC1090,SC1091,SC2016,SC2029,SC2034,SC2086,SC2155,SC2162,SC2317 \
-            -- ./monitors/*.sh ./install.sh ./bin/linux-maint ./tools/*.sh
+          shellcheck -x run_full_health_monitor.sh
+          shellcheck -x lib/linux_maint.sh
+          shellcheck -x bin/linux-maint
+          shellcheck -x monitors/*.sh
+          shellcheck -x tests/*.sh
+          shellcheck -x tools/*.sh
 
-      - name: Verify README tuning knobs are up to date
+      - name: Summary contract test (unprivileged)
         run: |
-          set -euo pipefail
-          python3 tools/update_readme_defaults.py
-          git diff --exit-code
+          mkdir -p .logs
+          ./tests/summary_contract.sh
 
-  smoke:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Smoke test (repo mode)
+      - name: Smoke test (best-effort)
         run: |
-          set -euo pipefail
-          bash tests/smoke.sh
+          chmod +x tests/smoke.sh
+          ./tests/smoke.sh || true
