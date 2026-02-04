@@ -208,6 +208,20 @@ esac
 _tmp_mon_snapshot=$(mktemp /tmp/linux_maint_mon_snapshot.XXXXXX)
 grep -a '^monitor=' "$tmp_report" > "$_tmp_mon_snapshot" 2>/dev/null || true
 
+hosts_ok=0; hosts_warn=0; hosts_crit=0; hosts_unknown=0; hosts_skip=0
+# Fleet-level counters derived from monitor= lines (per-host/per-monitor)
+if [ -f "$_tmp_mon_snapshot" ]; then
+  _st_list=$(awk '{for(i=1;i<=NF;i++){split($i,a,"="); if(a[1]=="status"){print a[2]}}}' "$_tmp_mon_snapshot" 2>/dev/null || true)
+  hosts_ok=$(printf "%s
+" "$_st_list" | grep -c "^OK$" 2>/dev/null || echo 0)
+  hosts_warn=$(printf "%s\n" "$_st_list" | grep -c "^WARN$" 2>/dev/null || echo 0)
+  hosts_crit=$(printf "%s\n" "$_st_list" | grep -c "^CRIT$" 2>/dev/null || echo 0)
+  hosts_unknown=$(printf "%s\n" "$_st_list" | grep -c "^UNKNOWN$" 2>/dev/null || echo 0)
+  hosts_skip=$(printf "%s\n" "$_st_list" | grep -c "^SKIP$" 2>/dev/null || echo 0)
+fi
+
+
+echo "SUMMARY_HOSTS ok=$hosts_ok warn=$hosts_warn crit=$hosts_crit unknown=$hosts_unknown skipped=$hosts_skip"
 _tmp_human=$(mktemp /tmp/linux_maint_human.XXXXXX)
 {
   echo ""
