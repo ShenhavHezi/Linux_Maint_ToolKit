@@ -1,292 +1,86 @@
 # Linux Maintenance Toolkit (linux-maint)
 
-## Overview
+`linux-maint` is a lightweight health/maintenance toolkit for Linux administrators.
+Run it locally or from a monitoring node over SSH, get structured logs + a simple OK/WARN/CRIT summary.
 
-`linux-maint` is a lightweight Linux maintenance and health-monitoring toolkit for administrators.
-It runs a curated set of checks locally and/or across many hosts via SSH, writes structured logs,
-and returns automation-friendly exit codes.
+## What it does
 
-**Typical use cases**
-- Nightly/periodic health checks from a monitoring node (cron or systemd timer)
-- Detecting drift (ports, config, users/sudoers) against known-good baselines
-- Producing machine-parseable summaries for alerting/automation
+- Runs a set of modular checks (disk/inodes, CPU/memory/load, services, network reachability, NTP drift, patch/reboot hints,
+  kernel events, cert expiry, NFS mounts, storage health best-effort, backups freshness, inventory export, and drift checks).
+- Works **locally** or **across many hosts** via `/etc/linux_maint/servers.txt`.
+- Produces machine-parseable summary lines (`monitor=... status=...`) and an aggregated run log.
 
-## Features
+## Quickstart
 
-- **Single entry point**: `linux-maint` CLI and `run_full_health_monitor.sh` wrapper
-- **Modular monitors**: disk/inode, CPU/memory/load, services, network reachability, NTP drift, patch/reboot hints,
-  kernel event scan, certificates expiry, NFS mounts, storage health (best-effort), backups freshness, inventory export,
-  and drift/baseline checks
-- **Distributed mode**: iterate many targets from `/etc/linux_maint/servers.txt` over SSH
-- **Operational output**: per-run aggregated log + per-monitor logs with `OK/WARN/CRIT/UNKNOWN/SKIP`
-- **Safe by default**: per-monitor timeout; email disabled unless explicitly enabled
-- **Admin-friendly deployment**: installer (`install.sh`), optional systemd timer/logrotate, offline tarball support
-
-## Quickstart (local)
-
-From a host where you want to run checks locally:
+### Local run (from the repo)
 
 ```bash
 git clone https://github.com/ShenhavHezi/linux_Maint_Scripts.git
 cd linux_Maint_Scripts
-
-# Run directly from the repo (best with sudo/root)
 sudo ./run_full_health_monitor.sh
-
-# Show a concise status summary
 sudo ./bin/linux-maint status
 ```
 
-## Quickstart (distributed over SSH)
-
-1. Choose a **monitoring node** (can be one of your servers).
-2. Ensure the monitoring node can SSH to each target host without prompts.
-3. Create and populate `/etc/linux_maint/servers.txt` on the monitoring node.
-4. Run the wrapper from the monitoring node.
+### Distributed run (monitoring node)
 
 ```bash
-# Example servers file
 sudo install -d -m 0755 /etc/linux_maint
 printf '%s
 ' server-a server-b server-c | sudo tee /etc/linux_maint/servers.txt
-
-# Run against all targets
 sudo /usr/local/sbin/run_full_health_monitor.sh
 ```
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Quickstart (local)](#quickstart-local)
-- [Quickstart (distributed over SSH)](#quickstart-distributed-over-ssh)
-- [Installation](#installation)
--   [Installer script (recommended)](#installer-script-recommended)
--   [Manual installation (recommended Linux paths)](#manual-installation-recommended-linux-paths)
--   [Permissions / hardening](#permissions-hardening)
-- [Operating model](#operating-model)
-- [Configuration](#configuration)
--   [Tuning knobs (common environment variables)](#tuning-knobs-common-environment-variables)
-- [Output contract (machine-parseable summaries)](#output-contract-machine-parseable-summaries)
-- [Wrapper behavior (`run_full_health_monitor.sh`)](#wrapper-behavior-runfullhealthmonitorsh)
-- [CLI usage (`linux-maint`)](#cli-usage-linux-maint)
--   [Common commands](#common-commands)
--   [Notes](#notes)
-- [Monitor reference](#monitor-reference)
--   [Optional packages for full coverage (bare metal)](#optional-packages-for-full-coverage-bare-metal)
-- [Troubleshooting](#troubleshooting)
-- [Development / CI](#development-ci)
-- [Uninstall / upgrading](#uninstall-upgrading)
-- [Optional packages for full coverage (recommended on bare metal)](#optional-packages-for-full-coverage-recommended-on-bare-metal)
--   [Vendor RAID controller tooling (optional)](#vendor-raid-controller-tooling-optional)
--   [RHEL / CentOS / Rocky / Alma / Fedora](#rhel-centos-rocky-alma-fedora)
--   [Debian / Ubuntu](#debian-ubuntu)
--   [SUSE / openSUSE](#suse-opensuse)
-- [Monitor reference (what checks what)](#monitor-reference-what-checks-what)
--   [Keeping README defaults in sync](#keeping-readme-defaults-in-sync)
-- [Tuning knobs (common configuration variables)](#tuning-knobs-common-configuration-variables)
--   [`inode_monitor.sh`](#inodemonitorsh)
--   [`network_monitor.sh`](#networkmonitorsh)
--   [`service_monitor.sh`](#servicemonitorsh)
--   [`ports_baseline_monitor.sh`](#portsbaselinemonitorsh)
--   [`config_drift_monitor.sh`](#configdriftmonitorsh)
--   [`user_monitor.sh`](#usermonitorsh)
--   [`backup_check.sh`](#backupchecksh)
--   [`cert_monitor.sh`](#certmonitorsh)
--   [`storage_health_monitor.sh`](#storagehealthmonitorsh)
--   [`kernel_events_monitor.sh`](#kerneleventsmonitorsh)
--   [`preflight_check.sh`](#preflightchecksh)
--   [`disk_trend_monitor.sh`](#disktrendmonitorsh)
--   [`nfs_mount_monitor.sh`](#nfsmountmonitorsh)
--   [`inventory_export.sh`](#inventoryexportsh)
-- [Exit codes (for automation)](#exit-codes-for-automation)
-- [Installed file layout (recommended)](#installed-file-layout-recommended)
-- [CLI usage (`linux-maint`) (appendix)](#cli-usage-linux-maint-appendix)
--   [Commands](#commands)
--   [Environment](#environment)
--   [Root requirement](#root-requirement)
-- [What runs in the nightly "full package" (cron)](#what-runs-in-the-nightly-full-package-cron)
--   [Wrapper log output](#wrapper-log-output)
-- [Configuration files under `/etc/linux_maint/`](#configuration-files-under-etclinuxmaint)
-- [Optional monitors: enablement examples](#optional-monitors-enablement-examples)
--   [Enable `network_monitor.sh`](#enable-networkmonitorsh)
--   [Enable `cert_monitor.sh`](#enable-certmonitorsh)
--   [Enable `backup_check.sh`](#enable-backupchecksh)
--   [Enable `ports_baseline_monitor.sh`](#enable-portsbaselinemonitorsh)
--   [Enable `config_drift_monitor.sh`](#enable-configdriftmonitorsh)
-- [Quick manual run](#quick-manual-run)
--   [Installed mode requires root (recommended)](#installed-mode-requires-root-recommended)
-- [Offline releases / version tracking](#offline-releases-version-tracking)
-- [Air-gapped / offline installation](#air-gapped-offline-installation)
-- [Development / CI (appendix)](#development-ci-appendix)
-- [Developer hooks (optional)](#developer-hooks-optional)
-- [Uninstall](#uninstall)
-- [Log rotation (recommended)](#log-rotation-recommended)
-- [Upgrading](#upgrading)
-## Installation
-
-This project supports two common modes:
-
-- **Installed mode (recommended for production)**: files under `/usr/local/*`, configs under `/etc/linux_maint`, logs under `/var/log`.
-- **Repo mode (developer/POC)**: run scripts directly from the git checkout.
-
-### Installer script (recommended)
-
-The installer can optionally create a dedicated user, systemd timer, and logrotate config:
+## Install (recommended)
 
 ```bash
 sudo ./install.sh --with-user --with-timer --with-logrotate
 ```
 
-Uninstall binaries (keeps `/etc/linux_maint` and logs by default):
+Manual install is also supported (see Appendix).
 
-```bash
-sudo ./install.sh --uninstall
-# Or, to also remove systemd units + logrotate:
-sudo ./install.sh --uninstall --purge
-```
+## Configuration (the 3 files you’ll touch first)
 
-### Manual installation (recommended Linux paths)
+Templates are in `etc/linux_maint/*.example`; installed configs live in `/etc/linux_maint/`.
 
-This layout matches common Linux conventions:
+- `servers.txt` — target hosts for SSH mode
+- `services.txt` — services to verify
+- `network_targets.csv` — optional reachability checks
 
-- CLI: `/usr/local/bin/linux-maint`
-- Wrapper: `/usr/local/sbin/run_full_health_monitor.sh`
-- Monitor scripts: `/usr/local/libexec/linux_maint/`
-- Shared library: `/usr/local/lib/linux_maint.sh`
+## How to read results
 
-```bash
-sudo install -D -m 0755 lib/linux_maint.sh /usr/local/lib/linux_maint.sh
-sudo install -D -m 0755 run_full_health_monitor.sh /usr/local/sbin/run_full_health_monitor.sh
-sudo install -d /usr/local/libexec/linux_maint
-sudo install -D -m 0755 monitors/*.sh /usr/local/libexec/linux_maint/
-sudo install -D -m 0755 bin/linux-maint /usr/local/bin/linux-maint
-
-sudo mkdir -p /etc/linux_maint /etc/linux_maint/baselines /var/log/health
-```
-
-### Permissions / hardening
-
-**Recommended**: run the wrapper as `root` (cron/systemd). Several checks read privileged system state,
-write to `/var/log`, and may need access to package managers or systemd.
-
-If you prefer a dedicated user, run as `linuxmaint` and grant **minimal sudo** for the commands you need.
-Example (tighten for your environment):
-
-```sudoers
-linuxmaint ALL=(root) NOPASSWD: /usr/bin/systemctl
-linuxmaint ALL=(root) NOPASSWD: /usr/sbin/ss, /bin/ss
-linuxmaint ALL=(root) NOPASSWD: /usr/bin/journalctl
-linuxmaint ALL=(root) NOPASSWD: /usr/bin/apt, /usr/bin/apt-get, /usr/bin/dnf, /usr/bin/yum, /usr/bin/zypper
-```
-
-## Operating model
-
-- Run `run_full_health_monitor.sh` periodically via **cron** or **systemd timer**.
+- **Exit codes** (wrapper): `0 OK`, `1 WARN`, `2 CRIT`, `3 UNKNOWN`
 - Logs:
-  - Per-monitor logs under `/var/log/` (or overridden via `LM_LOGFILE`)
-  - Aggregated wrapper log under `/var/log/health/`
-- Exit code: wrapper returns the **worst** status across monitors.
+  - Aggregated: `/var/log/health/` (installed mode)
+  - Per-monitor: `/var/log/` (or overridden via `LM_LOGFILE`)
 
-## Configuration
+### Summary contract (for automation)
 
-Default configs live under `/etc/linux_maint/` (templates in `etc/linux_maint/*.example`).
-
-Common files:
-- `servers.txt` — targets for distributed mode (one host per line)
-- `excluded_servers.txt` — targets to skip
-- `services.txt` — services to validate (for `service_monitor.sh`)
-- `network_targets.csv` — reachability targets (for `network_monitor.sh`)
-- `cert_targets.txt` — certificate endpoints to validate
-- `config_paths.txt` — paths checked for config drift
-- `baselines/` — known-good baselines written when privileged
-
-### Tuning knobs (common environment variables)
-
-These can be exported in cron/systemd units, or set in your environment:
-
-- `MONITOR_TIMEOUT_SECS` (default `600`): per-monitor hard timeout
-- `LM_EMAIL_ENABLED` (`false` by default): allow monitors to send email
-- `LM_LOCAL_ONLY=true`: run monitors locally (library `lm_ssh()` bypasses SSH)
-- `LM_SSH_OPTS`: SSH options (e.g., `-o BatchMode=yes -o ConnectTimeout=3`)
-- `LM_LOGFILE`, `LM_STATE_DIR`, `LM_LOCKDIR`: override paths (useful for CI)
-
-## Output contract (machine-parseable summaries)
-
-Monitors are expected to emit machine-parseable summary lines using `lm_summary()` (from `lib/linux_maint.sh`).
-Automation and the wrapper rely on these lines:
+Each monitor emits lines like:
 
 ```text
 monitor=<name> host=<target> status=<OK|WARN|CRIT|UNKNOWN|SKIP> node=<runner> key=value...
 ```
 
-The wrapper extracts only `monitor=` lines into the final status section.
+## Common knobs
 
-## Wrapper behavior (`run_full_health_monitor.sh`)
+- `MONITOR_TIMEOUT_SECS` (default `600`)
+- `LM_EMAIL_ENABLED=false` by default
+- `LM_SSH_OPTS` (e.g. `-o BatchMode=yes -o ConnectTimeout=3`)
+- `LM_LOCAL_ONLY=true` (force local-only; used in CI)
 
-- Runs monitors in a defined order
-- Enforces `MONITOR_TIMEOUT_SECS` per monitor to prevent hangs
-- Aggregates results and returns worst status:
-  - `0` OK
-  - `1` WARN
-  - `2` CRIT
-  - `3` UNKNOWN
+## Table of Contents
 
-## CLI usage (`linux-maint`)
+- [What it does](#what-it-does)
+- [Quickstart](#quickstart)
+-   [Local run (from the repo)](#local-run-from-the-repo)
+-   [Distributed run (monitoring node)](#distributed-run-monitoring-node)
+- [Install (recommended)](#install-recommended)
+- [Configuration (the 3 files you’ll touch first)](#configuration-the-3-files-youll-touch-first)
+- [How to read results](#how-to-read-results)
+-   [Summary contract (for automation)](#summary-contract-for-automation)
+- [Common knobs](#common-knobs)
+- [Detailed reference (appendix)](#detailed-reference-appendix)
 
-### Common commands
-
-```bash
-linux-maint run        # run wrapper/monitors
-linux-maint status     # summarize latest run
-linux-maint logs       # show recent logs
-linux-maint preflight  # dependency/SSH/config readiness checks
-linux-maint validate   # validate config formats
-```
-
-### Notes
-- `linux-maint status` prefers `summary_latest.log` (machine summary) and falls back to grepping the aggregated log.
-
-## Monitor reference
-
-See `monitors/` for the full list. Monitors follow the summary contract above.
-
-### Optional packages for full coverage (bare metal)
-
-Some storage checks are best-effort and depend on vendor tools:
-
-- **Vendor RAID controller tooling** (optional)
-- Distro packages vary; see sections below.
-
-#### RHEL / CentOS / Rocky / Alma / Fedora
-(see README below for package suggestions)
-
-#### Debian / Ubuntu
-(see README below for package suggestions)
-
-#### SUSE / openSUSE
-(see README below for package suggestions)
-
-## Troubleshooting
-
-- **SSH hangs / slow runs**: ensure `BatchMode=yes` and a low `ConnectTimeout` in `LM_SSH_OPTS`.
-- **Permission denied writing logs/baselines**: run as root or ensure `/var/log` and `/etc/linux_maint` permissions.
-- **Missing `monitor=` lines**: a monitor must emit at least one summary line or explicitly `SKIP`.
-- **Noisy alerts**: tune monitor config/baselines first, then enable email.
-
-## Development / CI
-
-- ShellCheck is run in CI.
-- `tests/summary_contract.sh` ensures each monitor emits at least one `monitor=` line or `SKIP:`.
-- CI forces local-only mode (`LM_LOCAL_ONLY=true`) and uses temp dirs.
-
-## Uninstall / upgrading
-
-- Use `install.sh --uninstall` (and optionally `--purge`).
-- For upgrades, reinstall over the existing paths or replace the deployed tarball.
-
-
----
 
 # Detailed reference (appendix)
 
