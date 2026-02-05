@@ -1,54 +1,132 @@
 # linux-maint — Follow-up (Professional Roadmap)
 
-This is the short list of the most important improvements to make linux-maint a more reliable, maintainable and operator-friendly project.
+This roadmap prioritizes improvements that make **linux-maint** safer to run in production,
+more reliable for on-call usage, and easier to maintain long-term.
 
-## P0 — Reliability & correctness (do first)
+Guiding principles:
+- Preserve the **summary contract** (monitor line protocol) as the stable automation interface.
+- Prefer changes that reduce operational surprises: deterministic output, deterministic exit codes.
+- Security defaults must be safe for fleet/SSH operation.
 
-1. **Automated tests for CLI + artifacts**
-   - Add tests to ensure:
-     - `linux-maint status` non-root installed mode prints *one* error+hint and exits.
-     - `linux-maint status` root mode prints: totals + minimal problem list, severity-sorted.
-     - `--verbose` still prints raw summary lines.
-     - `--problems N` caps at 100.
-   - Add a smoke test that runs the wrapper in local-only mode and validates artifacts exist.
+---
 
-2. **Single source of truth for documentation**
-   - Ensure `docs/reference.md` matches actual behavior (flags, artifact paths, exit codes).
-   - Add an “Operator Quick Reference” section for on-call usage.
+## P0 — Production safety & correctness (highest priority)
 
-3. **Exit code policy**
-   - Make exit codes consistent and documented (example):
-     - OK=0, WARN=1, CRIT=2, UNKNOWN=3
+### 1) Formalize exit codes + severity semantics
+- Define a stable policy and enforce it across wrapper + monitors:
+  - `OK=0`, `WARN=1`, `CRIT=2`, `UNKNOWN=3`
+- Ensure **every monitor** uses these exit codes.
+- Ensure the wrapper’s `overall` maps to the same policy.
 
-## P1 — Operability
+### 2) Contract enforcement: every monitor emits a summary line
+- Keep the wrapper hardening that emits `reason=no_summary_emitted`.
+- Add a test that fails if any monitor can exit non-zero without a `monitor=` summary line.
+- Make `docs/reference.md` explicitly state this as a contract requirement.
 
-4. **Status output options**
-   - Add optional `--quiet` mode: only overall + totals + problems (no paths/build info).
-   - Add optional `--json` mode combining `last_status_full` + summary JSON.
+### 3) Security hardening for fleet/SSH mode
+- Ensure non-interactive and safe SSH defaults:
+  - `BatchMode=yes`, `ConnectTimeout`, `ServerAliveInterval/CountMax`
+  - avoid agent forwarding by default
+- Guard against command injection:
+  - never eval untrusted config content
+  - carefully quote hostnames, paths, ssh options
+- Add a `--dry-run` / `--print-plan` mode (if not already solid) for auditing target hosts.
 
-5. **Packaging + systemd**
-   - Provide deb/rpm (or a well-documented tarball release).
-   - Ensure systemd service/timer install is robust and documented.
+### 4) Tests that match real operator behavior
+Add CI tests covering:
+- `linux-maint status`:
+  - non-root installed mode => single error + hint (no loops/spam)
+  - root installed mode => compact totals + minimal severity-sorted problems
+  - `--verbose` prints raw summary lines
+  - `--problems N` capped at 100
+- Wrapper smoke test:
+  - local-only run creates artifacts (`latest` symlinks, `last_status_full`, summary log/json)
+  - summary lines match the contract
 
-6. **Notifications**
-   - Enhance email notifications to include the compact problems list.
-   - Optional: add webhook/Slack integration.
+---
 
-## P2 — Monitor quality
+## P1 — Operability (make it great for admins/on-call)
 
-7. **Standardize reasons**
-   - Ensure every non-OK summary line includes `reason=<token>`.
-   - Keep reason tokens in `docs/REASONS.md` and treat it as a contract.
+### 5) Status UX improvements
+- Add `linux-maint status --quiet`:
+  - print only: overall + totals + problems (no paths/build info)
+- Add `linux-maint status --json`:
+  - machine output combining `last_status_full` + summary json/log
+  - enables easy integration with external tooling
+- Add optional `--since <duration>` filtering for problems (requires timestamps in summary lines or derive from artifacts).
 
-8. **Consistency & performance**
-   - Avoid slow monitors blocking the whole run (timeouts; parallelism where safe).
-   - Improve caching/history where relevant (e.g., disk trend monitor).
+### 6) Notification/alerting improvements
+- Email/webhook messages should use the same compact problem summary as `status`.
+- Add “only on change” support (already mentioned) and ensure it’s tested.
+- Add a simple template mechanism so operators can customize subject/body.
 
-## P3 — Developer experience
+### 7) Log rotation + retention policy
+- Ensure `/var/log/health` artifacts are rotated and old logs cleaned.
+- Provide a documented retention strategy (days/size) and safe defaults.
 
-9. **Make targets**
-   - Add `make lint`, `make test`, `make install` shortcuts.
+---
 
-10. **Pre-push / CI enforcement for meta files**
-   - Enforce that `summarize.txt` + `followup.txt` are updated when changes are pushed.
-   - Best practice: do this in CI (GitHub Actions) + optional local pre-push hook.
+## P2 — Packaging, deployment, and compatibility
+
+### 8) First-class packaging
+- Provide at least one of:
+  - `.deb` + `.rpm`, or
+  - release tarball + install script that is idempotent
+- Package should install:
+  - `/usr/local/bin/linux-maint`
+  - wrapper and libexec helpers
+  - systemd unit/timer (optional but recommended)
+  - default config templates under `/usr/local/share/...`
+
+### 9) Systemd service/timer robustness
+- Confirm unit behavior:
+  - locked down permissions
+  - no environment surprises
+  - clear journald output
+- Provide commands/docs:
+  - enable/disable timer
+  - run once
+  - view last run
+
+### 10) Platform coverage
+- Clearly document supported distros and minimum required tools.
+- Add detection and graceful degradation for missing commands (prefer `SKIP` or `UNKNOWN reason=missing_dependency`).
+
+---
+
+## P3 — Monitor quality & consistency
+
+### 11) Standardize `reason=` tokens and fields
+- For every non-OK summary line, require `reason=<token>`.
+- Maintain `docs/REASONS.md` as a controlled vocabulary.
+- Add a lint/test that checks:
+  - status != OK => reason exists (with explicit exceptions documented)
+
+### 12) Performance & timeouts
+- Review monitors for worst-case runtime.
+- Ensure wrapper-level timeout is sufficient and per-monitor overrides are possible.
+- Consider limited parallelism where safe (especially remote host checks), with caps.
+
+### 13) Reduce noise, increase signal
+- Prefer one summary line per monitor per host (or clearly defined multi-line rules).
+- Avoid emitting large raw data in summary lines; put details in full logs.
+
+---
+
+## P4 — Developer experience & governance
+
+### 14) “Make it easy to contribute”
+- Add `make lint`, `make test`, `make install`.
+- Add a CONTRIBUTING guide:
+  - monitor contract
+  - how to add a monitor
+  - how to run tests locally
+
+### 15) CI enforcement for meta docs
+- Enforce that `summarize.txt` and `followup.txt` stay current:
+  - GitHub Action that fails if significant code changes happen without updating these files
+  - optional local `pre-push` hook for convenience
+
+### 16) Release process
+- Versioning policy (SemVer-ish) and changelog.
+- Tag releases and attach packaged artifacts.
