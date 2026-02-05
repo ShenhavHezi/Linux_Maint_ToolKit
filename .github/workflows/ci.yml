@@ -54,6 +54,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Generate BUILD_INFO (CI)
+        run: |
+          ./tools/gen_build_info.sh
+          echo "=== BUILD_INFO ==="
+          cat BUILD_INFO
+
+
       - name: Build RPM
         run: |
           ./packaging/rpm/build_rpm.sh
