@@ -312,12 +312,19 @@ ln -sfn "$(basename "$SUMMARY_FILE")" "$SUMMARY_LATEST_FILE" 2>/dev/null || true
 rm -f "$tmp_summary" 2>/dev/null || true
 
 # Also write JSON + Prometheus outputs (best-effort)
-SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" LM_STATUS_FILE="$STATUS_FILE" python3 - <<'PY' || true
+SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" LM_HOSTS_OK="${hosts_ok:-0}" LM_HOSTS_WARN="${hosts_warn:-0}" LM_HOSTS_CRIT="${hosts_crit:-0}" LM_HOSTS_UNKNOWN="${hosts_unknown:-0}" LM_HOSTS_SKIPPED="${hosts_skip:-0}" LM_OVERALL="$overall" LM_EXIT_CODE="$worst" LM_STATUS_FILE="$STATUS_FILE" python3 - <<'PY' || true
 import json, os
 summary_file=os.environ.get("SUMMARY_FILE")
 json_file=os.environ.get("SUMMARY_JSON_FILE")
 json_latest=os.environ.get("SUMMARY_JSON_LATEST_FILE")
 prom_file=os.environ.get("PROM_FILE")
+hosts_ok=int(os.environ.get("LM_HOSTS_OK","0"))
+hosts_warn=int(os.environ.get("LM_HOSTS_WARN","0"))
+hosts_crit=int(os.environ.get("LM_HOSTS_CRIT","0"))
+hosts_unknown=int(os.environ.get("LM_HOSTS_UNKNOWN","0"))
+hosts_skipped=int(os.environ.get("LM_HOSTS_SKIPPED","0"))
+overall=os.environ.get("LM_OVERALL","UNKNOWN")
+exit_code=int(os.environ.get("LM_EXIT_CODE","3"))
 
 def parse_kv(line):
     parts=line.strip().split()
@@ -376,6 +383,16 @@ if prom_file and rows:
         with open(prom_file,"w",encoding="utf-8") as f:
             f.write("# HELP linux_maint_monitor_status Monitor status as exit-code scale (OK=0,WARN=1,CRIT=2,UNKNOWN/SKIP=3)\n")
             f.write("# TYPE linux_maint_monitor_status gauge\n")
+            f.write("\n# HELP linux_maint_overall_status Overall run status as exit-code scale (OK=0,WARN=1,CRIT=2,UNKNOWN=3)\n")
+            f.write("# TYPE linux_maint_overall_status gauge\n")
+            f.write(f"linux_maint_overall_status {exit_code}\n")
+            f.write("\n# HELP linux_maint_summary_hosts_count Fleet counters derived from monitor= lines\n")
+            f.write("# TYPE linux_maint_summary_hosts_count gauge\n")
+            f.write(f"linux_maint_summary_hosts_count{{status=\"ok\"}} {hosts_ok}\n")
+            f.write(f"linux_maint_summary_hosts_count{{status=\"warn\"}} {hosts_warn}\n")
+            f.write(f"linux_maint_summary_hosts_count{{status=\"crit\"}} {hosts_crit}\n")
+            f.write(f"linux_maint_summary_hosts_count{{status=\"unknown\"}} {hosts_unknown}\n")
+            f.write(f"linux_maint_summary_hosts_count{{status=\"skipped\"}} {hosts_skipped}\n")
             for r in rows:
                 mon=r.get("monitor","unknown"); host=r.get("host","all"); st=r.get("status","UNKNOWN")
                 val=status_map.get(st,3)
