@@ -1,34 +1,62 @@
-# linux_Maint_Scripts — Summary
+# linux_Maint_Scripts — Summary (linux-maint)
 
-This repository provides **linux-maint**, a Bash-based maintenance + health monitoring tool for Linux.
-It supports running locally on a machine and (optionally) orchestrating checks across a fleet over SSH.
+## What this project is
 
-## What linux-maint does (high level)
+**linux-maint** is a Bash-based maintenance + health monitoring toolkit for Linux servers.
+It runs a suite of small “monitors” and generates both:
 
-- Runs a set of **monitors** (scripts under `monitors/`) to check system health and operational posture.
-- Produces **human logs** and **machine-parseable artifacts** (summary lines / JSON) suitable for automation and alerting.
-- Can be used directly from the repository (repo mode) or installed to `/usr/local` (installed mode).
+- **Human-readable logs** for troubleshooting
+- **Machine-parseable summary artifacts** (line protocol + JSON) for automation/alerting
+
+It supports:
+
+- **Repo mode**: run from the git checkout (useful for development/CI)
+- **Installed mode**: install to `/usr/local` with a stable wrapper + paths (recommended for production)
+- **Local-only or fleet orchestration**: wrapper/CLI are designed to support multi-host runs over SSH (config-driven)
+
+## How it works (architecture)
+
+- `run_full_health_monitor.sh` is the main wrapper that:
+  - runs monitor scripts from `monitors/`
+  - enforces a wrapper-level timeout per monitor (`timeout $MONITOR_TIMEOUT_SECS ...` when available)
+  - hardens the output contract (if a monitor exits non-zero without emitting a summary line, wrapper emits `status=UNKNOWN reason=no_summary_emitted`)
+  - computes an overall result (`OK/WARN/CRIT/UNKNOWN`) based on worst monitor exit code
+
+- `bin/linux-maint` is the CLI entrypoint that:
+  - runs the wrapper
+  - provides status/logs/doctor/config commands
+  - supports repo vs installed mode behavior
 
 ## Primary CLI commands
 
-- `linux-maint run` — execute the health monitoring wrapper and generate artifacts.
-- `linux-maint status` — show last run status (overall + compact problems summary).
-- `linux-maint logs [N]` — show last N lines of the latest wrapper log.
-- `linux-maint init` — create initial config under `/etc/linux_maint`.
-- `linux-maint preflight` — preflight checks.
-- `linux-maint validate` — configuration validation.
-- `linux-maint doctor` — diagnostics (paths, timers, permissions, etc.).
-- `linux-maint install|uninstall` — install/remove into `/usr/local`.
+- `linux-maint run`
+  - Executes the wrapper and writes artifacts.
 
-## Artifacts & output contract
+- `linux-maint status`
+  - Shows last run metadata (from `last_status_full`) plus a **compact admin summary** by default:
+    - totals by severity (CRIT/WARN/UNKNOWN/SKIP/OK)
+    - a severity-sorted minimal problems list (monitor name + optional `reason=`)
+  - Flags:
+    - `--verbose` (print raw summary lines)
+    - `--problems N` (default 20, max 100)
+    - `--only OK|WARN|CRIT|UNKNOWN|SKIP`
 
-A run writes artifacts designed for both operations and automation:
+- `linux-maint logs [N]` — tail latest wrapper log
+- `linux-maint init` — create initial config under `/etc/linux_maint`
+- `linux-maint preflight` — preflight checks
+- `linux-maint validate` — validate configuration
+- `linux-maint doctor` — diagnostics (paths, timers, permissions)
+- `linux-maint install|uninstall` — install/remove into `/usr/local`
+
+## Output artifacts
+
+A run produces the following (installed mode paths shown; repo mode writes into `./.logs/`):
 
 - Full run log:
   - `/var/log/health/full_health_monitor_<timestamp>.log`
   - symlink: `/var/log/health/full_health_monitor_latest.log`
 
-- Summary log (one-line-per-monitor; easiest for parsing):
+- Summary log (one line per monitor):
   - `/var/log/health/full_health_monitor_summary_<timestamp>.log`
   - symlink: `/var/log/health/full_health_monitor_summary_latest.log`
 
@@ -37,46 +65,54 @@ A run writes artifacts designed for both operations and automation:
   - symlink: `/var/log/health/full_health_monitor_summary_latest.json`
 
 - Last status file:
-  - `/var/log/health/last_status_full` (timestamp/overall/exit_code/logfile)
+  - `/var/log/health/last_status_full` (timestamp/host/overall/exit_code/logfile)
 
-- Optional Prometheus textfile output:
+- Optional Prometheus textfile (node_exporter textfile collector):
   - `/var/lib/node_exporter/textfile_collector/linux_maint.prom`
 
-### Summary line contract
+## Summary contract (line protocol)
 
-Each monitor emits summary lines like:
+Each monitor should emit at least one summary line:
 
 ```text
 monitor=<name> host=<target> status=<OK|WARN|CRIT|UNKNOWN|SKIP> node=<runner> key=value...
 ```
 
 Notes:
-- Non-OK statuses should ideally include `reason=<token>`.
-- `SKIP` means the monitor intentionally did not evaluate due to missing optional config/baseline.
+- Non-OK should ideally include `reason=<token>` (see `docs/REASONS.md`).
+- Wrapper emits `SKIP` lines for monitors gated by missing optional config.
 
-## Monitor coverage (examples)
+## Included monitors (current)
 
-Monitors in `monitors/` cover areas such as:
+Located in `monitors/`:
 
-- Preflight & config validation
-- Disk/inodes and disk trend monitoring
-- Network checks
-- Service checks
-- NTP drift
-- Patch/security updates
-- Storage health (mdraid/smart/nvme)
-- Kernel events
-- Certificates
-- NFS mounts
-- Ports baseline drift
-- Config drift
-- User anomalies
-- Backup checks
-- Inventory export
+- `preflight_check` — environment and prerequisites
+- `config_validate` — validate configuration (wrapper treats warnings as non-fatal)
+- `health_monitor` — general health checks / aggregation
+- `inode_monitor` — inode usage
+- `disk_trend_monitor` — disk usage trends
+- `network_monitor` — basic network checks
+- `service_monitor` — service state checks
+- `ntp_drift_monitor` — NTP drift thresholds
+- `patch_monitor` — pending security updates
+- `storage_health_monitor` — storage health (mdraid/smart/nvme)
+- `kernel_events_monitor` — kernel log/event scanning
+- `cert_monitor` — cert expiry checks (requires `/etc/linux_maint/certs.txt`)
+- `nfs_mount_monitor` — NFS mount checks
+- `ports_baseline_monitor` — port baseline drift (requires `/etc/linux_maint/ports_baseline.txt`)
+- `config_drift_monitor` — config drift (requires `/etc/linux_maint/config_paths.txt`)
+- `user_monitor` — baseline user/sudoers drift (requires baseline files)
+- `backup_check` — backup checks (targets file driven)
+- `inventory_export` — emit inventory snapshot/export
+
+## Configuration
+
+Primary configuration lives under `/etc/linux_maint/`.
+Some monitors are gated by optional config/baseline files (wrapper will emit `SKIP` if missing).
 
 ## Documentation
 
-- `README.md` — quickstart and overview
-- `docs/reference.md` — detailed reference, artifacts, and contract
-- `docs/DARK_SITE.md` — offline/air-gapped usage
-- `docs/REASONS.md` — reason tokens meaning
+- `README.md` — overview + quickstart
+- `docs/reference.md` — full reference: monitors, knobs, offline/air-gapped, CI
+- `docs/DARK_SITE.md` — offline/air-gapped notes
+- `docs/REASONS.md` — reason tokens contract
