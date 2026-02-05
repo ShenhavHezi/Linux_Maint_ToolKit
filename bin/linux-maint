@@ -50,100 +50,8 @@ need_root_for(){
         echo "      (or run the wrapper directly: sudo /usr/local/sbin/run_full_health_monitor.sh)" >&2
         ;;
       status)
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for status
-    fi
-
-    if [[ "$MODE" == "repo" ]]; then
-      echo "=== Mode ==="
-      echo "repo"
-      echo "repo_root: $REPO_ROOT"
-      echo "linux_maint_lib: ${LINUX_MAINT_LIB:-}"
-      echo "logs: $REPO_LOG_DIR"
-      echo ""; echo "=== Last run status ==="
-      if [[ -f "$REPO_STATUS_FILE" ]]; then
-        cat "$REPO_STATUS_FILE"
-      else
-        echo "No status file: $REPO_STATUS_FILE"
-      fi
-    else
-      status_file="/var/log/health/last_status_full"
-      echo "=== Mode ==="
-      echo "installed"
-      echo "prefix: $PREFIX"
-      echo ""; echo "=== Installed paths ==="
-      echo "wrapper: $SBIN/run_full_health_monitor.sh"
-      echo "libexec: $LIBEXEC"
-      echo "build_info: $SHARE/BUILD_INFO"
-      [[ -f "$SHARE/BUILD_INFO" ]] && { echo ""; cat "$SHARE/BUILD_INFO"; }
-      echo ""; echo "=== Last run status ==="
-      if [[ -f "$status_file" ]]; then
-        cat "$status_file"
-      else
-        echo "No status file: $status_file"
-      fi
-    fi
-
-    echo ""; echo "=== Summary (monitor= lines) ==="
-    summary_file=""
-    if [[ "$MODE" == "repo" ]]; then
-      summary_file="$REPO_SUMMARY_LATEST"
-    else
-      summary_file="$INST_SUMMARY_LATEST"
-    fi
-
-    if [[ -f "$summary_file" ]]; then
-      echo "(from summary file: $summary_file)"
-      python3 - "$summary_file" "$ONLY" "$HOST_PAT" "$MON_PAT" "$TAIL_N" <<'PY'
-import re, sys
-
-path, only, host_pat, mon_pat, tail_n = sys.argv[1:6]
-tail_n = int(tail_n)
-host_re = re.compile(host_pat) if host_pat else None
-mon_re = re.compile(mon_pat) if mon_pat else None
-
-buf=[]
-with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-    for line in f:
-        line=line.rstrip('
-')
-        if only and (f' status={only} ' not in (line+' ')):
-            continue
-        if host_re:
-            m=re.search(r'host=([^ ]+)', line)
-            h=m.group(1) if m else ''
-            if not host_re.search(h):
-                continue
-        if mon_re:
-            m=re.search(r'monitor=([^ ]+)', line)
-            mon=m.group(1) if m else ''
-            if not mon_re.search(mon):
-                continue
-        buf.append(line)
-
-for line in buf[-tail_n:]:
-    print(line)
-PY
-    else
-      echo "No summary file: $summary_file"
-      echo "Possible reasons:"
-      echo "- linux-maint has not been run yet"
-      echo "- wrapper ran with a different LOG_DIR/SUMMARY_DIR"
-      echo "- permission issue creating/writing in /var/log/health (try sudo)"
-      echo "Tips:"
-      echo "- Run: sudo linux-maint run"
-      echo "- Or inspect latest wrapper log: sudo linux-maint logs 200"
-      echo "- Or run: sudo linux-maint doctor"
-      echo "Falling back to grepping latest wrapper log"
-      log="/var/log/health/full_health_monitor_latest.log"
-      [[ "$MODE" == "repo" ]] && log="$REPO_LATEST_LOG"
-      if [[ -f "$log" ]]; then
-        grep -E " status=(WARN|CRIT|UNKNOWN)|SKIP:|SUMMARY_RESULT|FINAL_STATUS_SUMMARY|^\\[.*\\] monitor=" "$log" | tail -n 120 || true
-      else
-        echo "No log: $log"
-      fi
-    fi
-    ;;
+        echo "Hint: sudo linux-maint status" >&2
+        ;;
       logs)
         echo "Hint: sudo linux-maint logs 200" >&2
         ;;
@@ -409,21 +317,31 @@ case "$cmd" in
     fi
 
     ONLY=""
-    HOST_PAT=""
-    MON_PAT=""
     TAIL_N=200
+    VERBOSE=0
+    PROB_N=20
+
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --only) ONLY="$2"; shift 2;;
-        --host) HOST_PAT="$2"; shift 2;;
-        --monitor) MON_PAT="$2"; shift 2;;
         --tail) TAIL_N="$2"; shift 2;;
+        --verbose) VERBOSE=1; shift 1;;
+        --problems) PROB_N="$2"; shift 2;;
         -h|--help)
-          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host <pattern>] [--monitor <pattern>] [--tail N]"
+          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--tail N] [--verbose] [--problems N (max 100)]"
           exit 0;;
         *) echo "Unknown status flag: $1" >&2; exit 2;;
       esac
     done
+
+    # Validate/cap PROB_N (default 20, max 100)
+    if [[ ! "$PROB_N" =~ ^[0-9]+$ ]]; then
+      PROB_N=20
+    elif (( PROB_N > 100 )); then
+      PROB_N=100
+    elif (( PROB_N < 0 )); then
+      PROB_N=0
+    fi
 
     if [[ "$MODE" == "repo" ]]; then
       echo "=== Mode ==="
@@ -455,7 +373,10 @@ case "$cmd" in
       fi
     fi
 
-    echo ""; echo "=== Summary (monitor= lines) ==="
+    # Default: compact summary (hide OK). Use --verbose to show full tail of summary file.
+    VERBOSE=${VERBOSE:-0}
+
+    echo ""; echo "=== Summary (compact) ==="
     summary_file=""
     if [[ "$MODE" == "repo" ]]; then
       summary_file="$REPO_SUMMARY_LATEST"
@@ -464,7 +385,57 @@ case "$cmd" in
     fi
 
     if [[ -f "$summary_file" ]]; then
-      tail -n 200 "$summary_file" || true
+      if [[ "$VERBOSE" -eq 1 ]]; then
+        echo "(verbose; last $TAIL_N lines from: $summary_file)"
+        tail -n "$TAIL_N" "$summary_file" || true
+      else
+        echo "(from: $summary_file)"
+        python3 - "$summary_file" "$ONLY" "$PROB_N" <<'PY'
+import re, sys
+path, only, limit = sys.argv[1:4]
+limit=int(limit)
+
+# Example line:
+# monitor=config_validate host=localhost status=WARN node=localhost warn=1 crit=0 reason=...
+
+def get_kv(line, key):
+    m=re.search(rf"\b{re.escape(key)}=([^ ]+)", line)
+    return m.group(1) if m else None
+
+counts={}
+problems=[]
+with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+    for line in f:
+        line=line.strip()
+        if not line:
+            continue
+        st=get_kv(line,'status') or 'UNKNOWN'
+        if only and st != only:
+            continue
+        counts[st]=counts.get(st,0)+1
+        if st == 'OK':
+            continue
+        mon=get_kv(line,'monitor') or 'unknown_monitor'
+        reason=get_kv(line,'reason')
+        # Format D: "STATUS monitor reason=..." (reason only if exists)
+        if reason:
+            problems.append(f"{st} {mon} reason={reason}")
+        else:
+            problems.append(f"{st} {mon}")
+
+order=['CRIT','WARN','UNKNOWN','SKIP','OK']
+print('totals: ' + ' '.join(f"{k}={counts.get(k,0)}" for k in order))
+
+if problems:
+    print("\nproblems:")
+    sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3}
+    problems.sort(key=lambda s: sev_order.get(s.split(' ',1)[0], 9))
+    for l in problems[:limit]:
+        print(l)
+else:
+    print('\nproblems: none (all OK)')
+PY
+      fi
     else
       echo "No summary file: $summary_file"
       echo "Possible reasons:"
