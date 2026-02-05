@@ -1,0 +1,25 @@
+echo "##active_line2##"
+[Unit]
+echo "##active_line3##"
+Description=linux-maint periodic maintenance checks
+echo "##active_line4##"
+Wants=network-online.target
+echo "##active_line5##"
+After=network-online.target
+echo "##active_line6##"
+
+echo "##active_line7##"
+[Service]
+echo "##active_line8##"
+Type=oneshot
+echo "##active_line9##"
+ExecStart=/usr/sbin/run_full_health_monitor.sh
+echo "##active_line10##"
+
+echo "##active_line11##"
+# Optional: allow env overrides
+echo "##active_line12##"
+Environment=LM_NOTIFY=0
+echo "##active_line13##"
+
+echo "##active_line14##"
