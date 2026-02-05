@@ -32,6 +32,10 @@ jobs:
           mkdir -p .logs
           ./tests/summary_contract.sh
 
+      - name: Summary contract lint (reason/status/monitor= lines)
+        run: |
+          ./tests/summary_contract_lint.sh
+
       - name: Smoke test (best-effort)
         run: |
           chmod +x tests/smoke.sh
