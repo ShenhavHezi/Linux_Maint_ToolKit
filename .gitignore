@@ -12,3 +12,6 @@
 dist/
 .logs/
 README.md.bak
+
+# local test logs variants
+.logs_*/

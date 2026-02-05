@@ -205,6 +205,7 @@ Usage: linux-maint <command> [args]
 Commands:
   run [flags]         Run the full package (wrapper)
   status              Show last run status + recent WARN/CRIT lines
+  diff [--json]       Show diff since last run (uses wrapper diff state)
   validate            Validate config file formats (best-effort)
   preflight           Run preflight checks
   version             Print installed BUILD_INFO (if present)
@@ -290,6 +291,48 @@ case "$cmd" in
     fi
     ;;
 
+
+  diff)
+    # Show diff of monitor= lines since last run.
+    # Uses the same state file as the wrapper: last_summary_monitor_lines.log
+    JSON=0
+    if [[ "${1:-}" == "--json" ]]; then JSON=1; shift; fi
+
+    if [[ "$MODE" == "repo" ]]; then
+      DIFF_STATE_DIR="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-$REPO_LOG_DIR}}"
+      SUMMARY_LATEST="$REPO_SUMMARY_LATEST"
+    else
+      DIFF_STATE_DIR="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-/var/lib/linux_maint}}"
+      SUMMARY_LATEST="$INST_SUMMARY_LATEST"
+    fi
+    PREV_SUMMARY="$DIFF_STATE_DIR/last_summary_monitor_lines.log"
+    CUR_SUMMARY="$SUMMARY_LATEST"
+
+    if [[ ! -f "$CUR_SUMMARY" ]]; then
+      echo "No current summary file: $CUR_SUMMARY" >&2
+      echo "Run linux-maint run first." >&2
+      exit 1
+    fi
+    if [[ ! -f "$PREV_SUMMARY" ]]; then
+      echo "No previous diff state file: $PREV_SUMMARY" >&2
+      echo "The wrapper creates this after the *second* run. Run linux-maint run again." >&2
+      exit 1
+    fi
+
+    diff_tool="$REPO_ROOT/tools/summary_diff.py"
+    if [[ ! -x "$diff_tool" ]]; then
+      # In installed mode, tools/ may not exist; try a system python module not available; fallback to error.
+      echo "Diff tool not found/executable: $diff_tool" >&2
+      echo "Hint: run from a git checkout (repo mode) to use tools/summary_diff.py" >&2
+      exit 1
+    fi
+
+    if [[ "$JSON" -eq 1 ]]; then
+      exec python3 "$diff_tool" "$PREV_SUMMARY" "$CUR_SUMMARY" --json
+    else
+      exec python3 "$diff_tool" "$PREV_SUMMARY" "$CUR_SUMMARY"
+    fi
+    ;;
   logs)
     if [[ "$MODE" == "installed" ]]; then
       need_root_for logs
