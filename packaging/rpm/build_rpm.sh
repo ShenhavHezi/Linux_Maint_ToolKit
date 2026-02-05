@@ -16,6 +16,11 @@ mkdir -p "$WORK"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
 # Create source tarball
 
 # Ensure BUILD_INFO matches VERSION+git sha for this build
+SHA="unknown"
+if command -v git >/dev/null 2>&1 && [[ -d "$ROOT/.git" ]]; then
+  SHA="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+fi
+
 "$ROOT/tools/gen_build_info.sh" >/dev/null 2>&1 || true
 TARBALL="$WORK/SOURCES/linux-maint-${VERSION}.tar.gz"
 
@@ -30,6 +35,7 @@ tar -C "$WORK/src" -czf "$TARBALL" "linux-maint-${VERSION}"
 
 # Build
 rpmbuild \
+  --define "commit $SHA" \
   --define "_topdir $WORK" \
   --define "version $VERSION" \
   -ba "$SPEC"

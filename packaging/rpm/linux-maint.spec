@@ -1,11 +1,14 @@
 Name:           linux-maint
 Version:        0.1.0
-Release:        1%{?dist}
+Release:        1.%{?commit}%{?dist}
 Summary:        Linux maintenance/monitoring toolkit (wrapper + monitors + CLI)
 
 License:        MIT
 URL:            https://github.com/ShenhavHezi/linux_Maint_Scripts
 Source0:        %{name}-%{version}.tar.gz
+
+# Short git sha (passed by rpmbuild --define "commit <sha>")
+%global commit %(echo %{?commit} | sed -e "s/[^0-9A-Za-z].*$//")
 
 BuildArch:      noarch
 
