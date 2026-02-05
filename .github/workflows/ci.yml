@@ -64,6 +64,8 @@ jobs:
       - name: Build RPM
         run: |
           ./packaging/rpm/build_rpm.sh
+          echo "=== RPM query info (rpm -qp --info) ==="
+          rpm -qp --info /tmp/linux-maint-rpmbuild/RPMS/noarch/*.rpm || true
 
       - name: Install RPM (smoke)
         run: |
