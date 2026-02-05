@@ -228,16 +228,24 @@ esac
 _tmp_mon_snapshot=$(mktemp /tmp/linux_maint_mon_snapshot.XXXXXX)
 grep -a '^monitor=' "$tmp_report" > "$_tmp_mon_snapshot" 2>/dev/null || true
 
-hosts_ok=0; hosts_warn=0; hosts_crit=0; hosts_unknown=0; hosts_skip=0
+# shellcheck disable=SC2030
+# shellcheck disable=SC2030
+hosts_ok=0
+# shellcheck disable=SC2030
+hosts_warn=0
+# shellcheck disable=SC2030
+hosts_crit=0
+# shellcheck disable=SC2030
+hosts_unknown=0
+# shellcheck disable=SC2030
+hosts_skip=0
 # Fleet-level counters derived from monitor= lines (per-host/per-monitor)
 if [ -f "$_tmp_mon_snapshot" ]; then
-  _st_list=$(awk '{for(i=1;i<=NF;i++){split($i,a,"="); if(a[1]=="status"){print a[2]}}}' "$_tmp_mon_snapshot" 2>/dev/null || true)
-  hosts_ok=$(printf "%s
-" "$_st_list" | grep -c "^OK$" 2>/dev/null || echo 0)
-  hosts_warn=$(printf "%s\n" "$_st_list" | grep -c "^WARN$" 2>/dev/null || echo 0)
-  hosts_crit=$(printf "%s\n" "$_st_list" | grep -c "^CRIT$" 2>/dev/null || echo 0)
-  hosts_unknown=$(printf "%s\n" "$_st_list" | grep -c "^UNKNOWN$" 2>/dev/null || echo 0)
-  hosts_skip=$(printf "%s\n" "$_st_list" | grep -c "^SKIP$" 2>/dev/null || echo 0)
+  hosts_ok=$(grep -a -c " status=OK( |$)" "$_tmp_mon_snapshot" 2>/dev/null || echo 0)
+  hosts_warn=$(grep -a -c " status=WARN( |$)" "$_tmp_mon_snapshot" 2>/dev/null || echo 0)
+  hosts_crit=$(grep -a -c " status=CRIT( |$)" "$_tmp_mon_snapshot" 2>/dev/null || echo 0)
+  hosts_unknown=$(grep -a -c " status=UNKNOWN( |$)" "$_tmp_mon_snapshot" 2>/dev/null || echo 0)
+  hosts_skip=$(grep -a -c " status=SKIP( |$)" "$_tmp_mon_snapshot" 2>/dev/null || echo 0)
 fi
 
 
@@ -312,6 +320,7 @@ ln -sfn "$(basename "$SUMMARY_FILE")" "$SUMMARY_LATEST_FILE" 2>/dev/null || true
 rm -f "$tmp_summary" 2>/dev/null || true
 
 # Also write JSON + Prometheus outputs (best-effort)
+# shellcheck disable=SC2031
 SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" LM_HOSTS_OK="${hosts_ok:-0}" LM_HOSTS_WARN="${hosts_warn:-0}" LM_HOSTS_CRIT="${hosts_crit:-0}" LM_HOSTS_UNKNOWN="${hosts_unknown:-0}" LM_HOSTS_SKIPPED="${hosts_skip:-0}" LM_OVERALL="$overall" LM_EXIT_CODE="$worst" LM_STATUS_FILE="$STATUS_FILE" python3 - <<'PY' || true
 import json, os
 summary_file=os.environ.get("SUMMARY_FILE")
