@@ -521,6 +521,28 @@ case "$cmd" in
       [[ -e "$f" ]] && echo "OK: $f" || echo "MISSING: $f"
     done
 
+    echo ""
+    echo "== systemd (installed mode) =="
+    if command -v systemctl >/dev/null 2>&1; then
+      for unit in linux-maint.timer linux-maint.service; do
+        if systemctl list-unit-files --no-legend "$unit" 2>/dev/null | grep -q "^$unit"; then
+          echo "UNIT: $unit"
+          systemctl is-enabled "$unit" 2>/dev/null || true
+          systemctl is-active "$unit" 2>/dev/null || true
+        else
+          echo "MISSING unit file: $unit"
+        fi
+      done
+      echo ""
+      echo "-- timers (linux-maint) --"
+      systemctl list-timers --all --no-pager 2>/dev/null | grep -E "linux-maint\.timer|NEXT|^$" || true
+      echo ""
+      echo "-- journal (linux-maint.service, last 50 lines) --"
+      journalctl -u linux-maint.service -n 50 --no-pager 2>/dev/null || true
+    else
+      echo "systemctl not found"
+    fi
+
     echo "== Can write state/logs? =="
     for d in /var/log/health /var/log/inventory /var/lib/linux_maint /var/lock; do
       [[ -d "$d" ]] || { echo "NOTE: creating $d"; sudo mkdir -p "$d" 2>/dev/null || true; }
