@@ -152,7 +152,18 @@ Reboot required: $reboot
 This is an automated notice from patch_monitor.sh."
     mail_if_enabled "$MAIL_SUBJECT_PREFIX $subj" "$body"
   fi
-  lm_summary "patch_monitor" "$host" "$status" total=${total:-0} security=${sec:-0} kernel=${kern:-0} reboot_required=$reboot
+  reason=""
+  if [ "$status" != "OK" ]; then
+    if [ "${sec:-0}" -gt 0 ]; then reason=security_updates_pending
+    elif [ "${total:-0}" -gt 0 ]; then reason=updates_pending
+    else reason=unknown
+    fi
+  fi
+  if [ "$status" != "OK" ] && [ -n "$reason" ]; then
+    lm_summary "patch_monitor" "$host" "$status" reason=$reason total=${total:-0} security=${sec:-0} kernel=${kern:-0} reboot_required=$reboot
+  else
+    lm_summary "patch_monitor" "$host" "$status" total=${total:-0} security=${sec:-0} kernel=${kern:-0} reboot_required=$reboot
+  fi
   # legacy (kept for backward compatibility)
 
 

@@ -80,7 +80,24 @@ main(){
     [ "$rc" -lt 1 ] && { status="WARN"; rc=1; }
   fi
 
-  lm_summary "preflight_check" "localhost" "$status" required_missing=$missing_req optional_missing=$missing_opt ssh_unreachable=$unreachable hosts=$total state_writable=$writable_state logs_writable=$writable_logs cfg_missing=$missing_cfg
+  reason=""
+  if [ "$unreachable" -gt 0 ]; then
+    reason=ssh_unreachable
+  elif [ "$missing_req" -gt 0 ]; then
+    reason=missing_required_cmd
+  elif [ "$writable_state" -eq 0 ] || [ "$writable_logs" -eq 0 ]; then
+    reason=permission_denied
+  elif [ "$missing_opt" -gt 0 ]; then
+    reason=missing_optional_cmd
+  elif [ "$missing_cfg" -gt 0 ]; then
+    reason=config_missing
+  fi
+
+  if [ "$status" != "OK" ] && [ -n "$reason" ]; then
+    lm_summary "preflight_check" "localhost" "$status" reason=$reason required_missing=$missing_req optional_missing=$missing_opt ssh_unreachable=$unreachable hosts=$total state_writable=$writable_state logs_writable=$writable_logs cfg_missing=$missing_cfg
+  else
+    lm_summary "preflight_check" "localhost" "$status" required_missing=$missing_req optional_missing=$missing_opt ssh_unreachable=$unreachable hosts=$total state_writable=$writable_state logs_writable=$writable_logs cfg_missing=$missing_cfg
+  fi
   # legacy:
   # echo "preflight_check status=$status required_missing=$missing_req optional_missing=$missing_opt ssh_unreachable=$unreachable hosts=$total state_writable=$writable_state logs_writable=$writable_logs cfg_missing=$missing_cfg"
   echo "preflight_check details required_missing=[${miss_req_list%,}] optional_missing=[${miss_opt_list%,}]" >> "$LM_LOGFILE"

@@ -319,6 +319,12 @@ lm_for_each_host_rc() {
 }
 
 # ========= Standard summary line =========
+# Host semantics:
+# - host=<target> is the target being checked (usually one of lm_hosts output).
+# - Special reserved values:
+#     host=localhost  -> explicit local checks
+#     host=runner     -> checks that run only on the runner and summarize fleet-wide results
+# - Avoid host=all (deprecated); use host=runner instead.
 # Usage: lm_summary <monitor_name> <status> [key=value ...]
 # Prints a single machine-parseable line.
 # Example:

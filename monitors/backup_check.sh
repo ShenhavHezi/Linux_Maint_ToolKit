@@ -150,7 +150,7 @@ alerts="$(cat "$ALERTS_FILE" 2>/dev/null)"
 failures=$(printf '%s' \"$alerts\" | sed '/^$/d' | wc -l | tr -d ' ')
 status=OK
 [ \"$failures\" != \"0\" ] && status=CRIT
-lm_summary "backup_check" "all" "$status" failures=$failures
+lm_summary "backup_check" "runner" "$status" failures=$failures
 # legacy:
 # echo backup_check summary status=$status failures=$failures
 rm -f "$ALERTS_FILE" 2>/dev/null || true

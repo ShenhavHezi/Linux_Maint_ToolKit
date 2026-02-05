@@ -190,7 +190,15 @@ run_for_host() {
   else
     overall=OK
   fi
-  lm_summary "ntp_drift_monitor" "$host" "$overall" checked=$checked warn=$warn_count crit=$crit_count
+  reason=""
+  if [ "$overall" = "CRIT" ]; then reason=ntp_drift_high; fi
+  if [ "$overall" = "WARN" ]; then reason=ntp_drift_high; fi
+  if [ "$overall" = "UNKNOWN" ]; then reason=ntp_not_synced; fi
+  if [ "$overall" != "OK" ] && [ -n "$reason" ]; then
+    lm_summary "ntp_drift_monitor" "$host" "$overall" reason=$reason checked=$checked warn=$warn_count crit=$crit_count
+  else
+    lm_summary "ntp_drift_monitor" "$host" "$overall" checked=$checked warn=$warn_count crit=$crit_count
+  fi
   # legacy:
   # echo "ntp_drift_monitor host=$host status=$overall checked=$checked warn=$warn_count crit=$crit_count"
 

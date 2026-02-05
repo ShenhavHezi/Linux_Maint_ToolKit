@@ -114,7 +114,7 @@ unreachable=$(grep -c "^--- ERROR_CODE: ssh_unreachable" "$REPORT_FILE" 2>/dev/n
 lines=$(wc -l < "$REPORT_FILE" 2>/dev/null || echo 0)
 status="OK"
 if [ "$unreachable" -gt 0 ]; then status="CRIT"; fi
-lm_summary "health_monitor" "all" "$status" hosts=$hosts unreachable=$unreachable report_lines=$lines
+lm_summary "health_monitor" "runner" "$status" hosts=$hosts unreachable=$unreachable report_lines=$lines
 # legacy:
 # echo health_monitor summary status=OK hosts=$hosts report_lines=$lines
 rm -f "$REPORT_FILE" "$REPORT_LOCK" 2>/dev/null || true
