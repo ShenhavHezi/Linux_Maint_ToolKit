@@ -182,8 +182,14 @@ ok=0; warn=0; crit=0; unk=0
 
 for s in "${scripts[@]}"; do
   set +e
+  before_lines=$(grep -a -c "^monitor=" "$tmp_report" 2>/dev/null || echo 0)
   run_one "$s"
   rc=$?
+  after_lines=$(grep -a -c "^monitor=" "$tmp_report" 2>/dev/null || echo 0)
+  if [ "$rc" -ne 0 ] && [ "$after_lines" -le "$before_lines" ]; then
+    # Hardening: a monitor failed but emitted no standardized summary line.
+    echo "monitor=${s%.sh} host=runner status=UNKNOWN node=$(hostname -f 2>/dev/null || hostname) reason=no_summary_emitted rc=$rc" >> "$tmp_report"
+  fi
   set -e
 
   case "$rc" in
