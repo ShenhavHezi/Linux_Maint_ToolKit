@@ -57,6 +57,8 @@ DONE: Added CI-enforced smoke tests including status output contract and reason=
 
 ### P0.3 Add CI smoke tests for wrapper artifacts (DONE)
 
+Note: In CI, wrapper/status artifact checks are executed only when passwordless sudo is available (smoke is designed to skip those parts safely otherwise).
+
 **Where**:
 - `tests/` (new test script)
 - GitHub Actions workflow (if not already)
