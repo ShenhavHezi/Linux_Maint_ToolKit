@@ -14,7 +14,7 @@ Conventions:
 
 DONE: Added CI-enforced smoke tests including status output contract and reason= linting.
 
-### P0.1 Enforce exit-code policy across all monitors
+### P0.1 Enforce exit-code policy across all monitors (DONE: test added)
 
 **Why**: Wrapper already maps `0/1/2/3` to `OK/WARN/CRIT/UNKNOWN`, but if monitors don’t consistently follow it, overall results and automation are unreliable.
 
@@ -31,7 +31,7 @@ DONE: Added CI-enforced smoke tests including status output contract and reason=
 - Any unexpected error path returns `3` with `status=UNKNOWN reason=<token>`.
 
 **Verify**:
-- Add a test that runs each monitor in isolation (with `LM_LOCAL_ONLY=true` where applicable) and asserts exit code in set `{0,1,2,3}`.
+- Implemented: `tests/monitor_exit_codes_test.sh` (wired into `tests/smoke.sh`).
 
 ---
 

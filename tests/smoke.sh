@@ -22,6 +22,9 @@ LM_LOGFILE=/tmp/config_validate.log LM_LOCKDIR=/tmp bash "$ROOT_DIR/monitors/con
 # lm_for_each_host_rc aggregation test
 bash "$ROOT_DIR/tests/lm_for_each_host_rc_test.sh" >/dev/null
 
+# Monitor exit-code policy (local-only)
+bash "$ROOT_DIR/tests/monitor_exit_codes_test.sh" >/dev/null
+
 # Sudo-gated tests
 if sudo -n true >/dev/null 2>&1; then
   bash "$ROOT_DIR/tests/wrapper_artifacts_test.sh" >/dev/null
