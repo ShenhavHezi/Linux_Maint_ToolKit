@@ -35,7 +35,7 @@ DONE: Added CI-enforced smoke tests including status output contract and reason=
 
 ---
 
-### P0.2 Contract: every monitor must emit at least one summary line
+### P0.2 Contract: every monitor must emit at least one summary line (DONE: test added)
 
 **Why**: Your summary contract is the automation interface. If a monitor fails silently, alerting and dashboards break.
 
@@ -49,9 +49,7 @@ DONE: Added CI-enforced smoke tests including status output contract and reason=
 - Non-OK lines include `reason=<token>` (see P2.1).
 
 **Verify**:
-- CI test: run wrapper (local-only) and assert:
-  - summary log exists
-  - each monitor appears at least once in summary log
+- Implemented: `tests/monitor_summary_emission_test.sh` (wired into `tests/smoke.sh`).
 
 ---
 
