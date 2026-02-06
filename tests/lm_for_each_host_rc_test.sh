@@ -29,16 +29,27 @@ fn(){
   esac
 }
 
+# IMPORTANT: With `set -e`, calling a function that returns non-zero
+# can abort the script unless executed in a conditional context.
+
 # Serial should yield worst=3
 export LM_MAX_PARALLEL=0
-lm_for_each_host_rc fn
-rc=$?
+rc=0
+if lm_for_each_host_rc fn; then
+  rc=$?
+else
+  rc=$?
+fi
 [ "$rc" -eq 3 ] || { echo "FAIL serial expected 3 got $rc"; exit 1; }
 
 # Parallel should also yield worst=3
 export LM_MAX_PARALLEL=4
-lm_for_each_host_rc fn
-rc=$?
+rc=0
+if lm_for_each_host_rc fn; then
+  rc=$?
+else
+  rc=$?
+fi
 [ "$rc" -eq 3 ] || { echo "FAIL parallel expected 3 got $rc"; exit 1; }
 
 echo "OK lm_for_each_host_rc"
