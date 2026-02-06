@@ -106,24 +106,26 @@ Notes:
 
 Located in `monitors/`:
 
-- `preflight_check` — environment and prerequisites
-- `config_validate` — validate configuration (wrapper treats validation warnings as non-fatal)
-- `health_monitor` — general health checks / aggregation
-- `inode_monitor` — inode usage
-- `disk_trend_monitor` — disk usage trends
-- `network_monitor` — basic network checks
-- `service_monitor` — service state checks
-- `ntp_drift_monitor` — NTP drift thresholds
-- `patch_monitor` — pending security updates
-- `storage_health_monitor` — storage health (mdraid/smart/nvme)
-- `kernel_events_monitor` — kernel log/event scanning
-- `cert_monitor` — cert expiry checks (requires `/etc/linux_maint/certs.txt`)
-- `nfs_mount_monitor` — NFS mount checks
-- `ports_baseline_monitor` — port baseline drift (requires `/etc/linux_maint/ports_baseline.txt`)
-- `config_drift_monitor` — config drift (requires `/etc/linux_maint/config_paths.txt`)
-- `user_monitor` — baseline user/sudoers drift (requires baseline files)
-- `backup_check` — backup checks (targets file driven)
-- `inventory_export` — emit inventory snapshot/export
+<!-- AUTOGEN:MONITORS:START -->
+- `backup_check`
+- `cert_monitor`
+- `config_drift_monitor`
+- `config_validate`
+- `disk_trend_monitor`
+- `health_monitor`
+- `inode_monitor`
+- `inventory_export`
+- `kernel_events_monitor`
+- `network_monitor`
+- `nfs_mount_monitor`
+- `ntp_drift_monitor`
+- `patch_monitor`
+- `ports_baseline_monitor`
+- `preflight_check`
+- `service_monitor`
+- `storage_health_monitor`
+- `user_monitor`
+<!-- AUTOGEN:MONITORS:END -->
 
 ## Configuration
 
@@ -138,12 +140,21 @@ Some monitors are gated by optional config/baseline files; wrapper emits `status
 
 ## Packaging / installation
 
-- `install.sh` supports:
-  - `--with-user` (optional service user)
-  - `--with-timer` (systemd timer)
-  - `--with-logrotate`
-  - `--uninstall` and optional `--purge`
-- RPM packaging exists under `packaging/rpm/` (spec + service/timer files).
+
+Installer flags (from `install.sh`):
+
+<!-- AUTOGEN:INSTALL_FLAGS:START -->
+- `--prefix`
+- `--purge`
+- `--uninstall`
+- `--user`
+- `--with-logrotate`
+- `--with-timer`
+- `--with-user`
+<!-- AUTOGEN:INSTALL_FLAGS:END -->
+
+RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files).
+
 
 ## Tooling
 
