@@ -1,132 +1,264 @@
-# linux-maint — Follow-up (Professional Roadmap)
+# linux-maint — ToDoList (Actionable)
 
-This roadmap prioritizes improvements that make **linux-maint** safer to run in production,
-more reliable for on-call usage, and easier to maintain long-term.
+This document is a prioritized, actionable backlog to make **linux-maint** safer, more reliable,
+and easier to operate at scale.
 
-Guiding principles:
-- Preserve the **summary contract** (monitor line protocol) as the stable automation interface.
-- Prefer changes that reduce operational surprises: deterministic output, deterministic exit codes.
-- Security defaults must be safe for fleet/SSH operation.
-
----
-
-## P0 — Production safety & correctness (highest priority)
-
-### 1) Formalize exit codes + severity semantics
-
-NOTE: The wrapper already documents and uses exit codes 0/1/2/3; the remaining work is to ensure **every monitor** follows it consistently and tests enforce it.
-- Define a stable policy and enforce it across wrapper + monitors:
-  - `OK=0`, `WARN=1`, `CRIT=2`, `UNKNOWN=3`
-- Ensure **every monitor** uses these exit codes.
-- Ensure the wrapper’s `overall` maps to the same policy.
-
-### 2) Contract enforcement: every monitor emits a summary line
-- Keep the wrapper hardening that emits `reason=no_summary_emitted`.
-- Add a test that fails if any monitor can exit non-zero without a `monitor=` summary line.
-- Make `docs/reference.md` explicitly state this as a contract requirement.
-
-### 3) Security hardening for fleet/SSH mode
-- Ensure non-interactive and safe SSH defaults:
-  - `BatchMode=yes`, `ConnectTimeout`, `ServerAliveInterval/CountMax`
-  - avoid agent forwarding by default
-- Guard against command injection:
-  - never eval untrusted config content
-  - carefully quote hostnames, paths, ssh options
-- Keep and document `linux-maint run --dry-run` for auditing target hosts; add tests to ensure it never executes remote commands.
-
-### 4) Tests that match real operator behavior
-Add CI tests covering:
-- `linux-maint status`:
-  - non-root installed mode => single error + hint (no loops/spam)
-  - root installed mode => compact totals + minimal severity-sorted problems
-  - `--verbose` prints raw summary lines
-  - `--problems N` capped at 100
-- Wrapper smoke test:
-  - local-only run creates artifacts (`latest` symlinks, `last_status_full`, summary log/json)
-  - summary lines match the contract
+Conventions:
+- **Acceptance** = what “done” means.
+- **Where** = likely files/areas to change.
+- **Verify** = a quick command/test to prove it works.
 
 ---
 
-## P1 — Operability (make it great for admins/on-call)
+## P0 — Production safety & correctness (do first)
 
-### 5) Status UX improvements
-- Add `linux-maint status --quiet`:
-  - print only: overall + totals + problems (no paths/build info)
-- Add `linux-maint status --json`:
-  - machine output combining `last_status_full` + summary json/log
-  - enables easy integration with external tooling
-- Add optional `--since <duration>` filtering for problems (requires timestamps in summary lines or derive from artifacts).
+### P0.1 Enforce exit-code policy across all monitors
 
-### 6) Notification/alerting improvements
-- Email/webhook messages should use the same compact problem summary as `status`.
-- Add “only on change” support (already mentioned) and ensure it’s tested.
-- Add a simple template mechanism so operators can customize subject/body.
+**Why**: Wrapper already maps `0/1/2/3` to `OK/WARN/CRIT/UNKNOWN`, but if monitors don’t consistently follow it, overall results and automation are unreliable.
 
-### 7) Log rotation + retention policy
-- Ensure `/var/log/health` artifacts are rotated and old logs cleaned.
-- Provide a documented retention strategy (days/size) and safe defaults.
+- Policy:
+  - `0=OK`, `1=WARN`, `2=CRIT`, `3=UNKNOWN/ERROR`
 
----
+**Where**:
+- `monitors/*.sh` (return codes)
+- `run_full_health_monitor.sh` (mapping already exists; keep)
+- `docs/reference.md` (ensure policy is documented once)
 
-## P2 — Packaging, deployment, and compatibility (partially exists)
+**Acceptance**:
+- Every monitor returns only `0|1|2|3`.
+- Any unexpected error path returns `3` with `status=UNKNOWN reason=<token>`.
 
-### 8) First-class packaging
-- Provide packaging that is easy to consume. Current repo already includes **RPM packaging** under `packaging/rpm/` and a tarball builder; next step is to harden and document the release workflow.
-- Package should install:
-  - `/usr/local/bin/linux-maint`
-  - wrapper and libexec helpers
-  - systemd unit/timer (optional but recommended)
-  - default config templates under `/usr/local/share/...`
-
-### 9) Systemd service/timer robustness
-- Confirm unit behavior:
-  - locked down permissions
-  - no environment surprises
-  - clear journald output
-- Provide commands/docs:
-  - enable/disable timer
-  - run once
-  - view last run
-
-### 10) Platform coverage
-- Clearly document supported distros and minimum required tools.
-- Add detection and graceful degradation for missing commands (prefer `SKIP` or `UNKNOWN reason=missing_dependency`).
+**Verify**:
+- Add a test that runs each monitor in isolation (with `LM_LOCAL_ONLY=true` where applicable) and asserts exit code in set `{0,1,2,3}`.
 
 ---
 
-## P3 — Monitor quality & consistency
+### P0.2 Contract: every monitor must emit at least one summary line
 
-### 11) Standardize `reason=` tokens and fields
-- For every non-OK summary line, require `reason=<token>`.
-- Maintain `docs/REASONS.md` as a controlled vocabulary.
-- Add a lint/test that checks:
-  - status != OK => reason exists (with explicit exceptions documented)
+**Why**: Your summary contract is the automation interface. If a monitor fails silently, alerting and dashboards break.
 
-### 12) Performance & timeouts
-- Review monitors for worst-case runtime.
-- Ensure wrapper-level timeout is sufficient and per-monitor overrides are possible.
-- Consider limited parallelism where safe (especially remote host checks), with caps.
+**Where**:
+- `monitors/*.sh`
+- wrapper hardening already emits `reason=no_summary_emitted`; keep it.
 
-### 13) Reduce noise, increase signal
-- Prefer one summary line per monitor per host (or clearly defined multi-line rules).
-- Avoid emitting large raw data in summary lines; put details in full logs.
+**Acceptance**:
+- For each monitor execution (per host), at least one line matches:
+  - `^monitor=.* status=(OK|WARN|CRIT|UNKNOWN|SKIP) `
+- Non-OK lines include `reason=<token>` (see P2.1).
+
+**Verify**:
+- CI test: run wrapper (local-only) and assert:
+  - summary log exists
+  - each monitor appears at least once in summary log
 
 ---
 
-## P4 — Developer experience & governance
+### P0.3 Add CI smoke tests for wrapper artifacts
 
-### 14) “Make it easy to contribute”
-- Add `make lint`, `make test`, `make install`.
-- Add a CONTRIBUTING guide:
-  - monitor contract
-  - how to add a monitor
-  - how to run tests locally
+**Where**:
+- `tests/` (new test script)
+- GitHub Actions workflow (if not already)
 
-### 15) CI enforcement for meta docs
-- Enforce that `summarize.txt` and `ToDoList.txt` stay current:
-  - GitHub Action that fails if significant code changes happen without updating these files
-  - optional local `pre-push` hook for convenience
+**Acceptance**:
+- A CI job runs `sudo ./run_full_health_monitor.sh` (or an unprivileged safe mode) and asserts artifacts:
+  - `full_health_monitor_latest.log`
+  - `full_health_monitor_summary_latest.log`
+  - `full_health_monitor_summary_latest.json`
+  - `last_status_full`
 
-### 16) Release process
-- Versioning policy (SemVer-ish) and changelog.
-- Tag releases and attach packaged artifacts.
+**Verify**:
+- `./tests/<new_smoke_test>.sh`
+
+---
+
+### P0.4 Security hardening for SSH/fleet mode
+
+**Why**: Fleet mode runs commands on remote systems; defaults must be safe.
+
+**Where**:
+- `bin/linux-maint` (host parsing, ssh opts)
+- `lib/linux_maint.sh` (SSH execution helpers)
+- docs: `README.md` and `docs/reference.md`
+
+**Acceptance**:
+- Default SSH opts are non-interactive and time-bounded:
+  - `-o BatchMode=yes -o ConnectTimeout=... -o ServerAliveInterval=... -o ServerAliveCountMax=...`
+- No use of `eval` on config-sourced data.
+- Hostnames and paths are consistently quoted.
+- `--dry-run` is guaranteed to perform **no remote execution**.
+
+**Verify**:
+- Unit-ish test: `linux-maint run --dry-run ...` produces plan output and does not open SSH connections (mock or grep logs).
+
+---
+
+## P1 — Operability (on-call quality)
+
+### P1.1 `linux-maint status --quiet`
+
+**Why**: On-call wants the shortest possible output.
+
+**Where**:
+- `bin/linux-maint` (status command)
+
+**Acceptance**:
+- `--quiet` prints only:
+  - overall
+  - totals
+  - problems
+
+**Verify**:
+- Snapshot test comparing output format.
+
+---
+
+### P1.2 `linux-maint status --json`
+
+**Why**: Enables easy integration with monitoring systems and scripts.
+
+**Where**:
+- `bin/linux-maint` status
+- optionally `tools/` for a dedicated formatter
+
+**Acceptance**:
+- Emits JSON including:
+  - mode, timestamp, overall, exit_code, logfile
+  - totals by severity
+  - problems array (with monitor, status, reason)
+
+**Verify**:
+- `sudo linux-maint status --json | jq .` passes.
+
+---
+
+### P1.3 Log rotation and retention
+
+**Where**:
+- installer options (`--with-logrotate`)
+- logrotate config templates
+
+**Acceptance**:
+- `/var/log/health/*.log` rotated with a sane default retention.
+- Does not break latest symlinks.
+
+**Verify**:
+- `logrotate -d <config>` shows expected behavior.
+
+---
+
+## P2 — Packaging, deployment, and compatibility
+
+### P2.1 Reason token standardization
+
+**Why**: `reason=` is what makes alerts actionable.
+
+**Where**:
+- `docs/REASONS.md`
+- all monitors
+
+**Acceptance**:
+- All non-OK statuses include `reason=<token>`.
+- Tokens are documented in `docs/REASONS.md`.
+
+**Verify**:
+- Lint test that scans summary logs and fails when `status!=OK` and missing reason (with exceptions explicitly whitelisted).
+
+---
+
+### P2.2 Packaging hardening (RPM already exists)
+
+**Current**: `packaging/rpm/` includes spec + systemd service/timer.
+
+**Where**:
+- `packaging/rpm/*`
+- `install.sh`
+- `tools/make_tarball.sh` (if used for releases)
+
+**Acceptance**:
+- Document release workflow in `docs/reference.md`:
+  - build rpm
+  - install rpm
+  - enable timer
+  - uninstall
+
+**Verify**:
+- `packaging/rpm/build_rpm.sh` succeeds on a supported build host.
+
+---
+
+### P2.3 Platform/dependency detection
+
+**Why**: missing commands should degrade gracefully and explain why.
+
+**Where**:
+- `preflight_check` monitor
+- individual monitors (feature detection)
+
+**Acceptance**:
+- Missing required dependencies => `UNKNOWN reason=missing_dependency`.
+- Missing optional features => `SKIP reason=missing_optional_cmd`.
+
+**Verify**:
+- Run in minimal container/VM and observe deterministic reasons.
+
+---
+
+## P3 — Monitor quality & performance
+
+### P3.1 Per-monitor timeout overrides
+
+**Why**: some monitors are fast, others need longer; one global timeout is suboptimal.
+
+**Where**:
+- `run_full_health_monitor.sh`
+- config (e.g. `/etc/linux_maint/monitor_timeouts.conf`)
+
+**Acceptance**:
+- Global default remains.
+- Optional per-monitor override supported.
+
+**Verify**:
+- Set low timeout for one monitor; confirm it becomes `UNKNOWN reason=timeout`.
+
+---
+
+### P3.2 Reduce summary noise
+
+**Why**: summary should stay actionable.
+
+**Where**:
+- monitors (summary line content)
+
+**Acceptance**:
+- Summary lines stay short; details go to full log.
+- Prefer one summary line per monitor per host.
+
+---
+
+## P4 — Developer experience & project governance
+
+### P4.1 Add Makefile and CONTRIBUTING
+
+**Where**:
+- `Makefile`
+- `CONTRIBUTING.md`
+
+**Acceptance**:
+- `make lint` runs shellcheck
+- `make test` runs test suite
+- CONTRIBUTING describes monitor contract + how to add a monitor
+
+---
+
+### P4.2 CI enforcement for meta docs
+
+**Why**: keep GitHub landing page accurate.
+
+**Where**:
+- GitHub Actions
+
+**Acceptance**:
+- CI fails if significant changes happen without touching:
+  - `summarize.txt`
+  - `ToDoList.txt`
+
