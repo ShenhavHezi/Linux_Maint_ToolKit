@@ -1,11 +1,25 @@
 #!/bin/bash
 # shellcheck disable=SC1090
-set -euo pipefail
 
+
+
+# inventory_export.sh - Export concise HW/SW inventory per host to a daily CSV (+details)
+# Author: Shenhav_Hezi
+# Version: 2.0 (refactored to use linux_maint.sh)
+
+# ===== Shared helpers =====
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
+LM_PREFIX="[inventory_export] "
+LM_LOGFILE="${LM_LOGFILE:-/var/log/inventory_export.log}"
+: "${LM_MAX_PARALLEL:=0}"     # 0=sequential; set >0 to run hosts concurrently
+: "${LM_EMAIL_ENABLED:=true}" # master email toggle
+
+lm_require_singleton "inventory_export"
+
+set -euo pipefail
 # Defaults for standalone runs (wrapper sets these)
 : "${LM_LOCKDIR:=/tmp}"
 : "${LM_LOG_DIR:=.logs}"
-
 # Dependency checks (local runner)
 lm_require_cmd "inventory_export" "localhost" awk || exit $?
 lm_require_cmd "inventory_export" "localhost" flock || exit $?
@@ -29,23 +43,11 @@ lm_require_cmd "inventory_export" "localhost" lvs --optional || true
 lm_require_cmd "inventory_export" "localhost" pvs --optional || true
 lm_require_cmd "inventory_export" "localhost" systemd-detect-virt --optional || true
 
-# inventory_export.sh - Export concise HW/SW inventory per host to a daily CSV (+details)
-# Author: Shenhav_Hezi
-# Version: 2.0 (refactored to use linux_maint.sh)
-
-# ===== Shared helpers =====
-. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
-LM_PREFIX="[inventory_export] "
-LM_LOGFILE="${LM_LOGFILE:-/var/log/inventory_export.log}"
-: "${LM_MAX_PARALLEL:=0}"     # 0=sequential; set >0 to run hosts concurrently
-: "${LM_EMAIL_ENABLED:=true}" # master email toggle
-
-lm_require_singleton "inventory_export"
 
 # ========================
 # Script configuration
 # ========================
-OUTPUT_DIR="/var/log/inventory"
+OUTPUT_DIR="${LM_INVENTORY_OUTPUT_DIR:-/var/log/inventory}"
 DETAILS_DIR="${OUTPUT_DIR}/details"
 
 # Email (optional): send a short summary when the run finishes

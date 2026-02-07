@@ -7,6 +7,10 @@ export LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh"
 export LM_EMAIL_ENABLED=false
 export LM_LOCKDIR=/tmp
 export LM_LOCAL_ONLY=true
+export LM_INVENTORY_OUTPUT_DIR="/tmp/linux_maint_inventory"
+mkdir -p "$LM_INVENTORY_OUTPUT_DIR"
+export LM_STATE_DIR="/tmp/linux_maint_state"
+mkdir -p "$LM_STATE_DIR"
 
 fail=0
 
