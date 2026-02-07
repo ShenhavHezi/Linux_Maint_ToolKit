@@ -12,6 +12,22 @@ LM_LOGFILE="${LM_LOGFILE:-/var/log/config_drift_monitor.log}"
 
 lm_require_singleton "config_drift_monitor"
 
+# Dependency checks (local runner)
+lm_require_cmd "config_drift_monitor" "localhost" awk || exit $?
+lm_require_cmd "config_drift_monitor" "localhost" comm || exit $?
+lm_require_cmd "config_drift_monitor" "localhost" grep || exit $?
+lm_require_cmd "config_drift_monitor" "localhost" sed || exit $?
+lm_require_cmd "config_drift_monitor" "localhost" sort || exit $?
+lm_require_cmd "config_drift_monitor" "localhost" find || exit $?
+lm_require_cmd "config_drift_monitor" "localhost" xargs || exit $?
+lm_require_cmd "config_drift_monitor" "localhost" readlink || exit $?
+lm_require_cmd "config_drift_monitor" "localhost" sha256sum --optional || true
+lm_require_cmd "config_drift_monitor" "localhost" md5sum --optional || true
+if ! lm_has_cmd sha256sum && ! lm_has_cmd md5sum; then
+  lm_summary "config_drift_monitor" "localhost" "UNKNOWN" reason=missing_dependency dep=sha256sum
+  exit 3
+fi
+
 # If running unprivileged and /etc/linux_maint is not writable, skip to avoid failing CI/contract tests.
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
   if ! mkdir -p /etc/linux_maint 2>/dev/null; then
