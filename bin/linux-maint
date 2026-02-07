@@ -70,6 +70,22 @@ need_root_for(){
 }
 
 
+validate_ssh_opts(){
+  # Reject obviously dangerous shell metacharacters. LM_SSH_OPTS is split into argv for ssh,
+  # but rejecting these reduces risk of accidental injection via config.
+  local s="${LM_SSH_OPTS:-}"
+  if [[ -z "$s" ]]; then
+    return 0
+  fi
+  if [[ "$s" =~ [\;\|\&\`\$\(\)\<\>\
+] ]]; then
+    echo "ERROR: unsafe characters detected in --ssh-opts / LM_SSH_OPTS" >&2
+    echo "LM_SSH_OPTS=$s" >&2
+    exit 2
+  fi
+}
+
+
 # ---- run() flags parsing (CLI-first, env-compatible) ----
 # Maps:
 #   --group G        -> LM_GROUP
@@ -174,6 +190,7 @@ case "$cmd" in
       need_root_for run
     fi
     parse_run_args "$@"
+    validate_ssh_opts
 
     if [[ "${DEBUG:-0}" -eq 1 ]]; then
       echo "=== linux-maint run debug ==="
