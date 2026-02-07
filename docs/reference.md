@@ -663,31 +663,32 @@ Example `logrotate` config (create `/etc/logrotate.d/linux_maint`):
   copytruncate
 }
 
-/var/log/health/*.log {
+/var/log/health/*.log /var/log/health/*.json {
   daily
   rotate 14
   missingok
   notifempty
   compress
   delaycompress
-  copytruncate
+  # These logs are written as one-shot files (not long-lived daemons), so copytruncate is unnecessary.
+  # Exclude latest symlinks so they keep pointing at the newest run artifact.
+  prerotate
+    # Ensure we never create rotated copies of the latest symlinks
+    rm -f /var/log/health/*_latest.log.* /var/log/health/*_latest.json.* 2>/dev/null || true
+  endscript
+}
+
+# Do not rotate the latest symlinks (rotate=0 effectively ignores them).
+/var/log/health/*_latest.log /var/log/health/*_latest.json {
+  missingok
+  notifempty
+  rotate 0
 }
 ```
-
-/var/log/health/*.json {
-  daily
-  rotate 14
-  missingok
-  notifempty
-  compress
-  delaycompress
-  copytruncate
-}
-
-
 Notes:
-- `copytruncate` is used so rotation is safe even if a script is still writing.
-- Tune `rotate`/`daily` to match your retention needs.
+- The per-monitor logs under `/var/log/` use `copytruncate` so rotation is safe even if a script is still writing.
+- The wrapper artifacts under `/var/log/health/` are one-shot files; `copytruncate` is intentionally not used there.
+- Latest symlinks (`*_latest.*`) are excluded from rotation so they keep pointing at the newest run artifact.
 
 ## Upgrading
 

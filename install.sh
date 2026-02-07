@@ -146,24 +146,26 @@ install_logrotate(){
   copytruncate
 }
 
-/var/log/health/*.log {
+/var/log/health/*.log /var/log/health/*.json {
   daily
   rotate 14
   missingok
   notifempty
   compress
   delaycompress
-  copytruncate
+  # These logs are written as one-shot files (not long-lived daemons), so copytruncate is unnecessary.
+  # Exclude latest symlinks so they keep pointing at the newest run artifact.
+  prerotate
+    # Ensure we never create rotated copies of the latest symlinks
+    rm -f /var/log/health/*_latest.log.* /var/log/health/*_latest.json.* 2>/dev/null || true
+  endscript
 }
 
-/var/log/health/*.json {
-  daily
-  rotate 14
+# Do not rotate the latest symlinks (rotate=0 effectively ignores them).
+/var/log/health/*_latest.log /var/log/health/*_latest.json {
   missingok
   notifempty
-  compress
-  delaycompress
-  copytruncate
+  rotate 0
 }
 EOF
 }

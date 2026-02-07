@@ -133,7 +133,7 @@ Note: In CI, wrapper/status artifact checks are executed only when passwordless 
 
 ---
 
-### P1.3 Log rotation and retention
+### P1.3 Log rotation and retention (DONE)
 
 **Where**:
 - installer options (`--with-logrotate`)
