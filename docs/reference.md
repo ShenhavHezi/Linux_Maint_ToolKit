@@ -599,6 +599,77 @@ sudo ./install.sh --with-logrotate
 # sudo ./install.sh --with-user --with-timer --with-logrotate
 ```
 
+## RPM packaging (release workflow)
+
+RPM packaging is available under `packaging/rpm/` (spec + systemd unit/timer + build script).
+
+### Build the RPM (on a build host)
+
+Prereqs:
+- `rpmbuild` (RPM tooling)
+- `rsync`, `tar`
+- `python3` (for some tooling)
+
+Build:
+
+```bash
+cd linux_Maint_Scripts
+# optional: pass an explicit version; otherwise VERSION file is used
+./packaging/rpm/build_rpm.sh
+# or: ./packaging/rpm/build_rpm.sh 0.1.0
+```
+
+Output location is printed by the script; RPMs are placed under a temp rpmbuild tree, for example:
+
+```text
+/tmp/linux-maint-rpmbuild/RPMS/noarch/linux-maint-<version>-1.<dist>.noarch.rpm
+```
+
+### Install the RPM (on a target node)
+
+Copy the RPM to the target node and install:
+
+```bash
+# RHEL/Fedora/CentOS/Rocky/Alma
+sudo dnf install -y ./linux-maint-<version>-*.noarch.rpm
+# or (older systems): sudo yum install -y ./linux-maint-<version>-*.noarch.rpm
+```
+
+Installed paths (RPM best practice):
+- `/usr/bin/linux-maint`
+- `/usr/sbin/run_full_health_monitor.sh`
+- `/usr/lib/linux_maint.sh`
+- `/usr/libexec/linux_maint/*`
+- systemd units: `/usr/lib/systemd/system/linux-maint.{service,timer}`
+
+### Enable/disable the systemd timer
+
+The RPM `%post` script enables the timer by default. To disable that behavior at install time:
+
+```bash
+# disables auto-enable in %post
+sudo LM_ENABLE_TIMER=0 dnf install -y ./linux-maint-<version>-*.noarch.rpm
+```
+
+After install, you can manage it normally:
+
+```bash
+sudo systemctl enable --now linux-maint.timer
+sudo systemctl status linux-maint.timer --no-pager
+# manual run:
+sudo systemctl start linux-maint.service
+```
+
+### Uninstall the RPM
+
+```bash
+sudo dnf remove -y linux-maint
+```
+
+Notes:
+- RPM uninstall disables the timer automatically (`%preun`).
+- RPM uninstall does not remove `/etc/linux_maint` or `/var/log/health` by default; remove those explicitly if desired.
+
 ## Development / CI (appendix)
 
 This repository includes a GitHub Actions workflow that:

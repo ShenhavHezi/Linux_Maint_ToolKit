@@ -167,7 +167,7 @@ Note: In CI, wrapper/status artifact checks are executed only when passwordless 
 
 ---
 
-### P2.2 Packaging hardening (RPM already exists)
+### P2.2 Packaging hardening (RPM already exists) (DONE)
 
 **Current**: `packaging/rpm/` includes spec + systemd service/timer.
 
