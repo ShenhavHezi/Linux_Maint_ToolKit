@@ -71,19 +71,19 @@ need_root_for(){
 
 
 validate_ssh_opts(){
-  # Reject obviously dangerous shell metacharacters. LM_SSH_OPTS is split into argv for ssh,
-  # but rejecting these reduces risk of accidental injection via config.
+  # Reject obviously dangerous shell metacharacters.
+  # NOTE: LM_SSH_OPTS is split into argv for ssh; this check reduces the risk of accidental injection.
   local s="${LM_SSH_OPTS:-}"
-  if [[ -z "$s" ]]; then
-    return 0
-  fi
-  if [[ "$s" =~ [\;\|\&\`\$\(\)\<\>\
-] ]]; then
+  [[ -z "$s" ]] && return 0
+
+  # Disallow shell metacharacters and newlines/carriage returns.
+  if printf '%s' "$s" | grep -Eq '[;&|`<>]|\$\(|\$\{|\r|\n'; then
     echo "ERROR: unsafe characters detected in --ssh-opts / LM_SSH_OPTS" >&2
     echo "LM_SSH_OPTS=$s" >&2
     exit 2
   fi
 }
+
 
 
 # ---- run() flags parsing (CLI-first, env-compatible) ----
