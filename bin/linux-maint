@@ -345,9 +345,10 @@ case "$cmd" in
         --tail) TAIL_N="$2"; shift 2;;
         --verbose) VERBOSE=1; shift 1;;
         --quiet) QUIET=1; shift 1;;
+        --json) JSON=1; shift 1;;
         --problems) PROB_N="$2"; shift 2;;
         -h|--help)
-          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--tail N] [--verbose] [--quiet] [--problems N (max 100)]"
+          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--tail N] [--verbose] [--quiet] [--json] [--problems N (max 100)]"
           exit 0;;
         *) echo "Unknown status flag: $1" >&2; exit 2;;
       esac
@@ -360,6 +361,82 @@ case "$cmd" in
       PROB_N=100
     elif (( PROB_N < 0 )); then
       PROB_N=0
+    fi
+
+    if [[ "$JSON" -eq 1 ]]; then
+      # JSON mode: emit a single JSON object and exit.
+      status_file=""
+      if [[ "$MODE" == "repo" ]]; then
+        status_file="$REPO_STATUS_FILE"
+      else
+        status_file="/var/log/health/last_status_full"
+      fi
+
+      summary_file=""
+      if [[ "$MODE" == "repo" ]]; then
+        summary_file="$REPO_SUMMARY_LATEST"
+      else
+        summary_file="$INST_SUMMARY_LATEST"
+      fi
+
+      python3 - "$MODE" "$status_file" "$summary_file" "$ONLY" "$PROB_N" <<'PY'
+import json, os, re, sys
+
+mode, status_path, summary_path, only, limit = sys.argv[1:6]
+limit=int(limit)
+
+def read_kv(path):
+    d={}
+    if not path or not os.path.exists(path):
+        return d
+    with open(path,'r',encoding='utf-8',errors='ignore') as f:
+        for line in f:
+            line=line.strip()
+            if not line or '=' not in line:
+                continue
+            k,v=line.split('=',1)
+            d[k]=v
+    return d
+
+def get_kv(line, key):
+    m=re.search(rf"\b{re.escape(key)}=([^ ]+)", line)
+    return m.group(1) if m else None
+
+status=read_kv(status_path)
+
+counts={}
+problems=[]
+if summary_path and os.path.exists(summary_path):
+    with open(summary_path,'r',encoding='utf-8',errors='ignore') as f:
+        for line in f:
+            line=line.strip()
+            if not line.startswith('monitor='):
+                continue
+            st=get_kv(line,'status') or 'UNKNOWN'
+            if only and st != only:
+                continue
+            counts[st]=counts.get(st,0)+1
+            if st!='OK':
+                mon=get_kv(line,'monitor') or 'unknown_monitor'
+                reason=get_kv(line,'reason')
+                entry={'status':st,'monitor':mon}
+                if reason:
+                    entry['reason']=reason
+                problems.append(entry)
+
+sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3,'OK':4}
+problems.sort(key=lambda e: sev_order.get(e.get('status','UNKNOWN'), 9))
+
+out={
+    'mode': mode,
+    'last_status': status,
+    'summary_file': summary_path if summary_path and os.path.exists(summary_path) else None,
+    'totals': {k: counts.get(k,0) for k in ['CRIT','WARN','UNKNOWN','SKIP','OK']},
+    'problems': problems[:limit],
+}
+print(json.dumps(out, indent=2, sort_keys=True))
+PY
+      exit 0
     fi
     if [[ "$QUIET" -eq 0 ]]; then
 
