@@ -20,6 +20,11 @@ LM_LOGFILE="${LM_LOGFILE:-/var/log/patch_monitor.log}"
 
 lm_require_singleton "patch_monitor"
 
+# Dependency checks (local runner)
+lm_require_cmd "patch_monitor" "localhost" awk || exit $?
+lm_require_cmd "patch_monitor" "localhost" grep || exit $?
+lm_require_cmd "patch_monitor" "localhost" wc || exit $?
+
 MAIL_SUBJECT_PREFIX='[Patch Monitor]'
 EMAIL_ON_ACTION="true"        # Email only if host has security updates OR kernel updates OR reboot required
 
