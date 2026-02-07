@@ -12,15 +12,6 @@ fi
 sudo bash "$ROOT_DIR/run_full_health_monitor.sh" >/dev/null 2>&1 || true
 
 # Pipe JSON to python for validation
-sudo bash "$LM" status --json | python3 - <<'PY'
-import json, sys
-obj=json.load(sys.stdin)
-assert 'mode' in obj
-assert 'last_status' in obj
-assert 'totals' in obj
-assert 'problems' in obj
-assert isinstance(obj['problems'], list)
-for k in ['CRIT','WARN','UNKNOWN','SKIP','OK']:
-    assert k in obj['totals']
-print('status --json ok')
-PY
+# (Use -c instead of a heredoc so stdin remains the pipe; avoids ShellCheck SC2259.)
+sudo bash "$LM" status --json | \
+  python3 -c 'import json,sys; obj=json.load(sys.stdin); assert "mode" in obj; assert "last_status" in obj; assert "totals" in obj; assert "problems" in obj; assert isinstance(obj["problems"], list); [obj["totals"][k] for k in ["CRIT","WARN","UNKNOWN","SKIP","OK"]]; print("status --json ok")'
