@@ -17,6 +17,17 @@ LM_LOGFILE="${LM_LOGFILE:-/var/log/user_monitor.log}"
 
 lm_require_singleton "user_monitor"
 
+# Dependency checks (local runner)
+lm_require_cmd "user_monitor" "localhost" awk || exit $?
+lm_require_cmd "user_monitor" "localhost" comm || exit $?
+lm_require_cmd "user_monitor" "localhost" grep || exit $?
+lm_require_cmd "user_monitor" "localhost" paste || exit $?
+lm_require_cmd "user_monitor" "localhost" sort || exit $?
+lm_require_cmd "user_monitor" "localhost" wc || exit $?
+lm_require_cmd "user_monitor" "localhost" journalctl --optional || true
+lm_require_cmd "user_monitor" "localhost" sha256sum --optional || true
+lm_require_cmd "user_monitor" "localhost" md5sum --optional || true
+
 MAIL_SUBJECT_PREFIX='[User Monitor]'
 
 # ========================
