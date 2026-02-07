@@ -19,7 +19,7 @@ trap 'rc=$?; if [ "${_summary_emitted:-0}" -eq 0 ]; then lm_summary "network_mon
 # ========================
 # Configuration
 # ========================
-TARGETS="/etc/linux_maint/network_targets.txt"   # CSV: host,check,target,key=val,...
+TARGETS="${TARGETS:-/etc/linux_maint/network_targets.txt}"   # CSV: host,check,target,key=val,...
 MAIL_SUBJECT_PREFIX='[Network Monitor]'
 
 # Defaults (overridable per-check via key=val in targets file)
@@ -152,27 +152,35 @@ run_tcp(){
   else
     lm_err "[$onhost] [CRIT] tcp ${host}:${port} no /dev/tcp timing and nc missing"
     append_alert "$onhost|tcp|${host}:${port}|tool_missing"
+    lm_summary "network_monitor" "$onhost" "UNKNOWN" reason=missing_dependency dep=nc
+
   fi
 }
 
 run_http(){
   local onhost="$1" url="$2"; shift 2
+  # curl is required for HTTP checks
+  if ! lm_require_cmd "network_monitor" "$onhost" curl; then
+    append_alert "$onhost|http|$url|missing_dependency:curl"
+    lm_summary "network_monitor" "$onhost" "UNKNOWN" reason=missing_dependency dep=curl
+    return 3
+  fi
+
   declare -A P=(); parse_params P "$@"
   local to="${P[timeout]:-$HTTP_TIMEOUT}"
   local lw="${P[latency_warn_ms]:-$HTTP_LAT_WARN_MS}"
   local lc="${P[latency_crit_ms]:-$HTTP_LAT_CRIT_MS}"
   local exp="${P[expect]:-$HTTP_EXPECT}"
 
-  if ! lm_ssh "$onhost" "command -v curl >/dev/null"; then
-    lm_err "[$onhost] http $url curl missing"
-    append_alert "$onhost|http|$url|curl_missing"
-    return
-  fi
-
   local line; line="$(lm_ssh "$onhost" "curl -sS -o /dev/null -w '%{http_code} %{time_total}' --max-time $to '$url'")"
   local code time_s ms="?"
   code="$(echo "$line" | awk '{print $1}')"
   time_s="$(echo "$line" | awk '{print $2}')"
+  if [[ -z "$code" || ! "$code" =~ ^[0-9]{3}$ ]]; then
+    lm_err "[$onhost] [CRIT] http $url curl failed"
+    append_alert "$onhost|http|$url|curl_failed"
+    return
+  fi
   [ -n "$time_s" ] && ms="$(awk -v t="$time_s" 'BEGIN{printf("%.0f", t*1000)}')"
 
   local status="OK" note=""
@@ -222,7 +230,7 @@ run_for_host(){
   local failures=0
   failures=$( [ -f "$ALERTS_FILE" ] && wc -l < "$ALERTS_FILE" 2>/dev/null || echo 0 )
   status=$( [ "$failures" -gt 0 ] && echo CRIT || echo OK )
-  emit_summary "$host" "$status" checked=$checked failures=$failures
+  emit_summary "$host" "$status" checked=$checked failures="$failures"
   # legacy:
   # echo "network_monitor host=$host status=$status checked=$checked failures=$failures"
 

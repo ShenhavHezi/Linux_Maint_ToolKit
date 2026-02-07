@@ -341,3 +341,39 @@ lm_summary() {
   # shellcheck disable=SC2086
   echo "monitor=${monitor} host=${target_host} status=${status} node=${node} $*" | sed "s/[[:space:]]\+/ /g; s/[[:space:]]$//"
 }
+
+# ========= Dependency helpers =========
+# lm_has_cmd <cmd>
+lm_has_cmd(){
+  local cmd="$1"
+  if lm_force_missing_dep "$cmd"; then
+    return 1
+  fi
+  command -v "$cmd" >/dev/null 2>&1
+}
+
+# Allow tests to force specific deps to appear missing (comma-separated list)
+lm_force_missing_dep(){
+  local cmd="$1"
+  [[ -z "${LM_FORCE_MISSING_DEPS:-}" ]] && return 1
+  echo ",${LM_FORCE_MISSING_DEPS}," | grep -q ",${cmd},"
+}
+
+
+# lm_require_cmd <monitor> <host> <cmd> [--optional]
+# If missing required cmd: prints standardized summary line and returns 3.
+# If missing optional cmd: prints standardized summary line and returns 0.
+lm_require_cmd(){
+  local monitor="$1" host="$2" cmd="$3" opt="${4:-}"
+  if lm_has_cmd "$cmd"; then
+    return 0
+  fi
+
+  if [[ "$opt" == "--optional" ]]; then
+    lm_summary "$monitor" "$host" "SKIP" reason=missing_optional_cmd dep="$cmd"
+    return 0
+  fi
+
+  lm_summary "$monitor" "$host" "UNKNOWN" reason=missing_dependency dep="$cmd"
+  return 3
+}
