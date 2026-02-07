@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1090
 # patch_monitor.sh - Check pending OS updates and reboot requirements (distributed)
 # Author: Shenhav_Hezi
 # Version: 2.0 (refactored to use linux_maint.sh)

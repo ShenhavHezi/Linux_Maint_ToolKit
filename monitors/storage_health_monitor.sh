@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1090
 # storage_health_monitor.sh - Storage health checks (RAID/mdadm, SMART/NVMe best-effort) (local/distributed)
 # Author: Shenhav_Hezi
 # Version: 1.0
@@ -12,6 +13,10 @@
 # - one-line summary to stdout for wrapper logs
 
 set -euo pipefail
+
+# Defaults for standalone runs (wrapper sets these)
+: "${LM_LOCKDIR:=/tmp}"
+: "${LM_LOG_DIR:=.logs}"
 
 . "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[storage_health] "

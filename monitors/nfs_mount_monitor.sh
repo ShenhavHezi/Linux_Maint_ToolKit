@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1090
 # nfs_mount_monitor.sh - Check NFS mounts are present and responsive (local/distributed)
 # Author: Shenhav_Hezi
 # Version: 1.0
@@ -11,6 +12,10 @@
 # - Produces one-line stdout summary for wrapper logs.
 
 set -euo pipefail
+
+# Defaults for standalone runs (wrapper sets these)
+: "${LM_LOCKDIR:=/tmp}"
+: "${LM_LOG_DIR:=.logs}"
 
 . "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[nfs_mount] "

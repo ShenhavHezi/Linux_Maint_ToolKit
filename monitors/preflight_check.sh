@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1090
 # preflight_check.sh - Validate environment readiness for Linux_Maint_Scripts (distributed)
 # Author: Shenhav_Hezi
 # Version: 1.0
@@ -9,6 +10,10 @@
 # - CRIT if SSH to configured hosts fails
 
 set -euo pipefail
+
+# Defaults for standalone runs (wrapper sets these)
+: "${LM_LOCKDIR:=/tmp}"
+: "${LM_LOG_DIR:=.logs}"
 
 . "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[preflight] "

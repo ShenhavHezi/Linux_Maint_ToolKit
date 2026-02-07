@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1090
 # kernel_events_monitor.sh - Scan kernel logs for critical events (OOM, I/O errors, FS errors, hung tasks) (distributed)
 # Author: Shenhav_Hezi
 # Version: 1.0
 
 set -euo pipefail
+
+# Defaults for standalone runs (wrapper sets these)
+: "${LM_LOCKDIR:=/tmp}"
+: "${LM_LOG_DIR:=.logs}"
 
 . "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[kernel_events] "
