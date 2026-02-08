@@ -210,10 +210,22 @@ run_for_host(){
 
   # --- inventory values ---
   declare -A V
+  # Ensure expected keys exist even if remote collector returns nothing
+  for _k in DATE HOST FQDN OS KERNEL ARCH VIRT UPTIME CPU_MODEL SOCKETS CORES_PER_SOCKET THREADS_PER_CORE VCPUS MEM_MB SWAP_MB DISK_TOTAL_GB ROOTFS_USE VGS LVS PVS VGS_SIZE_GB IPS GW DNS PKG_COUNT; do
+    V["$_k"]=""
+  done
+
   while IFS='=' read -r k v; do
     [ -z "$k" ] && continue
     V["$k"]="$v"
   done < <(lm_ssh "$host" bash -lc "'$remote_inv_cmd'")
+
+  if [ -z "${V[DATE]:-}" ]; then
+    lm_err "[$host] inventory collector returned no data"
+    lm_summary "inventory_export" "$host" "UNKNOWN" reason=collect_failed
+    return 3
+  fi
+
 
   write_csv_header_if_needed "$CSV_FILE"
   append_csv_row_locked "$CSV_FILE" \
