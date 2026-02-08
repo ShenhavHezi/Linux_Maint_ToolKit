@@ -1,4 +1,11 @@
 #!/bin/bash
+# shellcheck disable=SC1090
+set -euo pipefail
+
+# Defaults for standalone runs (wrapper sets these)
+: "${LM_LOCKDIR:=/tmp}"
+: "${LM_LOG_DIR:=.logs}"
+
 # inode_monitor.sh - Monitor inode usage per filesystem (distributed)
 # Author: Shenhav_Hezi
 # Version: 2.0 (refactored to use linux_maint.sh)
@@ -11,6 +18,13 @@ LM_LOGFILE="${LM_LOGFILE:-/var/log/inode_monitor.log}"
 : "${LM_EMAIL_ENABLED:=true}" # master email toggle
 
 lm_require_singleton "inode_monitor"
+
+# Dependency checks (local runner)
+lm_require_cmd "inode_monitor" "localhost" awk || exit $?
+lm_require_cmd "inode_monitor" "localhost" df || exit $?
+lm_require_cmd "inode_monitor" "localhost" grep || exit $?
+lm_require_cmd "inode_monitor" "localhost" sed || exit $?
+
 
 # ========================
 # Script configuration
