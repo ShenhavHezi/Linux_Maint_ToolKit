@@ -1,15 +1,28 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1090
 # config_validate.sh - Validate /etc/linux_maint configuration files (best-effort)
 # Author: Shenhav_Hezi
 # Version: 1.0
 
 set -euo pipefail
 
+# Defaults for standalone runs (wrapper sets these)
+: "${LM_LOCKDIR:=/tmp}"
+: "${LM_LOG_DIR:=.logs}"
+
+
 . "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[config_validate] "
 LM_LOGFILE="${LM_LOGFILE:-/var/log/config_validate.log}"
 
 lm_require_singleton "config_validate"
+
+# Dependency checks (local runner)
+lm_require_cmd "config_validate" "localhost" awk || exit $?
+lm_require_cmd "config_validate" "localhost" head || exit $?
+lm_require_cmd "config_validate" "localhost" mkdir || exit $?
+lm_require_cmd "config_validate" "localhost" tee || exit $?
+
 
 CFG_DIR="/etc/linux_maint"
 
