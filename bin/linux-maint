@@ -338,6 +338,8 @@ case "$cmd" in
     VERBOSE=0
     QUIET=0
     PROB_N=20
+    JSON=0
+
 
     while [[ $# -gt 0 ]]; do
       case "$1" in
@@ -357,6 +359,8 @@ case "$cmd" in
     # Validate/cap PROB_N (default 20, max 100)
     if [[ ! "$PROB_N" =~ ^[0-9]+$ ]]; then
       PROB_N=20
+    JSON=0
+
     elif (( PROB_N > 100 )); then
       PROB_N=100
     elif (( PROB_N < 0 )); then
