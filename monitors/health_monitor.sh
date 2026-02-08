@@ -1,4 +1,11 @@
 #!/bin/bash
+# shellcheck disable=SC1090
+set -euo pipefail
+
+# Defaults for standalone runs (wrapper sets these)
+: "${LM_LOCKDIR:=/tmp}"
+: "${LM_LOG_DIR:=.logs}"
+
 # distributed_health_monitor.sh - Run health checks on multiple Linux servers
 # Author: Shenhav_Hezi
 # Version: 2.0 (refactored to use linux_maint.sh)
@@ -14,6 +21,20 @@ LM_LOGFILE="${LM_LOGFILE:-/var/log/health_monitor.log}"
 : "${LM_EMAIL_ENABLED:=true}" # master toggle for lm_mail
 
 lm_require_singleton "distributed_health_monitor"
+
+# Dependency checks (local runner)
+lm_require_cmd "health_monitor" "localhost" awk || exit $?
+lm_require_cmd "health_monitor" "localhost" date || exit $?
+lm_require_cmd "health_monitor" "localhost" flock || exit $?
+lm_require_cmd "health_monitor" "localhost" grep || exit $?
+lm_require_cmd "health_monitor" "localhost" head || exit $?
+lm_require_cmd "health_monitor" "localhost" ps || exit $?
+lm_require_cmd "health_monitor" "localhost" wc || exit $?
+lm_require_cmd "health_monitor" "localhost" top --optional || true
+lm_require_cmd "health_monitor" "localhost" free --optional || true
+lm_require_cmd "health_monitor" "localhost" df --optional || true
+lm_require_cmd "health_monitor" "localhost" uptime --optional || true
+
 
 MAIL_SUBJECT_PREFIX='[Health Monitor]'
 
@@ -114,7 +135,7 @@ unreachable=$(grep -c "^--- ERROR_CODE: ssh_unreachable" "$REPORT_FILE" 2>/dev/n
 lines=$(wc -l < "$REPORT_FILE" 2>/dev/null || echo 0)
 status="OK"
 if [ "$unreachable" -gt 0 ]; then status="CRIT"; fi
-lm_summary "health_monitor" "runner" "$status" hosts=$hosts unreachable=$unreachable report_lines=$lines
+lm_summary "health_monitor" "runner" "$status" hosts="" unreachable="" report_lines=""
 # legacy:
 # echo health_monitor summary status=OK hosts=$hosts report_lines=$lines
 rm -f "$REPORT_FILE" "$REPORT_LOCK" 2>/dev/null || true
