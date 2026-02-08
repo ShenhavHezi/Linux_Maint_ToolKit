@@ -22,6 +22,22 @@ LM_LOGFILE="${LM_LOGFILE:-/var/log/preflight_check.log}"
 
 lm_require_singleton "preflight_check"
 
+# Dependency checks (local runner)
+lm_require_cmd "preflight_check" "localhost" awk || true
+lm_require_cmd "preflight_check" "localhost" sed || true
+lm_require_cmd "preflight_check" "localhost" grep || true
+lm_require_cmd "preflight_check" "localhost" df || true
+lm_require_cmd "preflight_check" "localhost" ssh || true
+lm_require_cmd "preflight_check" "localhost" openssl --optional || true
+lm_require_cmd "preflight_check" "localhost" ss --optional || true
+lm_require_cmd "preflight_check" "localhost" netstat --optional || true
+lm_require_cmd "preflight_check" "localhost" journalctl --optional || true
+lm_require_cmd "preflight_check" "localhost" smartctl --optional || true
+lm_require_cmd "preflight_check" "localhost" nvme --optional || true
+lm_require_cmd "preflight_check" "localhost" mail --optional || true
+lm_require_cmd "preflight_check" "localhost" timeout --optional || true
+
+
 # Required commands
 REQ_CMDS=(awk sed grep df ssh)
 # Optional commands that improve coverage
