@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1090
 # backup_check.sh - Verify existence, freshness, size & integrity of backups (distributed)
 # Author: Shenhav_Hezi
 # Version: 2.0 (refactored to use linux_maint.sh)
@@ -10,12 +11,32 @@
 #   Logs concise lines and emails a single aggregated alert when checks fail.
 
 # ===== Shared helpers =====
+
+set -euo pipefail
+
+# Defaults for standalone runs (wrapper sets these)
+: "${LM_LOCKDIR:=/tmp}"
+: "${LM_LOG_DIR:=.logs}"
+
 . "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[backup_check] "
 LM_LOGFILE="${LM_LOGFILE:-/var/log/backup_check.log}"
 : "${LM_MAX_PARALLEL:=0}"     # 0=sequential; >0 parallelize hosts
 : "${LM_EMAIL_ENABLED:=true}" # master toggle for lm_mail
 lm_require_singleton "backup_check"
+
+# Dependency checks (local runner)
+lm_require_cmd "backup_check" "localhost" awk || exit $?
+lm_require_cmd "backup_check" "localhost" date || exit $?
+lm_require_cmd "backup_check" "localhost" find || exit $?
+lm_require_cmd "backup_check" "localhost" grep || exit $?
+lm_require_cmd "backup_check" "localhost" head || exit $?
+lm_require_cmd "backup_check" "localhost" sed || exit $?
+lm_require_cmd "backup_check" "localhost" sort || exit $?
+lm_require_cmd "backup_check" "localhost" timeout --optional || true
+lm_require_cmd "backup_check" "localhost" tar --optional || true
+lm_require_cmd "backup_check" "localhost" gzip --optional || true
+
 mkdir -p "$(dirname "$LM_LOGFILE")"
 
 MAIL_SUBJECT_PREFIX='[Backup Check]'
