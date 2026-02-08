@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1090
 # disk_trend_monitor.sh - Disk usage trend + days-to-full forecast (distributed)
 # Author: Shenhav_Hezi
 # Version: 1.0
@@ -14,6 +15,11 @@
 
 set -euo pipefail
 
+# Defaults for standalone runs (wrapper sets these)
+: "${LM_LOCKDIR:=/tmp}"
+: "${LM_LOG_DIR:=.logs}"
+
+
 . "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
 LM_PREFIX="[disk_trend] "
 LM_LOGFILE="${LM_LOGFILE:-/var/log/disk_trend_monitor.log}"
@@ -21,6 +27,16 @@ LM_LOGFILE="${LM_LOGFILE:-/var/log/disk_trend_monitor.log}"
 : "${LM_EMAIL_ENABLED:=true}"
 
 lm_require_singleton "disk_trend_monitor"
+
+# Dependency checks (local runner)
+lm_require_cmd "disk_trend_monitor" "localhost" awk || exit $?
+lm_require_cmd "disk_trend_monitor" "localhost" grep || exit $?
+lm_require_cmd "disk_trend_monitor" "localhost" sed || exit $?
+lm_require_cmd "disk_trend_monitor" "localhost" sort || exit $?
+lm_require_cmd "disk_trend_monitor" "localhost" date || exit $?
+# df required for collection (on localhost it is local; on remote it must exist there)
+lm_require_cmd "disk_trend_monitor" "localhost" df || exit $?
+
 
 MAIL_SUBJECT_PREFIX='[Disk Trend Monitor]'
 EMAIL_ON_ALERT="true"
