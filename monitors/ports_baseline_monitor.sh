@@ -1,4 +1,11 @@
 #!/bin/bash
+# shellcheck disable=SC1090
+set -euo pipefail
+
+# Defaults for standalone runs (wrapper sets these)
+: "${LM_LOCKDIR:=/tmp}"
+: "${LM_LOG_DIR:=.logs}"
+
 # ports_baseline_monitor.sh - Detect new/removed listening ports vs a baseline (distributed)
 # Author: Shenhav_Hezi
 # Version: 2.0 (refactored to use linux_maint.sh)
@@ -11,6 +18,17 @@ LM_LOGFILE="${LM_LOGFILE:-/var/log/ports_baseline_monitor.log}"
 : "${LM_EMAIL_ENABLED:=true}" # master email toggle
 
 lm_require_singleton "ports_baseline_monitor"
+
+# Dependency checks (local runner)
+lm_require_cmd "ports_baseline_monitor" "localhost" awk || exit $?
+lm_require_cmd "ports_baseline_monitor" "localhost" comm || exit $?
+lm_require_cmd "ports_baseline_monitor" "localhost" grep || exit $?
+lm_require_cmd "ports_baseline_monitor" "localhost" sed || exit $?
+lm_require_cmd "ports_baseline_monitor" "localhost" sort || exit $?
+# ss/netstat used on target; when running localhost they are local too
+lm_require_cmd "ports_baseline_monitor" "localhost" ss --optional || true
+lm_require_cmd "ports_baseline_monitor" "localhost" netstat --optional || true
+
 
 # If running unprivileged and /etc/linux_maint is not writable, skip to avoid failing CI/contract tests.
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
