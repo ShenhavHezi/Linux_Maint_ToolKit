@@ -64,7 +64,7 @@ write_report_header() {
 # ========================
 # Remote snippet
 # ========================
-read -r -d '' remote_health_cmd <<'EOS'
+remote_health_cmd=$(cat <<'EOS'
 echo "--- Hostname: $(hostname)"
 echo "--- Uptime:"
 uptime || true
@@ -80,6 +80,7 @@ echo "--- Top 5 Processes by Memory:"
 ps -eo pid,comm,%cpu,%mem --sort=-%mem 2>/dev/null | head -n 6 || true
 echo "----------------------------------------------"
 EOS
+)
 
 # ========================
 # Per-host runner
@@ -128,14 +129,18 @@ fi
 
 
 # One-line summary to stdout (for wrapper logs)
-hosts=0
-hosts=$(grep -c "^>>> Health check on" "$REPORT_FILE" 2>/dev/null || echo 0)
-unreachable=0
-unreachable=$(grep -c "^--- ERROR_CODE: ssh_unreachable" "$REPORT_FILE" 2>/dev/null || echo 0)
+hosts=$(grep -c "^>>> Health check on" "$REPORT_FILE" 2>/dev/null | tail -n 1 || echo 0)
+hosts=$(printf "%s" "$hosts" | tail -n 1 | tr -d "[:space:]")
+hosts=${hosts:-0}
+unreachable=$(grep -c "^--- ERROR_CODE: ssh_unreachable" "$REPORT_FILE" 2>/dev/null | tail -n 1 || echo 0)
+unreachable=$(printf "%s" "$unreachable" | tail -n 1 | tr -d "[:space:]")
+unreachable=${unreachable:-0}
 lines=$(wc -l < "$REPORT_FILE" 2>/dev/null || echo 0)
+lines=$(printf "%s" "$lines" | tail -n 1 | tr -d "[:space:]")
+lines=${lines:-0}
 status="OK"
 if [ "$unreachable" -gt 0 ]; then status="CRIT"; fi
-lm_summary "health_monitor" "runner" "$status" hosts="" unreachable="" report_lines=""
+lm_summary "health_monitor" "runner" "$status" hosts="$hosts" unreachable="$unreachable" report_lines="$lines"
 # legacy:
 # echo health_monitor summary status=OK hosts=$hosts report_lines=$lines
 rm -f "$REPORT_FILE" "$REPORT_LOCK" 2>/dev/null || true
