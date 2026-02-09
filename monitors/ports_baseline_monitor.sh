@@ -42,8 +42,8 @@ fi
 # ========================
 # Script configuration
 # ========================
-BASELINE_DIR="/etc/linux_maint/baselines/ports"       # Per-host baselines live here
-ALLOWLIST_FILE="/etc/linux_maint/ports_allowlist.txt"  # Optional allowlist
+BASELINE_DIR="${LM_CFG_DIR:-/etc/linux_maint}/baselines/ports"       # Per-host baselines live here
+ALLOWLIST_FILE="${LM_CFG_DIR:-/etc/linux_maint}/ports_allowlist.txt"  # Optional allowlist
 
 # Behavior flags
 AUTO_BASELINE_INIT="true"       # If no baseline for a host, create it from current snapshot

@@ -4,20 +4,22 @@ set -euo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 export LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh"
+export PATH="$ROOT_DIR/lib:$PATH"
 export LM_EMAIL_ENABLED=false
 export LM_LOCKDIR=/tmp
+export LM_LOG_DIR=/tmp
+export LM_LOGFILE=/tmp/linux_maint_test.log
+export LM_STATE_DIR=/tmp/linux_maint_state
 export LM_LOCAL_ONLY=true
 export LM_INVENTORY_OUTPUT_DIR="/tmp/linux_maint_inventory"
 mkdir -p "$LM_INVENTORY_OUTPUT_DIR"
-export LM_STATE_DIR="/tmp/linux_maint_state"
-mkdir -p "$LM_STATE_DIR"
 
 fail=0
 
 for m in "$ROOT_DIR"/monitors/*.sh; do
   name="$(basename "$m" .sh)"
   out_file="/tmp/${name}_summary_test.out"
-  LM_LOGFILE="/tmp/${name}_summary_test.log" bash "$m" >"$out_file" 2>/dev/null || true
+  LM_LOGFILE="/tmp/${name}_summary_test.log" LM_LOG_DIR=/tmp LM_STATE_DIR="$LM_STATE_DIR" bash "$m" >"$out_file" 2>/dev/null || true
 
   if ! grep -q '^monitor=' "$out_file"; then
     echo "FAIL: $name emitted no monitor= summary line" >&2

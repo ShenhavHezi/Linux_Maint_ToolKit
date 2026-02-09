@@ -46,6 +46,9 @@ echo "##active_line24##"
 #SUMMARY_DIR="/var/log/health"
 echo "##active_line25##"
 #MONITOR_TIMEOUT_SECS=120
+echo ""
+# Optional: per-monitor timeout overrides (format: monitor_name=seconds)
+#MONITOR_TIMEOUTS_FILE="/etc/linux_maint/monitor_timeouts.conf"
 echo "##active_line26##"
 
 echo "##active_line27##"

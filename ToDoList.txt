@@ -207,7 +207,7 @@ Note: In CI, wrapper/status artifact checks are executed only when passwordless 
 
 ## P3 — Monitor quality & performance
 
-### P3.1 Per-monitor timeout overrides
+### P3.1 Per-monitor timeout overrides (DONE)
 
 **Why**: some monitors are fast, others need longer; one global timeout is suboptimal.
 

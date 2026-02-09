@@ -101,6 +101,37 @@ export LM_EMAIL_ENABLED="${LM_EMAIL_ENABLED:-false}"
 # Per-monitor execution timeout (wrapper-level safety)
 MONITOR_TIMEOUT_SECS="${MONITOR_TIMEOUT_SECS:-600}"
 
+# Optional per-monitor timeouts (format: monitor_name=seconds)
+# Example file: /etc/linux_maint/monitor_timeouts.conf
+MONITOR_TIMEOUTS_FILE="${MONITOR_TIMEOUTS_FILE:-$CFG_DIR/monitor_timeouts.conf}"
+
+get_monitor_timeout_secs(){
+  local monitor_name="$1" # without .sh
+  local default_secs="$2"
+
+  [ -f "$MONITOR_TIMEOUTS_FILE" ] || { echo "$default_secs"; return 0; }
+
+  local line
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      ''|'#'*) continue;;
+    esac
+    case "$line" in
+      "$monitor_name"=*)
+        local val="${line#*=}"
+        if [[ "$val" =~ ^[0-9]+$ ]] && [ "$val" -gt 0 ]; then
+          echo "$val"
+        else
+          echo "$default_secs"
+        fi
+        return 0
+        ;;
+    esac
+  done < "$MONITOR_TIMEOUTS_FILE"
+
+  echo "$default_secs"
+}
+
 # health_monitor already includes: uptime/load/cpu/mem/disk/top processes.
 # Avoid overlaps by excluding disk_monitor/process_hog/server_info.
 
@@ -135,6 +166,8 @@ declare -a scripts=(
 
 run_one() {
   local s="$1"
+  local monitor_name="${s%.sh}"
+  local rc
   local path="$SCRIPTS_DIR/$s"
   echo "" >> "$tmp_report"
   echo "==== RUN $s @ $(date '+%F %T') ====" >> "$tmp_report"
@@ -178,7 +211,15 @@ run_one() {
 
   # Wrapper-level timeout to prevent a single monitor from hanging the whole run
   if command -v timeout >/dev/null 2>&1; then
-    timeout "$MONITOR_TIMEOUT_SECS" bash "$path" >> "$tmp_report" 2>&1
+    local secs
+    secs="$(get_monitor_timeout_secs "$monitor_name" "$MONITOR_TIMEOUT_SECS")"
+    timeout "$secs" bash "$path" >> "$tmp_report" 2>&1
+  rc=$?
+    if [ "$rc" -eq 124 ]; then
+      echo "monitor=$monitor_name host=runner status=UNKNOWN node=$(hostname -f 2>/dev/null || hostname) reason=timeout timeout_secs=$secs" >> "$tmp_report"
+      return 3
+    fi
+    return "$rc"
   else
     bash "$path" >> "$tmp_report" 2>&1
   fi
@@ -190,10 +231,12 @@ ok=0; warn=0; crit=0; unk=0
 
 for s in "${scripts[@]}"; do
   set +e
-  before_lines=$(grep -a -c "^monitor=" "$tmp_report" 2>/dev/null || echo 0)
+  before_lines=$(grep -a -c "^monitor=" "$tmp_report" 2>/dev/null || true)
+  before_lines=${before_lines:-0}
   run_one "$s"
   rc=$?
-  after_lines=$(grep -a -c "^monitor=" "$tmp_report" 2>/dev/null || echo 0)
+  after_lines=$(grep -a -c "^monitor=" "$tmp_report" 2>/dev/null || true)
+  after_lines=${after_lines:-0}
   if [ "$rc" -ne 0 ] && [ "$after_lines" -le "$before_lines" ]; then
     # Hardening: a monitor failed but emitted no standardized summary line.
     echo "monitor=${s%.sh} host=runner status=UNKNOWN node=$(hostname -f 2>/dev/null || hostname) reason=no_summary_emitted rc=$rc" >> "$tmp_report"
