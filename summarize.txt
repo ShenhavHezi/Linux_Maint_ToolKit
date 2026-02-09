@@ -176,3 +176,6 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 - wrapper: add optional per-monitor timeout overrides via `MONITOR_TIMEOUTS_FILE`/`monitor_timeouts.conf` (and emit `reason=timeout` on wrapper timeout).
 - tests: add `per_monitor_timeout_override_test.sh` and wire into smoke.
 - monitors: ports_baseline_monitor now respects `LM_CFG_DIR` for baselines/allowlist paths (improves unprivileged testability without changing default behavior).
+
+## 2026-02-09
+- tests: add `summary_noise_lint.sh` guardrail to keep `monitor=` summary lines short (default max 220 chars), and wire it into smoke.

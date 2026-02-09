@@ -40,6 +40,9 @@ bash "$ROOT_DIR/tests/dry_run_no_ssh_test.sh" >/dev/null
 # Per-monitor timeout overrides
 bash "$ROOT_DIR/tests/per_monitor_timeout_override_test.sh" >/dev/null
 
+# Summary noise guardrail
+bash "$ROOT_DIR/tests/summary_noise_lint.sh" >/dev/null
+
 # Sudo-gated tests
 if sudo -n true >/dev/null 2>&1; then
   bash "$ROOT_DIR/tests/wrapper_artifacts_test.sh" >/dev/null

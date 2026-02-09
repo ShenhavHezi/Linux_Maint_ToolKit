@@ -224,7 +224,7 @@ Note: In CI, wrapper/status artifact checks are executed only when passwordless 
 
 ---
 
-### P3.2 Reduce summary noise
+### P3.2 Reduce summary noise (DONE)
 
 **Why**: summary should stay actionable.
 
