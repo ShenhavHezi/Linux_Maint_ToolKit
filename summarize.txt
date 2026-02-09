@@ -179,3 +179,6 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 
 ## 2026-02-09
 - tests: add `summary_noise_lint.sh` guardrail to keep `monitor=` summary lines short (default max 220 chars), and wire it into smoke.
+
+## 2026-02-09
+- preflight_check: reduce summary noise by keeping only routing-relevant counts in `monitor=` lines; moved extra counters into full log.
