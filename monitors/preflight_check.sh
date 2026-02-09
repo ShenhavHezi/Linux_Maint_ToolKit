@@ -114,14 +114,17 @@ main(){
     reason=config_missing
   fi
 
+  # Keep summary lines short/actionable; details go to full log.
+  # In summary, emit only the key counts that affect routing.
   if [ "$status" != "OK" ] && [ -n "$reason" ]; then
-    lm_summary "preflight_check" "localhost" "$status" reason=$reason required_missing=$missing_req optional_missing=$missing_opt ssh_unreachable=$unreachable hosts=$total state_writable=$writable_state logs_writable=$writable_logs cfg_missing=$missing_cfg
+    lm_summary "preflight_check" "localhost" "$status" reason=$reason required_missing=$missing_req optional_missing=$missing_opt ssh_unreachable=$unreachable
   else
-    lm_summary "preflight_check" "localhost" "$status" required_missing=$missing_req optional_missing=$missing_opt ssh_unreachable=$unreachable hosts=$total state_writable=$writable_state logs_writable=$writable_logs cfg_missing=$missing_cfg
+    lm_summary "preflight_check" "localhost" "$status" required_missing=$missing_req optional_missing=$missing_opt ssh_unreachable=$unreachable
   fi
+
   # legacy:
   # echo "preflight_check status=$status required_missing=$missing_req optional_missing=$missing_opt ssh_unreachable=$unreachable hosts=$total state_writable=$writable_state logs_writable=$writable_logs cfg_missing=$missing_cfg"
-  echo "preflight_check details required_missing=[${miss_req_list%,}] optional_missing=[${miss_opt_list%,}]" >> "$LM_LOGFILE"
+  echo "preflight_check details required_missing=[${miss_req_list%,}] optional_missing=[${miss_opt_list%,}] hosts=$total state_writable=$writable_state logs_writable=$writable_logs cfg_missing=$missing_cfg" >> "$LM_LOGFILE"
   exit "$rc"
 }
 
