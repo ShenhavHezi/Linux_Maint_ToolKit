@@ -150,7 +150,7 @@ Note: In CI, wrapper/status artifact checks are executed only when passwordless 
 
 ## P2 — Packaging, deployment, and compatibility
 
-### P2.1 Reason token standardization
+### P2.1 Reason token standardization (DONE)
 
 **Why**: `reason=` is what makes alerts actionable.
 
@@ -188,7 +188,7 @@ Note: In CI, wrapper/status artifact checks are executed only when passwordless 
 
 ---
 
-### P2.3 Platform/dependency detection (IN PROGRESS: standardized lm_require_cmd across more monitors + added forced-missing tests)
+### P2.3 Platform/dependency detection (DONE)
 
 **Why**: missing commands should degrade gracefully and explain why.
 
@@ -238,6 +238,33 @@ Note: In CI, wrapper/status artifact checks are executed only when passwordless 
 ---
 
 ## P4 — Developer experience & project governance
+
+### P4.0 Session Ready Check / workflow (from readyCheck.txt)
+
+**Goal**: Resume work on this repo quickly and consistently.
+
+**Session start**:
+1) Go to repo and pull latest:
+   - `cd /home/shenhav/linux_Maint_Scripts`
+   - `git status -sb`
+   - `git pull --ff-only`
+2) Read the project “truth” docs: `summarize.txt`, `ToDoList.txt`, `README.md`, `docs/reference.md`
+3) Repo rules:
+   - Before pushing: run `python3 tools/gen_summarize.py` and ensure `summarize.txt` AUTOGEN blocks are up to date.
+   - Keep `summarize.txt` and `ToDoList.txt` updated when code changes.
+   - CI enforces summarize AUTOGEN consistency + meta-doc updates.
+4) Decide next work item: pick the highest-priority unfinished ToDo; implement (tests first when possible); then update ToDoList.
+
+**Assistant prompt template**:
+```text
+Resume linux-maint work with me.
+- Repo: /home/shenhav/linux_Maint_Scripts (main)
+- Pull latest.
+- Read summarize.txt and ToDoList.txt.
+- Propose the next 1-2 highest priority tasks from ToDoList and start implementing.
+- Keep summarize.txt and ToDoList.txt updated as we go (run python3 tools/gen_summarize.py before pushes).
+```
+
 
 ### P4.1 Add Makefile and CONTRIBUTING
 
