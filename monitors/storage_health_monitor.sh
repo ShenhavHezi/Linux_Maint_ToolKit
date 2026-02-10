@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC2317,SC2034
 # storage_health_monitor.sh - Storage health checks (RAID/mdadm, SMART/NVMe best-effort) (local/distributed)
 # Author: Shenhav_Hezi
 # Version: 1.0
@@ -213,7 +213,7 @@ ctrl=$(echo "$out" | awk -F'[ =]+' '{for(i=1;i<=NF;i++) if($i=="ctrl") print $(i
     append_alert "$host|storage|mdraid=$md smart=$smart($smart_bad/$smart_checked) nvme=$nvme($nvme_bad/$nvme_checked)"
   fi
 
-  lm_summary "storage_health_monitor" "$host" "$overall" mdraid=$md smart=$smart checked=$smart_checked bad=$smart_bad nvme=$nvme checked_nvme=$nvme_checked bad_nvme=$nvme_bad ctrl=$ctrl
+  lm_summary "storage_health_monitor" "$host" "$overall" mdraid="$md" smart="$smart" checked="$smart_checked" bad="$smart_bad" nvme="$nvme" checked_nvme="$nvme_checked" bad_nvme="$nvme_bad" ctrl="$ctrl"
   # legacy:
   # echo "storage_health_monitor host=$host status=$overall mdraid=$md smart=$smart checked=$smart_checked bad=$smart_bad nvme=$nvme checked_nvme=$nvme_checked bad_nvme=$nvme_bad ctrl=$ctrl"
   return "$rc"

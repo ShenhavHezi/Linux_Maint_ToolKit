@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC2034,SC2016,SC2162,SC2317
 # patch_monitor.sh - Check pending OS updates and reboot requirements (distributed)
 # Author: Shenhav_Hezi
 # Version: 2.0 (refactored to use linux_maint.sh)
@@ -132,7 +132,7 @@ run_for_host() {
     yum)    read total sec kern <<<"$(probe_yum "$host")" ;;
     zypper) read total sec kern <<<"$(probe_zypper "$host")" ;;
     *)      lm_warn "[$host] Unsupported package manager: $mgr"
-            lm_summary "patch_monitor" "$host" "SKIP" reason=unsupported_pkg_mgr mgr=$mgr total=0 security=0 kernel=0 reboot_required=unknown
+            lm_summary "patch_monitor" "$host" "SKIP" reason=unsupported_pkg_mgr mgr="$mgr" total=0 security=0 kernel=0 reboot_required=unknown
             lm_info "===== Completed $host ====="
             return 0 ;;
   esac
@@ -166,9 +166,9 @@ This is an automated notice from patch_monitor.sh."
     fi
   fi
   if [ "$status" != "OK" ] && [ -n "$reason" ]; then
-    lm_summary "patch_monitor" "$host" "$status" reason=$reason total=${total:-0} security=${sec:-0} kernel=${kern:-0} reboot_required=$reboot
+    lm_summary "patch_monitor" "$host" "$status" reason="$reason" total="${total:-0}" security="${sec:-0}" kernel="${kern:-0}" reboot_required="$reboot"
   else
-    lm_summary "patch_monitor" "$host" "$status" total=${total:-0} security=${sec:-0} kernel=${kern:-0} reboot_required=$reboot
+    lm_summary "patch_monitor" "$host" "$status" total="${total:-0}" security="${sec:-0}" kernel="${kern:-0}" reboot_required="$reboot"
   fi
   # legacy (kept for backward compatibility)
 

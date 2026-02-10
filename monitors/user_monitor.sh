@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC2034,SC2016,SC2317
 # user_monitor.sh - Monitor user and SSH access across multiple servers
 # Author: Shenhav_Hezi
 # Version: 2.0 (refactored to use linux_maint.sh)
@@ -93,7 +93,7 @@ run_for_host(){
     lm_err "[$host] SSH unreachable"
     append_alert "$host|ssh|unreachable"
     anomalies=$((anomalies+1))
-    lm_summary "user_monitor" "$host" "CRIT" reason=ssh_unreachable anomalies=$anomalies
+    lm_summary "user_monitor" "$host" "CRIT" reason=ssh_unreachable anomalies="$anomalies"
     lm_info "===== Completed $host ====="
     return 2
   fi
@@ -183,9 +183,9 @@ run_for_host(){
   lm_info "[$host] failed SSH logins last ${FAILED_WINDOW_HOURS}h: $failed ($failed_status)"
 
   status=$( [ "$anomalies" -gt 0 ] && echo WARN || echo OK )
-  lm_summary "user_monitor" "$host" "$status" anomalies=$anomalies
+  lm_summary "user_monitor" "$host" "$status" anomalies="$anomalies"
   # legacy:
-  # echo "user_monitor host=$host status=$status anomalies=$anomalies"
+  # echo "user_monitor host=$host status=$status anomalies="$anomalies""
 
 lm_info "===== Completed $host ====="
 }

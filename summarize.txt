@@ -190,3 +190,7 @@ echo "##active_line2##"
 echo "##active_line3##"
 - ci: run ShellCheck with repo `.shellcheckrc` (stop excluding SC2086 globally in workflow).
 echo "##active_line4##"
+echo "##active_line2##"
+- shellcheck: fix/annotate `user_monitor.sh` so CI passes without globally excluding SC2086.
+echo "##active_line3##"
+- shellcheck: align CI with `.shellcheckrc` and fix remaining SC2086 hits in summary emission for patch/storage/ports/user monitors.

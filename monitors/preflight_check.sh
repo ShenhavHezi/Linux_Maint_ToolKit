@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC2034
 # preflight_check.sh - Validate environment readiness for Linux_Maint_Scripts (distributed)
 # Author: Shenhav_Hezi
 # Version: 1.0

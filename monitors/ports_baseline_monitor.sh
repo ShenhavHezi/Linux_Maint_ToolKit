@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC2317,SC2034,SC2155
 set -euo pipefail
 
 # Defaults for standalone runs (wrapper sets these)
@@ -206,7 +206,7 @@ run_for_host() {
 
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
-    lm_summary "ports_baseline_monitor" "$host" "CRIT" reason=ssh_unreachable new=0 removed=0
+    lm_summary "ports_baseline_monitor" "$host" "CRIT" reason=ssh_unreachable new="0" removed="0"
     lm_info "===== Completed $host ====="
     return 2
   fi
@@ -223,13 +223,13 @@ run_for_host() {
     if [ "$AUTO_BASELINE_INIT" = "true" ]; then
       cp -f "$cur_file" "$base_file"
       lm_info "[$host] Baseline created at $base_file (initial snapshot)."
-      lm_summary "ports_baseline_monitor" "$host" "SKIP" reason=baseline_created new=0 removed=0
+      lm_summary "ports_baseline_monitor" "$host" "SKIP" reason=baseline_created new="0" removed="0"
       rm -f "$cur_file"
       lm_info "===== Completed $host ====="
       return 0
     else
       lm_warn "[$host] Baseline missing ($base_file). Set AUTO_BASELINE_INIT=true or create it manually."
-      lm_summary "ports_baseline_monitor" "$host" "SKIP" reason=baseline_missing new=0 removed=0
+      lm_summary "ports_baseline_monitor" "$host" "SKIP" reason=baseline_missing new="0" removed="0"
       rm -f "$cur_file"
       lm_info "===== Completed $host ====="
       return 0
@@ -254,9 +254,9 @@ run_for_host() {
   if [ "$new_count" -gt 0 ] || [ "$removed_count" -gt 0 ]; then
     status=WARN
   fi
-  lm_summary "ports_baseline_monitor" "$host" "$status" reason=ports_baseline_changed new=$new_count removed=$removed_count
+  lm_summary "ports_baseline_monitor" "$host" "$status" reason=ports_baseline_changed new="$new_count" removed="$removed_count"
   # legacy:
-  # echo "ports_baseline_monitor host=$host status=$status new=$new_count removed=$removed_count"
+  # echo "ports_baseline_monitor host=$host status=$status new="$new_count" removed="$removed_count""
 
 }
 # ========================

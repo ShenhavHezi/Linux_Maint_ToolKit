@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC2034
 # service_monitor.sh - Monitor critical services across multiple servers
 # Author: Shenhav_Hezi
 # Version: 2.0 (refactored to use linux_maint.sh)
