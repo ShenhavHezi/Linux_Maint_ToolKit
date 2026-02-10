@@ -133,6 +133,7 @@ compare_and_report(){
   # NEW and REMOVED by set difference
   local new_file removed_file
   new_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
+  trap 'rm -f "$new_file" "$removed_file" "$modified_file" "$new_filtered" "$modified_filtered" 2>/dev/null || true' RETURN
   removed_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
   comm -13 <(printf "%s\n" "$base_paths") <(printf "%s\n" "$cur_paths") > "$new_file"
   comm -23 <(printf "%s\n" "$base_paths") <(printf "%s\n" "$cur_paths") > "$removed_file"

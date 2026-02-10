@@ -235,3 +235,7 @@ echo "##active_line2##"
 echo "##active_line2##"
 - lib: add optional log redaction via LM_REDACT_LOGS to mask common secret patterns; tests: add log_redaction_test and wire into smoke.
 echo "##active_line2##"
+## 2026-02-10
+echo "##active_line2##"
+- monitors: add RETURN traps to clean up mktemp files in config_drift_monitor and ports_baseline_monitor helper functions (reduce /tmp clutter; no behavior change).
+echo "##active_line2##"

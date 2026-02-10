@@ -119,7 +119,7 @@ Principles:
 
 ---
 
-### P1.3 Standardize temp file safety + cleanup (NOT DONE)
+### P1.3 Standardize temp file safety + cleanup (DONE)
 
 **Why**: many monitors use `mktemp`; ensure consistent permissions and cleanup.
 

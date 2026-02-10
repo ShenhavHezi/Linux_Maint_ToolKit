@@ -146,6 +146,7 @@ compare_and_report() {
   local host="$1" cur_file="$2" base_file="$3"
   local new_file removed_file
   new_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
+  trap 'rm -f "$new_file" "$removed_file" "$new_filtered" 2>/dev/null || true' RETURN
   removed_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
 
   comm -13 "$base_file" "$cur_file" > "$new_file"
