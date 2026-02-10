@@ -209,3 +209,7 @@ echo "##active_line2##"
 echo "##active_line2##"
 - shellcheck: stop excluding SC2016/SC2162 globally; disable locally in scripts that intentionally build remote shell snippets or use read without -r.
 echo "##active_line2##"
+## 2026-02-10
+echo "##active_line2##"
+- ci: enforce meta-doc updates on PRs (require ToDoList.txt or summarize.txt when code changes), and fix diff range variable in docs_consistency workflow.
+echo "##active_line2##"

@@ -44,7 +44,7 @@ jobs:
           set -euo pipefail
 
           # files changed in the PR
-          changed=$(git diff --name-only "$BASE_SHA".."HEAD_SHA")
+          changed=$(git diff --name-only "$BASE_SHA".."$HEAD_SHA")
 
           echo "Changed files:" 
           echo "$changed"

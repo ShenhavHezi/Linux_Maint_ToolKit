@@ -279,7 +279,7 @@ Resume linux-maint work with me.
 
 ---
 
-### P4.2 CI enforcement for meta docs
+### P4.2 CI enforcement for meta docs (DONE)
 
 **Why**: keep GitHub landing page accurate.
 
