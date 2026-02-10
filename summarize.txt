@@ -229,3 +229,5 @@ echo "##active_line2##"
 echo "##active_line2##"
 - tests: add `summary_parse_safety_lint` to ensure `monitor=` lines remain stable key=value tokens (required keys, no dup keys, no whitespace-in-values), and wire it into smoke.
 echo "##active_line2##"
+## 2026-02-10
+- docs: clarify SSH defaults and host key/known_hosts policy for LM_SSH_OPTS (fleet mode) in docs/reference.md.

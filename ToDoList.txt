@@ -85,7 +85,7 @@ Principles:
 
 ## P1 — Security hardening (practical, low risk)
 
-### P1.1 Harden SSH defaults & document policy (NOT DONE)
+### P1.1 Harden SSH defaults & document policy (DONE)
 
 **Why**: SSH execution is the primary remote surface; defaults should be safe and predictable.
 

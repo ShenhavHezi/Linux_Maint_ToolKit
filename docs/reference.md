@@ -312,7 +312,9 @@ Status flags (installed mode):
 
 ### SSH security defaults (fleet mode)
 
-By default, `LM_SSH_OPTS` uses safe non-interactive SSH settings and a dedicated known_hosts file:
+By default, `LM_SSH_OPTS` is set by `lib/linux_maint.sh` and is used by `lm_ssh()` for all remote execution.
+
+Default `LM_SSH_OPTS` (as shipped):
 
 - `BatchMode=yes`
 - `ConnectTimeout=7`
@@ -323,6 +325,11 @@ By default, `LM_SSH_OPTS` uses safe non-interactive SSH settings and a dedicated
 
 This avoids modifying root’s `~/.ssh/known_hosts` and reduces MITM risk compared to `StrictHostKeyChecking=no`.
 You can override via `linux-maint run --ssh-opts "..."` or environment `LM_SSH_OPTS`.
+
+Notes:
+- This project intentionally splits `LM_SSH_OPTS` into ssh argv. Avoid shell metacharacters; prefer only `-o Key=Value` style options.
+- If you enable strict host key verification in your environment, pre-populate the dedicated known_hosts file used by `UserKnownHostsFile`.
+
 
 
 
