@@ -221,3 +221,7 @@ echo "##active_line2##"
 echo "##active_line2##"
 - tooling/ci: add `tools/shellcheck_wrapper.sh` and route CI/Makefile/pre-commit through it so `.shellcheckrc` is the single ShellCheck exclude source.
 echo "##active_line2##"
+## 2026-02-10
+echo "##active_line2##"
+- monitors: quote variable key=value fields in `lm_summary` across multiple monitors to prevent SC2086 and keep summary parsing robust.
+echo "##active_line2##"

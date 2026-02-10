@@ -117,20 +117,20 @@ validate(){
   fi
 
   if [ "$crit" -gt 0 ]; then
-    lm_summary "config_validate" "localhost" "CRIT" warn=$warn crit=$crit reason=config_validate_crit
+    lm_summary "config_validate" "localhost" "CRIT" warn="$warn" crit="$crit" reason=config_validate_crit
     # legacy:
-    # echo "config_validate status=CRIT warn=$warn crit=$crit"
+    # echo "config_validate status=CRIT warn="$warn" crit="$crit""
     exit 2
   fi
   if [ "$warn" -gt 0 ]; then
-    lm_summary "config_validate" "localhost" "WARN" warn=$warn crit=$crit reason=config_validate_warn
+    lm_summary "config_validate" "localhost" "WARN" warn="$warn" crit="$crit" reason=config_validate_warn
     # legacy:
-    # echo "config_validate status=WARN warn=$warn crit=$crit"
+    # echo "config_validate status=WARN warn="$warn" crit="$crit""
     exit 1
   fi
-  lm_summary "config_validate" "localhost" "OK" warn=$warn crit=$crit
+  lm_summary "config_validate" "localhost" "OK" warn="$warn" crit="$crit"
   # legacy:
-  # echo "config_validate status=OK warn=$warn crit=$crit"
+  # echo "config_validate status=OK warn="$warn" crit="$crit""
   exit 0
 }
 

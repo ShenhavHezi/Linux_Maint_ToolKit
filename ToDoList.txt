@@ -36,7 +36,7 @@ Principles:
 
 ---
 
-### P0.2 Enforce safe/consistent `lm_summary` key=value quoting (NOT DONE)
+### P0.2 Enforce safe/consistent `lm_summary` key=value quoting (DONE)
 
 **Why**: unquoted values create SC2086 churn and can break machine parsing.
 

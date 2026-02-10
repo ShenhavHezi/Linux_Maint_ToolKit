@@ -65,9 +65,9 @@ run_for_host(){
     lm_err "[$host] SSH unreachable"
     append_alert "$host|ssh|unreachable"
     bad=$((bad+1))
-    lm_summary "nfs_mount_monitor" "$host" "CRIT" checked=$checked bad=$bad
+    lm_summary "nfs_mount_monitor" "$host" "CRIT" checked="$checked" bad="$bad"
     # legacy:
-    # echo "nfs_mount_monitor host=$host status=CRIT checked=$checked bad=$bad"
+    # echo "nfs_mount_monitor host=$host status=CRIT checked="$checked" bad="$bad""
     lm_info "===== Completed $host ====="
     return
   fi
@@ -111,9 +111,9 @@ run_for_host(){
   local status=OK
   [ "$bad" -gt 0 ] && status=CRIT
 
-  lm_summary "nfs_mount_monitor" "$host" "$status" checked=$checked bad=$bad
+  lm_summary "nfs_mount_monitor" "$host" "$status" checked="$checked" bad="$bad"
   # legacy:
-  # echo "nfs_mount_monitor host=$host status=$status checked=$checked bad=$bad"
+  # echo "nfs_mount_monitor host=$host status=$status checked="$checked" bad="$bad""
   lm_info "===== Completed $host ====="
 }
 
