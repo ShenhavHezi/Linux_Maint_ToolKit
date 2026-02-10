@@ -125,6 +125,7 @@ SKIP backup_check reason=missing_targets_file
 
 Tips:
 - `sudo linux-maint status --verbose` for raw summary lines
+- `sudo linux-maint diff` to show changes since the last run
 - `sudo linux-maint status --problems 100` to list more problems (max 100)
 
 

@@ -239,3 +239,5 @@ echo "##active_line2##"
 echo "##active_line2##"
 - monitors: add RETURN traps to clean up mktemp files in config_drift_monitor and ports_baseline_monitor helper functions (reduce /tmp clutter; no behavior change).
 echo "##active_line2##"
+## 2026-02-10
+- docs: document existing `linux-maint diff` command in README and docs/QUICK_REFERENCE.md; verified installer/RPM include summary_diff.py for installed-mode diff.

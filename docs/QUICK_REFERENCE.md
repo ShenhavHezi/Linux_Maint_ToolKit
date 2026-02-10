@@ -17,6 +17,12 @@ sudo linux-maint status --problems 100
 # Raw summary lines
 sudo linux-maint status --verbose
 
+# Diff since last run
+sudo linux-maint diff
+
+# Diff in JSON (automation)
+sudo linux-maint diff --json
+
 # Latest logs
 sudo linux-maint logs 200
 
