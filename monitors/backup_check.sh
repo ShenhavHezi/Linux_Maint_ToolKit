@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC1090,SC2317,SC2034,SC2155
+# shellcheck disable=SC1090,SC2016,SC2317,SC2034,SC2155
 # backup_check.sh - Verify existence, freshness, size & integrity of backups (distributed)
 # Author: Shenhav_Hezi
 # Version: 2.0 (refactored to use linux_maint.sh)

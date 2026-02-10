@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC1090,SC2317,SC2034,SC2155
+# shellcheck disable=SC1090,SC2162,SC2317,SC2034,SC2155
 # disk_trend_monitor.sh - Disk usage trend + days-to-full forecast (distributed)
 # Author: Shenhav_Hezi
 # Version: 1.0

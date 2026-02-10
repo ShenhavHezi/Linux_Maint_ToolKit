@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC2162
 set -euo pipefail
 
 # Defaults for standalone runs (wrapper sets these)

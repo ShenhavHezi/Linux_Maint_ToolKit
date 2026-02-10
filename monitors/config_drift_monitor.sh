@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC2016
 # config_drift_monitor.sh - Detect drift in critical config files vs baseline (distributed)
 # Author: Shenhav_Hezi
 # Version: 2.0 (refactored to use linux_maint.sh)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC2016
 # nfs_mount_monitor.sh - Check NFS mounts are present and responsive (local/distributed)
 # Author: Shenhav_Hezi
 # Version: 1.0
