@@ -103,7 +103,7 @@ Principles:
 
 ---
 
-### P1.2 Log redaction (optional toggle) (NOT DONE)
+### P1.2 Log redaction (optional toggle) (DONE)
 
 **Why**: avoid accidental leakage of secrets/tokens into logs.
 

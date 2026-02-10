@@ -37,7 +37,7 @@ lm_ts() { date '+%Y-%m-%d %H:%M:%S'; }
 lm_log() {
   local lvl="$1"; shift
   local line
-  line="$(lm_ts) - ${LM_PREFIX}${lvl} - $*"
+  line="$(lm_ts) - ${LM_PREFIX}${lvl} - $(lm_redact_line "$*")"
   # print to stdout and append to LM_LOGFILE (create parent dir if needed)
   mkdir -p "$(dirname "$LM_LOGFILE")" 2>/dev/null || true
   echo "$line" | tee -a "$LM_LOGFILE" >/dev/null
@@ -46,6 +46,33 @@ lm_info(){ lm_log INFO "$@"; }
 lm_warn(){ lm_log WARN "$@"; }
 lm_err(){  lm_log ERROR "$@"; }
 lm_die(){  lm_err "$@"; exit 1; }
+
+# ========= Optional log redaction =========
+# If LM_REDACT_LOGS=1|true, redact common secret patterns from log lines.
+# This is best-effort and intentionally conservative.
+# Default: off (no behavior change).
+lm_redact_line() {
+  local s="$1"
+
+  case "${LM_REDACT_LOGS:-0}" in
+    1|true|TRUE|yes|YES)
+      ;;
+    *)
+      printf '%s' "$s"
+      return 0
+      ;;
+  esac
+
+  # Best-effort token/password redaction
+  # - password=... / passwd=... / token=... / api_key=...
+  s="$(printf '%s' "$s" | sed -E \
+    -e 's/\b(password|passwd|token|api[_-]?key)=([^[:space:]]+)/\1=REDACTED/Ig' \
+    -e 's/\b(Authorization:)[[:space:]]+[^[:space:]]+/\1 REDACTED/Ig' \
+  )"
+
+  printf '%s' "$s"
+}
+
 
 # ========= Locking (prevent overlapping runs) =========
 # Usage: lm_require_singleton myscript      → exits if already running
@@ -379,3 +406,4 @@ lm_require_cmd(){
   lm_summary "$monitor" "$host" "UNKNOWN" reason=missing_dependency dep="$cmd"
   return 3
 }
+

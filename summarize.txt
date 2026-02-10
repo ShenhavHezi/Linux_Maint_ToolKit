@@ -231,3 +231,7 @@ echo "##active_line2##"
 echo "##active_line2##"
 ## 2026-02-10
 - docs: clarify SSH defaults and host key/known_hosts policy for LM_SSH_OPTS (fleet mode) in docs/reference.md.
+## 2026-02-10
+echo "##active_line2##"
+- lib: add optional log redaction via LM_REDACT_LOGS to mask common secret patterns; tests: add log_redaction_test and wire into smoke.
+echo "##active_line2##"
