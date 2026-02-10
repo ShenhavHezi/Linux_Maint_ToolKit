@@ -247,3 +247,7 @@ echo "##active_line2##"
 echo "##active_line2##"
 ## 2026-02-10
 - cli: improve `linux-maint diff` messaging and print the resolved diff state paths (diff_state_dir/diff_prev/diff_cur) for easier troubleshooting.
+## 2026-02-10
+echo "##active_line2##"
+- docs/roadmap: mark P2.1 linux-maint diff as DONE (command existed; now documented and installed-mode diff state fixed).
+echo "##active_line2##"

@@ -137,7 +137,7 @@ Principles:
 
 ## P2 — Operability & on-call UX
 
-### P2.1 Add `linux-maint diff` (wrap `tools/summary_diff.py`) (NOT DONE)
+### P2.1 Add `linux-maint diff` (wrap `tools/summary_diff.py`) (DONE)
 
 **Why**: diffing summaries is a common triage task.
 
