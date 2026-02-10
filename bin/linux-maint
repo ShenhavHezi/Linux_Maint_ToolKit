@@ -260,6 +260,10 @@ case "$cmd" in
       SUMMARY_LATEST="$INST_SUMMARY_LATEST"
     fi
     PREV_SUMMARY="$DIFF_STATE_DIR/last_summary_monitor_lines.log"
+
+    echo "diff_state_dir=$DIFF_STATE_DIR"
+    echo "diff_prev=$PREV_SUMMARY"
+    echo "diff_cur=$CUR_SUMMARY"
     CUR_SUMMARY="$SUMMARY_LATEST"
 
     if [[ ! -f "$CUR_SUMMARY" ]]; then
@@ -269,7 +273,7 @@ case "$cmd" in
     fi
     if [[ ! -f "$PREV_SUMMARY" ]]; then
       echo "No previous diff state file: $PREV_SUMMARY" >&2
-      echo "The wrapper creates this after the *second* run. Run linux-maint run again." >&2
+      echo "The wrapper writes this after each run (best-effort). Typically you need to run linux-maint run twice to get a useful diff." >&2
       exit 1
     fi
 

@@ -245,3 +245,5 @@ echo "##active_line2##"
 echo "##active_line2##"
 - wrapper: keep LM_STATE_DIR default as /tmp (repo-mode safe), but persist linux-maint diff state under /var/lib/linux_maint by default; document diff state location.
 echo "##active_line2##"
+## 2026-02-10
+- cli: improve `linux-maint diff` messaging and print the resolved diff state paths (diff_state_dir/diff_prev/diff_cur) for easier troubleshooting.
