@@ -182,3 +182,10 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 
 ## 2026-02-09
 - preflight_check: reduce summary noise by keeping only routing-relevant counts in `monitor=` lines; moved extra counters into full log.
+echo "##active_line2##"
+
+echo "##active_line3##"
+## 2026-02-10
+echo "##active_line4##"
+- tests: fix `monitor_summary_emission_test.sh` to run monitors with a writable `LM_CFG_DIR` (default `/tmp/linux_maint_cfg`) so baseline-based monitors can emit `monitor=` lines in CI.
+echo "##active_line5##"
