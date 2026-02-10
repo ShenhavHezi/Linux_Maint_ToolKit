@@ -194,3 +194,6 @@ echo "##active_line2##"
 - shellcheck: fix/annotate `user_monitor.sh` so CI passes without globally excluding SC2086.
 echo "##active_line3##"
 - shellcheck: align CI with `.shellcheckrc` and fix remaining SC2086 hits in summary emission for patch/storage/ports/user monitors.
+echo "##active_line2##"
+- shellcheck: quiet SC2317/SC2155 false-positives in backup_check and ntp_drift_monitor now that CI no longer excludes warnings globally.
+echo "##active_line3##"

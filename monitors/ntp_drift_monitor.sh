@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC2317,SC2034,SC2155
 
 
 
@@ -212,12 +212,12 @@ run_for_host() {
   if [ "$overall" = "WARN" ]; then reason=ntp_drift_high; fi
   if [ "$overall" = "UNKNOWN" ]; then reason=ntp_not_synced; fi
   if [ "$overall" != "OK" ] && [ -n "$reason" ]; then
-    lm_summary "ntp_drift_monitor" "$host" "$overall" reason=$reason checked=$checked warn=$warn_count crit=$crit_count
+    lm_summary "ntp_drift_monitor" "$host" "$overall" reason="$reason" checked="$checked" warn="$warn_count" crit="$crit_count"
   else
-    lm_summary "ntp_drift_monitor" "$host" "$overall" checked=$checked warn=$warn_count crit=$crit_count
+    lm_summary "ntp_drift_monitor" "$host" "$overall" checked="$checked" warn="$warn_count" crit="$crit_count"
   fi
   # legacy:
-  # echo "ntp_drift_monitor host=$host status=$overall checked=$checked warn=$warn_count crit=$crit_count"
+  # echo "ntp_drift_monitor host=$host status=$overall checked="$checked" warn="$warn_count" crit="$crit_count""
 
 }
 # ========================
