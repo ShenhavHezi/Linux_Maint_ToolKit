@@ -266,7 +266,7 @@ Resume linux-maint work with me.
 ```
 
 
-### P4.1 Add Makefile and CONTRIBUTING
+### P4.1 Add Makefile and CONTRIBUTING (DONE)
 
 **Where**:
 - `Makefile`
