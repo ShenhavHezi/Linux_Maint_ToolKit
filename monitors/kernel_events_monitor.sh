@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC2317,SC2034
 # kernel_events_monitor.sh - Scan kernel logs for critical events (OOM, I/O errors, FS errors, hung tasks) (distributed)
 # Author: Shenhav_Hezi
 # Version: 1.0
@@ -101,7 +101,7 @@ run_for_host(){
     append_alert "$host|kernel_events|matches=$count|sample=${sample:0:300}"
   fi
 
-  lm_summary "kernel_events_monitor" "$host" "$status" matches=$count window_h=$KERNEL_WINDOW_HOURS
+  lm_summary "kernel_events_monitor" "$host" "$status" matches="$count" window_h="$KERNEL_WINDOW_HOURS"
   # legacy:
   # echo "kernel_events_monitor host=$host status=$status matches=$count window_h=$KERNEL_WINDOW_HOURS"
   return "$rc"

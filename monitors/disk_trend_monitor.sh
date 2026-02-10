@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC2317,SC2034,SC2155
 # disk_trend_monitor.sh - Disk usage trend + days-to-full forecast (distributed)
 # Author: Shenhav_Hezi
 # Version: 1.0
@@ -245,7 +245,7 @@ run_for_host(){
     fi
   fi
 
-  lm_summary "disk_trend_monitor" "$host" "$status" mounts=$mounts warn=$warn crit=$crit note=${note:-none}
+  lm_summary "disk_trend_monitor" "$host" "$status" mounts="$mounts" warn="$warn" crit="$crit" note="${note:-none}"
   # legacy:
   # echo "disk_trend_monitor host=$host status=$status mounts=$mounts warn=$warn crit=$crit note=${note:-none}"
   [ "$rc" -gt "$WORST_RC" ] && WORST_RC="$rc"

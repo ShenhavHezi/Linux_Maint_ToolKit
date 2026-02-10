@@ -197,3 +197,7 @@ echo "##active_line3##"
 echo "##active_line2##"
 - shellcheck: quiet SC2317/SC2155 false-positives in backup_check and ntp_drift_monitor now that CI no longer excludes warnings globally.
 echo "##active_line3##"
+## 2026-02-10
+echo "##active_line2##"
+- shellcheck: quote summary key/value fields in disk_trend_monitor and kernel_events_monitor to satisfy SC2086 (no global exclude).
+echo "##active_line2##"
