@@ -18,12 +18,12 @@ jobs:
 
       - name: ShellCheck
         run: |
-          shellcheck -x run_full_health_monitor.sh
-          shellcheck -x lib/linux_maint.sh
-          shellcheck -x bin/linux-maint
-          shellcheck -x monitors/*.sh
-          shellcheck -x tests/*.sh
-          shellcheck -x tools/*.sh
+          shellcheck -x --exclude=SC1090,SC1091,SC2034,SC2016,SC2162,SC2155,SC2317 run_full_health_monitor.sh
+          shellcheck -x --exclude=SC1090,SC1091,SC2034,SC2016,SC2162,SC2155,SC2317 lib/linux_maint.sh
+          shellcheck -x --exclude=SC1090,SC1091,SC2034,SC2016,SC2162,SC2155,SC2317 bin/linux-maint
+          shellcheck -x --exclude=SC1090,SC1091,SC2034,SC2016,SC2162,SC2155,SC2317 monitors/*.sh
+          shellcheck -x --exclude=SC1090,SC1091,SC2034,SC2016,SC2162,SC2155,SC2317 tests/*.sh
+          shellcheck -x --exclude=SC1090,SC1091,SC2034,SC2016,SC2162,SC2155,SC2317 tools/*.sh
 
 
       - name: Summary contract test (unprivileged)

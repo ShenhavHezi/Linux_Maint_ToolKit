@@ -141,8 +141,8 @@ run_for_host(){
 
 
     checked=$((checked+1))
-    [ \"$st\" = \"WARN\" ] && warn_count=$((warn_count+1))
-    [ \"$st\" = \"CRIT\" ] && crit_count=$((crit_count+1))
+    [ "$st" = "WARN" ] && warn_count=$((warn_count+1))
+    [ "$st" = "CRIT" ] && crit_count=$((crit_count+1))
 
     lm_info "[$host] [$st] $mp type=$type inodes=$inodes used=$iused use%=$use warn=$warn crit=$crit"
 
@@ -155,9 +155,9 @@ run_for_host(){
 
   status="OK"
   if [ "$crit_count" -gt 0 ]; then status="CRIT"; elif [ "$warn_count" -gt 0 ]; then status="WARN"; fi
-  lm_summary "inode_monitor" "$host" "$status" checked=$checked warn=$warn_count crit=$crit_count
+  lm_summary "inode_monitor" "$host" "$status" checked="$checked" warn="$warn_count" crit="$crit_count"
   # legacy:
-  # echo "inode_monitor host=$host status=$status checked=$checked warn=$warn_count crit=$crit_count"
+  # echo "inode_monitor host=$host status=$status checked="$checked" warn="$warn_count" crit="$crit_count""
 
 }
 # ========================
