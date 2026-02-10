@@ -15,7 +15,7 @@ Principles:
 
 ## P0 — CI/tooling correctness & contract enforcement (highest priority)
 
-### P0.1 Single source of truth for ShellCheck excludes (NOT DONE)
+### P0.1 Single source of truth for ShellCheck excludes (DONE)
 
 **Why**: CI/pre-commit/lint must be consistent; drift breaks PRs and wastes time.
 

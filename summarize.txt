@@ -217,3 +217,7 @@ echo "##active_line2##"
 echo "##active_line2##"
 - docs: replace ToDoList.txt with a refreshed prioritized roadmap (P0–P5) covering CI correctness, security hardening, operability, and new monitors.
 echo "##active_line2##"
+## 2026-02-10
+echo "##active_line2##"
+- tooling/ci: add `tools/shellcheck_wrapper.sh` and route CI/Makefile/pre-commit through it so `.shellcheckrc` is the single ShellCheck exclude source.
+echo "##active_line2##"
