@@ -213,3 +213,7 @@ echo "##active_line2##"
 echo "##active_line2##"
 - ci: enforce meta-doc updates on PRs (require ToDoList.txt or summarize.txt when code changes), and fix diff range variable in docs_consistency workflow.
 echo "##active_line2##"
+## 2026-02-10
+echo "##active_line2##"
+- docs: replace ToDoList.txt with a refreshed prioritized roadmap (P0–P5) covering CI correctness, security hardening, operability, and new monitors.
+echo "##active_line2##"
