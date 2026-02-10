@@ -330,7 +330,7 @@ cat "$_tmp_human" >> "$tmp_report"
 
   # ---- notify (optional, wrapper-level) ----
   # ---- diff since last run (optional, for more actionable notifications) ----
-  DIFF_STATE_DIR="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-/var/lib/linux_maint}}"
+  DIFF_STATE_DIR="${LM_NOTIFY_STATE_DIR:-/var/lib/linux_maint}"
   PREV_SUMMARY="$DIFF_STATE_DIR/last_summary_monitor_lines.log"
   CUR_SUMMARY="$_tmp_mon_snapshot"
   DIFF_TEXT=""

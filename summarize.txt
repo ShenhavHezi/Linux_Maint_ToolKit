@@ -241,3 +241,7 @@ echo "##active_line2##"
 echo "##active_line2##"
 ## 2026-02-10
 - docs: document existing `linux-maint diff` command in README and docs/QUICK_REFERENCE.md; verified installer/RPM include summary_diff.py for installed-mode diff.
+## 2026-02-10
+echo "##active_line2##"
+- wrapper: keep LM_STATE_DIR default as /tmp (repo-mode safe), but persist linux-maint diff state under /var/lib/linux_maint by default; document diff state location.
+echo "##active_line2##"

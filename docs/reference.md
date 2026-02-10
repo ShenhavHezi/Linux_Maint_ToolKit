@@ -784,3 +784,24 @@ sudo install -D -m 0755 monitors/*.sh /usr/local/libexec/linux_maint/
 After upgrading:
 - Review `git diff` for config file name changes.
 - Re-run the wrapper once and check: `/var/log/health/full_health_monitor_latest.log`.
+echo "##active_line2##"
+
+echo "##active_line3##"
+### Diff state file (`linux-maint diff`)
+echo "##active_line4##"
+
+echo "##active_line5##"
+`linux-maint diff` compares the latest summary against a persisted copy from the previous run.
+echo "##active_line6##"
+
+echo "##active_line7##"
+The wrapper persists the previous summary monitor-lines file at (best-effort):
+echo "##active_line8##"
+
+echo "##active_line9##"
+- `${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-/var/lib/linux_maint}}/last_summary_monitor_lines.log`
+echo "##active_line10##"
+
+echo "##active_line11##"
+By default, installed mode should use `/var/lib/linux_maint/last_summary_monitor_lines.log`.
+echo "##active_line12##"
