@@ -154,7 +154,7 @@ Principles:
 
 ---
 
-### P2.2 Status history view (NOT DONE)
+### P2.2 Status history view (DONE)
 
 **Why**: on-call often needs “what changed since last run?”
 

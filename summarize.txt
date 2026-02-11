@@ -251,3 +251,5 @@ echo "##active_line2##"
 echo "##active_line2##"
 - docs/roadmap: mark P2.1 linux-maint diff as DONE (command existed; now documented and installed-mode diff state fixed).
 echo "##active_line2##"
+## 2026-02-10
+- cli: add `linux-maint status --last N` to show totals for the last N summary artifacts (best-effort) in repo and installed modes.
