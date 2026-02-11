@@ -121,15 +121,14 @@ elif [ "$load_sev" -ge 1 ] && [ "$status" != "CRIT" ]; then
   status="WARN"; reason="${reason:-high_load}"
 fi
 
+# Detailed values go to full log to keep summary line short (contract max line length).
+lm_info "detail mem_total_kb=$mem_total_kb mem_avail_kb=$mem_avail_kb swap_total_kb=$swap_total_kb swap_free_kb=$swap_free_kb"
+
 # Emit summary
 args=(
   load1="$load1"
   mem_used_pct="$mem_used_pct"
   swap_used_pct="$swap_used_pct"
-  mem_total_kb="$mem_total_kb"
-  mem_avail_kb="$mem_avail_kb"
-  swap_total_kb="$swap_total_kb"
-  swap_free_kb="$swap_free_kb"
 )
 
 if [ -n "$swap_thrash_rate" ]; then
