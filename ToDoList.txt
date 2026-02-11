@@ -188,7 +188,7 @@ Principles:
 
 ## P3 — New monitor features (value add, controlled scope)
 
-### P3.1 Resource monitor (CPU/mem/swap pressure) (NOT DONE)
+### P3.1 Resource monitor (CPU/mem/swap pressure) (DONE)
 
 **Why**: resource pressure is a common root cause.
 

@@ -139,6 +139,7 @@ declare -a scripts=(
   "preflight_check.sh"
   "config_validate.sh"
   "health_monitor.sh"
+  "resource_monitor.sh"
   "inode_monitor.sh"
   "disk_trend_monitor.sh"
   "network_monitor.sh"

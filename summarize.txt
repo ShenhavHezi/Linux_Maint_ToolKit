@@ -122,6 +122,7 @@ Located in `monitors/`:
 - `patch_monitor`
 - `ports_baseline_monitor`
 - `preflight_check`
+- `resource_monitor`
 - `service_monitor`
 - `storage_health_monitor`
 - `user_monitor`
@@ -261,3 +262,7 @@ echo "##active_line2##"
 [2026-02-11] fix: improve Prometheus textfile output (dedupe monitor series + add status counts)
 - Why: Prometheus rejects duplicate labelsets; add dashboard-friendly status counts.
 - Change: wrapper Prometheus writer dedupes by monitor+host keeping worst status; exports linux_maint_monitor_status_count by status; added tests/prom_textfile_output_test.sh and wired into smoke.
+
+[2026-02-11] feat: add resource_monitor (CPU/mem/swap pressure)
+- Why: resource pressure is a common root cause; provide clear WARN/CRIT thresholds.
+- Change: new monitors/resource_monitor.sh with reasons high_load/high_mem/swap_thrash; added basic test and wired into wrapper + smoke.
