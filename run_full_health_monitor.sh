@@ -148,6 +148,7 @@ declare -a scripts=(
   "patch_monitor.sh"
   "storage_health_monitor.sh"
   "kernel_events_monitor.sh"
+  "log_spike_monitor.sh"
   "cert_monitor.sh"
   "nfs_mount_monitor.sh"
   "ports_baseline_monitor.sh"

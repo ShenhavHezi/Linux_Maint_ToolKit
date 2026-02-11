@@ -64,6 +64,11 @@ These are cross-monitor, reusable tokens. Prefer these before inventing a new on
 - `tcp_failed`
 - `http_failed`
 -
+### Logs
+- `log_spike_warn` — log error rate above warn threshold
+- `log_spike_crit` — log error rate above crit threshold
+- `missing_log_source` — no usable journald/syslog/messages source available
+-
 ### Security
 - `failed_ssh_logins`
 - `unexpected_user`

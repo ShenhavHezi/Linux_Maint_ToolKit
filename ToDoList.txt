@@ -206,7 +206,7 @@ Principles:
 
 ---
 
-### P3.2 Log spike monitor (kernel/service errors rate) (NOT DONE)
+### P3.2 Log spike monitor (kernel/service errors rate) (DONE)
 
 **Why**: spikes in kernel or service errors often precede outages.
 

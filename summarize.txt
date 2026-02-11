@@ -116,6 +116,7 @@ Located in `monitors/`:
 - `inode_monitor`
 - `inventory_export`
 - `kernel_events_monitor`
+- `log_spike_monitor`
 - `network_monitor`
 - `nfs_mount_monitor`
 - `ntp_drift_monitor`
@@ -266,3 +267,7 @@ echo "##active_line2##"
 [2026-02-11] feat: add resource_monitor (CPU/mem/swap pressure)
 - Why: resource pressure is a common root cause; provide clear WARN/CRIT thresholds.
 - Change: new monitors/resource_monitor.sh with reasons high_load/high_mem/swap_thrash; added basic test and wired into wrapper + smoke.
+
+[2026-02-11] feat: add log_spike_monitor (journald/syslog error-rate thresholds)
+- Why: spikes in kernel/service errors often precede outages.
+- Change: new monitors/log_spike_monitor.sh with fixture-driven tests; wired into wrapper + smoke; documented reasons log_spike_warn/log_spike_crit/missing_log_source.
