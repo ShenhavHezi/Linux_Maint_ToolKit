@@ -805,3 +805,7 @@ echo "##active_line10##"
 echo "##active_line11##"
 By default, installed mode should use `/var/lib/linux_maint/last_summary_monitor_lines.log`.
 echo "##active_line12##"
+
+CERTS_SCAN_DIR (optional): if set, cert_monitor scans this directory for cert files (offline expiry check).
+CERTS_SCAN_IGNORE_FILE: file with ignore patterns (substring match) to skip paths (default /etc/linux_maint/certs_scan_ignore.txt).
+CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).

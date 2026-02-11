@@ -222,7 +222,7 @@ Principles:
 
 ---
 
-### P3.3 Cert monitor: directory scan option (NOT DONE)
+### P3.3 Cert monitor: directory scan option (DONE)
 
 **Why**: cert sprawl is common; reduce manual config.
 

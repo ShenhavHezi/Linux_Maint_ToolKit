@@ -49,6 +49,7 @@ bash "$ROOT_DIR/tests/prom_textfile_output_test.sh" >/dev/null
 # Resource monitor (local)
 bash "$ROOT_DIR/tests/resource_monitor_basic_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/log_spike_fixture_test.sh" >/dev/null
+bash "$ROOT_DIR/tests/cert_monitor_scan_dir_test.sh" >/dev/null
 
 # Sudo-gated tests
 if sudo -n true >/dev/null 2>&1; then

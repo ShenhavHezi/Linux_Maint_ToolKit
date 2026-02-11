@@ -271,3 +271,7 @@ echo "##active_line2##"
 [2026-02-11] feat: add log_spike_monitor (journald/syslog error-rate thresholds)
 - Why: spikes in kernel/service errors often precede outages.
 - Change: new monitors/log_spike_monitor.sh with fixture-driven tests; wired into wrapper + smoke; documented reasons log_spike_warn/log_spike_crit/missing_log_source.
+
+[2026-02-11] feat: cert_monitor directory scan option (offline cert file expiry)
+- Why: cert sprawl is common; scanning a directory reduces manual config.
+- Change: cert_monitor supports CERTS_SCAN_DIR with ignore patterns and extension filtering; added generated cert fixture test and wired into smoke.

@@ -42,20 +42,119 @@ MAIL_SUBJECT_PREFIX='[Cert Monitor]'
 # Configuration
 # ========================
 TARGETS_FILE="/etc/linux_maint/certs.txt"   # Formats (one per line):
+CERTS_SCAN_DIR="${CERTS_SCAN_DIR:-}"
+CERTS_SCAN_IGNORE_FILE="${CERTS_SCAN_IGNORE_FILE:-/etc/linux_maint/certs_scan_ignore.txt}"
+CERTS_SCAN_EXTS="${CERTS_SCAN_EXTS:-crt,cer,pem}"
+
 #  host[:port]                               # default port 443
 #  [ipv6]:port
 #  host:port,sni=example.com
 #  host:port,starttls=smtp
 #  host:port,sni=example.com,starttls=imap
-THRESHOLD_WARN_DAYS=30
-THRESHOLD_CRIT_DAYS=7
-TIMEOUT_SECS=10
+THRESHOLD_WARN_DAYS="${LM_CERT_WARN_DAYS:-30}"
+THRESHOLD_CRIT_DAYS="${LM_CERT_CRIT_DAYS:-7}"
+TIMEOUT_SECS="${LM_CERT_TIMEOUT_SECS:-10}"
 EMAIL_ON_WARN="true"
 
 # ========================
 # Helpers (script-local)
 # ========================
 mail_if_enabled(){ [ "$EMAIL_ON_WARN" = "true" ] || return 0; lm_mail "$1" "$2"; }
+
+load_ignore_patterns() {
+  # Outputs ignore patterns, one per line. Blank and # comments ignored.
+  local f="$CERTS_SCAN_IGNORE_FILE"
+  [ -r "$f" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [ -z "$line" ] && continue
+    [[ "$line" =~ ^# ]] && continue
+    printf '%s\n' "$line"
+  done < "$f"
+}
+
+is_ignored_path() {
+  local path="$1" pat
+  while IFS= read -r pat; do
+    [ -z "$pat" ] && continue
+    case "$path" in
+      *$pat*) return 0 ;;
+    esac
+  done < <(load_ignore_patterns)
+  return 1
+}
+
+scan_cert_files() {
+  local dir="$1" exts_csv="$2"
+  [ -n "$dir" ] || return 0
+  [ -d "$dir" ] || return 0
+
+  local find_expr=""
+  IFS=',' read -r -a exts <<< "$exts_csv"
+  for e in "${exts[@]}"; do
+    e="$(printf '%s' "$e" | tr -d '[:space:]')"
+    [ -z "$e" ] && continue
+    if [ -n "$find_expr" ]; then
+      find_expr+=" -o "
+    fi
+    find_expr+=" -iname *.$e "
+  done
+
+  # shellcheck disable=SC2086
+  while IFS= read -r p; do
+    is_ignored_path "$p" && continue
+    printf '%s\n' "$p"
+  done < <(find "$dir" -type f \( $find_expr \) 2>/dev/null)
+}
+
+check_cert_file() {
+  local path="$1"
+
+  # Extract enddate/subject/issuer from file. If unreadable/invalid, report UNKNOWN.
+  if [ ! -r "$path" ]; then
+    echo "status=UNKNOWN file=\"$path\" days=? subject=? issuer=? note=unreadable"
+    return
+  fi
+
+  local enddate subject issuer days_left
+  enddate="$(openssl x509 -in "$path" -noout -enddate 2>/dev/null | cut -d= -f2)" || enddate=""
+  subject="$(openssl x509 -in "$path" -noout -subject 2>/dev/null | sed 's/^subject= *//')" || subject=""
+  issuer="$(openssl x509 -in "$path" -noout -issuer 2>/dev/null | sed 's/^issuer= *//')" || issuer=""
+
+  if [ -z "$enddate" ]; then
+    echo "status=UNKNOWN file=\"$path\" days=? subject=\"$subject\" issuer=\"$issuer\" note=invalid_cert"
+    return
+  fi
+
+  local exp_epoch now_epoch
+  exp_epoch=$(date -u -d "$enddate" +%s 2>/dev/null) || exp_epoch=0
+  now_epoch=$(date -u +%s)
+  if [ "$exp_epoch" -eq 0 ]; then
+    days_left="?"
+  else
+    days_left=$(( (exp_epoch - now_epoch) / 86400 ))
+  fi
+  days_left=${days_left:-?}
+
+  local status="OK" note=""
+  if [ "$days_left" = "?" ]; then
+    status="UNKNOWN"; note="parse_failed"
+  else
+    if [ "$days_left" -le 0 ]; then
+      status="CRIT"; note="expired"
+    elif [ "$days_left" -le "$THRESHOLD_CRIT_DAYS" ]; then
+      status="CRIT"; note="<=${THRESHOLD_CRIT_DAYS}d"
+    elif [ "$days_left" -le "$THRESHOLD_WARN_DAYS" ]; then
+      status="WARN"; note="<=${THRESHOLD_WARN_DAYS}d"
+    fi
+  fi
+
+  # shell-quote minimally (avoid breaking logs)
+  subject="${subject//\"/\\\"}"
+  issuer="${issuer//\"/\\\"}"
+
+  echo "status=$status file=\"$path\" days=$days_left subject=\"$subject\" issuer=\"$issuer\" note=$note"
+}
 
 parse_target_line() {
   # Input line -> HOST|PORT|SNI|STARTTLS
@@ -170,7 +269,11 @@ check_one() {
 # ========================
 lm_info "=== Cert Monitor Started (warn=${THRESHOLD_WARN_DAYS}d crit=${THRESHOLD_CRIT_DAYS}d timeout=${TIMEOUT_SECS}s) ==="
 
-[ -s "$TARGETS_FILE" ] || { lm_err "Targets file not found/empty: $TARGETS_FILE"; exit 1; }
+# Targets list is required unless scanning a cert directory is enabled.
+if [ -z "$CERTS_SCAN_DIR" ]; then
+  [ -s "$TARGETS_FILE" ] || { lm_err "Targets file not found/empty: $TARGETS_FILE"; exit 1; }
+fi
+
 
 ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" cert_monitor.alerts.XXXXXX)"
 checked=0
@@ -199,6 +302,24 @@ while IFS= read -r raw; do
     printf "%s|%s|%s|%s|%s|%s\n" "$HOST:$PORT" "$SNI" "${days:-?}" "$verify" "$status" "$note" >> "$ALERTS_FILE"
   fi
 done < "$TARGETS_FILE"
+
+# Optional: scan a directory for cert files and evaluate their expiration (offline).
+if [ -n "$CERTS_SCAN_DIR" ]; then
+  while IFS= read -r cert_path; do
+    [ -n "$cert_path" ] || continue
+    checked=$((checked+1))
+    res="$(check_cert_file "$cert_path")"
+    status="$(printf "%s\n" "$res" | awk "{for(i=1;i<=NF;i++) if(\$i ~ /^status=/){print substr(\$i,8)}}")"
+    days="$(printf "%s\n" "$res" | awk "{for(i=1;i<=NF;i++) if(\$i ~ /^days=/){print substr(\$i,6)}}")"
+    note="$(printf "%s\n" "$res" | awk "{for(i=1;i<=NF;i++) if(\$i ~ /^note=/){print substr(\$i,6)}}")"
+    lm_info "[$status] file=$cert_path days_left=${days:-?} ${note:+note=$note}"
+    [ "$status" = "WARN" ] && warn=$((warn+1))
+    [ "$status" = "CRIT" ] && crit=$((crit+1))
+    if [ "$status" = "WARN" ] || [ "$status" = "CRIT" ]; then
+      printf "%s|%s|%s|%s|%s|%s\n" "$cert_path" "-" "${days:-?}" "file" "$status" "$note" >> "$ALERTS_FILE"
+    fi
+  done < <(scan_cert_files "$CERTS_SCAN_DIR" "$CERTS_SCAN_EXTS")
+fi
 
 overall="OK"
 if [ ${crit:-0} -gt 0 ]; then overall="CRIT"; elif [ ${warn:-0} -gt 0 ]; then overall="WARN"; fi
