@@ -253,3 +253,7 @@ echo "##active_line2##"
 echo "##active_line2##"
 ## 2026-02-10
 - cli: add `linux-maint status --last N` to show totals for the last N summary artifacts (best-effort) in repo and installed modes.
+## 2026-02-10
+echo "##active_line2##"
+- cli: define REPO_SUMMARY_LATEST and INST_SUMMARY_LATEST paths to avoid unbound var in status/diff on CI (set -u).
+echo "##active_line2##"
