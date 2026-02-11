@@ -437,9 +437,42 @@ if json_file:
         except: pass
 
 status_map={"OK":0,"WARN":1,"CRIT":2,"UNKNOWN":3,"SKIP":3}
+
+def worst_status(s1, s2):
+    """Return the worst of two status strings using the project's exit-code scale."""
+    return s1 if status_map.get(s1,3) >= status_map.get(s2,3) else s2
+
+def dedup_rows_worst(rows):
+    """Deduplicate monitor+host rows keeping the worst status.
+
+    Some monitors may emit more than one summary line for the same monitor/host
+    (e.g. preflight emitting both SKIP and UNKNOWN). Prometheus must not contain
+    duplicate labelsets.
+    """
+    out={}
+    for r in rows:
+        mon=r.get("monitor","unknown")
+        host=r.get("host","all")
+        key=(mon,host)
+        if key not in out:
+            out[key]=r
+            continue
+        prev=out[key]
+        st=worst_status(prev.get("status","UNKNOWN"), r.get("status","UNKNOWN"))
+        keep=prev if st==prev.get("status") else r
+        # Ensure the kept row has the worst status.
+        keep=dict(keep)
+        keep["status"]=st
+        out[key]=keep
+    return list(out.values())
 if prom_file and rows:
     try:
         os.makedirs(os.path.dirname(prom_file), exist_ok=True)
+        prom_rows = dedup_rows_worst(rows)
+        counts={"OK":0,"WARN":0,"CRIT":0,"UNKNOWN":0,"SKIP":0}
+        for r in prom_rows:
+            st=r.get("status","UNKNOWN")
+            counts[st]=counts.get(st,0)+1
         with open(prom_file,"w",encoding="utf-8") as f:
             f.write("# HELP linux_maint_monitor_status Monitor status as exit-code scale (OK=0,WARN=1,CRIT=2,UNKNOWN/SKIP=3)\n")
             f.write("# TYPE linux_maint_monitor_status gauge\n")
@@ -453,7 +486,12 @@ if prom_file and rows:
             f.write(f"linux_maint_summary_hosts_count{{status=\"crit\"}} {hosts_crit}\n")
             f.write(f"linux_maint_summary_hosts_count{{status=\"unknown\"}} {hosts_unknown}\n")
             f.write(f"linux_maint_summary_hosts_count{{status=\"skipped\"}} {hosts_skipped}\n")
-            for r in rows:
+            f.write("\n# HELP linux_maint_monitor_status_count Count of monitor results by status (deduped by monitor+host)\n")
+            f.write("# TYPE linux_maint_monitor_status_count gauge\n")
+            for st in ("OK","WARN","CRIT","UNKNOWN","SKIP"):
+                f.write(f"linux_maint_monitor_status_count{{status=\"{st.lower()}\"}} {counts.get(st,0)}\n")
+
+            for r in prom_rows:
                 mon=r.get("monitor","unknown"); host=r.get("host","all"); st=r.get("status","UNKNOWN")
                 val=status_map.get(st,3)
                 f.write(f"linux_maint_monitor_status{{monitor=\"{mon}\",host=\"{host}\"}} {val}\n")

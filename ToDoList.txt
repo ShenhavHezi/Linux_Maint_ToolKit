@@ -169,7 +169,7 @@ Principles:
 
 ---
 
-### P2.3 Prometheus textfile output improvements (NOT DONE)
+### P2.3 Prometheus textfile output improvements (DONE)
 
 **Why**: make metrics more useful for dashboards/alerts.
 

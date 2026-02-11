@@ -257,3 +257,7 @@ echo "##active_line2##"
 echo "##active_line2##"
 - cli: define REPO_SUMMARY_LATEST and INST_SUMMARY_LATEST paths to avoid unbound var in status/diff on CI (set -u).
 echo "##active_line2##"
+
+[2026-02-11] fix: improve Prometheus textfile output (dedupe monitor series + add status counts)
+- Why: Prometheus rejects duplicate labelsets; add dashboard-friendly status counts.
+- Change: wrapper Prometheus writer dedupes by monitor+host keeping worst status; exports linux_maint_monitor_status_count by status; added tests/prom_textfile_output_test.sh and wired into smoke.
