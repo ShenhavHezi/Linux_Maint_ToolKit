@@ -187,7 +187,7 @@ Rules:
 
 ---
 
-### P3.2 CI failure artifact upload (logs) (NOT DONE)
+### P3.2 CI failure artifact upload (logs) (DONE)
 **Why**: when CI fails, having logs as artifacts saves time.
 
 **Where**:

@@ -320,3 +320,7 @@ echo "##active_line5##"
 
 2026-02-12
 - RPM packaging: ship operator docs under /usr/share/linux_Maint_Scripts/docs so installed-mode `linux-maint explain` works offline.
+
+[2026-02-12] ci: upload rocky9 smoke logs on failure
+- Why: when the RPM smoke step fails, having /var/log/health and config/state snapshots as artifacts speeds debugging.
+- Change: added actions/upload-artifact step gated by if: failure() to upload /var/log/health, /etc/linux_maint, /var/lib/linux_maint (if present).
