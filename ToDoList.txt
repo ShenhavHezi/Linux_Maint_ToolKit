@@ -110,7 +110,7 @@ Rules:
 
 ---
 
-### P1.3 Add `linux-maint explain reason <token>` (NOT DONE)
+### P1.3 Add `linux-maint explain reason <token>` (DONE)
 **Why**: makes `reason=` tokens self-serve.
 
 **Where**:

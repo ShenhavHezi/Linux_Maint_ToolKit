@@ -311,3 +311,6 @@ echo "##active_line5##"
 
 2026-02-12
 - Improved `linux-maint doctor` for dark-site/single-host use: config sanity checks, monitor skip-gate hints, dependency hints, and clearer next actions.
+
+2026-02-12
+- Added `linux-maint explain reason <token>` (and `explain status <S>`) for quick on-call decoding of reason/status values using docs/REASONS.md.

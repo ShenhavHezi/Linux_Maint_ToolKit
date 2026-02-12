@@ -170,6 +170,8 @@ Commands:
   doctor              Diagnose installation/config/state permissions
   verify-install      Verify installation layout, permissions, and systemd wiring (best-effort)
   pack-logs [--out DIR]  Create a support bundle tar.gz (logs, config redacted, meta)
+  explain reason <token>  Explain a reason= token (from docs/REASONS.md)
+  explain status <S>      Explain a status value (OK/WARN/CRIT/UNKNOWN/SKIP)
   help                Show this help
 
 Environment:
@@ -642,6 +644,67 @@ PY
 
 
 
+
+
+  explain)
+    sub="${1:-}"; shift || true
+    case "$sub" in
+      reason)
+        token="${1:-}"
+        if [[ -z "$token" ]]; then
+          echo "Usage: linux-maint explain reason <token>" >&2
+          exit 2
+        fi
+        f="$REPO_ROOT/docs/REASONS.md"
+        if [[ ! -f "$f" ]]; then
+          echo "ERROR: reasons doc not found: $f" >&2
+          exit 1
+        fi
+        # Look for a bullet line that contains `- token — ...` under any section.
+        # Print the matching line(s) plus the section header immediately above.
+        awk -v tok="$token" '
+          BEGIN{sec=""; found=0}
+          /^### /{sec=$0}
+          $0 ~ "- `"tok"`" {
+            if (sec!="") {print sec}
+            print $0
+            found=1
+          }
+          END{exit(found?0:1)}
+        ' "$f" && exit 0
+
+        # Fallback: substring search
+        if grep -n -i -F "$token" "$f" >/dev/null 2>&1; then
+          echo "No exact token match; showing closest lines:" >&2
+          grep -n -i -F "$token" "$f" | head -n 20
+          exit 0
+        fi
+        echo "Unknown reason token: $token" >&2
+        exit 1
+        ;;
+
+      status)
+        st="${1:-}"
+        if [[ -z "$st" ]]; then
+          echo "Usage: linux-maint explain status <OK|WARN|CRIT|UNKNOWN|SKIP>" >&2
+          exit 2
+        fi
+        case "$st" in
+          OK) echo "OK: check succeeded; no action required." ;;
+          WARN) echo "WARN: potential issue; attention suggested." ;;
+          CRIT) echo "CRIT: actionable failure; immediate attention required." ;;
+          UNKNOWN) echo "UNKNOWN: check could not be completed reliably (missing tool/permission/unexpected error)." ;;
+          SKIP) echo "SKIP: check intentionally did not run (missing optional config/baseline/unsupported environment)." ;;
+          *) echo "Unknown status: $st" >&2; exit 2 ;;
+        esac
+        ;;
+
+      *)
+        echo "Usage: linux-maint explain <reason|status> ..." >&2
+        exit 2
+        ;;
+    esac
+    ;;
 
 
   pack-logs)
