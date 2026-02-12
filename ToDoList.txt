@@ -276,7 +276,7 @@ Principles:
 
 ## P5 — Developer experience
 
-### P5.1 Add `tools/dev_check.sh` (NOT DONE)
+### P5.1 Add `tools/dev_check.sh` (DONE)
 
 **Why**: one command for contributors.
 

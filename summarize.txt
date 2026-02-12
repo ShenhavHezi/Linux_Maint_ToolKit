@@ -283,3 +283,7 @@ echo "##active_line3##"
 echo "##active_line4##"
 - Change: treat 0 matches as OK when counting errors (|| true), preserving WARN/CRIT behavior.
 echo "##active_line5##"
+
+[2026-02-12] chore: add tools/dev_check.sh
+- Why: provide one command for contributors to regenerate summarize, lint, and run smoke.
+- Change: new tools/dev_check.sh runs gen_summarize.py, shellcheck_wrapper, and tests/smoke.sh.
