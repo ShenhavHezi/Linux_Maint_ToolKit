@@ -83,6 +83,19 @@ jobs:
           timeout 60s /usr/sbin/run_full_health_monitor.sh || true
           test -f /var/log/health/last_status_full || true
 
+
+
+      - name: Upload smoke logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-logs-rocky9
+          path: |
+            /var/log/health/**
+            /etc/linux_maint/**
+            /var/lib/linux_maint/**
+          if-no-files-found: ignore
+
       - name: Upload RPM artifacts
         uses: actions/upload-artifact@v4
         with:
