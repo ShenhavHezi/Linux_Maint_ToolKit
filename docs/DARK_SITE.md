@@ -47,6 +47,7 @@ sudo ./install.sh --with-logrotate
 # sudo ./install.sh --with-user --with-timer --with-logrotate
 
 # verify:
+linux-maint verify-install || true
 linux-maint version || true
 sudo linux-maint status || true
 ```

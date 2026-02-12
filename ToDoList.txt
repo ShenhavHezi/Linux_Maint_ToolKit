@@ -51,7 +51,7 @@ Rules:
 
 ---
 
-### P0.3 Offline install verification: add `linux-maint verify-install` (NOT DONE)
+### P0.3 Offline install verification: add `linux-maint verify-install` (DONE)
 **Why**: dark-site installs need a deterministic “post-install checklist” command.
 
 **Where**:

@@ -302,3 +302,6 @@ echo "##active_line5##"
 
 2026-02-12
 - Wrapper hardening: if a monitor fails without emitting any `monitor=` summary line, the wrapper now synthesizes a single `status=UNKNOWN reason=early_exit` summary line for contract safety.
+
+2026-02-12
+- Added `linux-maint verify-install` for dark-site post-install validation (checks layout/files, basic config presence, and best-effort systemd status).

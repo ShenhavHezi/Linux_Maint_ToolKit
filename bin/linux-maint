@@ -168,6 +168,7 @@ Commands:
   logs [n]            Tail latest wrapper log (default n=200)
   init                Install /etc/linux_maint templates (from repo checkout)
   doctor              Diagnose installation/config/state permissions
+  verify-install      Verify installation layout, permissions, and systemd wiring (best-effort)
   help                Show this help
 
 Environment:
@@ -638,6 +639,108 @@ PY
     echo "  - Run: sudo linux-maint doctor"
     ;;
 
+
+
+  verify-install)
+    echo "=== linux-maint verify-install ==="
+    echo "mode=$MODE"
+    echo "prefix=$PREFIX"
+    echo "wrapper=$wrapper"
+    echo "lib=${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
+
+    fail=0
+
+    check_file() {
+      local label="$1" path="$2"
+      if [[ -e "$path" ]]; then
+        echo "OK: $label: $path"
+      else
+        echo "MISSING: $label: $path" >&2
+        fail=1
+      fi
+    }
+
+    check_exec() {
+      local label="$1" path="$2"
+      if [[ -x "$path" ]]; then
+        echo "OK: $label: $path"
+      elif [[ -e "$path" ]]; then
+        echo "NOT EXECUTABLE: $label: $path" >&2
+        fail=1
+      else
+        echo "MISSING: $label: $path" >&2
+        fail=1
+      fi
+    }
+
+    check_writable_dir() {
+      local label="$1" path="$2"
+      if [[ -d "$path" ]]; then
+        if ( : > "$path/.linux_maint_write_test" ) 2>/dev/null; then
+          rm -f "$path/.linux_maint_write_test" 2>/dev/null || true
+          echo "OK: writable $label: $path"
+        else
+          echo "WARN: not writable $label: $path" >&2
+        fi
+      else
+        echo "WARN: missing dir $label: $path" >&2
+      fi
+    }
+
+    # Core files
+    check_exec "wrapper" "$wrapper"
+    check_file "library" "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
+
+    if [[ "$MODE" == "repo" ]]; then
+      check_file "monitors dir" "$REPO_MONITORS"
+      check_file "tools dir" "$REPO_ROOT/tools"
+    else
+      check_file "libexec" "$LIBEXEC"
+    fi
+
+    echo "== Config =="
+    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+    echo "cfg_dir=$CFG_DIR"
+    if [[ -d "$CFG_DIR" ]]; then
+      check_file "servers" "$CFG_DIR/servers.txt"
+      check_file "excluded" "$CFG_DIR/excluded.txt"
+      check_file "services" "$CFG_DIR/services.txt"
+    else
+      echo "WARN: config dir missing: $CFG_DIR" >&2
+    fi
+
+    echo "== Writable locations =="
+    check_writable_dir "lockdir" "${LM_LOCKDIR:-/var/lock}"
+    check_writable_dir "state" "${LM_STATE_DIR:-/var/lib/linux_maint}"
+    check_writable_dir "logs" "${LOG_DIR:-/var/log/health}"
+
+    echo "== Version =="
+    "$0" version || true
+
+    echo "== systemd (best-effort) =="
+    if command -v systemctl >/dev/null 2>&1; then
+      # If unit files exist, report basic state; do not fail if systemd is not running.
+      svc="/usr/lib/systemd/system/linux-maint.service"
+      tmr="/usr/lib/systemd/system/linux-maint.timer"
+      if [[ -f "$svc" || -f "$tmr" ]]; then
+        [[ -f "$svc" ]] && echo "OK: unit file: $svc" || echo "WARN: missing unit file: $svc" >&2
+        [[ -f "$tmr" ]] && echo "OK: unit file: $tmr" || echo "WARN: missing unit file: $tmr" >&2
+        systemctl is-enabled linux-maint.timer >/dev/null 2>&1 && echo "OK: timer enabled" || echo "INFO: timer not enabled (or systemd unavailable)"
+        systemctl is-active linux-maint.timer >/dev/null 2>&1 && echo "OK: timer active" || echo "INFO: timer not active (or systemd unavailable)"
+      else
+        echo "INFO: systemd unit files not present (ok if not installed with --with-timer)"
+      fi
+    else
+      echo "INFO: systemctl not found"
+    fi
+
+    if [[ "$fail" -ne 0 ]]; then
+      echo "verify-install FAIL" >&2
+      exit 1
+    fi
+
+    echo "verify-install ok"
+    ;;
   doctor)
     if [[ "$MODE" == "installed" ]]; then
       need_root_for doctor
