@@ -257,7 +257,7 @@ Principles:
 
 ---
 
-### P4.2 Offline/dark-site release workflow polish (NOT DONE)
+### P4.2 Offline/dark-site release workflow polish (DONE)
 
 **Why**: make releases repeatable.
 
