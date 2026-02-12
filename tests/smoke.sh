@@ -4,11 +4,21 @@ set -euo pipefail
 # Run a minimal set of commands to ensure the repo can execute without installation.
 # This should be safe on GitHub Actions runners.
 
+# Exit code semantics (keep stable; documented for CI and dark-site use):
+#   0 = ok
+#   3 = skipped optional checks (e.g., sudo-gated tests not run)
+#   other non-zero = failure (a required smoke sub-test failed)
+
+SMOKE_OK=0
+SMOKE_SKIPPED_OPTIONAL=3
+
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 export LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh"
 export LM_LOCKDIR=/tmp
 export LM_LOGFILE=/tmp/linux_maint.log
 export LM_EMAIL_ENABLED=false
+
+skipped_optional=0
 
 # Basic help/version checks
 bash "$ROOT_DIR/bin/linux-maint" help >/dev/null
@@ -55,12 +65,19 @@ bash "$ROOT_DIR/tests/cert_monitor_scan_dir_test.sh" >/dev/null
 if sudo -n true >/dev/null 2>&1; then
   bash "$ROOT_DIR/tests/wrapper_artifacts_test.sh" >/dev/null
   bash "$ROOT_DIR/tests/status_json_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/status_quiet_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/status_contract_test.sh" >/dev/null
+  bash "$ROOT_DIR/tests/status_quiet_test.sh" >/dev/null
+  bash "$ROOT_DIR/tests/status_contract_test.sh" >/dev/null
   bash "$ROOT_DIR/tests/summary_reason_lint.sh" >/dev/null
   bash "$ROOT_DIR/tests/prom_textfile_output_test.sh" >/dev/null
 else
+  skipped_optional=1
   echo "NOTE: skipping sudo-gated tests (no passwordless sudo)" >&2
 fi
 
+if [[ "$skipped_optional" -eq 1 ]]; then
+  echo "smoke ok (optional checks skipped)"
+  exit "$SMOKE_SKIPPED_OPTIONAL"
+fi
+
 echo "smoke ok"
+exit "$SMOKE_OK"

@@ -257,6 +257,15 @@ These artifacts are designed to be consumed by automation/CI or log shipping too
 
 ## Exit codes (for automation)
 
+### tests/smoke.sh exit codes
+
+The repo smoke test (used by CI and for quick dark-site validation) uses stable exit codes:
+
+- `0`: smoke ok
+- `3`: smoke ok, but optional checks were skipped (typically sudo-gated tests)
+
+Any other non-zero indicates a hard failure in a required smoke sub-test.
+
 The wrapper prints a final `SUMMARY_RESULT` line that includes counters: `ok`, `warn`, `crit`, `unknown`, and `skipped` (for monitors skipped due to missing config gates).
 
 All scripts aim to follow:

@@ -19,7 +19,7 @@ Rules:
 
 ## P0 — Dark-site reliability & correctness (must not regress)
 
-### P0.1 Make smoke exit codes explicit + document semantics (NOT DONE)
+### P0.1 Make smoke exit codes explicit + document semantics (DONE)
 **Why**: smoke is the first-line “does this install basically work?” check offline; exit codes must be understandable.
 
 **Where**:
