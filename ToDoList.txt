@@ -1,290 +1,215 @@
-# linux-maint — Roadmap / ToDoList (prioritized)
+# linux_Maint_Scripts — ToDo List (roadmap)
 
-This file is the project backlog.
+This file is the project roadmap. Keep items small, testable, and tied to operator value.
 
-Principles:
-- Keep changes small and safe; assume the toolkit already works.
-- Prefer fixing real operational issues over cosmetic refactors.
-- Do not add large dependencies.
-- ShellCheck policy:
-  - `.shellcheckrc` is the canonical exclude list.
-  - Do NOT exclude SC2086 globally.
-  - If a warning is intentional, disable it locally.
+Legend:
+- Priority: P0 (must), P1 (high), P2 (medium), P3 (nice)
+- Status: NOT DONE / DONE
+
+Assumptions for this roadmap:
+- Typical deployment is **single host** (not fleet) and often **dark-site / air-gapped**.
+- Keep dependencies minimal; prefer optional features and best-effort behavior.
+
+Rules:
+- Pick ONE NOT DONE item per PR.
+- After changes: update summarize.txt + run `python3 tools/gen_summarize.py`.
+- Keep backward compatibility unless explicitly called out.
 
 ---
 
-## P0 — CI/tooling correctness & contract enforcement (highest priority)
+## P0 — Dark-site reliability & correctness (must not regress)
 
-### P0.1 Single source of truth for ShellCheck excludes (DONE)
-
-**Why**: CI/pre-commit/lint must be consistent; drift breaks PRs and wastes time.
+### P0.1 Make smoke exit codes explicit + document semantics (NOT DONE)
+**Why**: smoke is the first-line “does this install basically work?” check offline; exit codes must be understandable.
 
 **Where**:
-- `.shellcheckrc`
-- `.github/workflows/ci.yml`
-- `tools/pre-commit.sh`
-- `Makefile`
+- `tests/smoke.sh`
+- docs (`docs/reference.md` or `README.md`)
 
 **Acceptance**:
-- `.shellcheckrc` is the *only* maintained exclude list.
-- CI and pre-commit derive excludes from `.shellcheckrc` automatically (no duplication).
-- SC2086 is **not** excluded globally.
+- `tests/smoke.sh` uses named exit codes (constants) and prints a one-line reason on non-zero.
+- Document exit code meanings (including the CI-seen `3`).
 
 **Verify**:
-- CI ShellCheck passes.
-- `make lint` and pre-commit output match CI.
+- `bash -x ./tests/smoke.sh` still passes locally.
 
 ---
 
-### P0.2 Enforce safe/consistent `lm_summary` key=value quoting (DONE)
-
-**Why**: unquoted values create SC2086 churn and can break machine parsing.
+### P0.2 Wrapper ensures summary contract even on monitor crash (NOT DONE)
+**Why**: in single-host automation you still need *one* reliable summary line per monitor; crashes should not break parsing.
 
 **Where**:
-- all monitors (any `lm_summary ... key=value` usage)
+- `run_full_health_monitor.sh`
 
 **Acceptance**:
-- All `lm_summary` calls use `key="$value"` for variable values (even numeric).
-- No new SC2086 introduced.
+- If a monitor exits without emitting any `monitor=` line, wrapper emits one with:
+  - `status=UNKNOWN reason=early_exit`
+- Preserve existing monitor output as-is.
 
 **Verify**:
-- ShellCheck finds 0 SC2086.
-- `tests/summary_contract.sh` still passes.
+- Add a test with a fixture monitor that exits early.
 
 ---
 
-### P0.3 Add lint test: summary line parse safety (DONE)
-
-**Why**: prevent regressions that break parsers/automation.
+### P0.3 Offline install verification: add `linux-maint verify-install` (NOT DONE)
+**Why**: dark-site installs need a deterministic “post-install checklist” command.
 
 **Where**:
-- `tests/` (new test)
+- `bin/linux-maint` (new subcommand)
+- docs: `docs/DARK_SITE.md`
 
 **Acceptance**:
-- New test fails if any `monitor=` line:
-  - misses required keys
-  - contains unescaped spaces in values
-  - contains duplicate keys
+- `linux-maint verify-install` checks:
+  - required files exist (wrapper, lib, monitors)
+  - systemd unit files present (if installed)
+  - log/lock directories writable (or clear warnings)
+  - prints version/build info
+- Exits non-zero only on hard failures.
 
 **Verify**:
-- Included in `tests/smoke.sh`.
+- Test in repo mode + installed mode best-effort.
 
 ---
 
-### P0.4 CI: enforce meta-doc updates on PRs (DONE)
+## P1 — Operator UX (single host)
 
-**Why**: keep GitHub landing page and roadmap accurate.
-
-**Where**:
-- `.github/workflows/docs_consistency.yml`
-
-**Acceptance**:
-- CI fails on PRs with code changes unless `ToDoList.txt` or `summarize.txt` is updated.
-
----
-
-## P1 — Security hardening (practical, low risk)
-
-### P1.1 Harden SSH defaults & document policy (DONE)
-
-**Why**: SSH execution is the primary remote surface; defaults should be safe and predictable.
+### P1.1 Add `linux-maint pack-logs` (support bundle) (NOT DONE)
+**Why**: in air-gapped incidents, exporting a bundle for review/transfer is extremely useful.
 
 **Where**:
-- `lib/linux_maint.sh` (ssh wrapper)
-- docs (`docs/reference.md`)
+- `bin/linux-maint` (new subcommand)
+- new tool script under `tools/`
 
 **Acceptance**:
-- Document recommended `LM_SSH_OPTS` baseline (BatchMode, ConnectTimeout, etc.).
-- Add optional `LM_SSH_HARDENED=1` to apply safe defaults when user didn’t override.
+- Produces a tar.gz containing:
+  - latest full log + latest summary log + latest summary json (if exists)
+  - `/etc/linux_maint/*` (redact secrets if present)
+  - `BUILD_INFO`, `VERSION`
+- Output path printed.
 
 **Verify**:
-- `--dry-run` still performs no SSH.
-- Fleet run works with explicit `LM_SSH_OPTS` unchanged.
+- Test in repo mode using `.logs` fixtures.
 
 ---
 
-### P1.2 Log redaction (optional toggle) (DONE)
-
-**Why**: avoid accidental leakage of secrets/tokens into logs.
+### P1.2 Extend `linux-maint doctor` for common offline issues (NOT DONE)
+**Why**: dark-site users hit missing deps/misconfig and can’t “just google it”.
 
 **Where**:
-- `lib/linux_maint.sh` logging helpers
+- `bin/linux-maint doctor`
+- `docs/reference.md`
 
 **Acceptance**:
-- Optional `LM_REDACT_LOGS=1` redacts common patterns (`token=`, `password=`, `Authorization:`).
-- Default behavior unchanged (off).
+- Doctor checks and prints actionable hints for:
+  - missing `/etc/linux_maint/servers.txt` / empty targets
+  - missing baselines (ports/users/configs) and how to generate
+  - missing tools (curl/openssl/df/etc.) and distro-specific package hints (best-effort)
 
 **Verify**:
-- Unit-ish test with sample strings.
+- Add test that runs doctor in repo mode.
 
 ---
 
-### P1.3 Standardize temp file safety + cleanup (DONE)
-
-**Why**: many monitors use `mktemp`; ensure consistent permissions and cleanup.
-
-**Where**:
-- monitors using temp files
-
-**Acceptance**:
-- temp files are created with secure permissions.
-- cleanup via `trap` where practical.
-
-**Verify**:
-- Basic smoke run; no leftover temp files in `/tmp` in happy paths.
-
----
-
-## P2 — Operability & on-call UX
-
-### P2.1 Add `linux-maint diff` (wrap `tools/summary_diff.py`) (DONE)
-
-**Why**: diffing summaries is a common triage task.
+### P1.3 Add `linux-maint explain reason <token>` (NOT DONE)
+**Why**: makes `reason=` tokens self-serve.
 
 **Where**:
 - `bin/linux-maint`
-- `tools/summary_diff.py`
+- `docs/REASONS.md`
 
 **Acceptance**:
-- `linux-maint diff [--from <file>] [--to <file>]` works in installed and repo modes.
-- Exit code is non-zero if new CRIT appears (optional flag).
+- Prints matching section (or closest match) from `docs/REASONS.md`.
 
 **Verify**:
-- Add a small test using fixture summaries.
+- Test: `linux-maint explain reason ssh_unreachable` returns non-empty.
 
 ---
 
-### P2.2 Status history view (DONE)
+## P2 — Monitoring quality improvements (single host)
 
-**Why**: on-call often needs “what changed since last run?”
+### P2.1 Service monitor: report failed units (systemd) (NOT DONE)
+**Why**: on single hosts, “something failed and got restarted” matters.
 
 **Where**:
-- `bin/linux-maint` (`status` command)
+- `monitors/service_monitor.sh`
 
 **Acceptance**:
-- `linux-maint status --last N` shows last N runs (best-effort based on logs/last_status_full).
+- Optional config enables checking `systemctl --failed`.
+- Summary includes `failed_units=<n>` and `reason=failed_units` when non-zero.
 
 **Verify**:
-- Snapshot test in `tests/`.
+- Test with fixture output (mock systemctl via PATH shim).
 
 ---
 
-### P2.3 Prometheus textfile output improvements (DONE)
-
-**Why**: make metrics more useful for dashboards/alerts.
+### P2.2 Disk trend monitor: inode trend (NOT DONE)
+**Why**: inode exhaustion is common and looks like “disk full” failures.
 
 **Where**:
-- wrapper / formatter
-- docs
+- `monitors/disk_trend_monitor.sh`
 
 **Acceptance**:
-- Stable metric naming.
-- Export counts by status and per-monitor status.
+- Optional inode baseline/trend similar to space trend.
+- Summary includes inode usage metrics.
 
 **Verify**:
-- A test that validates `.prom` format and key presence.
+- Fixture-based test.
 
 ---
 
-## P3 — New monitor features (value add, controlled scope)
-
-### P3.1 Resource monitor (CPU/mem/swap pressure) (DONE)
-
-**Why**: resource pressure is a common root cause.
+### P2.3 NTP drift monitor: chrony parsing robustness (NOT DONE)
+**Why**: reduce UNKNOWN on chrony-based systems.
 
 **Where**:
-- `monitors/resource_monitor.sh` (new)
-- docs + summarize
+- `monitors/ntp_drift_monitor.sh`
 
 **Acceptance**:
-- Emits summary with `status` based on thresholds.
-- Uses reasons: `high_load`, `high_mem`, `swap_thrash`.
-- Degrades gracefully when commands missing.
+- Better detection and parsing of chrony outputs.
 
 **Verify**:
-- CI test in minimal environment (missing tools => SKIP/UNKNOWN with reason).
+- Tests with fixture strings.
 
 ---
 
-### P3.2 Log spike monitor (kernel/service errors rate) (DONE)
+## P3 — Release / CI / DX polish
 
-**Why**: spikes in kernel or service errors often precede outages.
+### P3.1 Makefile target for offline artifacts: `make release-tarball` (NOT DONE)
+**Why**: standard entrypoint for maintainers; helpful even offline.
 
 **Where**:
-- new monitor (journald/syslog best-effort)
+- `Makefile`
 
 **Acceptance**:
-- Threshold-based WARN/CRIT.
-- Reason tokens documented.
+- `make release-tarball` calls `tools/make_tarball.sh` and prints artifact paths.
 
 **Verify**:
-- Test using fixture logs.
+- Run target locally.
 
 ---
 
-### P3.3 Cert monitor: directory scan option (DONE)
-
-**Why**: cert sprawl is common; reduce manual config.
+### P3.2 CI failure artifact upload (logs) (NOT DONE)
+**Why**: when CI fails, having logs as artifacts saves time.
 
 **Where**:
-- `monitors/cert_monitor.sh`
-- docs
+- `.github/workflows/ci.yml`
 
 **Acceptance**:
-- Optional config: scan directory for cert files.
-- Supports ignore patterns.
+- On failure, upload `.logs/` and any produced summary artifacts.
 
 **Verify**:
-- Test with generated cert fixtures.
+- Validate workflow yaml.
 
 ---
 
-## P4 — Packaging & systemd hardening
-
-### P4.1 Systemd hardening for service/timer (DONE)
-
-**Why**: reduce blast radius for root-running automation.
+### P3.3 Git hooks helper: `./tools/install_githooks.sh` (NOT DONE)
+**Why**: contributors forget to enable hooks; small QoL.
 
 **Where**:
-- systemd unit files (RPM + installer templates)
+- `tools/`
 
 **Acceptance**:
-- Add safe hardening directives where compatible (e.g. `NoNewPrivileges=true`).
-- Document any constraints.
+- Installs hooks from `.githooks/` into `.git/hooks/` idempotently.
 
 **Verify**:
-- RPM/container smoke still passes.
+- Running twice is safe.
 
----
-
-### P4.2 Offline/dark-site release workflow polish (DONE)
-
-**Why**: make releases repeatable.
-
-**Where**:
-- `tools/make_tarball.sh`
-- `docs/DARK_SITE.md`
-
-**Acceptance**:
-- Document checksum + verification.
-- Ensure tarball includes needed metadata.
-
-**Verify**:
-- Build tarball, install, run `linux-maint status`.
-
----
-
-## P5 — Developer experience
-
-### P5.1 Add `tools/dev_check.sh` (DONE)
-
-**Why**: one command for contributors.
-
-**Where**:
-- `tools/dev_check.sh` (new)
-
-**Acceptance**:
-- Runs: `python3 tools/gen_summarize.py`, lint, and tests.
-
-**Verify**:
-- Works in repo mode on a typical Linux dev box.
