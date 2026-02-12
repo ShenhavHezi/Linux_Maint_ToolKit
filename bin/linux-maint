@@ -658,7 +658,14 @@ PY
         f="$REPO_ROOT/docs/REASONS.md"
         if [[ ! -f "$f" ]]; then
           # installed mode: docs may be under share
-          for alt in "$SHARE/docs/REASONS.md" "$PREFIX/share/linux_Maint_Scripts/docs/REASONS.md" "$PREFIX/share/linux-maint/docs/REASONS.md"; do
+          for alt in \
+            "$SHARE/docs/REASONS.md" \
+            "$PREFIX/share/linux_Maint_Scripts/docs/REASONS.md" \
+            "$PREFIX/share/linux-maint/docs/REASONS.md" \
+            "/usr/share/linux_Maint_Scripts/docs/REASONS.md" \
+            "/usr/share/linux-maint/docs/REASONS.md" \
+            "/usr/share/linux_maint/docs/REASONS.md" \
+          ; do
             if [[ -f "$alt" ]]; then f="$alt"; break; fi
           done
         fi
