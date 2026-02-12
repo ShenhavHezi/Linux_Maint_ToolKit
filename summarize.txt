@@ -305,3 +305,6 @@ echo "##active_line5##"
 
 2026-02-12
 - Added `linux-maint verify-install` for dark-site post-install validation (checks layout/files, basic config presence, and best-effort systemd status).
+
+2026-02-12
+- Added `linux-maint pack-logs` to generate a redacted support bundle (tar.gz) containing latest logs/summaries, config snapshot, and build metadata for dark-site incident handoff.

@@ -169,6 +169,7 @@ Commands:
   init                Install /etc/linux_maint templates (from repo checkout)
   doctor              Diagnose installation/config/state permissions
   verify-install      Verify installation layout, permissions, and systemd wiring (best-effort)
+  pack-logs [--out DIR]  Create a support bundle tar.gz (logs, config redacted, meta)
   help                Show this help
 
 Environment:
@@ -641,6 +642,40 @@ PY
 
 
 
+
+
+  pack-logs)
+    OUT=""
+    if [[ "${1:-}" == "--out" ]]; then
+      OUT="${2:-}"; shift 2 || true
+    fi
+
+    # Default output directory:
+    # - repo mode: repo root
+    # - installed: current directory
+    if [[ -z "$OUT" ]]; then
+      if [[ "$MODE" == "repo" ]]; then
+        OUT="$REPO_ROOT"
+      else
+        OUT="."
+      fi
+    fi
+
+    # Determine log dir for mode
+    if [[ "$MODE" == "repo" ]]; then
+      _logdir="$REPO_LOG_DIR"
+      _repo_root="$REPO_ROOT"
+    else
+      _logdir="${LOG_DIR:-/var/log/health}"
+      _repo_root=""
+    fi
+
+    # Use best-effort state dir (where notify/summary diff stores state)
+    _state_dir="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-/var/lib/linux_maint}}"
+
+    OUTDIR="$OUT" LOG_DIR="$_logdir" CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}" STATE_DIR="$_state_dir" REPO_ROOT="$_repo_root" \
+      ./tools/pack_logs.sh
+    ;;
   verify-install)
     echo "=== linux-maint verify-install ==="
     echo "mode=$MODE"

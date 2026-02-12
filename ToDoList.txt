@@ -73,7 +73,7 @@ Rules:
 
 ## P1 — Operator UX (single host)
 
-### P1.1 Add `linux-maint pack-logs` (support bundle) (NOT DONE)
+### P1.1 Add `linux-maint pack-logs` (support bundle) (DONE)
 **Why**: in air-gapped incidents, exporting a bundle for review/transfer is extremely useful.
 
 **Where**:
