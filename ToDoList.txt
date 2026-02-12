@@ -92,7 +92,7 @@ Rules:
 
 ---
 
-### P1.2 Extend `linux-maint doctor` for common offline issues (NOT DONE)
+### P1.2 Extend `linux-maint doctor` for common offline issues (DONE)
 **Why**: dark-site users hit missing deps/misconfig and can’t “just google it”.
 
 **Where**:

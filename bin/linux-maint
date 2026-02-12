@@ -781,12 +781,15 @@ PY
       need_root_for doctor
     fi
 
+    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+
     echo "=== linux-maint doctor ==="
     echo "mode=$MODE"
     echo "prefix=$PREFIX"
     echo "wrapper=$wrapper"
     echo "libexec=$LIBEXEC"
     echo "lib=${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
+    echo "cfg_dir=$CFG_DIR"
 
     echo "== Files =="
     for path in "$wrapper" "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; do
@@ -798,13 +801,61 @@ PY
       [[ -d "$REPO_MONITORS" ]] && ls -ld "$REPO_MONITORS" || echo "MISSING: $REPO_MONITORS"
     fi
 
-    echo "== Config =="
-    for f in /etc/linux_maint/servers.txt /etc/linux_maint/excluded.txt /etc/linux_maint/services.txt /etc/linux_maint/emails.txt; do
-      [[ -e "$f" ]] && echo "OK: $f" || echo "MISSING: $f"
-    done
+    echo "== Config presence =="
+    if [[ -d "$CFG_DIR" ]]; then
+      for f in "$CFG_DIR/servers.txt" "$CFG_DIR/excluded.txt" "$CFG_DIR/services.txt" "$CFG_DIR/emails.txt"; do
+        [[ -e "$f" ]] && echo "OK: $f" || echo "MISSING: $f"
+      done
 
-    echo ""
-    echo "== systemd (installed mode) =="
+      if [[ ! -s "$CFG_DIR/servers.txt" ]]; then
+        echo "WARN: servers.txt missing/empty" >&2
+      else
+        n_hosts=$(grep -c -vE '^\s*(#|$)' "$CFG_DIR/servers.txt" 2>/dev/null || echo 0)
+        echo "hosts_configured=$n_hosts"
+        if [[ "$n_hosts" -eq 0 ]]; then
+          echo "WARN: servers.txt has no active hosts (only comments/blank lines)" >&2
+        fi
+      fi
+
+      if [[ -f "$CFG_DIR/services.txt" && ! -s "$CFG_DIR/services.txt" ]]; then
+        echo "WARN: services.txt is empty; service monitor may be ineffective" >&2
+      fi
+    else
+      echo "MISSING: config dir $CFG_DIR" >&2
+      echo "Tip: sudo linux-maint init" >&2
+    fi
+
+    echo "== Monitor gates (what may SKIP) =="
+    [[ -s "$CFG_DIR/certs.txt" ]] || echo "SKIP gate: cert_monitor -> missing/empty $CFG_DIR/certs.txt"
+    [[ -s "$CFG_DIR/ports_baseline.txt" ]] || echo "SKIP gate: ports_baseline_monitor -> missing/empty $CFG_DIR/ports_baseline.txt"
+    [[ -s "$CFG_DIR/config_paths.txt" ]] || echo "SKIP gate: config_drift_monitor -> missing/empty $CFG_DIR/config_paths.txt"
+    [[ -s "$CFG_DIR/baseline_users.txt" ]] || echo "SKIP gate: user_monitor -> missing/empty $CFG_DIR/baseline_users.txt"
+    [[ -s "$CFG_DIR/baseline_sudoers.txt" ]] || echo "SKIP gate: user_monitor -> missing/empty $CFG_DIR/baseline_sudoers.txt"
+    [[ -s "$CFG_DIR/backup_targets.csv" ]] || echo "SKIP gate: backup_check -> missing/empty $CFG_DIR/backup_targets.csv"
+
+    echo "== Dependencies (best-effort) =="
+    need_cmd() {
+      local cmd="$1" pkg_hint="$2"
+      if command -v "$cmd" >/dev/null 2>&1; then
+        echo "OK: $cmd"
+      else
+        echo "WARN: missing command: $cmd" >&2
+        [[ -n "$pkg_hint" ]] && echo "  hint: install package: $pkg_hint" >&2
+      fi
+    }
+
+    need_cmd awk "gawk"
+    need_cmd sed "sed"
+    need_cmd grep "grep"
+    need_cmd df "coreutils"
+    need_cmd find "findutils"
+    need_cmd timeout "coreutils"
+    need_cmd curl "curl"
+    need_cmd openssl "openssl"
+    need_cmd ssh "openssh-clients"
+    need_cmd systemctl "systemd"
+
+    echo "== systemd (best-effort) =="
     if command -v systemctl >/dev/null 2>&1; then
       for unit in linux-maint.timer linux-maint.service; do
         if systemctl list-unit-files --no-legend "$unit" 2>/dev/null | grep -q "^$unit"; then
@@ -812,30 +863,32 @@ PY
           systemctl is-enabled "$unit" 2>/dev/null || true
           systemctl is-active "$unit" 2>/dev/null || true
         else
-          echo "MISSING unit file: $unit"
+          echo "INFO: unit not installed: $unit"
         fi
       done
-      echo ""
       echo "-- timers (linux-maint) --"
       systemctl list-timers --all --no-pager 2>/dev/null | grep -E "linux-maint\.timer|NEXT|^$" || true
-      echo ""
-      echo "-- journal (linux-maint.service, last 50 lines) --"
-      journalctl -u linux-maint.service -n 50 --no-pager 2>/dev/null || true
     else
-      echo "systemctl not found"
+      echo "INFO: systemctl not found"
     fi
 
     echo "== Can write state/logs? =="
     for d in /var/log/health /var/log/inventory /var/lib/linux_maint /var/lock; do
-      [[ -d "$d" ]] || { echo "NOTE: creating $d"; sudo mkdir -p "$d" 2>/dev/null || true; }
-      if touch "$d/.lm_write_test" 2>/dev/null; then rm -f "$d/.lm_write_test"; echo "OK: writable $d"; else echo "WARN: not writable $d"; fi
+      if [[ -d "$d" ]]; then
+        if touch "$d/.lm_write_test" 2>/dev/null; then rm -f "$d/.lm_write_test"; echo "OK: writable $d"; else echo "WARN: not writable $d"; fi
+      else
+        echo "WARN: missing dir $d" >&2
+      fi
     done
 
     echo "== Next recommended actions =="
+    echo "- linux-maint verify-install"
     echo "- sudo linux-maint init      # if config is missing"
     echo "- sudo linux-maint preflight"
     echo "- sudo linux-maint run"
+    echo "- linux-maint pack-logs --out .  # create bundle for export"
     ;;
+
 
   *)
     echo "Unknown command: $cmd" >&2
