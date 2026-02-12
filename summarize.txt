@@ -275,3 +275,11 @@ echo "##active_line2##"
 [2026-02-11] feat: cert_monitor directory scan option (offline cert file expiry)
 - Why: cert sprawl is common; scanning a directory reduces manual config.
 - Change: cert_monitor supports CERTS_SCAN_DIR with ignore patterns and extension filtering; added generated cert fixture test and wired into smoke.
+
+echo "##active_line2##"
+[2026-02-12] fix: log_spike_monitor tolerate 0 grep matches under set -e
+echo "##active_line3##"
+- Why: grep exits 1 on 0 matches, causing false failures in CI/smoke.
+echo "##active_line4##"
+- Change: treat 0 matches as OK when counting errors (|| true), preserving WARN/CRIT behavior.
+echo "##active_line5##"

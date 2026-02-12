@@ -102,7 +102,12 @@ if ! lines="$(get_lines "$source" 2>/dev/null)"; then
   exit 3
 fi
 
-errors=$(printf %s "${lines}" | grep -Eaci "$LM_LOG_SPIKE_PATTERN" | tr -d "[:space:]")
+errors=$(
+  # grep exits 1 when there are 0 matches; under `set -e` that would
+  # incorrectly abort the monitor. Treat 0 matches as a valid OK result.
+  printf %s "${lines}" | grep -Eaci "$LM_LOG_SPIKE_PATTERN" || true
+)
+errors=$(printf %s "$errors" | tr -d "[:space:]")
 errors=${errors:-0}
 
 status="OK"
