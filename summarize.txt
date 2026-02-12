@@ -314,3 +314,6 @@ echo "##active_line5##"
 
 2026-02-12
 - Added `linux-maint explain reason <token>` (and `explain status <S>`) for quick on-call decoding of reason/status values using docs/REASONS.md.
+
+2026-02-12
+- Installer now copies operator docs (docs/*.md) into /usr/local/share/linux_Maint_Scripts/docs so installed-mode `linux-maint explain` works in dark-site environments.
