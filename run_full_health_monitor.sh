@@ -136,6 +136,8 @@ get_monitor_timeout_secs(){
 # Avoid overlaps by excluding disk_monitor/process_hog/server_info.
 
 declare -a scripts=(
+
+
   "preflight_check.sh"
   "config_validate.sh"
   "health_monitor.sh"
@@ -157,6 +159,14 @@ declare -a scripts=(
   "backup_check.sh"
   "inventory_export.sh"
 )
+
+
+# Allow overriding the monitor list (useful for tests / minimal runs).
+# Format: LM_MONITORS="a.sh b.sh"
+if [[ -n "${LM_MONITORS:-}" ]]; then
+  # shellcheck disable=SC2206
+  scripts=(${LM_MONITORS})
+fi
 
 {
   echo "SUMMARY full_health_monitor host=$(hostname -f 2>/dev/null || hostname) started=$(date -Is)"
@@ -241,7 +251,7 @@ for s in "${scripts[@]}"; do
   after_lines=${after_lines:-0}
   if [ "$rc" -ne 0 ] && [ "$after_lines" -le "$before_lines" ]; then
     # Hardening: a monitor failed but emitted no standardized summary line.
-    echo "monitor=${s%.sh} host=runner status=UNKNOWN node=$(hostname -f 2>/dev/null || hostname) reason=no_summary_emitted rc=$rc" >> "$tmp_report"
+    echo "monitor=${s%.sh} host=runner status=UNKNOWN node=$(hostname -f 2>/dev/null || hostname) reason=early_exit rc=$rc" >> "$tmp_report"
   fi
   set -e
 

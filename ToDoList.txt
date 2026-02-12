@@ -35,7 +35,7 @@ Rules:
 
 ---
 
-### P0.2 Wrapper ensures summary contract even on monitor crash (NOT DONE)
+### P0.2 Wrapper ensures summary contract even on monitor crash (DONE)
 **Why**: in single-host automation you still need *one* reliable summary line per monitor; crashes should not break parsing.
 
 **Where**:

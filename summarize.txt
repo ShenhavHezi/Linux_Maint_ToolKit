@@ -299,3 +299,6 @@ echo "##active_line5##"
 
 2026-02-12
 - Smoke test: standardized exit codes (0=ok, 3=ok but optional sudo-gated checks skipped) and documented semantics in docs/reference.md.
+
+2026-02-12
+- Wrapper hardening: if a monitor fails without emitting any `monitor=` summary line, the wrapper now synthesizes a single `status=UNKNOWN reason=early_exit` summary line for contract safety.
