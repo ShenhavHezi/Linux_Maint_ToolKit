@@ -317,3 +317,6 @@ echo "##active_line5##"
 
 2026-02-12
 - Installer now copies operator docs (docs/*.md) into /usr/local/share/linux_Maint_Scripts/docs so installed-mode `linux-maint explain` works in dark-site environments.
+
+2026-02-12
+- RPM packaging: ship operator docs under /usr/share/linux_Maint_Scripts/docs so installed-mode `linux-maint explain` works offline.
