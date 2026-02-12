@@ -58,5 +58,10 @@ tarball="$OUTDIR/${name}.tgz"
 
 echo "Built: $tarball"
 
+# Write a verification file alongside the artifact for dark-site transfer
+sums_file="$OUTDIR/SHA256SUMS"
+( cd "$OUTDIR" && sha256sum "$(basename "$tarball")" > "$(basename "$sums_file")" )
+echo "Wrote: $sums_file"
+
 echo "Contents checksum (sha256):"
 sha256sum "$tarball" | awk '{print $1"  "$2}'

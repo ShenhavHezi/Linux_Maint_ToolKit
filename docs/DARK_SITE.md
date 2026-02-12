@@ -12,10 +12,10 @@ cd linux_Maint_Scripts
 # output: dist/linux_Maint_Scripts-<version>-<sha>.tgz
 ```
 
-Optional (recommended) integrity file:
+Integrity file (recommended):
 
 ```bash
-sha256sum dist/linux_Maint_Scripts-*.tgz > dist/SHA256SUMS
+( cd dist && sha256sum linux_Maint_Scripts-*.tgz > SHA256SUMS )
 ```
 
 ## 2) Transfer into the offline environment (staging / hop)
@@ -26,9 +26,9 @@ Move the tarball using your approved process. In many environments this is a mul
 
 Copy:
 - `dist/linux_Maint_Scripts-*.tgz`
-- `dist/SHA256SUMS` (optional)
+- `dist/SHA256SUMS`
 
-On the offline side you can verify:
+On the offline side verify from the directory containing the files:
 
 ```bash
 sha256sum -c SHA256SUMS
@@ -89,9 +89,9 @@ sudo linux-maint logs 200
 When transferring tarballs/packages into an air-gapped environment, verify integrity:
 
 ```bash
-sha256sum linux-maint-*.tar.gz > linux-maint.sha256
+sha256sum linux_Maint_Scripts-*.tgz > SHA256SUMS
 # transfer both files
-sha256sum -c linux-maint.sha256
+sha256sum -c SHA256SUMS
 ```
 
 If you use an internal artifact repository, store the checksum alongside the artifact.
