@@ -657,6 +657,12 @@ PY
         fi
         f="$REPO_ROOT/docs/REASONS.md"
         if [[ ! -f "$f" ]]; then
+          # installed mode: docs may be under share
+          for alt in "$SHARE/docs/REASONS.md" "$PREFIX/share/linux_Maint_Scripts/docs/REASONS.md" "$PREFIX/share/linux-maint/docs/REASONS.md"; do
+            if [[ -f "$alt" ]]; then f="$alt"; break; fi
+          done
+        fi
+        if [[ ! -f "$f" ]]; then
           echo "ERROR: reasons doc not found: $f" >&2
           exit 1
         fi
