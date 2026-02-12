@@ -180,6 +180,19 @@ Description=Linux maintenance full health monitor
 [Service]
 Type=oneshot
 ExecStart=${INSTALL_PREFIX}/sbin/run_full_health_monitor.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+ReadWritePaths=/var/log /var/log/health /var/lib/linux_maint /var/lock /tmp
 EOF
 
   cat > /etc/systemd/system/linux-maint.timer <<'EOF'

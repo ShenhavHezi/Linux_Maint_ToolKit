@@ -241,7 +241,7 @@ Principles:
 
 ## P4 — Packaging & systemd hardening
 
-### P4.1 Systemd hardening for service/timer (NOT DONE)
+### P4.1 Systemd hardening for service/timer (DONE)
 
 **Why**: reduce blast radius for root-running automation.
 

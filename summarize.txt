@@ -287,3 +287,8 @@ echo "##active_line5##"
 [2026-02-12] chore: add tools/dev_check.sh
 - Why: provide one command for contributors to regenerate summarize, lint, and run smoke.
 - Change: new tools/dev_check.sh runs gen_summarize.py, shellcheck_wrapper, and tests/smoke.sh.
+
+[2026-02-12] chore: systemd unit hardening (best-effort)
+- Why: reduce blast radius for root-running automation.
+- Change: add conservative hardening directives to linux-maint.service (installer template + RPM unit).
+- Notes: allow required writes via ReadWritePaths for /var/log, /var/log/health, /var/lib/linux_maint, /var/lock, /tmp.
