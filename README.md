@@ -6,6 +6,7 @@ Run it locally or from a monitoring node over SSH, get structured logs + a simpl
 ## Table of Contents
 
 - [Docs / references](#docs-references)
+- [Repo map (where to look)](#repo-map-where-to-look)
 - [What you get](#what-you-get)
 - [What it does](#what-it-does)
 - [Supported environments (high level)](#supported-environments-high-level)
@@ -32,6 +33,18 @@ Run it locally or from a monitoring node over SSH, get structured logs + a simpl
 - Full reference (config/monitors/output): [`docs/reference.md`](docs/reference.md)
 - Offline / air-gapped: [`docs/DARK_SITE.md`](docs/DARK_SITE.md)
 - Reason tokens: [`docs/REASONS.md`](docs/REASONS.md)
+
+
+## Repo map (where to look)
+
+- **Run it (wrapper)**: `run_full_health_monitor.sh`
+- **CLI**: `bin/linux-maint` (installed as `linux-maint`)
+- **Monitors**: `monitors/` (each emits `monitor=... status=...` summary lines)
+- **Shared Bash library**: `lib/linux_maint.sh`
+- **Config templates**: `etc/linux_maint/` (copy to `/etc/linux_maint/`)
+- **Operator docs**: `docs/`
+- **Tools (release/lint helpers)**: `tools/`
+- **Tests**: `tests/`
 
 ## What you get
 
