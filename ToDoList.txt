@@ -127,7 +127,7 @@ Rules:
 
 ## P2 — Monitoring quality improvements (single host)
 
-### P2.1 Service monitor: report failed units (systemd) (NOT DONE)
+### P2.1 Service monitor: report failed units (systemd) (DONE)
 **Why**: on single hosts, “something failed and got restarted” matters.
 
 **Where**:

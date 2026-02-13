@@ -327,3 +327,11 @@ echo "##active_line5##"
 
 2026-02-13
 - Makefile: add release-tarball target (calls tools/make_tarball.sh) for maintainer/offline artifact creation.
+
+echo "##active_line2##"
+2026-02-13
+echo "##active_line3##"
+- service_monitor: optional systemd failed-units check (LM_SERVICE_CHECK_FAILED_UNITS=1) emits failed_units=<n> and reason=failed_units when non-zero.
+echo "##active_line4##"
+- tests: add service_monitor_failed_units_test.sh and wire into smoke.
+echo "##active_line5##"

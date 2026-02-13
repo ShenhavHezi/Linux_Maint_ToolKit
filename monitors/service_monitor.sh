@@ -42,6 +42,13 @@ AUTO_RESTART="false"                          # "true" to attempt restart on fai
 MAIL_SUBJECT_PREFIX='[Service Monitor]'
 EMAIL_ON_ALERT="false"                        # "true" to email when any service is not active
 
+# Optional: systemd failed unit check (single-host quality signal)
+# If enabled and systemctl is present, the monitor will evaluate `systemctl --failed`
+# and include failed_units=<n> in the summary.
+#
+# Default: disabled (no behavior change).
+CHECK_FAILED_UNITS="${LM_SERVICE_CHECK_FAILED_UNITS:-0}"
+
 # ========================
 # Helpers (script-local)
 # ========================
@@ -97,6 +104,7 @@ run_for_host(){
 
   local checked=0
   local fail_count=0
+  local failed_units=0
 
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
@@ -137,10 +145,28 @@ run_for_host(){
     esac
   done < <(list_services)
 
+  # Optional: systemctl --failed check (only when enabled)
+  if [[ "$CHECK_FAILED_UNITS" == "1" || "$CHECK_FAILED_UNITS" == "true" ]]; then
+    failed_units_str="$(lm_ssh "$host" bash -lc 'command -v systemctl >/dev/null 2>&1 || exit 0; systemctl --failed --no-legend --plain 2>/dev/null | awk '"'{print $1}'"' | sed '/^[[:space:]]*$/d' | wc -l' 2>/dev/null || true)"
+    failed_units_str="${failed_units_str//[[:space:]]/}"
+    if [[ -n "$failed_units_str" && "$failed_units_str" =~ ^[0-9]+$ ]]; then
+      failed_units="$failed_units_str"
+    fi
+  fi
+
   lm_info "===== Completed $host ====="
 
-  status=$( [ "$fail_count" -gt 0 ] && echo CRIT || echo OK )
-  emit_summary "$host" "$status" checked=$checked failures=$fail_count
+  reason_kv=""
+  if [ "$failed_units" -gt 0 ]; then
+    reason_kv="reason=failed_units"
+    # failed units count is a quality signal; escalate even if requested services are OK
+    status=CRIT
+  else
+    status=$( [ "$fail_count" -gt 0 ] && echo CRIT || echo OK )
+  fi
+
+  emit_summary "$host" "$status" $reason_kv checked=$checked failures=$fail_count failed_units="$failed_units"
+
   # legacy:
   # echo "service_monitor host=$host status=$status checked=$checked failures=$fail_count"
 
