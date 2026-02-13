@@ -12,6 +12,8 @@
 # State:
 # - /var/lib/linux_maint/disk_trend/<host>.csv
 #   columns: epoch,mount,used_pct,used_kb
+# - /var/lib/linux_maint/disk_trend/<host>.inodes.csv (optional; when LM_DISK_TREND_INODES=1)
+#   columns: epoch,mount,iused_pct,iused_inodes
 
 set -euo pipefail
 
@@ -53,6 +55,9 @@ HARD_CRIT_PCT=95
 
 # Minimum history points per mount to compute slope
 MIN_POINTS=2
+# Optional: inode trend (off by default; keeps existing state format unchanged)
+: "${LM_DISK_TREND_INODES:=0}"
+
 
 # Exclude filesystem types (regex)
 EXCLUDE_FSTYPES_RE='^(tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup2?|debugfs|rpc_pipefs|autofs|devpts|mqueue|hugetlbfs|fuse\..*|binfmt_misc|pstore|nsfs)$'
@@ -164,6 +169,8 @@ forecast_mount(){
 run_for_host(){
   local host="$1"
   ensure_dirs
+  collect_inode_trend_for_host "$host"
+
 
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
@@ -265,4 +272,59 @@ main(){
   exit "$WORST_RC"
 }
 
+# Optional inode trend state is collected per host when enabled.
+
+collect_inode_trend_for_host(){
+  local host="$1"
+  [[ "${LM_DISK_TREND_INODES}" == "1" || "${LM_DISK_TREND_INODES}" == "true" ]] || return 0
+
+  local cmd out
+  cmd="$(remote_collect_inodes_cmd)"
+  out="$(lm_ssh "$host" bash -lc "$cmd" 2>/dev/null || true)"
+  [ -z "$out" ] && return 0
+
+  while IFS='|' read -r mp fstype iused_pct iused; do
+    [ -z "$mp" ] && continue
+
+    if echo "$fstype" | grep -Eq "$EXCLUDE_FSTYPES_RE"; then
+      continue
+    fi
+    if is_mount_excluded "$mp"; then
+      continue
+    fi
+
+    append_inode_state "$host" "$mp" "$iused_pct" "$iused"
+  done <<< "$out"
+}
+
 main "$@"
+
+
+# ============ Inode trend (optional) ============
+
+remote_collect_inodes_cmd() {
+  cat <<'CMD'
+set -euo pipefail
+
+# Output: mount|fstype|iused_pct|iused
+# Prefer df -PTi (includes fstype) if supported.
+if df -PTi >/dev/null 2>&1; then
+  df -PTi 2>/dev/null | awk 'NR>1{gsub(/%/,"",$7); print $8"|"$2"|"$7"|"$5}'
+else
+  # Fallback without fstype
+  df -Pi 2>/dev/null | awk 'NR>1{gsub(/%/,"",$5); print $6"|?""|"$5"|"$3}'
+fi
+CMD
+}
+
+append_inode_state(){
+  local host="$1" mount="$2" iused_pct="$3" iused="$4"
+  local f="$STATE_BASE/${host}.inodes.csv"
+  if ! printf "%s,%s,%s,%s\n" "$(date +%s)" "$mount" "$iused_pct" "$iused" >> "$f" 2>/dev/null; then
+    # fallback for unprivileged runs
+    STATE_BASE="${LM_STATE_DIR:-/tmp}/linux_maint/disk_trend"
+    mkdir -p "$STATE_BASE" 2>/dev/null || true
+    f="$STATE_BASE/${host}.inodes.csv"
+    printf "%s,%s,%s,%s\n" "$(date +%s)" "$mount" "$iused_pct" "$iused" >> "$f" 2>/dev/null || true
+  fi
+}

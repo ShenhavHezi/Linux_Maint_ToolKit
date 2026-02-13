@@ -335,3 +335,7 @@ echo "##active_line3##"
 echo "##active_line4##"
 - tests: add service_monitor_failed_units_test.sh and wire into smoke.
 echo "##active_line5##"
+
+2026-02-13
+- disk_trend_monitor: add optional inode trend state collection (LM_DISK_TREND_INODES=1) into separate per-host state file (<host>.inodes.csv) to preserve existing disk trend state format.
+- tests: add disk_trend_inode_trend_test.sh (PATH shim for df/ssh) and wire into smoke.

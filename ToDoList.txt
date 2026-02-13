@@ -142,7 +142,7 @@ Rules:
 
 ---
 
-### P2.2 Disk trend monitor: inode trend (NOT DONE)
+### P2.2 Disk trend monitor: inode trend (DONE)
 **Why**: inode exhaustion is common and looks like “disk full” failures.
 
 **Where**:
