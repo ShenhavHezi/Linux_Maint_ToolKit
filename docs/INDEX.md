@@ -1,12 +1,9 @@
+echo "##active_line2##"
 # Documentation index
+echo "##active_line3##"
 
-## Operator docs (start here)
+echo "##active_line4##"
+The documentation index lives in [`docs/README.md`](README.md).
+echo "##active_line5##"
 
-- **Quick reference (cheat-sheet)**: [`QUICK_REFERENCE.md`](QUICK_REFERENCE.md)
-- **Full reference (configuration, monitors, outputs)**: [`reference.md`](reference.md)
-- **Reason tokens** (`reason=` contract): [`REASONS.md`](REASONS.md)
-- **Offline / dark-site usage**: [`DARK_SITE.md`](DARK_SITE.md)
-
-## Contributor docs
-
-- Contribution workflow and contracts: [`../CONTRIBUTING.md`](../CONTRIBUTING.md)
+echo "##active_line6##"

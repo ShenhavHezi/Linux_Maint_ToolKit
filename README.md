@@ -29,7 +29,7 @@ Run it locally or from a monitoring node over SSH, get structured logs + a simpl
 - Security policy: [`SECURITY.md`](SECURITY.md)
 - License: [`LICENSE`](LICENSE)
 
-- Start here: [`docs/INDEX.md`](docs/INDEX.md)
+- Start here: [`docs/README.md`](docs/README.md)
 - Operator cheat-sheet: [`docs/QUICK_REFERENCE.md`](docs/QUICK_REFERENCE.md)
 - Full reference (config/monitors/output): [`docs/reference.md`](docs/reference.md)
 - Offline / air-gapped: [`docs/DARK_SITE.md`](docs/DARK_SITE.md)
