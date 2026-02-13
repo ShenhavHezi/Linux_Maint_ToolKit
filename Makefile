@@ -2,11 +2,12 @@
 
 SHELL := /usr/bin/env bash
 
-.PHONY: help lint test
+.PHONY: help lint test release-tarball
 
 help:
 	@echo "Targets:"
 	@echo "  make lint   - run ShellCheck (uses .shellcheckrc)"
+	@echo "  make release-tarball - build offline release tarball (./dist)"
 	@echo "  make test   - run repo test suite (contract + smoke)"
 
 lint:
@@ -25,3 +26,6 @@ test:
 	@./tests/summary_contract.sh
 	@./tests/summary_contract_lint.sh
 	@./tests/smoke.sh
+
+release-tarball:
+	@./tools/make_tarball.sh

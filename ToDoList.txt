@@ -173,7 +173,7 @@ Rules:
 
 ## P3 — Release / CI / DX polish
 
-### P3.1 Makefile target for offline artifacts: `make release-tarball` (NOT DONE)
+### P3.1 Makefile target for offline artifacts: `make release-tarball` (DONE)
 **Why**: standard entrypoint for maintainers; helpful even offline.
 
 **Where**:
