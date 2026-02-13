@@ -157,7 +157,7 @@ Rules:
 
 ---
 
-### P2.3 NTP drift monitor: chrony parsing robustness (NOT DONE)
+### P2.3 NTP drift monitor: chrony parsing robustness (DONE)
 **Why**: reduce UNKNOWN on chrony-based systems.
 
 **Where**:

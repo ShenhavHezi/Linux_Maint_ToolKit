@@ -70,10 +70,18 @@ probe_chrony() {
   local track; track="$(lm_ssh "$host" "chronyc tracking" 2>/dev/null)" || track=""
   [ -z "$track" ] && { echo "chrony|?|?|?|no|no_output"; return; }
 
-  # System time: "X seconds fast/slow of NTP time"
-  local sysline; sysline="$(printf "%s\n" "$track" | awk -F': ' '/^System time/{print $2}')"
-  local sec; sec="$(printf "%s\n" "$sysline" | awk '{print $1}')"
+  # Prefer System time; fall back to Last offset / RMS offset if needed (chrony output varies).
+  local sysline; sysline="$(printf "%s\n" "$track" | awk -F": " '/^System time/{print $2}')"
+  local sec=""
+  if [ -n "$sysline" ]; then
+    sec="$(printf "%s\n" "$sysline" | awk '{print $1}')"
+  else
+    sec="$(printf "%s\n" "$track" | awk -F": " '/^Last offset/{print $2; exit}')"
+    [ -z "$sec" ] && sec="$(printf "%s\n" "$track" | awk -F": " '/^RMS offset/{print $2; exit}')"
+    sec="$(printf "%s\n" "$sec" | awk '{print $1}')"
+  fi
   local offset_ms; offset_ms="$(awk -v s="$sec" 'BEGIN{ if(s==""){print "?"} else {m=s*1000; if(m<0)m=-m; printf("%.0f", m)} }')"
+
 
   local stratum; stratum="$(printf "%s\n" "$track" | awk -F': ' '/^Stratum/{print $2}')"
   [ -z "$stratum" ] && stratum="?"

@@ -339,3 +339,11 @@ echo "##active_line5##"
 2026-02-13
 - disk_trend_monitor: add optional inode trend state collection (LM_DISK_TREND_INODES=1) into separate per-host state file (<host>.inodes.csv) to preserve existing disk trend state format.
 - tests: add disk_trend_inode_trend_test.sh (PATH shim for df/ssh) and wire into smoke.
+
+echo "##active_line2##"
+2026-02-13
+echo "##active_line3##"
+- ntp_drift_monitor: harden chrony parsing by falling back to Last offset / RMS offset when System time is missing, reducing UNKNOWN/WARN noise on chrony-based systems.
+echo "##active_line4##"
+- tests: add ntp_chrony_parsing_variants_test.sh (fixture strings) and wire into smoke.
+echo "##active_line5##"
