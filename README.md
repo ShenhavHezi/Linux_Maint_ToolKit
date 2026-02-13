@@ -124,6 +124,8 @@ Manual install is also supported (see Appendix).
 
 Templates are in `etc/linux_maint/*.example`; installed configs live in `/etc/linux_maint/`.
 
+See: [`etc/linux_maint/README.md`](etc/linux_maint/README.md) for a quick overview of the config templates.
+
 - `servers.txt` — target hosts for SSH mode
 - `services.txt` — services to verify
 - `network_targets.txt` — optional reachability checks
