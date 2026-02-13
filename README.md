@@ -21,8 +21,6 @@ Run it locally or from a monitoring node over SSH, get structured logs + a simpl
   - [Artifacts produced (installed mode)](#artifacts-produced-installed-mode)
   - [Summary contract (for automation)](#summary-contract-for-automation)
 - [Common knobs](#common-knobs)
-- [Operator quick reference](#operator-quick-reference)
-- [Full reference](#full-reference)
 
 ## Docs / references
 - Changelog: [`CHANGELOG.md`](CHANGELOG.md)
@@ -203,11 +201,3 @@ Details in [`docs/reference.md`](docs/reference.md).
 - `LM_NOTIFY` (wrapper-level per-run email summary; default `0` / off)
 - `LM_SSH_OPTS` (e.g. `-o BatchMode=yes -o ConnectTimeout=3`)
 - `LM_LOCAL_ONLY=true` (force local-only; used in CI)
-
-## Operator quick reference
-
-See [`docs/QUICK_REFERENCE.md`](docs/QUICK_REFERENCE.md).
-
-## Full reference
-
-See [`docs/reference.md`](docs/reference.md) for monitors reference, tuning per monitor, configuration file details, offline/air-gapped notes, CI, uninstall, upgrading, etc.
