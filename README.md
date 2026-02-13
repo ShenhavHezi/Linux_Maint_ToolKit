@@ -6,6 +6,14 @@ Run it locally or from a monitoring node over SSH, get structured logs + a simpl
 
 ## What you get
 
+**Docs / references:**
+- Start here: [`docs/INDEX.md`](docs/INDEX.md)
+- Operator cheat-sheet: [`docs/QUICK_REFERENCE.md`](docs/QUICK_REFERENCE.md)
+- Full reference (config/monitors/output): [`docs/reference.md`](docs/reference.md)
+- Offline / air-gapped: [`docs/DARK_SITE.md`](docs/DARK_SITE.md)
+- Reason tokens: [`docs/REASONS.md`](docs/REASONS.md)
+
+
 - **Standardized summary contract** per monitor (`monitor=... host=... status=... reason=...`) for automation.
 - **Hardened wrapper**: if a monitor fails without emitting a summary line, the wrapper emits `status=UNKNOWN reason=no_summary_emitted`.
 - **Timeout protection** per monitor (`MONITOR_TIMEOUT_SECS`) to avoid hanging runs.

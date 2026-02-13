@@ -353,3 +353,6 @@ echo "##active_line2##"
 echo "##active_line3##"
 - tools: add install_githooks.sh to install .githooks/* into .git/hooks/ idempotently (backs up existing hooks once).
 echo "##active_line4##"
+
+2026-02-13
+- docs: add docs/INDEX.md and link it (and key docs) prominently from README for GitHub readability.

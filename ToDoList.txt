@@ -1,215 +1,85 @@
-# linux_Maint_Scripts — ToDo List (roadmap)
+# linux-maint / linux_Maint_Scripts — ToDoList (living backlog)
+#
+# Rules:
+# - Pick ONE item per session.
+# - Prefer safe, minimal changes; assume current behavior is correct.
+# - No new dependencies / no large refactors.
+# - For any behavior change, add/extend tests and update summarize.txt.
+#
+# Priority legend:
+# - P0: correctness/contract break or data loss risk
+# - P1: high-value reliability improvements
+# - P2: monitoring quality improvements
+# - P3: DX/release polish
 
-This file is the project roadmap. Keep items small, testable, and tied to operator value.
+## P0 — Contract / correctness
 
-Legend:
-- Priority: P0 (must), P1 (high), P2 (medium), P3 (nice)
-- Status: NOT DONE / DONE
-
-Assumptions for this roadmap:
-- Typical deployment is **single host** (not fleet) and often **dark-site / air-gapped**.
-- Keep dependencies minimal; prefer optional features and best-effort behavior.
-
-Rules:
-- Pick ONE NOT DONE item per PR.
-- After changes: update summarize.txt + run `python3 tools/gen_summarize.py`.
-- Keep backward compatibility unless explicitly called out.
-
----
-
-## P0 — Dark-site reliability & correctness (must not regress)
-
-### P0.1 Make smoke exit codes explicit + document semantics (DONE)
-**Why**: smoke is the first-line “does this install basically work?” check offline; exit codes must be understandable.
+### P0.1 Make summary_contract.sh robust to unprivileged baseline monitors (NOT DONE)
+**Why**: `tests/summary_contract.sh` currently fails in unprivileged mode on `ports_baseline_monitor.sh` due to baseline dir permission errors, even though `tests/monitor_summary_emission_test.sh` already sets `LM_CFG_DIR` to avoid this.
 
 **Where**:
-- `tests/smoke.sh`
-- docs (`docs/reference.md` or `README.md`)
+- `tests/summary_contract.sh`
 
 **Acceptance**:
-- `tests/smoke.sh` uses named exit codes (constants) and prints a one-line reason on non-zero.
-- Document exit code meanings (including the CI-seen `3`).
+- The contract test should run monitors with a writable `LM_CFG_DIR` (like `monitor_summary_emission_test.sh`) so baseline-based monitors can emit `monitor=` lines even when `/etc/linux_maint` is not writable.
+- No behavior change to production code.
 
 **Verify**:
-- `bash -x ./tests/smoke.sh` still passes locally.
+- Running `bash tests/summary_contract.sh` succeeds as non-root.
 
 ---
 
-### P0.2 Wrapper ensures summary contract even on monitor crash (DONE)
-**Why**: in single-host automation you still need *one* reliable summary line per monitor; crashes should not break parsing.
+## P1 — GitHub hygiene / readability (docs + repo layout)
+
+### P1.0 Make README GitHub-friendly + add docs index (NOT DONE)
+**Why**: README is the landing page. It should quickly answer: what is this, how do I run it, and where are the docs.
 
 **Where**:
-- `run_full_health_monitor.sh`
+- `README.md`
+- `docs/INDEX.md`
 
 **Acceptance**:
-- If a monitor exits without emitting any `monitor=` line, wrapper emits one with:
-  - `status=UNKNOWN reason=early_exit`
-- Preserve existing monitor output as-is.
+- README has a prominent **Docs / references** block linking to:
+  - `docs/INDEX.md`
+  - `docs/QUICK_REFERENCE.md`
+  - `docs/reference.md`
+  - `docs/DARK_SITE.md`
+  - `docs/REASONS.md`
+- `docs/INDEX.md` exists and lists all major docs with 1-line descriptions.
+- All links are relative and work on GitHub.
 
 **Verify**:
-- Add a test with a fixture monitor that exits early.
+- Click all doc links from README in GitHub UI.
 
----
 
-### P0.3 Offline install verification: add `linux-maint verify-install` (DONE)
-**Why**: dark-site installs need a deterministic “post-install checklist” command.
+## P2 — Monitoring quality (optional, safe)
 
-**Where**:
-- `bin/linux-maint` (new subcommand)
-- docs: `docs/DARK_SITE.md`
-
-**Acceptance**:
-- `linux-maint verify-install` checks:
-  - required files exist (wrapper, lib, monitors)
-  - systemd unit files present (if installed)
-  - log/lock directories writable (or clear warnings)
-  - prints version/build info
-- Exits non-zero only on hard failures.
-
-**Verify**:
-- Test in repo mode + installed mode best-effort.
-
----
-
-## P1 — Operator UX (single host)
-
-### P1.1 Add `linux-maint pack-logs` (support bundle) (DONE)
-**Why**: in air-gapped incidents, exporting a bundle for review/transfer is extremely useful.
-
-**Where**:
-- `bin/linux-maint` (new subcommand)
-- new tool script under `tools/`
-
-**Acceptance**:
-- Produces a tar.gz containing:
-  - latest full log + latest summary log + latest summary json (if exists)
-  - `/etc/linux_maint/*` (redact secrets if present)
-  - `BUILD_INFO`, `VERSION`
-- Output path printed.
-
-**Verify**:
-- Test in repo mode using `.logs` fixtures.
-
----
-
-### P1.2 Extend `linux-maint doctor` for common offline issues (DONE)
-**Why**: dark-site users hit missing deps/misconfig and can’t “just google it”.
-
-**Where**:
-- `bin/linux-maint doctor`
-- `docs/reference.md`
-
-**Acceptance**:
-- Doctor checks and prints actionable hints for:
-  - missing `/etc/linux_maint/servers.txt` / empty targets
-  - missing baselines (ports/users/configs) and how to generate
-  - missing tools (curl/openssl/df/etc.) and distro-specific package hints (best-effort)
-
-**Verify**:
-- Add test that runs doctor in repo mode.
-
----
-
-### P1.3 Add `linux-maint explain reason <token>` (DONE)
-**Why**: makes `reason=` tokens self-serve.
-
-**Where**:
-- `bin/linux-maint`
-- `docs/REASONS.md`
-
-**Acceptance**:
-- Prints matching section (or closest match) from `docs/REASONS.md`.
-
-**Verify**:
-- Test: `linux-maint explain reason ssh_unreachable` returns non-empty.
-
----
-
-## P2 — Monitoring quality improvements (single host)
-
-### P2.1 Service monitor: report failed units (systemd) (DONE)
-**Why**: on single hosts, “something failed and got restarted” matters.
-
-**Where**:
-- `monitors/service_monitor.sh`
-
-**Acceptance**:
-- Optional config enables checking `systemctl --failed`.
-- Summary includes `failed_units=<n>` and `reason=failed_units` when non-zero.
-
-**Verify**:
-- Test with fixture output (mock systemctl via PATH shim).
-
----
-
-### P2.2 Disk trend monitor: inode trend (DONE)
-**Why**: inode exhaustion is common and looks like “disk full” failures.
+### P2.1 Disk trend monitor: surface inode metrics in summary (optional) (NOT DONE)
+**Why**: we now collect inode state (optional), but summary still only reports space trend counters.
 
 **Where**:
 - `monitors/disk_trend_monitor.sh`
 
 **Acceptance**:
-- Optional inode baseline/trend similar to space trend.
-- Summary includes inode usage metrics.
+- When `LM_DISK_TREND_INODES=1`, include a small, parse-safe inode rollup in summary, e.g. `inode_mounts=<n>` and `inode_max_used_pct=<n>` (or similar).
+- Keep summary line short; avoid listing per-mount details.
 
 **Verify**:
-- Fixture-based test.
+- Extend `tests/disk_trend_inode_trend_test.sh` to assert the new inode summary keys.
 
 ---
 
-### P2.3 NTP drift monitor: chrony parsing robustness (DONE)
-**Why**: reduce UNKNOWN on chrony-based systems.
+## P3 — DX / release polish
 
-**Where**:
-- `monitors/ntp_drift_monitor.sh`
-
-**Acceptance**:
-- Better detection and parsing of chrony outputs.
-
-**Verify**:
-- Tests with fixture strings.
-
----
-
-## P3 — Release / CI / DX polish
-
-### P3.1 Makefile target for offline artifacts: `make release-tarball` (DONE)
-**Why**: standard entrypoint for maintainers; helpful even offline.
+### P3.1 Make target for hooks install: `make install-githooks` (NOT DONE)
+**Why**: now that `tools/install_githooks.sh` exists, a make alias is a small QoL for contributors.
 
 **Where**:
 - `Makefile`
 
 **Acceptance**:
-- `make release-tarball` calls `tools/make_tarball.sh` and prints artifact paths.
-
-**Verify**:
-- Run target locally.
-
----
-
-### P3.2 CI failure artifact upload (logs) (DONE)
-**Why**: when CI fails, having logs as artifacts saves time.
-
-**Where**:
-- `.github/workflows/ci.yml`
-
-**Acceptance**:
-- On failure, upload `.logs/` and any produced summary artifacts.
-
-**Verify**:
-- Validate workflow yaml.
-
----
-
-### P3.3 Git hooks helper: `./tools/install_githooks.sh` (DONE)
-**Why**: contributors forget to enable hooks; small QoL.
-
-**Where**:
-- `tools/`
-
-**Acceptance**:
-- Installs hooks from `.githooks/` into `.git/hooks/` idempotently.
+- `make install-githooks` runs `./tools/install_githooks.sh`.
+- Mentioned in `make help`.
 
 **Verify**:
 - Running twice is safe.
-
