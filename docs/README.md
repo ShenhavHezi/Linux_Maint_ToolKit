@@ -1,30 +1,9 @@
+echo "##active_line2##"
 # Documentation
+echo "##active_line3##"
 
-This directory contains the extended documentation for **linux-maint**.
+echo "##active_line4##"
+Start here: [`docs/INDEX.md`](INDEX.md)
+echo "##active_line5##"
 
-## Start here
-
-- **Main overview + quickstart**: see the repository [`README.md`](../README.md)
-- **Full reference** (detailed): [`reference.md`](reference.md)
-
-## What’s in the reference
-
-`reference.md` includes:
-- monitor reference (what each script checks)
-- tuning knobs and per-monitor configuration
-- configuration files under `/etc/linux_maint/`
-- offline/air-gapped installation notes
-- development/CI notes
-- upgrading, uninstall, log rotation
-
-
-## Developer hooks (optional)
-
-This repo includes optional git hooks under `.githooks/`.
-To enable them locally:
-
-```bash
-git config core.hooksPath .githooks
-```
-
-The `pre-push` hook ensures `summarize.txt` autogen sections are up to date.
+echo "##active_line6##"
