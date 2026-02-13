@@ -3,16 +3,36 @@
 `linux-maint` is a lightweight health/maintenance toolkit for Linux administrators.
 Run it locally or from a monitoring node over SSH, get structured logs + a simple OK/WARN/CRIT summary.
 
+## Table of Contents
 
-## What you get
+- [Docs / references](#docs--references)
+- [What you get](#what-you-get)
+- [What it does](#what-it-does)
+- [Supported environments (high level)](#supported-environments-high-level)
+- [Requirements (minimal)](#requirements-minimal)
+- [Dark-site / offline (air-gapped) use](#dark-site--offline-air-gapped-use)
+- [Quickstart](#quickstart)
+  - [Local run (from the repo)](#local-run-from-the-repo)
+  - [Distributed run (monitoring node)](#distributed-run-monitoring-node)
+- [Install (recommended)](#install-recommended)
+- [Configuration (the 3 files you’ll touch first)](#configuration-the-3-files-youll-touch-first)
+- [How to read results](#how-to-read-results)
+  - [Example: status output (compact)](#example-status-output-compact)
+  - [Artifacts produced (installed mode)](#artifacts-produced-installed-mode)
+  - [Summary contract (for automation)](#summary-contract-for-automation)
+- [Common knobs](#common-knobs)
+- [Operator quick reference](#operator-quick-reference)
+- [Full reference](#full-reference)
 
-**Docs / references:**
+## Docs / references
+
 - Start here: [`docs/INDEX.md`](docs/INDEX.md)
 - Operator cheat-sheet: [`docs/QUICK_REFERENCE.md`](docs/QUICK_REFERENCE.md)
 - Full reference (config/monitors/output): [`docs/reference.md`](docs/reference.md)
 - Offline / air-gapped: [`docs/DARK_SITE.md`](docs/DARK_SITE.md)
 - Reason tokens: [`docs/REASONS.md`](docs/REASONS.md)
 
+## What you get
 
 - **Standardized summary contract** per monitor (`monitor=... host=... status=... reason=...`) for automation.
 - **Hardened wrapper**: if a monitor fails without emitting a summary line, the wrapper emits `status=UNKNOWN reason=no_summary_emitted`.
@@ -21,7 +41,6 @@ Run it locally or from a monitoring node over SSH, get structured logs + a simpl
 - **Fleet counters** derived from summary lines (`SUMMARY_HOSTS ok=.. warn=.. crit=.. unknown=.. skipped=..`).
 - Optional **Prometheus textfile** output for node_exporter.
 
-
 ## What it does
 
 - Runs a set of modular checks (disk/inodes, CPU/memory/load, services, network reachability, NTP drift, patch/reboot hints,
@@ -29,13 +48,11 @@ Run it locally or from a monitoring node over SSH, get structured logs + a simpl
 - Works **locally** or **across many hosts** via `/etc/linux_maint/servers.txt`.
 - Produces machine-parseable summary lines (`monitor=... status=...`) and an aggregated run log.
 
-
 ## Supported environments (high level)
 
 - **Linux distributions**: designed for common enterprise distros (RHEL-like, Debian/Ubuntu, SUSE-like). Some monitors auto-detect available tooling.
 - **Execution**: local host checks and/or distributed checks over SSH from a monitoring node.
 - **Schedulers**: cron or systemd timer (installer can set these up).
-
 
 ## Requirements (minimal)
 
@@ -57,7 +74,6 @@ Typical workflow:
 Full offline install steps: [`docs/DARK_SITE.md`](docs/DARK_SITE.md).
 
 Release/version tracking notes and deeper configuration reference: [`docs/reference.md`](docs/reference.md).
-
 
 ## Quickstart
 
@@ -113,9 +129,7 @@ Templates are in `etc/linux_maint/*.example`; installed configs live in `/etc/li
 
 ## How to read results
 
-
 Reason tokens reference: [`docs/REASONS.md`](docs/REASONS.md).
-
 
 ### Example: status output (compact)
 
@@ -135,7 +149,6 @@ Tips:
 - `sudo linux-maint status --verbose` for raw summary lines
 - `sudo linux-maint diff` to show changes since the last run
 - `sudo linux-maint status --problems 100` to list more problems (max 100)
-
 
 - **Exit codes** (wrapper): `0 OK`, `1 WARN`, `2 CRIT`, `3 UNKNOWN`
 - Logs:
@@ -187,24 +200,6 @@ Details in [`docs/reference.md`](docs/reference.md).
 - `LM_NOTIFY` (wrapper-level per-run email summary; default `0` / off)
 - `LM_SSH_OPTS` (e.g. `-o BatchMode=yes -o ConnectTimeout=3`)
 - `LM_LOCAL_ONLY=true` (force local-only; used in CI)
-
-## Table of Contents
-
-- [What it does](#what-it-does)
-- [Supported environments (high level)](#supported-environments-high-level)
-- [Requirements (minimal)](#requirements-minimal)
-- [Dark-site / offline (air-gapped) use](docs/DARK_SITE.md)
-- [Quickstart](#quickstart)
--   [Local run (from the repo)](#local-run-from-the-repo)
--   [Distributed run (monitoring node)](#distributed-run-monitoring-node)
-- [Install (recommended)](#install-recommended)
-- [Configuration (the 3 files you’ll touch first)](#configuration-the-3-files-youll-touch-first)
-- [How to read results](#how-to-read-results)
--   [Summary contract (for automation)](#summary-contract-for-automation)
-- [Common knobs](#common-knobs)
-- [Full reference](docs/reference.md)
-
-
 
 ## Operator quick reference
 
