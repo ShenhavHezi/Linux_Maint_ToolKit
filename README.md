@@ -15,6 +15,7 @@ Run it locally or from a monitoring node over SSH, get structured logs + a simpl
 - [Quickstart](#quickstart)
   - [Local run (from the repo)](#local-run-from-the-repo)
   - [Distributed run (monitoring node)](#distributed-run-monitoring-node)
+- [Common operator workflows](#common-operator-workflows)
 - [Install (recommended)](#install-recommended)
 - [Configuration (the 3 files you’ll touch first)](#configuration-the-3-files-youll-touch-first)
 - [How to read results](#how-to-read-results)
@@ -124,6 +125,39 @@ printf '%s
 ' server-a server-b server-c | sudo tee /etc/linux_maint/servers.txt
 sudo /usr/local/sbin/run_full_health_monitor.sh
 ```
+
+## Common operator workflows
+
+### Run and review (single host)
+
+```bash
+sudo ./run_full_health_monitor.sh
+sudo ./bin/linux-maint status
+```
+
+### Run a fleet (SSH / monitoring node)
+
+```bash
+sudo linux-maint run --group prod --parallel 10
+sudo linux-maint status
+```
+
+### See what changed since last run
+
+```bash
+sudo linux-maint diff
+```
+
+### Troubleshoot / gather support bundle (offline-friendly)
+
+```bash
+sudo linux-maint doctor
+sudo linux-maint pack-logs --out /tmp
+```
+
+Notes:
+- Full CLI reference: [`docs/reference.md`](docs/reference.md)
+- Reason tokens: [`docs/REASONS.md`](docs/REASONS.md)
 
 ## Install (recommended)
 
