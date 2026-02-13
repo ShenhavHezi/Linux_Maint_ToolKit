@@ -25,6 +25,9 @@ Run it locally or from a monitoring node over SSH, get structured logs + a simpl
 - [Full reference](#full-reference)
 
 ## Docs / references
+- Changelog: [`CHANGELOG.md`](CHANGELOG.md)
+- Security policy: [`SECURITY.md`](SECURITY.md)
+- License: [`LICENSE`](LICENSE)
 
 - Start here: [`docs/INDEX.md`](docs/INDEX.md)
 - Operator cheat-sheet: [`docs/QUICK_REFERENCE.md`](docs/QUICK_REFERENCE.md)
