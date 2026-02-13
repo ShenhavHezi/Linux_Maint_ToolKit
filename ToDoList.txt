@@ -201,7 +201,7 @@ Rules:
 
 ---
 
-### P3.3 Git hooks helper: `./tools/install_githooks.sh` (NOT DONE)
+### P3.3 Git hooks helper: `./tools/install_githooks.sh` (DONE)
 **Why**: contributors forget to enable hooks; small QoL.
 
 **Where**:

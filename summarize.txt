@@ -347,3 +347,9 @@ echo "##active_line3##"
 echo "##active_line4##"
 - tests: add ntp_chrony_parsing_variants_test.sh (fixture strings) and wire into smoke.
 echo "##active_line5##"
+
+echo "##active_line2##"
+2026-02-13
+echo "##active_line3##"
+- tools: add install_githooks.sh to install .githooks/* into .git/hooks/ idempotently (backs up existing hooks once).
+echo "##active_line4##"
