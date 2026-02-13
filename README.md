@@ -5,12 +5,12 @@ Run it locally or from a monitoring node over SSH, get structured logs + a simpl
 
 ## Table of Contents
 
-- [Docs / references](#docs--references)
+- [Docs / references](#docs-references)
 - [What you get](#what-you-get)
 - [What it does](#what-it-does)
 - [Supported environments (high level)](#supported-environments-high-level)
 - [Requirements (minimal)](#requirements-minimal)
-- [Dark-site / offline (air-gapped) use](#dark-site--offline-air-gapped-use)
+- [Dark-site / offline (air-gapped) use](#dark-site-offline-air-gapped-use)
 - [Quickstart](#quickstart)
   - [Local run (from the repo)](#local-run-from-the-repo)
   - [Distributed run (monitoring node)](#distributed-run-monitoring-node)
@@ -21,6 +21,7 @@ Run it locally or from a monitoring node over SSH, get structured logs + a simpl
   - [Artifacts produced (installed mode)](#artifacts-produced-installed-mode)
   - [Summary contract (for automation)](#summary-contract-for-automation)
 - [Common knobs](#common-knobs)
+- [Contributing](#contributing)
 - [Operator quick reference](#operator-quick-reference)
 - [Full reference](#full-reference)
 
@@ -200,6 +201,10 @@ Details in [`docs/reference.md`](docs/reference.md).
 - `LM_NOTIFY` (wrapper-level per-run email summary; default `0` / off)
 - `LM_SSH_OPTS` (e.g. `-o BatchMode=yes -o ConnectTimeout=3`)
 - `LM_LOCAL_ONLY=true` (force local-only; used in CI)
+
+## Contributing
+
+For developers/contributors: see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Operator quick reference
 
