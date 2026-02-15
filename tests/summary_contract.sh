@@ -55,8 +55,6 @@ export LM_LOCAL_ONLY="true"
 export LM_INVENTORY_OUTPUT_DIR="/tmp/linux_maint_inventory"
 mkdir -p "$LM_INVENTORY_OUTPUT_DIR" "$LM_CFG_DIR" >/dev/null 2>&1 || true
 printf 'localhost\n' > "$LM_SERVERLIST"
-printf 'localhost
-' > "$LM_SERVERLIST"
 : > "$LM_EXCLUDED"
 
 fail=0

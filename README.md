@@ -254,3 +254,4 @@ Details in [`docs/reference.md`](docs/reference.md).
 - `LM_NOTIFY` (wrapper-level per-run email summary; default `0` / off)
 - `LM_SSH_OPTS` (e.g. `-o BatchMode=yes -o ConnectTimeout=3`)
 - `LM_LOCAL_ONLY=true` (force local-only; used in CI)
+- `LM_DARK_SITE=true` (optional profile: defaults `LM_LOCAL_ONLY=true`, `LM_NOTIFY_ONLY_ON_CHANGE=1`, `MONITOR_TIMEOUT_SECS=300` unless explicitly overridden)

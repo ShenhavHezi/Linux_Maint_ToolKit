@@ -99,6 +99,12 @@ Mail transport auto-detection:
 - uses `mail` if available
 - otherwise uses `sendmail`
 
+Dark-site wrapper profile:
+- `LM_DARK_SITE=true` enables conservative wrapper defaults without breaking explicit overrides:
+  - `LM_LOCAL_ONLY=true`
+  - `LM_NOTIFY_ONLY_ON_CHANGE=1`
+  - `MONITOR_TIMEOUT_SECS=300` (instead of the regular wrapper default `600`)
+
 
 Most defaults below are taken directly from the scripts (current repository version).
 
