@@ -175,7 +175,10 @@ See: [`etc/linux_maint/README.md`](etc/linux_maint/README.md) for a quick overvi
 
 - `servers.txt` — target hosts for SSH mode
 - `services.txt` — services to verify
-- `network_targets.txt` — optional reachability checks
+- `network_targets.txt` — optional reachability checks (if missing/empty, wrapper emits `SKIP` for `network_monitor`)
+
+Dark-site tip:
+- In air-gapped environments, keep `network_targets.txt` absent until you have internal targets to test; `network_monitor` will be auto-skipped with a clear `reason=missing:...` summary line.
 
 ## How to read results
 

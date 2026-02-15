@@ -362,3 +362,12 @@ echo "##active_line4##"
 - cli/status: include `host=...` context in compact problem lines and JSON problem entries to improve triage/automation readability.
 - tests: add `tests/status_filters_test.sh` regression coverage for filtered compact + JSON outputs.
 - docs: update `README.md`, `docs/reference.md`, and `docs/QUICK_REFERENCE.md` with new status filtering examples/flags.
+
+## 2026-02-15
+- wrapper: make config-gate SKIP checks use `CFG_DIR` (from `LM_CFG_DIR`) instead of hardcoded `/etc/linux_maint`, improving repo/unprivileged and dark-site runs.
+- wrapper: auto-SKIP `network_monitor` when `network_targets.txt` is missing/empty, reducing noise in dark-site environments.
+- tests: add `tests/wrapper_network_targets_skip_test.sh` to validate network monitor SKIP behavior with custom `LM_CFG_DIR`.
+- docs: update dark-site/reference/README guidance for optional `network_targets.txt` behavior.
+- tests: fix `wrapper_network_targets_skip_test.sh` to avoid `ls` parsing (SC2012) by using `find ... | sort | tail -n 1` for latest log selection.
+=======
+

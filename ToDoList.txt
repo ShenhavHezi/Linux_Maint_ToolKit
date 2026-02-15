@@ -99,3 +99,21 @@
 
 **Verify**:
 - Extend `tests/status_filters_test.sh` with positive + negative cases for the new mode(s).
+
+### P1.2 Dark-site profile switch (NOT DONE)
+**Why**: operators in air-gapped environments often want a single simple toggle to keep network-facing checks conservative.
+
+**Where**:
+- `etc/linux_maint/linux-maint.conf.example`
+- `run_full_health_monitor.sh`
+- `docs/DARK_SITE.md`
+
+**Acceptance**:
+- Add an optional dark-site profile flag (for example `LM_DARK_SITE=true`) that keeps defaults simple/safe for offline environments.
+- Ensure behavior remains backward-compatible when flag is unset.
+- Document exactly what the profile changes.
+
+**Verify**:
+- Add tests that confirm profile-on behavior and unchanged defaults when profile is off.
+=======
+
