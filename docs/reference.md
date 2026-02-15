@@ -99,6 +99,12 @@ Mail transport auto-detection:
 - uses `mail` if available
 - otherwise uses `sendmail`
 
+Dark-site wrapper profile:
+- `LM_DARK_SITE=true` enables conservative wrapper defaults without breaking explicit overrides:
+  - `LM_LOCAL_ONLY=true`
+  - `LM_NOTIFY_ONLY_ON_CHANGE=1`
+  - `MONITOR_TIMEOUT_SECS=300` (instead of the regular wrapper default `600`)
+
 
 Most defaults below are taken directly from the scripts (current repository version).
 
@@ -298,6 +304,8 @@ Status flags (installed mode):
 - `--verbose` — show raw summary lines
 - `--problems N` — number of problem entries to display (default 20, max 100)
 - `--only OK|WARN|CRIT|UNKNOWN|SKIP` — filter by status
+- `--host PATTERN` — show only entries where `host` contains `PATTERN`
+- `--monitor PATTERN` — show only entries where `monitor` contains `PATTERN`
 
 
 - `linux-maint logs [n]` *(root required)*: tail the latest wrapper log (default `n=200`).
@@ -313,6 +321,8 @@ Status flags (installed mode):
 - `linux-maint uninstall [args]`: run `./install.sh --uninstall` from a checkout (pass-through).
 
 - `linux-maint make-tarball`: build an offline tarball (see below).
+
+- `linux-maint deps`: print an offline dependency manifest by monitor (required vs optional commands + local availability counters).
 
 
 
@@ -406,7 +416,7 @@ That wrapper executes these scripts (in order):
 
 - `health_monitor.sh` – snapshot: uptime, load, CPU/mem, disk usage, top processes
 - `inode_monitor.sh` – inode usage thresholds
-- `network_monitor.sh` – ping/tcp/http checks from `/etc/linux_maint/network_targets.txt`
+- `network_monitor.sh` – ping/tcp/http checks from `/etc/linux_maint/network_targets.txt` (wrapper SKIPs when file is missing/empty)
 - `service_monitor.sh` – critical service status from `/etc/linux_maint/services.txt`
 - `ntp_drift_monitor.sh` – NTP/chrony/timesyncd sync and drift
 - `patch_monitor.sh` – pending updates + reboot-required hints
