@@ -190,15 +190,16 @@ $ sudo linux-maint status
 totals: CRIT=1 WARN=2 UNKNOWN=0 SKIP=1 OK=14
 
 problems:
-CRIT ntp_drift_monitor reason=ntp_drift_high
-WARN patch_monitor reason=security_updates_pending
-SKIP backup_check reason=missing_targets_file
+CRIT ntp_drift_monitor host=server-a reason=ntp_drift_high
+WARN patch_monitor host=server-a reason=security_updates_pending
+SKIP backup_check host=server-a reason=missing_targets_file
 ```
 
 Tips:
 - `sudo linux-maint status --verbose` for raw summary lines
 - `sudo linux-maint diff` to show changes since the last run
 - `sudo linux-maint status --problems 100` to list more problems (max 100)
+- `sudo linux-maint status --host web --monitor service --only WARN` to narrow noisy output quickly
 
 - **Exit codes** (wrapper): `0 OK`, `1 WARN`, `2 CRIT`, `3 UNKNOWN`
 - Logs:
