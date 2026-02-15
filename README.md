@@ -88,6 +88,8 @@ Typical workflow:
 
 Full offline install steps: [`docs/DARK_SITE.md`](docs/DARK_SITE.md).
 
+Day-0 tip: use the bootstrap checklist in `docs/DARK_SITE.md` (minimum required files + normal expected `SKIP` statuses on first run).
+
 Release/version tracking notes and deeper configuration reference: [`docs/reference.md`](docs/reference.md).
 
 ## Quickstart
@@ -152,6 +154,7 @@ sudo linux-maint diff
 
 ```bash
 sudo linux-maint doctor
+sudo linux-maint deps
 sudo linux-maint pack-logs --out /tmp
 ```
 
@@ -175,7 +178,10 @@ See: [`etc/linux_maint/README.md`](etc/linux_maint/README.md) for a quick overvi
 
 - `servers.txt` — target hosts for SSH mode
 - `services.txt` — services to verify
-- `network_targets.txt` — optional reachability checks
+- `network_targets.txt` — optional reachability checks (if missing/empty, wrapper emits `SKIP` for `network_monitor`)
+
+Dark-site tip:
+- In air-gapped environments, keep `network_targets.txt` absent until you have internal targets to test; `network_monitor` will be auto-skipped with a clear `reason=missing:...` summary line.
 
 ## How to read results
 
@@ -190,15 +196,16 @@ $ sudo linux-maint status
 totals: CRIT=1 WARN=2 UNKNOWN=0 SKIP=1 OK=14
 
 problems:
-CRIT ntp_drift_monitor reason=ntp_drift_high
-WARN patch_monitor reason=security_updates_pending
-SKIP backup_check reason=missing_targets_file
+CRIT ntp_drift_monitor host=server-a reason=ntp_drift_high
+WARN patch_monitor host=server-a reason=security_updates_pending
+SKIP backup_check host=server-a reason=missing_targets_file
 ```
 
 Tips:
 - `sudo linux-maint status --verbose` for raw summary lines
 - `sudo linux-maint diff` to show changes since the last run
 - `sudo linux-maint status --problems 100` to list more problems (max 100)
+- `sudo linux-maint status --host web --monitor service --only WARN` to narrow noisy output quickly
 
 - **Exit codes** (wrapper): `0 OK`, `1 WARN`, `2 CRIT`, `3 UNKNOWN`
 - Logs:
@@ -250,3 +257,4 @@ Details in [`docs/reference.md`](docs/reference.md).
 - `LM_NOTIFY` (wrapper-level per-run email summary; default `0` / off)
 - `LM_SSH_OPTS` (e.g. `-o BatchMode=yes -o ConnectTimeout=3`)
 - `LM_LOCAL_ONLY=true` (force local-only; used in CI)
+- `LM_DARK_SITE=true` (optional profile: defaults `LM_LOCAL_ONLY=true`, `LM_NOTIFY_ONLY_ON_CHANGE=1`, `MONITOR_TIMEOUT_SECS=300` unless explicitly overridden)

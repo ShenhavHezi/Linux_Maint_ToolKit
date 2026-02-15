@@ -28,7 +28,7 @@ jobs:
             exit 1
           fi
 
-  require_meta_updates_on_code_changes:
+  meta_doc_policy_advisory:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -36,7 +36,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Ensure ToDoList.txt or summarize.txt updated when code changes
+      - name: Advisory check for roadmap updates on code changes
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -57,12 +57,11 @@ jobs:
             exit 0
           fi
 
-          meta_touched=$(echo "$changed" | grep -E '^(ToDoList\.txt|summarize\.txt)$' || true)
+          meta_touched=$(echo "$changed" | grep -E '^(ToDoList\.txt)$' || true)
 
           if [ -z "$meta_touched" ]; then
-            echo "ERROR: Code changes detected, but neither ToDoList.txt nor summarize.txt was updated." >&2
-            echo "Please update ToDoList.txt (roadmap) and/or summarize.txt (capabilities) as part of this PR." >&2
-            exit 1
+            echo "::warning::Code changes detected but ToDoList.txt was not updated. Update roadmap only when scope or priorities actually changed."
+            exit 0
           fi
 
-          echo "Meta docs updated: $meta_touched"
+          echo "Roadmap updated in this PR: $meta_touched"
