@@ -193,20 +193,25 @@ run_one() {
     return 0
   }
 
-  # Skip monitors that require config/baselines unless present
+  # Skip monitors that require optional config/baselines unless present.
+  # Use CFG_DIR so repo/unprivileged runs and dark-site deployments can keep
+  # local config without writing to /etc.
   case "$s" in
     cert_monitor.sh)
-      [ -s /etc/linux_maint/certs.txt ] || { skip_monitor "missing:/etc/linux_maint/certs.txt"; }
+      [ -s "$CFG_DIR/certs.txt" ] || { skip_monitor "missing:$CFG_DIR/certs.txt"; }
+      ;;
+    network_monitor.sh)
+      [ -s "$CFG_DIR/network_targets.txt" ] || { skip_monitor "missing:$CFG_DIR/network_targets.txt"; }
       ;;
     ports_baseline_monitor.sh)
-      [ -s /etc/linux_maint/ports_baseline.txt ] || { skip_monitor "missing:/etc/linux_maint/ports_baseline.txt"; }
+      [ -s "$CFG_DIR/ports_baseline.txt" ] || { skip_monitor "missing:$CFG_DIR/ports_baseline.txt"; }
       ;;
     config_drift_monitor.sh)
-      [ -s /etc/linux_maint/config_paths.txt ] || { skip_monitor "missing:/etc/linux_maint/config_paths.txt"; }
+      [ -s "$CFG_DIR/config_paths.txt" ] || { skip_monitor "missing:$CFG_DIR/config_paths.txt"; }
       ;;
     user_monitor.sh)
-      [ -s /etc/linux_maint/baseline_users.txt ] || { skip_monitor "missing:/etc/linux_maint/baseline_users.txt"; }
-      [ -s /etc/linux_maint/baseline_sudoers.txt ] || { skip_monitor "missing:/etc/linux_maint/baseline_sudoers.txt"; }
+      [ -s "$CFG_DIR/baseline_users.txt" ] || { skip_monitor "missing:$CFG_DIR/baseline_users.txt"; }
+      [ -s "$CFG_DIR/baseline_sudoers.txt" ] || { skip_monitor "missing:$CFG_DIR/baseline_sudoers.txt"; }
       ;;
   esac
 

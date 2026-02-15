@@ -14,7 +14,7 @@
 
 ## P0 — Contract / correctness
 
-### P0.1 Make summary_contract.sh robust to unprivileged baseline monitors (NOT DONE)
+### P0.1 Make summary_contract.sh robust to unprivileged baseline monitors (DONE 2026-02-15)
 **Why**: `tests/summary_contract.sh` currently fails in unprivileged mode on `ports_baseline_monitor.sh` due to baseline dir permission errors, even though `tests/monitor_summary_emission_test.sh` already sets `LM_CFG_DIR` to avoid this.
 
 **Where**:
@@ -26,6 +26,7 @@
 
 **Verify**:
 - Running `bash tests/summary_contract.sh` succeeds as non-root.
+- ✅ Implemented: `tests/summary_contract.sh` now creates a writable `LM_CFG_DIR` with localhost hostlist so per-host monitors emit contract `monitor=` lines in unprivileged CI.
 
 ---
 
@@ -83,3 +84,35 @@
 
 **Verify**:
 - Running twice is safe.
+
+### P1.1 Status filtering: support regex / exact-match mode (NOT DONE)
+**Why**: current `--host` and `--monitor` use substring matching only; operators may want exact or regex matching for stricter automation.
+
+**Where**:
+- `bin/linux-maint`
+- `docs/reference.md`
+- `tests/status_filters_test.sh`
+
+**Acceptance**:
+- Add optional status flags for explicit match modes (for example `--host-regex`, `--monitor-regex`, or `--exact`).
+- Keep existing substring behavior fully backward-compatible.
+- JSON and compact outputs must apply the same matching semantics.
+
+**Verify**:
+- Extend `tests/status_filters_test.sh` with positive + negative cases for the new mode(s).
+
+### P1.2 Dark-site profile switch (NOT DONE)
+**Why**: operators in air-gapped environments often want a single simple toggle to keep network-facing checks conservative.
+
+**Where**:
+- `etc/linux_maint/linux-maint.conf.example`
+- `run_full_health_monitor.sh`
+- `docs/DARK_SITE.md`
+
+**Acceptance**:
+- Add an optional dark-site profile flag (for example `LM_DARK_SITE=true`) that keeps defaults simple/safe for offline environments.
+- Ensure behavior remains backward-compatible when flag is unset.
+- Document exactly what the profile changes.
+
+**Verify**:
+- Add tests that confirm profile-on behavior and unchanged defaults when profile is off.

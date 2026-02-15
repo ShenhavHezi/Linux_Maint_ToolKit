@@ -348,6 +348,8 @@ case "$cmd" in
     PROB_N=20
     JSON=0
     LAST_N=0
+    HOST_FILTER=""
+    MONITOR_FILTER=""
 
 
     while [[ $# -gt 0 ]]; do
@@ -357,10 +359,12 @@ case "$cmd" in
         --verbose) VERBOSE=1; shift 1;;
         --quiet) QUIET=1; shift 1;;
         --json) JSON=1; shift 1;;
+        --host) HOST_FILTER="$2"; shift 2;;
+        --monitor) MONITOR_FILTER="$2"; shift 2;;
         --problems) PROB_N="$2"; shift 2;;
         --last) LAST_N="$2"; shift 2;;
         -h|--help)
-          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--tail N] [--verbose] [--quiet] [--json] [--problems N (max 100)] [--last N]"
+          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--tail N] [--verbose] [--quiet] [--json] [--problems N (max 100)] [--last N]"
           exit 0;;
         *) echo "Unknown status flag: $1" >&2; exit 2;;
       esac
@@ -410,10 +414,10 @@ case "$cmd" in
         summary_file="$INST_SUMMARY_LATEST"
       fi
 
-      python3 - "$MODE" "$status_file" "$summary_file" "$ONLY" "$PROB_N" <<'PY'
+      python3 - "$MODE" "$status_file" "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" <<'PY'
 import json, os, re, sys
 
-mode, status_path, summary_path, only, limit = sys.argv[1:6]
+mode, status_path, summary_path, only, limit, host_filter, monitor_filter = sys.argv[1:8]
 limit=int(limit)
 
 def read_kv(path):
@@ -444,13 +448,19 @@ if summary_path and os.path.exists(summary_path):
             if not line.startswith('monitor='):
                 continue
             st=get_kv(line,'status') or 'UNKNOWN'
+            host=get_kv(line,'host') or ''
+            monitor=get_kv(line,'monitor') or ''
             if only and st != only:
+                continue
+            if host_filter and host_filter not in host:
+                continue
+            if monitor_filter and monitor_filter not in monitor:
                 continue
             counts[st]=counts.get(st,0)+1
             if st!='OK':
-                mon=get_kv(line,'monitor') or 'unknown_monitor'
+                mon=monitor or 'unknown_monitor'
                 reason=get_kv(line,'reason')
-                entry={'status':st,'monitor':mon}
+                entry={'status':st,'monitor':mon,'host':host}
                 if reason:
                     entry['reason']=reason
                 problems.append(entry)
@@ -519,12 +529,45 @@ PY
     if [[ -f "$summary_file" ]]; then
       if [[ "$VERBOSE" -eq 1 ]]; then
         echo "(verbose; last $TAIL_N lines from: $summary_file)"
-        tail -n "$TAIL_N" "$summary_file" || true
+        if [[ -n "$ONLY" || -n "$HOST_FILTER" || -n "$MONITOR_FILTER" ]]; then
+          python3 - "$summary_file" "$TAIL_N" "$ONLY" "$HOST_FILTER" "$MONITOR_FILTER" <<'PY'
+import re, sys
+
+path, tail_n, only, host_filter, monitor_filter = sys.argv[1:6]
+tail_n=int(tail_n)
+
+def get_kv(line, key):
+    m=re.search(rf"\b{re.escape(key)}=([^ ]+)", line)
+    return m.group(1) if m else None
+
+matched=[]
+with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+    for line in f:
+        line=line.strip()
+        if not line.startswith('monitor='):
+            continue
+        st=get_kv(line,'status') or 'UNKNOWN'
+        host=get_kv(line,'host') or ''
+        monitor=get_kv(line,'monitor') or ''
+        if only and st != only:
+            continue
+        if host_filter and host_filter not in host:
+            continue
+        if monitor_filter and monitor_filter not in monitor:
+            continue
+        matched.append(line)
+
+for line in matched[-tail_n:]:
+    print(line)
+PY
+        else
+          tail -n "$TAIL_N" "$summary_file" || true
+        fi
       else
         [[ "$QUIET" -eq 0 ]] && echo "(from: $summary_file)"
-        python3 - "$summary_file" "$ONLY" "$PROB_N" <<'PY'
+        python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" <<'PY'
 import re, sys
-path, only, limit = sys.argv[1:4]
+path, only, limit, host_filter, monitor_filter = sys.argv[1:6]
 limit=int(limit)
 
 # Example line:
@@ -542,18 +585,24 @@ with open(path, 'r', encoding='utf-8', errors='ignore') as f:
         if not line:
             continue
         st=get_kv(line,'status') or 'UNKNOWN'
+        host=get_kv(line,'host') or ''
+        monitor=get_kv(line,'monitor') or ''
         if only and st != only:
+            continue
+        if host_filter and host_filter not in host:
+            continue
+        if monitor_filter and monitor_filter not in monitor:
             continue
         counts[st]=counts.get(st,0)+1
         if st == 'OK':
             continue
-        mon=get_kv(line,'monitor') or 'unknown_monitor'
+        mon=monitor or 'unknown_monitor'
         reason=get_kv(line,'reason')
         # Format D: "STATUS monitor reason=..." (reason only if exists)
         if reason:
-            problems.append(f"{st} {mon} reason={reason}")
+            problems.append(f"{st} {mon} host={host} reason={reason}")
         else:
-            problems.append(f"{st} {mon}")
+            problems.append(f"{st} {mon} host={host}")
 
 order=['CRIT','WARN','UNKNOWN','SKIP','OK']
 print('totals: ' + ' '.join(f"{k}={counts.get(k,0)}" for k in order))

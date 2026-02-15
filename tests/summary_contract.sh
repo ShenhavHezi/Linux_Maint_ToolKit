@@ -33,12 +33,18 @@ export LM_LOGFILE="/tmp/linux_maint_contract_test.log"
 export LM_EMAIL_ENABLED="false"
 export LM_STATE_DIR="/tmp"
 export LM_SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=3"
-# Force local-only during CI contract test to avoid SSH delays/hangs
-export LM_SERVERLIST="/dev/null"
-export LM_EXCLUDED="/dev/null"
+# Force local-only during CI contract test to avoid SSH delays/hangs.
+# Use a writable config dir with localhost so per-host monitors always execute
+# and emit at least one monitor= summary line.
+export LM_CFG_DIR="${LM_CFG_DIR:-/tmp/linux_maint_cfg_contract}"
+export LM_SERVERLIST="$LM_CFG_DIR/servers.txt"
+export LM_EXCLUDED="$LM_CFG_DIR/excluded.txt"
 export LM_LOCAL_ONLY="true"
 export LM_INVENTORY_OUTPUT_DIR="/tmp/linux_maint_inventory"
-mkdir -p "$LM_INVENTORY_OUTPUT_DIR" >/dev/null 2>&1 || true
+mkdir -p "$LM_INVENTORY_OUTPUT_DIR" "$LM_CFG_DIR" >/dev/null 2>&1 || true
+printf 'localhost
+' > "$LM_SERVERLIST"
+: > "$LM_EXCLUDED"
 
 fail=0
 for m in "${monitors[@]}"; do
