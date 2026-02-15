@@ -66,9 +66,9 @@ The wrapper returns the worst exit code across executed monitors.
 
 ## Docs and changelog expectations
 
-After **every** functional change:
-- Update `ToDoList.txt` (mark done / add newly discovered items).
-- Update `summarize.txt` **only** when project capabilities/architecture meaningfully change (not for every small fix).
+Use these files intentionally to reduce merge conflicts:
+- Update `ToDoList.txt` only when roadmap scope/priority/status truly changes.
+- Update `summarize.txt` only for meaningful capability/architecture snapshots (not routine fixes).
 - If summarize autogen markers are touched, run `python3 tools/gen_summarize.py`.
 
 ## Git hooks (optional)

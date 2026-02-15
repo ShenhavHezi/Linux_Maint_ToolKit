@@ -6,34 +6,37 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Optional overrides for targeted tests/debugging.
 SUMMARY_CONTRACT_MONITORS_DIR="${SUMMARY_CONTRACT_MONITORS_DIR:-$ROOT_DIR/monitors}"
 SUMMARY_CONTRACT_MONITOR_TIMEOUT_SECS="${SUMMARY_CONTRACT_MONITOR_TIMEOUT_SECS:-45}"
+SUMMARY_CONTRACT_MONITOR_LIST_FILE="${SUMMARY_CONTRACT_MONITOR_LIST_FILE:-$ROOT_DIR/tests/summary_contract.monitors}"
 
 # Run a monitor in a minimal local environment and check it emits at least one summary line.
 # Some monitors are intentionally SKIP depending on config; those should still not break.
 
-monitors=(
-  preflight_check.sh
-  config_validate.sh
-  health_monitor.sh
-  inode_monitor.sh
-  disk_trend_monitor.sh
-  network_monitor.sh
-  service_monitor.sh
-  ntp_drift_monitor.sh
-  patch_monitor.sh
-  storage_health_monitor.sh
-  kernel_events_monitor.sh
-  cert_monitor.sh
-  nfs_mount_monitor.sh
-  ports_baseline_monitor.sh
-  config_drift_monitor.sh
-  user_monitor.sh
-  backup_check.sh
-  inventory_export.sh
-)
+load_monitor_list() {
+  local src="$1"
+  awk '
+    /^[[:space:]]*#/ { next }
+    /^[[:space:]]*$/ { next }
+    { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0); print $0 }
+  ' "$src"
+}
 
+monitors=()
 if [[ -n "${SUMMARY_CONTRACT_MONITORS:-}" ]]; then
   # shellcheck disable=SC2206
   monitors=(${SUMMARY_CONTRACT_MONITORS})
+elif [[ -f "$SUMMARY_CONTRACT_MONITOR_LIST_FILE" ]]; then
+  while IFS= read -r monitor; do
+    monitors+=("$monitor")
+  done < <(load_monitor_list "$SUMMARY_CONTRACT_MONITOR_LIST_FILE")
+else
+  while IFS= read -r monitor; do
+    monitors+=("$(basename "$monitor")")
+  done < <(find "$SUMMARY_CONTRACT_MONITORS_DIR" -maxdepth 1 -type f -name '*.sh' | sort)
+fi
+
+if [[ "${#monitors[@]}" -eq 0 ]]; then
+  echo "FAIL: no monitors selected for summary contract test" >&2
+  exit 1
 fi
 
 export LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh"
