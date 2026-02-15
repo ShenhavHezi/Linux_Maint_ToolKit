@@ -337,3 +337,4 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 - docs: document `LM_DARK_SITE` in `README.md`, `docs/reference.md`, `docs/DARK_SITE.md`, and `etc/linux_maint/linux-maint.conf.example`.
 - tests: fix ShellCheck SC2068 in `tests/wrapper_dark_site_profile_test.sh` by changing unquoted `env $@` to safe quoted forwarding `env "$@"`.
 - dark-site docs: add day-0 bootstrap checklist (minimum required files + expected first-run SKIP statuses) and link it from README for quicker offline onboarding.
+- cli: add `linux-maint deps` command to print per-monitor required/optional command manifest with local availability counters (offline-friendly); docs/tests updated.

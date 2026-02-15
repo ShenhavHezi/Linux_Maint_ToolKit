@@ -168,6 +168,7 @@ Commands:
   logs [n]            Tail latest wrapper log (default n=200)
   init                Install /etc/linux_maint templates (from repo checkout)
   doctor              Diagnose installation/config/state permissions
+  deps                Print required/optional dependency manifest by monitor (offline-friendly)
   verify-install      Verify installation layout, permissions, and systemd wiring (best-effort)
   pack-logs [--out DIR]  Create a support bundle tar.gz (logs, config redacted, meta)
   explain reason <token>  Explain a reason= token (from docs/REASONS.md)
@@ -1013,6 +1014,55 @@ PY
     echo "- sudo linux-maint preflight"
     echo "- sudo linux-maint run"
     echo "- linux-maint pack-logs --out .  # create bundle for export"
+    ;;
+
+  deps)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for deps
+    fi
+
+    has_cmd() { command -v "$1" >/dev/null 2>&1 && echo yes || echo no; }
+
+    echo "=== linux-maint deps ==="
+    echo "mode=$MODE"
+    echo "format: monitor|required|optional|available_required|available_optional"
+
+    # monitor|required_cmds(optional space-separated)|optional_cmds(space-separated)
+    while IFS='|' read -r mon req opt; do
+      [[ -z "$mon" ]] && continue
+      req_avail=0; req_total=0
+      opt_avail=0; opt_total=0
+
+      for c in $req; do
+        req_total=$((req_total+1))
+        [[ "$(has_cmd "$c")" == "yes" ]] && req_avail=$((req_avail+1))
+      done
+      for c in $opt; do
+        opt_total=$((opt_total+1))
+        [[ "$(has_cmd "$c")" == "yes" ]] && opt_avail=$((opt_avail+1))
+      done
+
+      echo "monitor=$mon|required=${req:-none}|optional=${opt:-none}|available_required=${req_avail}/${req_total}|available_optional=${opt_avail}/${opt_total}"
+    done <<'EOF_DEPS'
+preflight_check|awk sed grep df timeout ssh|curl openssl
+config_validate|awk sed grep|none
+health_monitor|awk sed grep ps df|none
+inode_monitor|awk sed grep df|none
+disk_trend_monitor|awk sed grep df|none
+network_monitor|awk sed grep|curl
+service_monitor|awk sed grep|systemctl
+ntp_drift_monitor|awk sed grep|chronyc ntpq
+patch_monitor|awk sed grep|apt yum dnf zypper
+storage_health_monitor|awk sed grep|smartctl nvme
+kernel_events_monitor|awk sed grep|journalctl dmesg
+cert_monitor|awk sed grep|openssl
+nfs_mount_monitor|awk sed grep|showmount
+ports_baseline_monitor|awk sed grep|ss netstat
+config_drift_monitor|awk sed grep|sha256sum md5sum
+user_monitor|awk sed grep|id getent
+backup_check|awk sed grep|none
+inventory_export|awk sed grep hostname|ip lsblk lscpu
+EOF_DEPS
     ;;
 
 

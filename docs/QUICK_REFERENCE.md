@@ -31,6 +31,9 @@ sudo linux-maint logs 200
 
 # Diagnostics
 sudo linux-maint doctor
+
+# Offline dependency manifest (required vs optional tools)
+sudo linux-maint deps
 ```
 
 ## Fleet runs (monitoring node)

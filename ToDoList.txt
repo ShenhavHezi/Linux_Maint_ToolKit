@@ -62,8 +62,6 @@ This is the single backlog source of truth.
 ### P0.2 [contract] Contract test monitor timeout guard (DONE 2026-02-15)
 **Why**: if one monitor hangs in CI, `tests/summary_contract.sh` can stall too long and hide root cause.
 
-
-
 **Where**:
 - `tests/summary_contract.sh`
 
@@ -131,7 +129,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P1.3 Offline dependency manifest helper (NOT DONE)
+### P1.3 Offline dependency manifest helper (DONE 2026-02-15)
 **Why**: offline teams need a quick way to know optional tools that improve coverage.
 
 **Where**:
@@ -144,6 +142,7 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Add test that validates stable key output lines.
+- ✅ Implemented: added `linux-maint deps` command with per-monitor required/optional command matrix and local availability counters; covered by `tests/deps_manifest_test.sh` and docs updates.
 
 ---
 

@@ -322,6 +322,8 @@ Status flags (installed mode):
 
 - `linux-maint make-tarball`: build an offline tarball (see below).
 
+- `linux-maint deps`: print an offline dependency manifest by monitor (required vs optional commands + local availability counters).
+
 
 
 ### Environment
