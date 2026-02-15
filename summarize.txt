@@ -375,3 +375,8 @@ echo "##active_line4##"
 - disk_trend_monitor: fix localhost collection invocation to avoid nested `bash -lc` mis-parsing, eliminating noisy awk warnings/hangs and restoring summary output in contract tests.
 =======
 
+- tests/contract: fix `tests/summary_contract.sh` for unprivileged CI by using writable `LM_CFG_DIR` + localhost hostlist; restores stable `monitor=` emission checks.
+- disk_trend_monitor: fix localhost collection invocation to avoid nested `bash -lc` mis-parsing, eliminating noisy awk warnings/hangs and restoring summary output in contract tests.
+=======
+
+

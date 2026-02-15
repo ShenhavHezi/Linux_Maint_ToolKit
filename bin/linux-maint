@@ -952,6 +952,7 @@ PY
 
     echo "== Monitor gates (what may SKIP) =="
     [[ -s "$CFG_DIR/certs.txt" ]] || echo "SKIP gate: cert_monitor -> missing/empty $CFG_DIR/certs.txt"
+    [[ -s "$CFG_DIR/network_targets.txt" ]] || echo "SKIP gate: network_monitor -> missing/empty $CFG_DIR/network_targets.txt"
     [[ -s "$CFG_DIR/ports_baseline.txt" ]] || echo "SKIP gate: ports_baseline_monitor -> missing/empty $CFG_DIR/ports_baseline.txt"
     [[ -s "$CFG_DIR/config_paths.txt" ]] || echo "SKIP gate: config_drift_monitor -> missing/empty $CFG_DIR/config_paths.txt"
     [[ -s "$CFG_DIR/baseline_users.txt" ]] || echo "SKIP gate: user_monitor -> missing/empty $CFG_DIR/baseline_users.txt"
