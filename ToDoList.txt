@@ -148,7 +148,7 @@ This is the single backlog source of truth.
 
 ## P2 — Security / hardening
 
-### P2.1 [security] Pack-logs redaction review + tests (NOT DONE)
+### P2.1 [security] Pack-logs redaction review + tests (DONE 2026-02-15)
 **Why**: support bundles are critical in dark-site incident handoff; redaction needs explicit test coverage for sensitive patterns.
 
 **Where**:
@@ -161,6 +161,7 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Tests assert sensitive strings are absent and placeholders are present.
+- ✅ Implemented: expanded redaction patterns in `tools/pack_logs.sh` for token/password/api_key/secret/authorization variants and added coverage in `tests/pack_logs_test.sh` asserting secrets are removed while non-sensitive lines remain.
 
 ---
 
