@@ -62,6 +62,8 @@ This is the single backlog source of truth.
 ### P0.2 [contract] Contract test monitor timeout guard (DONE 2026-02-15)
 **Why**: if one monitor hangs in CI, `tests/summary_contract.sh` can stall too long and hide root cause.
 
+
+
 **Where**:
 - `tests/summary_contract.sh`
 
