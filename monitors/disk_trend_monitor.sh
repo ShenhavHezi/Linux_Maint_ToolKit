@@ -125,8 +125,10 @@ forecast_mount(){
   [ "$n" -lt "$MIN_POINTS" ] && { echo "NA NA"; return; }
 
   local first last
-  first=$(printf "%s\n" "$rows" | head -n 1)
-  last=$(printf "%s\n" "$rows" | tail -n 1)
+  # Avoid head/tail pipelines under `set -o pipefail` (can trigger SIGPIPE noise)
+  # by extracting first/last rows in awk.
+  first=$(printf "%s\n" "$rows" | awk 'NR==1{print; exit}')
+  last=$(printf "%s\n" "$rows" | awk 'END{print}')
 
   local t1 u1 t2 u2
   t1=$(echo "$first" | awk -F',' '{print $1}')
@@ -184,7 +186,7 @@ run_for_host(){
 
   local cmd out
   cmd="$(remote_collect_cmd)"
-  out="$(lm_ssh "$host" bash -lc "$cmd" 2>/dev/null || true)"
+  out="$(lm_ssh "$host" "$cmd" 2>/dev/null || true)"
   [ -z "$out" ] && { lm_summary "disk_trend_monitor" "$host" "UNKNOWN" mounts=0 note=no_df; WORST_RC=3; return 3; }
   # legacy:
   # [ -z "$out" ] && { echo "disk_trend_monitor host=$host status=UNKNOWN mounts=0 note=no_df"; WORST_RC=3; return 3; }
@@ -280,7 +282,7 @@ collect_inode_trend_for_host(){
 
   local cmd out
   cmd="$(remote_collect_inodes_cmd)"
-  out="$(lm_ssh "$host" bash -lc "$cmd" 2>/dev/null || true)"
+  out="$(lm_ssh "$host" "$cmd" 2>/dev/null || true)"
   [ -z "$out" ] && return 0
 
   while IFS='|' read -r mp fstype iused_pct iused; do

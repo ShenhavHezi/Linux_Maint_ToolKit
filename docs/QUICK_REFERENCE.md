@@ -17,6 +17,9 @@ sudo linux-maint status --problems 100
 # Raw summary lines
 sudo linux-maint status --verbose
 
+# Filter by host/monitor/status
+sudo linux-maint status --host web --monitor service --only WARN
+
 # Diff since last run
 sudo linux-maint diff
 

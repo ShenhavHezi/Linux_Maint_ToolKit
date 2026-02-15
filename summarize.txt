@@ -1,5 +1,8 @@
 # linux_Maint_Scripts — Summary (linux-maint)
 
+> Note: `ToDoList.txt` is the active planning file.
+> This summary is maintained for high-level capability snapshots only and is updated less frequently to reduce merge conflicts.
+
 ## What this project is
 
 **linux-maint** is a Bash-based maintenance and health-monitoring toolkit for Linux.
@@ -187,78 +190,45 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 
 ## 2026-02-10
 - tests: fix `monitor_summary_emission_test.sh` to run monitors with a writable `LM_CFG_DIR` (default `/tmp/linux_maint_cfg`) so baseline-based monitors can emit `monitor=` lines in CI.
-echo "##active_line2##"
 - docs/dev: add `Makefile` (lint/test convenience) and `CONTRIBUTING.md` (monitor contract + workflow).
-echo "##active_line3##"
 - ci: run ShellCheck with repo `.shellcheckrc` (stop excluding SC2086 globally in workflow).
-echo "##active_line4##"
-echo "##active_line2##"
 - shellcheck: fix/annotate `user_monitor.sh` so CI passes without globally excluding SC2086.
-echo "##active_line3##"
 - shellcheck: align CI with `.shellcheckrc` and fix remaining SC2086 hits in summary emission for patch/storage/ports/user monitors.
-echo "##active_line2##"
 - shellcheck: quiet SC2317/SC2155 false-positives in backup_check and ntp_drift_monitor now that CI no longer excludes warnings globally.
-echo "##active_line3##"
 ## 2026-02-10
-echo "##active_line2##"
 - shellcheck: quote summary key/value fields in disk_trend_monitor and kernel_events_monitor to satisfy SC2086 (no global exclude).
-echo "##active_line2##"
 ## 2026-02-10
-echo "##active_line2##"
 - ci/shellcheck: keep CI excludes in sync with .shellcheckrc; fix accidental escaped quotes that triggered SC2086 in backup_check/inode_monitor/config_drift.
-echo "##active_line2##"
 ## 2026-02-10
-echo "##active_line2##"
 - shellcheck: stop excluding SC2016/SC2162 globally; disable locally in scripts that intentionally build remote shell snippets or use read without -r.
-echo "##active_line2##"
 ## 2026-02-10
-echo "##active_line2##"
 - ci: enforce meta-doc updates on PRs (require ToDoList.txt or summarize.txt when code changes), and fix diff range variable in docs_consistency workflow.
-echo "##active_line2##"
 ## 2026-02-10
-echo "##active_line2##"
 - docs: replace ToDoList.txt with a refreshed prioritized roadmap (P0–P5) covering CI correctness, security hardening, operability, and new monitors.
-echo "##active_line2##"
 ## 2026-02-10
-echo "##active_line2##"
 - tooling/ci: add `tools/shellcheck_wrapper.sh` and route CI/Makefile/pre-commit through it so `.shellcheckrc` is the single ShellCheck exclude source.
-echo "##active_line2##"
 ## 2026-02-10
-echo "##active_line2##"
 - monitors: quote variable key=value fields in `lm_summary` across multiple monitors to prevent SC2086 and keep summary parsing robust.
-echo "##active_line2##"
 ## 2026-02-10
-echo "##active_line2##"
 - tests: add `summary_parse_safety_lint` to ensure `monitor=` lines remain stable key=value tokens (required keys, no dup keys, no whitespace-in-values), and wire it into smoke.
-echo "##active_line2##"
 ## 2026-02-10
 - docs: clarify SSH defaults and host key/known_hosts policy for LM_SSH_OPTS (fleet mode) in docs/reference.md.
 ## 2026-02-10
-echo "##active_line2##"
 - lib: add optional log redaction via LM_REDACT_LOGS to mask common secret patterns; tests: add log_redaction_test and wire into smoke.
-echo "##active_line2##"
 ## 2026-02-10
-echo "##active_line2##"
 - monitors: add RETURN traps to clean up mktemp files in config_drift_monitor and ports_baseline_monitor helper functions (reduce /tmp clutter; no behavior change).
-echo "##active_line2##"
 ## 2026-02-10
 - docs: document existing `linux-maint diff` command in README and docs/QUICK_REFERENCE.md; verified installer/RPM include summary_diff.py for installed-mode diff.
 ## 2026-02-10
-echo "##active_line2##"
 - wrapper: keep LM_STATE_DIR default as /tmp (repo-mode safe), but persist linux-maint diff state under /var/lib/linux_maint by default; document diff state location.
-echo "##active_line2##"
 ## 2026-02-10
 - cli: improve `linux-maint diff` messaging and print the resolved diff state paths (diff_state_dir/diff_prev/diff_cur) for easier troubleshooting.
 ## 2026-02-10
-echo "##active_line2##"
 - docs/roadmap: mark P2.1 linux-maint diff as DONE (command existed; now documented and installed-mode diff state fixed).
-echo "##active_line2##"
 ## 2026-02-10
 - cli: add `linux-maint status --last N` to show totals for the last N summary artifacts (best-effort) in repo and installed modes.
 ## 2026-02-10
-echo "##active_line2##"
 - cli: define REPO_SUMMARY_LATEST and INST_SUMMARY_LATEST paths to avoid unbound var in status/diff on CI (set -u).
-echo "##active_line2##"
 
 [2026-02-11] fix: improve Prometheus textfile output (dedupe monitor series + add status counts)
 - Why: Prometheus rejects duplicate labelsets; add dashboard-friendly status counts.
@@ -276,13 +246,9 @@ echo "##active_line2##"
 - Why: cert sprawl is common; scanning a directory reduces manual config.
 - Change: cert_monitor supports CERTS_SCAN_DIR with ignore patterns and extension filtering; added generated cert fixture test and wired into smoke.
 
-echo "##active_line2##"
 [2026-02-12] fix: log_spike_monitor tolerate 0 grep matches under set -e
-echo "##active_line3##"
 - Why: grep exits 1 on 0 matches, causing false failures in CI/smoke.
-echo "##active_line4##"
 - Change: treat 0 matches as OK when counting errors (|| true), preserving WARN/CRIT behavior.
-echo "##active_line5##"
 
 [2026-02-12] chore: add tools/dev_check.sh
 - Why: provide one command for contributors to regenerate summarize, lint, and run smoke.
@@ -328,31 +294,44 @@ echo "##active_line5##"
 2026-02-13
 - Makefile: add release-tarball target (calls tools/make_tarball.sh) for maintainer/offline artifact creation.
 
-echo "##active_line2##"
 2026-02-13
-echo "##active_line3##"
 - service_monitor: optional systemd failed-units check (LM_SERVICE_CHECK_FAILED_UNITS=1) emits failed_units=<n> and reason=failed_units when non-zero.
-echo "##active_line4##"
 - tests: add service_monitor_failed_units_test.sh and wire into smoke.
-echo "##active_line5##"
 
 2026-02-13
 - disk_trend_monitor: add optional inode trend state collection (LM_DISK_TREND_INODES=1) into separate per-host state file (<host>.inodes.csv) to preserve existing disk trend state format.
 - tests: add disk_trend_inode_trend_test.sh (PATH shim for df/ssh) and wire into smoke.
 
-echo "##active_line2##"
 2026-02-13
-echo "##active_line3##"
 - ntp_drift_monitor: harden chrony parsing by falling back to Last offset / RMS offset when System time is missing, reducing UNKNOWN/WARN noise on chrony-based systems.
-echo "##active_line4##"
 - tests: add ntp_chrony_parsing_variants_test.sh (fixture strings) and wire into smoke.
-echo "##active_line5##"
 
-echo "##active_line2##"
 2026-02-13
-echo "##active_line3##"
 - tools: add install_githooks.sh to install .githooks/* into .git/hooks/ idempotently (backs up existing hooks once).
-echo "##active_line4##"
 
 2026-02-13
 - docs: add docs/INDEX.md and link it (and key docs) prominently from README for GitHub readability.
+
+## 2026-02-15
+- cli/status: add `--host PATTERN` and `--monitor PATTERN` filters for compact, verbose, and JSON status output.
+- cli/status: include `host=...` context in compact problem lines and JSON problem entries to improve triage/automation readability.
+- tests: add `tests/status_filters_test.sh` regression coverage for filtered compact + JSON outputs.
+- docs: update `README.md`, `docs/reference.md`, and `docs/QUICK_REFERENCE.md` with new status filtering examples/flags.
+
+## 2026-02-15
+- wrapper: make config-gate SKIP checks use `CFG_DIR` (from `LM_CFG_DIR`) instead of hardcoded `/etc/linux_maint`, improving repo/unprivileged and dark-site runs.
+- wrapper: auto-SKIP `network_monitor` when `network_targets.txt` is missing/empty, reducing noise in dark-site environments.
+- tests: add `tests/wrapper_network_targets_skip_test.sh` to validate network monitor SKIP behavior with custom `LM_CFG_DIR`.
+- docs: update dark-site/reference/README guidance for optional `network_targets.txt` behavior.
+- tests: fix `wrapper_network_targets_skip_test.sh` to avoid `ls` parsing (SC2012) by using `find ... | sort | tail -n 1` for latest log selection.
+
+- tests/contract: fix `tests/summary_contract.sh` for unprivileged CI by using writable `LM_CFG_DIR` + localhost hostlist; restores stable `monitor=` emission checks.
+- disk_trend_monitor: fix localhost collection invocation to avoid nested `bash -lc` mis-parsing, eliminating noisy awk warnings/hangs and restoring summary output in contract tests.
+
+## 2026-02-15
+- docs/process: cleaned accidental merge-noise lines from `summarize.txt` and kept roadmap authority in `ToDoList.txt` to reduce repeated conflict churn.
+
+## 2026-02-15
+- dark-site: add optional `LM_DARK_SITE=true` wrapper profile that sets conservative defaults (`LM_LOCAL_ONLY=true`, `LM_NOTIFY_ONLY_ON_CHANGE=1`, `MONITOR_TIMEOUT_SECS=300`) while keeping explicit overrides intact.
+- tests: add `tests/wrapper_dark_site_profile_test.sh` to validate default behavior and override behavior.
+- docs: document `LM_DARK_SITE` in `README.md`, `docs/reference.md`, `docs/DARK_SITE.md`, and `etc/linux_maint/linux-maint.conf.example`.
