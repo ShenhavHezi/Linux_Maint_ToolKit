@@ -31,7 +31,7 @@ if [[ "$rc" -ne 0 ]]; then
   exit 1
 fi
 
-latest_log="$(ls -1t "$log_dir"/full_health_monitor_*.log | head -n1)"
+latest_log="$(find "$log_dir" -maxdepth 1 -type f -name "full_health_monitor_*.log" | sort | tail -n 1)"
 if ! grep -q "^monitor=network_monitor host=all status=SKIP .*reason=missing:${cfg_dir}/network_targets.txt" "$latest_log"; then
   echo "missing expected SKIP summary for network_monitor" >&2
   tail -n 120 "$latest_log" >&2 || true
