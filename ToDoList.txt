@@ -1,5 +1,4 @@
 
-=======
 
 
 # linux-maint — ToDoList (fresh roadmap)
@@ -27,15 +26,31 @@ This is the single backlog source of truth.
 - `[security]` hardening and data handling
 - `[dx]` contributor and release workflow
 
-=======
 
 ---
 
 ## P0 — Correctness / contract / runtime reliability
 
+### P0.0 [ops][dx] Resolve ToDoList/summarize merge-conflict workflow (DONE 2026-02-15)
+**Why**: requiring frequent updates to both planning/history docs caused recurring PR merge conflicts.
+
+**Where**:
+- `.github/workflows/docs_consistency.yml`
+- `CONTRIBUTING.md`
+- `summarize.txt`
+
+**Acceptance**:
+- Code-change policy requires `ToDoList.txt` updates as the single planning source.
+- `summarize.txt` is documented as less-frequent capability snapshot (not per-fix changelog).
+
+**Verify**:
+- CI meta-doc check references `ToDoList.txt` only.
+
+---
 
 ### P0.1 [dark-site][ops] Doctor gate parity with wrapper (DONE 2026-02-15)
-=======
+
+### P0.1 [dark-site][ops] Doctor gate parity with wrapper (DONE 2026-02-15)
 ### P0.1 Doctor gate parity with wrapper (NOT DONE)
 
 **Why**: wrapper now SKIPs `network_monitor` when `network_targets.txt` is missing, but `linux-maint doctor` skip-gate hints do not show that gate yet.
@@ -54,15 +69,15 @@ This is the single backlog source of truth.
 
 ---
 
+### P0.2 [contract] Contract test monitor timeout guard (DONE 2026-02-15)
+**Why**: if one monitor hangs in CI, `tests/summary_contract.sh` can stall too long and hide root cause.
 ### P0.2 [contract] Contract test monitor timeout guard (NOT DONE)
 **Why**: if one monitor hangs in CI, `tests/summary_contract.sh` can stall too long and hide root cause.
-=======
 
 ---
 
 ### P0.2 Contract test monitor timeout guard (NOT DONE)
 **Why**: if one monitor hangs in CI, `tests/summary_contract.sh` can stall too long and hide root cause.
-=======
 # linux-maint / linux_Maint_Scripts — ToDoList (living backlog)
 #
 # Rules:
@@ -92,6 +107,47 @@ This is the single backlog source of truth.
 - On timeout, fail with clear monitor name and include captured output tail.
 
 **Verify**:
+- Add a fixture monitor or controlled path proving timeout handling works.
+- ✅ Implemented: per-monitor timeout guard added to `tests/summary_contract.sh` plus `tests/summary_contract_timeout_guard_test.sh`.
+
+---
+
+### P0.3 [contract] Preflight summary-line noise reduction (NOT DONE)
+**Why**: preflight currently emits multiple summary lines from optional dependency checks, making contract output noisy.
+
+**Where**:
+- `monitors/preflight_check.sh`
+- `lib/linux_maint.sh` (only if needed)
+
+**Acceptance**:
+- Keep one actionable summary line per host in normal paths.
+- Move extra details to log output, not summary contract lines.
+
+**Verify**:
+- Extend `tests/summary_contract.sh` / preflight-focused test coverage.
+
+---
+
+## P1 — Dark-site / offline operator experience (main focus)
+
+### P1.1 [dark-site] Add `LM_DARK_SITE=true` profile toggle (NOT DONE)
+**Why**: air-gapped operators need one simple switch with conservative defaults.
+
+**Where**:
+- `run_full_health_monitor.sh`
+- `etc/linux_maint/linux-maint.conf.example`
+- `docs/DARK_SITE.md`
+
+**Acceptance**:
+- Profile is optional and fully backward-compatible when unset.
+- Document exactly which defaults change (minimal, predictable set).
+
+**Verify**:
+- Add tests for profile on/off behavior.
+
+---
+
+### P1.2 [dark-site][ops] Dark-site “day-0 bootstrap” checklist (NOT DONE)
 
 - Add a fixture monitor or controlled path proving timeout handling works.
 
@@ -108,10 +164,8 @@ This is the single backlog source of truth.
 - Keep one actionable summary line per host in normal paths.
 - Move extra details to log output, not summary contract lines.
 
-=======
 
 - Add a fixture monitor or controlled path proving timeout handling works.
-=======
 - Running `bash tests/summary_contract.sh` succeeds as non-root.
 - ✅ Implemented: `tests/summary_contract.sh` now creates a writable `LM_CFG_DIR` with localhost hostlist so per-host monitors emit contract `monitor=` lines in unprivileged CI.
 
@@ -139,7 +193,6 @@ This is the single backlog source of truth.
 
 
 ### P1.1 [dark-site] Add `LM_DARK_SITE=true` profile toggle (NOT DONE)
-=======
 ### P1.1 Add `LM_DARK_SITE=true` profile toggle (NOT DONE)
 
 **Why**: air-gapped operators need one simple switch with conservative defaults.
@@ -160,7 +213,6 @@ This is the single backlog source of truth.
 
 
 ### P1.2 [dark-site][ops] Dark-site “day-0 bootstrap” checklist (NOT DONE)
-=======
 ### P1.2 Dark-site “day-0 bootstrap” checklist (NOT DONE)
 
 **Why**: first-run friction is still higher than needed for base users.
@@ -175,6 +227,19 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Walk through docs end-to-end in a clean VM/container.
+
+---
+
+### P1.3 Offline dependency manifest helper (NOT DONE)
+**Why**: offline teams need a quick way to know optional tools that improve coverage.
+
+**Where**:
+- `bin/linux-maint` (new subcommand or doctor extension)
+- `docs/reference.md`
+
+**Acceptance**:
+- Print required vs optional command matrix by monitor.
+- No network calls; pure local report.
 
 ---
 
@@ -231,7 +296,6 @@ This is the single backlog source of truth.
 
 ## P3 — Signal quality / observability
 
-=======
 
 **Verify**:
 - Add test that validates stable key output lines.
@@ -240,6 +304,7 @@ This is the single backlog source of truth.
 
 ## P2 — Security / hardening
 
+### P2.1 [security] Pack-logs redaction review + tests (NOT DONE)
 ### P2.1 Pack-logs redaction review + tests (NOT DONE)
 **Why**: support bundles are critical in dark-site incident handoff; redaction needs explicit test coverage for sensitive patterns.
 
@@ -310,9 +375,9 @@ This is the single backlog source of truth.
 
 ## P4 — DX / release polish
 
+### P4.1 [dx] Add `make install-githooks` (NOT DONE)
 
 ### P4.1 [dx] Add `make install-githooks` (NOT DONE)
-=======
 ### P4.1 Add `make install-githooks` (NOT DONE)
 
 **Why**: lower contributor friction and standardize local checks.
@@ -324,6 +389,25 @@ This is the single backlog source of truth.
 - Add make target and include it in `make help`.
 - Idempotent behavior.
 
+**Verify**:
+- Run target twice; second run remains clean.
+
+---
+
+### P4.2 Remove `summarize.txt` from active workflow (decision item) (DONE 2026-02-15)
+**Why**: maintaining two planning/history files (`ToDoList.txt` + `summarize.txt`) increases overhead.
+
+**Where**:
+- `CONTRIBUTING.md`
+- CI/documentation policy (where applicable)
+
+**Acceptance**:
+- Decide single source of truth for planning/history.
+- If deprecated, state migration path and update contributor guidance.
+
+**Verify**:
+- CI/docs checks pass with the new policy.
+- ✅ Implemented: `ToDoList.txt` is now the required planning update file for code changes; `summarize.txt` remains an optional high-level snapshot to reduce conflict churn.
 
 **Verify**:
 - Run target twice; second run remains clean.
@@ -343,7 +427,6 @@ This is the single backlog source of truth.
 
 **Verify**:
 - CI/docs checks pass with the new policy.
-=======
 
 **Verify**:
 - Run target twice; second run remains clean.
@@ -364,7 +447,6 @@ This is the single backlog source of truth.
 **Verify**:
 
 - CI/docs checks pass with the new policy.
-=======
 - Running twice is safe.
 
 ### P1.1 Status filtering: support regex / exact-match mode (NOT DONE)
