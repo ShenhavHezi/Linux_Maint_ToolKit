@@ -1,3 +1,4 @@
+
 # linux-maint — ToDoList (fresh roadmap)
 
 This is the single backlog source of truth.
@@ -36,6 +37,26 @@ This is the single backlog source of truth.
 
 ### P0.2 Contract test monitor timeout guard (NOT DONE)
 **Why**: if one monitor hangs in CI, `tests/summary_contract.sh` can stall too long and hide root cause.
+=======
+# linux-maint / linux_Maint_Scripts — ToDoList (living backlog)
+#
+# Rules:
+# - Pick ONE item per session.
+# - Prefer safe, minimal changes; assume current behavior is correct.
+# - No new dependencies / no large refactors.
+# - For any behavior change, add/extend tests and update summarize.txt.
+#
+# Priority legend:
+# - P0: correctness/contract break or data loss risk
+# - P1: high-value reliability improvements
+# - P2: monitoring quality improvements
+# - P3: DX/release polish
+
+## P0 — Contract / correctness
+
+### P0.1 Make summary_contract.sh robust to unprivileged baseline monitors (DONE 2026-02-15)
+**Why**: `tests/summary_contract.sh` currently fails in unprivileged mode on `ports_baseline_monitor.sh` due to baseline dir permission errors, even though `tests/monitor_summary_emission_test.sh` already sets `LM_CFG_DIR` to avoid this.
+
 
 **Where**:
 - `tests/summary_contract.sh`
@@ -45,7 +66,12 @@ This is the single backlog source of truth.
 - On timeout, fail with clear monitor name and include captured output tail.
 
 **Verify**:
+
 - Add a fixture monitor or controlled path proving timeout handling works.
+=======
+- Running `bash tests/summary_contract.sh` succeeds as non-root.
+- ✅ Implemented: `tests/summary_contract.sh` now creates a writable `LM_CFG_DIR` with localhost hostlist so per-host monitors emit contract `monitor=` lines in unprivileged CI.
+
 
 ---
 
@@ -214,4 +240,41 @@ This is the single backlog source of truth.
 - If deprecated, state migration path and update contributor guidance.
 
 **Verify**:
+
 - CI/docs checks pass with the new policy.
+=======
+- Running twice is safe.
+
+### P1.1 Status filtering: support regex / exact-match mode (NOT DONE)
+**Why**: current `--host` and `--monitor` use substring matching only; operators may want exact or regex matching for stricter automation.
+
+**Where**:
+- `bin/linux-maint`
+- `docs/reference.md`
+- `tests/status_filters_test.sh`
+
+**Acceptance**:
+- Add optional status flags for explicit match modes (for example `--host-regex`, `--monitor-regex`, or `--exact`).
+- Keep existing substring behavior fully backward-compatible.
+- JSON and compact outputs must apply the same matching semantics.
+
+**Verify**:
+- Extend `tests/status_filters_test.sh` with positive + negative cases for the new mode(s).
+
+### P1.2 Dark-site profile switch (NOT DONE)
+**Why**: operators in air-gapped environments often want a single simple toggle to keep network-facing checks conservative.
+
+**Where**:
+- `etc/linux_maint/linux-maint.conf.example`
+- `run_full_health_monitor.sh`
+- `docs/DARK_SITE.md`
+
+**Acceptance**:
+- Add an optional dark-site profile flag (for example `LM_DARK_SITE=true`) that keeps defaults simple/safe for offline environments.
+- Ensure behavior remains backward-compatible when flag is unset.
+- Document exactly what the profile changes.
+
+**Verify**:
+- Add tests that confirm profile-on behavior and unchanged defaults when profile is off.
+
+
