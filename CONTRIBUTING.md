@@ -67,9 +67,9 @@ The wrapper returns the worst exit code across executed monitors.
 ## Docs and changelog expectations
 
 After **every** functional change:
-- Update `ToDoList.txt` (mark done / add newly discovered items)
-- Update `summarize.txt` (date + what changed + why)
-- Run `python3 tools/gen_summarize.py`
+- Update `ToDoList.txt` (mark done / add newly discovered items).
+- Update `summarize.txt` **only** when project capabilities/architecture meaningfully change (not for every small fix).
+- If summarize autogen markers are touched, run `python3 tools/gen_summarize.py`.
 
 ## Git hooks (optional)
 

@@ -1,5 +1,8 @@
 # linux_Maint_Scripts — Summary (linux-maint)
 
+> Note: `ToDoList.txt` is the active planning file.
+> This summary is maintained for high-level capability snapshots only and is updated less frequently to reduce merge conflicts.
+
 ## What this project is
 
 **linux-maint** is a Bash-based maintenance and health-monitoring toolkit for Linux.
@@ -356,3 +359,19 @@ echo "##active_line4##"
 
 2026-02-13
 - docs: add docs/INDEX.md and link it (and key docs) prominently from README for GitHub readability.
+
+## 2026-02-15
+- cli/status: add `--host PATTERN` and `--monitor PATTERN` filters for compact, verbose, and JSON status output.
+- cli/status: include `host=...` context in compact problem lines and JSON problem entries to improve triage/automation readability.
+- tests: add `tests/status_filters_test.sh` regression coverage for filtered compact + JSON outputs.
+- docs: update `README.md`, `docs/reference.md`, and `docs/QUICK_REFERENCE.md` with new status filtering examples/flags.
+
+## 2026-02-15
+- wrapper: make config-gate SKIP checks use `CFG_DIR` (from `LM_CFG_DIR`) instead of hardcoded `/etc/linux_maint`, improving repo/unprivileged and dark-site runs.
+- wrapper: auto-SKIP `network_monitor` when `network_targets.txt` is missing/empty, reducing noise in dark-site environments.
+- tests: add `tests/wrapper_network_targets_skip_test.sh` to validate network monitor SKIP behavior with custom `LM_CFG_DIR`.
+- docs: update dark-site/reference/README guidance for optional `network_targets.txt` behavior.
+- tests: fix `wrapper_network_targets_skip_test.sh` to avoid `ls` parsing (SC2012) by using `find ... | sort | tail -n 1` for latest log selection.
+
+- tests/contract: fix `tests/summary_contract.sh` for unprivileged CI by using writable `LM_CFG_DIR` + localhost hostlist; restores stable `monitor=` emission checks.
+- disk_trend_monitor: fix localhost collection invocation to avoid nested `bash -lc` mis-parsing, eliminating noisy awk warnings/hangs and restoring summary output in contract tests.
