@@ -330,3 +330,11 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 
 ## 2026-02-15
 - docs/process: cleaned accidental merge-noise lines from `summarize.txt` and kept roadmap authority in `ToDoList.txt` to reduce repeated conflict churn.
+
+- tests/contract: fix `tests/summary_contract.sh` for unprivileged CI by using writable `LM_CFG_DIR` + localhost hostlist; restores stable `monitor=` emission checks.
+- disk_trend_monitor: fix localhost collection invocation to avoid nested `bash -lc` mis-parsing, eliminating noisy awk warnings/hangs and restoring summary output in contract tests.
+
+- tests/contract: fix `tests/summary_contract.sh` for unprivileged CI by using writable `LM_CFG_DIR` + localhost hostlist; restores stable `monitor=` emission checks.
+- disk_trend_monitor: fix localhost collection invocation to avoid nested `bash -lc` mis-parsing, eliminating noisy awk warnings/hangs and restoring summary output in contract tests.
+
+
