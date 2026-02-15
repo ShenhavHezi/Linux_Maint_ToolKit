@@ -70,6 +70,30 @@ systemctl status linux-maint.timer --no-pager || true
 systemctl list-timers | grep -i linux-maint || true
 ```
 
+### Day-0 bootstrap checklist (minimum files + expected first-run SKIPs)
+
+For the first successful run in dark-site mode, this minimum set is enough:
+
+- required now:
+  - `/etc/linux_maint/servers.txt`
+  - `/etc/linux_maint/excluded.txt` (can be empty)
+  - `/etc/linux_maint/services.txt`
+- optional for later (safe to leave missing on day-0):
+  - `/etc/linux_maint/network_targets.txt`
+  - `/etc/linux_maint/certs.txt`
+  - `/etc/linux_maint/ports_baseline.txt`
+  - `/etc/linux_maint/config_paths.txt`
+  - `/etc/linux_maint/baseline_users.txt`
+  - `/etc/linux_maint/baseline_sudoers.txt`
+
+Expected day-0 status behavior:
+
+- `network_monitor` may show `status=SKIP reason=missing:/etc/linux_maint/network_targets.txt`
+- `cert_monitor` may show `status=SKIP reason=missing:/etc/linux_maint/certs.txt`
+- baseline-gated monitors may show `SKIP` until their baseline files are created
+
+These SKIPs are normal on first run and indicate missing optional inputs, not wrapper failure.
+
 
 ## 5) Run manually (quick test)
 

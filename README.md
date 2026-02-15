@@ -88,6 +88,8 @@ Typical workflow:
 
 Full offline install steps: [`docs/DARK_SITE.md`](docs/DARK_SITE.md).
 
+Day-0 tip: use the bootstrap checklist in `docs/DARK_SITE.md` (minimum required files + normal expected `SKIP` statuses on first run).
+
 Release/version tracking notes and deeper configuration reference: [`docs/reference.md`](docs/reference.md).
 
 ## Quickstart

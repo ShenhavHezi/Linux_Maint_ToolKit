@@ -1,6 +1,3 @@
-
-
-
 # linux-maint — ToDoList (fresh roadmap)
 
 This is the single backlog source of truth.
@@ -18,14 +15,12 @@ This is the single backlog source of truth.
 - **P3**: signal quality and observability
 - **P4**: DX/release polish
 
-
 ## Tags
 - `[dark-site]` offline/air-gapped operator flow
 - `[contract]` summary/output guarantees and test robustness
 - `[ops]` runbook/doctor/operator experience
 - `[security]` hardening and data handling
 - `[dx]` contributor and release workflow
-
 
 ---
 
@@ -48,10 +43,7 @@ This is the single backlog source of truth.
 
 ---
 
-
 ### P0.1 [dark-site][ops] Doctor gate parity with wrapper (DONE 2026-02-15)
-### P0.1 Doctor gate parity with wrapper (NOT DONE)
-
 **Why**: wrapper now SKIPs `network_monitor` when `network_targets.txt` is missing, but `linux-maint doctor` skip-gate hints do not show that gate yet.
 
 **Where**:
@@ -63,38 +55,12 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Add/extend a test to assert the new doctor hint.
-
 - ✅ Implemented: doctor now reports network_targets gate to match wrapper SKIP behavior.
 
 ---
 
 ### P0.2 [contract] Contract test monitor timeout guard (DONE 2026-02-15)
 **Why**: if one monitor hangs in CI, `tests/summary_contract.sh` can stall too long and hide root cause.
-### P0.2 [contract] Contract test monitor timeout guard (NOT DONE)
-**Why**: if one monitor hangs in CI, `tests/summary_contract.sh` can stall too long and hide root cause.
-
----
-
-### P0.2 Contract test monitor timeout guard (NOT DONE)
-**Why**: if one monitor hangs in CI, `tests/summary_contract.sh` can stall too long and hide root cause.
-# linux-maint / linux_Maint_Scripts — ToDoList (living backlog)
-#
-# Rules:
-# - Pick ONE item per session.
-# - Prefer safe, minimal changes; assume current behavior is correct.
-# - No new dependencies / no large refactors.
-# - For any behavior change, add/extend tests and update summarize.txt.
-#
-# Priority legend:
-# - P0: correctness/contract break or data loss risk
-# - P1: high-value reliability improvements
-# - P2: monitoring quality improvements
-# - P3: DX/release polish
-
-## P0 — Contract / correctness
-
-### P0.1 Make summary_contract.sh robust to unprivileged baseline monitors (DONE 2026-02-15)
-**Why**: `tests/summary_contract.sh` currently fails in unprivileged mode on `ports_baseline_monitor.sh` due to baseline dir permission errors, even though `tests/monitor_summary_emission_test.sh` already sets `LM_CFG_DIR` to avoid this.
 
 
 
@@ -148,7 +114,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P1.2 [dark-site][ops] Dark-site “day-0 bootstrap” checklist (NOT DONE)
+### P1.2 [dark-site][ops] Dark-site “day-0 bootstrap” checklist (DONE 2026-02-15)
 **Why**: first-run friction is still higher than needed for base users.
 
 **Where**:
@@ -161,6 +127,7 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Walk through docs end-to-end in a clean VM/container.
+- ✅ Implemented: added a day-0 checklist to `docs/DARK_SITE.md` (minimum required files + expected first-run SKIP statuses) and linked it from `README.md`.
 
 ---
 
