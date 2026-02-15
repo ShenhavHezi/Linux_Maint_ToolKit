@@ -14,7 +14,7 @@
 
 ## P0 — Contract / correctness
 
-### P0.1 Make summary_contract.sh robust to unprivileged baseline monitors (NOT DONE)
+### P0.1 Make summary_contract.sh robust to unprivileged baseline monitors (DONE 2026-02-15)
 **Why**: `tests/summary_contract.sh` currently fails in unprivileged mode on `ports_baseline_monitor.sh` due to baseline dir permission errors, even though `tests/monitor_summary_emission_test.sh` already sets `LM_CFG_DIR` to avoid this.
 
 **Where**:
@@ -26,6 +26,7 @@
 
 **Verify**:
 - Running `bash tests/summary_contract.sh` succeeds as non-root.
+- ✅ Implemented: `tests/summary_contract.sh` now creates a writable `LM_CFG_DIR` with localhost hostlist so per-host monitors emit contract `monitor=` lines in unprivileged CI.
 
 ---
 
@@ -115,5 +116,4 @@
 
 **Verify**:
 - Add tests that confirm profile-on behavior and unchanged defaults when profile is off.
-=======
 
