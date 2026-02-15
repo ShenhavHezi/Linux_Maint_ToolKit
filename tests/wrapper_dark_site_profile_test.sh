@@ -32,8 +32,7 @@ run_case() {
 
   rm -f "$log_dir"/full_health_monitor_*.log
 
-  # shellcheck disable=SC2086
-  env $@ \
+  env "$@" \
     LM_MONITORS="env_probe.sh" \
     LM_CFG_DIR="$cfg_dir" \
     SCRIPTS_DIR="$mon_dir" \

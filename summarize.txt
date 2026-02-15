@@ -335,3 +335,4 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 - dark-site: add optional `LM_DARK_SITE=true` wrapper profile that sets conservative defaults (`LM_LOCAL_ONLY=true`, `LM_NOTIFY_ONLY_ON_CHANGE=1`, `MONITOR_TIMEOUT_SECS=300`) while keeping explicit overrides intact.
 - tests: add `tests/wrapper_dark_site_profile_test.sh` to validate default behavior and override behavior.
 - docs: document `LM_DARK_SITE` in `README.md`, `docs/reference.md`, `docs/DARK_SITE.md`, and `etc/linux_maint/linux-maint.conf.example`.
+- tests: fix ShellCheck SC2068 in `tests/wrapper_dark_site_profile_test.sh` by changing unquoted `env $@` to safe quoted forwarding `env "$@"`.

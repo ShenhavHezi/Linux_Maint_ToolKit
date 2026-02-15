@@ -108,6 +108,7 @@ This is the single backlog source of truth.
 **Verify**:
 - Add tests for profile on/off behavior.
 - ✅ Implemented: wrapper now applies conservative defaults when `LM_DARK_SITE=true` while preserving explicit env/config overrides; covered by `tests/wrapper_dark_site_profile_test.sh`.
+- ✅ Maintenance: fixed ShellCheck SC2068 in `tests/wrapper_dark_site_profile_test.sh` by quoting forwarded env assignments (`env "$@"`).
 
 ---
 
