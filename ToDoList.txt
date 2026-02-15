@@ -83,3 +83,19 @@
 
 **Verify**:
 - Running twice is safe.
+
+### P1.1 Status filtering: support regex / exact-match mode (NOT DONE)
+**Why**: current `--host` and `--monitor` use substring matching only; operators may want exact or regex matching for stricter automation.
+
+**Where**:
+- `bin/linux-maint`
+- `docs/reference.md`
+- `tests/status_filters_test.sh`
+
+**Acceptance**:
+- Add optional status flags for explicit match modes (for example `--host-regex`, `--monitor-regex`, or `--exact`).
+- Keep existing substring behavior fully backward-compatible.
+- JSON and compact outputs must apply the same matching semantics.
+
+**Verify**:
+- Extend `tests/status_filters_test.sh` with positive + negative cases for the new mode(s).

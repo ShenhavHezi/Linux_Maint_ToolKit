@@ -298,6 +298,8 @@ Status flags (installed mode):
 - `--verbose` — show raw summary lines
 - `--problems N` — number of problem entries to display (default 20, max 100)
 - `--only OK|WARN|CRIT|UNKNOWN|SKIP` — filter by status
+- `--host PATTERN` — show only entries where `host` contains `PATTERN`
+- `--monitor PATTERN` — show only entries where `monitor` contains `PATTERN`
 
 
 - `linux-maint logs [n]` *(root required)*: tail the latest wrapper log (default `n=200`).
