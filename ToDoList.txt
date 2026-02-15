@@ -1,3 +1,7 @@
+
+=======
+
+
 # linux-maint — ToDoList (fresh roadmap)
 
 This is the single backlog source of truth.
@@ -15,6 +19,7 @@ This is the single backlog source of truth.
 - **P3**: signal quality and observability
 - **P4**: DX/release polish
 
+
 ## Tags
 - `[dark-site]` offline/air-gapped operator flow
 - `[contract]` summary/output guarantees and test robustness
@@ -22,11 +27,17 @@ This is the single backlog source of truth.
 - `[security]` hardening and data handling
 - `[dx]` contributor and release workflow
 
+=======
+
 ---
 
 ## P0 — Correctness / contract / runtime reliability
 
+
 ### P0.1 [dark-site][ops] Doctor gate parity with wrapper (DONE 2026-02-15)
+=======
+### P0.1 Doctor gate parity with wrapper (NOT DONE)
+
 **Why**: wrapper now SKIPs `network_monitor` when `network_targets.txt` is missing, but `linux-maint doctor` skip-gate hints do not show that gate yet.
 
 **Where**:
@@ -38,12 +49,40 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Add/extend a test to assert the new doctor hint.
+
 - ✅ Implemented: doctor now reports network_targets gate to match wrapper SKIP behavior.
 
 ---
 
 ### P0.2 [contract] Contract test monitor timeout guard (NOT DONE)
 **Why**: if one monitor hangs in CI, `tests/summary_contract.sh` can stall too long and hide root cause.
+=======
+
+---
+
+### P0.2 Contract test monitor timeout guard (NOT DONE)
+**Why**: if one monitor hangs in CI, `tests/summary_contract.sh` can stall too long and hide root cause.
+=======
+# linux-maint / linux_Maint_Scripts — ToDoList (living backlog)
+#
+# Rules:
+# - Pick ONE item per session.
+# - Prefer safe, minimal changes; assume current behavior is correct.
+# - No new dependencies / no large refactors.
+# - For any behavior change, add/extend tests and update summarize.txt.
+#
+# Priority legend:
+# - P0: correctness/contract break or data loss risk
+# - P1: high-value reliability improvements
+# - P2: monitoring quality improvements
+# - P3: DX/release polish
+
+## P0 — Contract / correctness
+
+### P0.1 Make summary_contract.sh robust to unprivileged baseline monitors (DONE 2026-02-15)
+**Why**: `tests/summary_contract.sh` currently fails in unprivileged mode on `ports_baseline_monitor.sh` due to baseline dir permission errors, even though `tests/monitor_summary_emission_test.sh` already sets `LM_CFG_DIR` to avoid this.
+
+
 
 **Where**:
 - `tests/summary_contract.sh`
@@ -53,6 +92,7 @@ This is the single backlog source of truth.
 - On timeout, fail with clear monitor name and include captured output tail.
 
 **Verify**:
+
 - Add a fixture monitor or controlled path proving timeout handling works.
 
 ---
@@ -68,6 +108,28 @@ This is the single backlog source of truth.
 - Keep one actionable summary line per host in normal paths.
 - Move extra details to log output, not summary contract lines.
 
+=======
+
+- Add a fixture monitor or controlled path proving timeout handling works.
+=======
+- Running `bash tests/summary_contract.sh` succeeds as non-root.
+- ✅ Implemented: `tests/summary_contract.sh` now creates a writable `LM_CFG_DIR` with localhost hostlist so per-host monitors emit contract `monitor=` lines in unprivileged CI.
+
+
+---
+
+### P0.3 Preflight summary-line noise reduction (NOT DONE)
+**Why**: preflight currently emits multiple summary lines from optional dependency checks, making contract output noisy.
+
+**Where**:
+- `monitors/preflight_check.sh`
+- `lib/linux_maint.sh` (only if needed)
+
+**Acceptance**:
+- Keep one actionable summary line per host in normal paths.
+- Move extra details to log output, not summary contract lines.
+
+
 **Verify**:
 - Extend `tests/summary_contract.sh` / preflight-focused test coverage.
 
@@ -75,7 +137,11 @@ This is the single backlog source of truth.
 
 ## P1 — Dark-site / offline operator experience (main focus)
 
+
 ### P1.1 [dark-site] Add `LM_DARK_SITE=true` profile toggle (NOT DONE)
+=======
+### P1.1 Add `LM_DARK_SITE=true` profile toggle (NOT DONE)
+
 **Why**: air-gapped operators need one simple switch with conservative defaults.
 
 **Where**:
@@ -92,7 +158,11 @@ This is the single backlog source of truth.
 
 ---
 
+
 ### P1.2 [dark-site][ops] Dark-site “day-0 bootstrap” checklist (NOT DONE)
+=======
+### P1.2 Dark-site “day-0 bootstrap” checklist (NOT DONE)
+
 **Why**: first-run friction is still higher than needed for base users.
 
 **Where**:
@@ -118,6 +188,7 @@ This is the single backlog source of truth.
 **Acceptance**:
 - Print required vs optional command matrix by monitor.
 - No network calls; pure local report.
+
 
 **Verify**:
 - Add test that validates stable key output lines.
@@ -160,6 +231,50 @@ This is the single backlog source of truth.
 
 ## P3 — Signal quality / observability
 
+=======
+
+**Verify**:
+- Add test that validates stable key output lines.
+
+---
+
+## P2 — Security / hardening
+
+### P2.1 Pack-logs redaction review + tests (NOT DONE)
+**Why**: support bundles are critical in dark-site incident handoff; redaction needs explicit test coverage for sensitive patterns.
+
+**Where**:
+- `tools/pack_logs.sh`
+- `tests/pack_logs_test.sh`
+
+**Acceptance**:
+- Add redaction cases for common secret-like keys/tokens in config snapshots.
+- Preserve troubleshooting usefulness while removing sensitive values.
+
+**Verify**:
+- Tests assert sensitive strings are absent and placeholders are present.
+
+---
+
+### P2.2 SSH option policy docs + guardrails (NOT DONE)
+**Why**: fleet mode relies on `LM_SSH_OPTS`; policy clarity reduces accidental insecure overrides.
+
+**Where**:
+- `bin/linux-maint`
+- `docs/reference.md`
+
+**Acceptance**:
+- Keep current validation strict, document accepted patterns and examples.
+- Add test cases for safe/unsafe option strings.
+
+**Verify**:
+- Extend SSH-option validation tests.
+
+---
+
+## P3 — Signal quality / observability
+
+
 ### P3.1 Status filter matching modes (NOT DONE)
 **Why**: current `--host/--monitor` use substring matching only; exact/regex mode helps automation.
 
@@ -195,7 +310,11 @@ This is the single backlog source of truth.
 
 ## P4 — DX / release polish
 
+
 ### P4.1 [dx] Add `make install-githooks` (NOT DONE)
+=======
+### P4.1 Add `make install-githooks` (NOT DONE)
+
 **Why**: lower contributor friction and standardize local checks.
 
 **Where**:
@@ -204,6 +323,7 @@ This is the single backlog source of truth.
 **Acceptance**:
 - Add make target and include it in `make help`.
 - Idempotent behavior.
+
 
 **Verify**:
 - Run target twice; second run remains clean.
@@ -223,3 +343,58 @@ This is the single backlog source of truth.
 
 **Verify**:
 - CI/docs checks pass with the new policy.
+=======
+
+**Verify**:
+- Run target twice; second run remains clean.
+
+---
+
+### P4.2 Remove `summarize.txt` from active workflow (decision item) (NOT DONE)
+**Why**: maintaining two planning/history files (`ToDoList.txt` + `summarize.txt`) increases overhead.
+
+**Where**:
+- `CONTRIBUTING.md`
+- CI/documentation policy (where applicable)
+
+**Acceptance**:
+- Decide single source of truth for planning/history.
+- If deprecated, state migration path and update contributor guidance.
+
+**Verify**:
+
+- CI/docs checks pass with the new policy.
+=======
+- Running twice is safe.
+
+### P1.1 Status filtering: support regex / exact-match mode (NOT DONE)
+**Why**: current `--host` and `--monitor` use substring matching only; operators may want exact or regex matching for stricter automation.
+
+**Where**:
+- `bin/linux-maint`
+- `docs/reference.md`
+- `tests/status_filters_test.sh`
+
+**Acceptance**:
+- Add optional status flags for explicit match modes (for example `--host-regex`, `--monitor-regex`, or `--exact`).
+- Keep existing substring behavior fully backward-compatible.
+- JSON and compact outputs must apply the same matching semantics.
+
+**Verify**:
+- Extend `tests/status_filters_test.sh` with positive + negative cases for the new mode(s).
+
+### P1.2 Dark-site profile switch (NOT DONE)
+**Why**: operators in air-gapped environments often want a single simple toggle to keep network-facing checks conservative.
+
+**Where**:
+- `etc/linux_maint/linux-maint.conf.example`
+- `run_full_health_monitor.sh`
+- `docs/DARK_SITE.md`
+
+**Acceptance**:
+- Add an optional dark-site profile flag (for example `LM_DARK_SITE=true`) that keeps defaults simple/safe for offline environments.
+- Ensure behavior remains backward-compatible when flag is unset.
+- Document exactly what the profile changes.
+
+**Verify**:
+- Add tests that confirm profile-on behavior and unchanged defaults when profile is off.
