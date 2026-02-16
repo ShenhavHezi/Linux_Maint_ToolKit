@@ -173,6 +173,10 @@ run_for_host(){
   ensure_dirs
   collect_inode_trend_for_host "$host"
 
+  local inode_summary_extra=""
+  if [[ "${LM_DISK_TREND_INODES}" == "1" || "${LM_DISK_TREND_INODES}" == "true" ]]; then
+    inode_summary_extra=" inode_mounts=${INODE_ROLLUP_MOUNTS:-0} inode_warn=${INODE_ROLLUP_WARN:-0} inode_crit=${INODE_ROLLUP_CRIT:-0}"
+  fi
 
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
@@ -254,7 +258,8 @@ run_for_host(){
     fi
   fi
 
-  lm_summary "disk_trend_monitor" "$host" "$status" mounts="$mounts" warn="$warn" crit="$crit" note="${note:-none}"
+  # shellcheck disable=SC2086
+  lm_summary "disk_trend_monitor" "$host" "$status" mounts="$mounts" warn="$warn" crit="$crit" note="${note:-none}"${inode_summary_extra}
   # legacy:
   # echo "disk_trend_monitor host=$host status=$status mounts=$mounts warn=$warn crit=$crit note=${note:-none}"
   [ "$rc" -gt "$WORST_RC" ] && WORST_RC="$rc"
@@ -278,6 +283,10 @@ main(){
 
 collect_inode_trend_for_host(){
   local host="$1"
+  INODE_ROLLUP_MOUNTS=0
+  INODE_ROLLUP_WARN=0
+  INODE_ROLLUP_CRIT=0
+
   [[ "${LM_DISK_TREND_INODES}" == "1" || "${LM_DISK_TREND_INODES}" == "true" ]] || return 0
 
   local cmd out
@@ -295,12 +304,18 @@ collect_inode_trend_for_host(){
       continue
     fi
 
+    INODE_ROLLUP_MOUNTS=$((INODE_ROLLUP_MOUNTS+1))
+    if [[ "$iused_pct" =~ ^[0-9]+$ ]]; then
+      if [ "$iused_pct" -ge "$HARD_CRIT_PCT" ]; then
+        INODE_ROLLUP_CRIT=$((INODE_ROLLUP_CRIT+1))
+      elif [ "$iused_pct" -ge "$HARD_WARN_PCT" ]; then
+        INODE_ROLLUP_WARN=$((INODE_ROLLUP_WARN+1))
+      fi
+    fi
+
     append_inode_state "$host" "$mp" "$iused_pct" "$iused"
   done <<< "$out"
 }
-
-main "$@"
-
 
 # ============ Inode trend (optional) ============
 
@@ -311,7 +326,7 @@ set -euo pipefail
 # Output: mount|fstype|iused_pct|iused
 # Prefer df -PTi (includes fstype) if supported.
 if df -PTi >/dev/null 2>&1; then
-  df -PTi 2>/dev/null | awk 'NR>1{gsub(/%/,"",$7); print $8"|"$2"|"$7"|"$5}'
+  df -PTi 2>/dev/null | awk 'NR>1{ipct=$(NF-1); gsub(/%/,"",ipct); print $NF"|"$2"|"ipct"|"$5}'
 else
   # Fallback without fstype
   df -Pi 2>/dev/null | awk 'NR>1{gsub(/%/,"",$5); print $6"|?""|"$5"|"$3}'
@@ -330,3 +345,5 @@ append_inode_state(){
     printf "%s,%s,%s,%s\n" "$(date +%s)" "$mount" "$iused_pct" "$iused" >> "$f" 2>/dev/null || true
   fi
 }
+
+main "$@"

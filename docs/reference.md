@@ -196,8 +196,14 @@ Most defaults below are taken directly from the scripts (current repository vers
 - `HARD_WARN_PCT` = `90`
 - `HARD_CRIT_PCT` = `95`
 - `MIN_POINTS` = `2`
+- `LM_DISK_TREND_INODES` = `0` (set to `1|true` to collect inode trend state and include inode rollup counters in summary output)
 - `EXCLUDE_FSTYPES_RE` = `'^(tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup2?|debugfs|rpc_pipefs|autofs|devpts|mqueue|hugetlbfs|fuse\..*|binfmt_misc|pstore|nsfs)$'`
 - `EXCLUDE_MOUNTS_FILE` = `"/etc/linux_maint/disk_trend_exclude_mounts.txt"`
+
+When `LM_DISK_TREND_INODES=1|true`, `disk_trend_monitor` also emits compact inode rollup summary keys:
+- `inode_mounts=<count>`
+- `inode_warn=<count>`
+- `inode_crit=<count>`
 
 ### `nfs_mount_monitor.sh`
 - `NFS_STAT_TIMEOUT` = `5`
