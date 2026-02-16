@@ -180,6 +180,7 @@ This is the single backlog source of truth.
 **Verify**:
 - Extend SSH-option validation tests.
 - ✅ Implemented: documented accepted/rejected `LM_SSH_OPTS` patterns and safe examples in `docs/reference.md`; added `tests/ssh_opts_validation_test.sh` for safe/unsafe option strings and expected exit behavior.
+- ✅ Maintenance: fixed ShellCheck SC2016 in `tests/ssh_opts_validation_test.sh` by using escaped command-substitution literals in double-quoted unsafe test fixtures.
 
 ---
 
