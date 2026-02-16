@@ -20,6 +20,9 @@ sudo linux-maint status --verbose
 # Filter by host/monitor/status
 sudo linux-maint status --host web --monitor service --only WARN
 
+# Regex matching mode for host/monitor filters
+sudo linux-maint status --host '^web-[0-9]+$' --match-mode regex
+
 # Diff since last run
 sudo linux-maint diff
 

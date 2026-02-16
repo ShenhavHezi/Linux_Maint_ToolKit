@@ -342,3 +342,4 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 - tests: fix ShellCheck SC2251 in `tests/pack_logs_test.sh` by replacing negated standalone `grep` checks with explicit assertion helper failures.
 - ssh policy: document `LM_SSH_OPTS` guardrails (accepted/rejected patterns + safe examples) and add `tests/ssh_opts_validation_test.sh` coverage for safe/unsafe strings with expected rc=2 on unsafe input.
 - tests: fix ShellCheck SC2016 in `tests/ssh_opts_validation_test.sh` by expressing unsafe command-substitution fixtures as escaped literals in double quotes.
+- status: add `--match-mode contains|exact|regex` for `--host`/`--monitor` filters across compact/verbose/JSON status paths; include test coverage for exact/regex matching and invalid-regex exit behavior.

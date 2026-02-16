@@ -54,7 +54,30 @@ out="$(bash "$LM" status --quiet --host web --monitor service --only WARN)"
 echo "$out" | grep -q 'totals: CRIT=0 WARN=1 UNKNOWN=0 SKIP=0 OK=0'
 echo "$out" | grep -q 'WARN service_monitor host=web-1 reason=failed_units'
 
+# exact mode should match only full values
+exact_out="$(bash "$LM" status --quiet --host web-1 --monitor service_monitor --match-mode exact --only WARN)"
+echo "$exact_out" | grep -q 'totals: CRIT=0 WARN=1 UNKNOWN=0 SKIP=0 OK=0'
+echo "$exact_out" | grep -q 'WARN service_monitor host=web-1 reason=failed_units'
+
+# regex mode should work across compact and json paths
+regex_out="$(bash "$LM" status --quiet --host '^web-[0-9]+$' --monitor '^service_.*' --match-mode regex --only WARN)"
+echo "$regex_out" | grep -q 'totals: CRIT=0 WARN=1 UNKNOWN=0 SKIP=0 OK=0'
+
 json_out="$(bash "$LM" status --json --host web --monitor service --only WARN)"
 printf '%s' "$json_out" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["totals"]["WARN"]==1; assert o["totals"]["CRIT"]==0; assert len(o["problems"])==1; p=o["problems"][0]; assert p["monitor"]=="service_monitor"; assert p["host"]=="web-1"'
+
+json_exact="$(bash "$LM" status --json --host web-1 --monitor service_monitor --match-mode exact --only WARN)"
+printf '%s' "$json_exact" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert len(o["problems"])==1; assert o["problems"][0]["host"]=="web-1"'
+
+set +e
+bad_regex_out="$(bash "$LM" status --json --host '[' --match-mode regex 2>&1)"
+bad_regex_rc=$?
+set -e
+if [[ "$bad_regex_rc" -ne 2 ]]; then
+  echo "expected rc=2 for invalid regex, got rc=$bad_regex_rc" >&2
+  echo "$bad_regex_out" >&2
+  exit 1
+fi
+echo "$bad_regex_out" | grep -q 'ERROR: invalid regex for --match-mode regex'
 
 echo "status filters ok"

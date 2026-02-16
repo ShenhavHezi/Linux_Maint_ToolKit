@@ -306,6 +306,7 @@ Status flags (installed mode):
 - `--only OK|WARN|CRIT|UNKNOWN|SKIP` — filter by status
 - `--host PATTERN` — show only entries where `host` contains `PATTERN`
 - `--monitor PATTERN` — show only entries where `monitor` contains `PATTERN`
+- `--match-mode contains|exact|regex` — how `--host`/`--monitor` are matched (default: `contains`)
 
 
 - `linux-maint logs [n]` *(root required)*: tail the latest wrapper log (default `n=200`).

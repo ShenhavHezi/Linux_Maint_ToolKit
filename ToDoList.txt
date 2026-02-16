@@ -186,7 +186,7 @@ This is the single backlog source of truth.
 
 ## P3 — Signal quality / observability
 
-### P3.1 Status filter matching modes (NOT DONE)
+### P3.1 Status filter matching modes (DONE 2026-02-15)
 **Why**: current `--host/--monitor` use substring matching only; exact/regex mode helps automation.
 
 **Where**:
@@ -200,6 +200,7 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Positive and negative filter tests for each mode.
+- ✅ Implemented: added `--match-mode contains|exact|regex` for status host/monitor filtering across compact, verbose, and JSON outputs; added/extended tests for exact/regex behavior and invalid regex failure handling.
 
 ---
 

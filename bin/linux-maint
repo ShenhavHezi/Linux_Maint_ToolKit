@@ -165,7 +165,7 @@ Usage: linux-maint <command> [args]
 
 Commands:
   run [flags]         Run the full package (wrapper)
-  status [--only S] [--host P] [--monitor P] [--tail N]  Show last run status + filtered summary lines
+  status [--only S] [--host P] [--monitor P] [--match-mode M] [--tail N]  Show last run status + filtered summary lines
   diff [--json]       Show diff since last run (uses wrapper diff state)
   validate            Validate config file formats (best-effort)
   preflight           Run preflight checks
@@ -359,6 +359,7 @@ case "$cmd" in
     LAST_N=0
     HOST_FILTER=""
     MONITOR_FILTER=""
+    MATCH_MODE="contains"
 
 
     while [[ $# -gt 0 ]]; do
@@ -370,14 +371,23 @@ case "$cmd" in
         --json) JSON=1; shift 1;;
         --host) HOST_FILTER="$2"; shift 2;;
         --monitor) MONITOR_FILTER="$2"; shift 2;;
+        --match-mode) MATCH_MODE="$2"; shift 2;;
         --problems) PROB_N="$2"; shift 2;;
         --last) LAST_N="$2"; shift 2;;
         -h|--help)
-          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--tail N] [--verbose] [--quiet] [--json] [--problems N (max 100)] [--last N]"
+          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--problems N (max 100)] [--last N]"
           exit 0;;
         *) echo "Unknown status flag: $1" >&2; exit 2;;
       esac
     done
+
+    case "$MATCH_MODE" in
+      contains|exact|regex) ;;
+      *)
+        echo "ERROR: invalid --match-mode '$MATCH_MODE' (use contains|exact|regex)" >&2
+        exit 2
+        ;;
+    esac
 
     # Validate/cap PROB_N (default 20, max 100)
     if [[ ! "$PROB_N" =~ ^[0-9]+$ ]]; then
@@ -423,10 +433,10 @@ case "$cmd" in
         summary_file="$INST_SUMMARY_LATEST"
       fi
 
-      python3 - "$MODE" "$status_file" "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" <<'PY'
+      python3 - "$MODE" "$status_file" "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" <<'PY'
 import json, os, re, sys
 
-mode, status_path, summary_path, only, limit, host_filter, monitor_filter = sys.argv[1:8]
+mode, status_path, summary_path, only, limit, host_filter, monitor_filter, match_mode = sys.argv[1:9]
 limit=int(limit)
 
 def read_kv(path):
@@ -446,6 +456,19 @@ def get_kv(line, key):
     m=re.search(rf"\b{re.escape(key)}=([^ ]+)", line)
     return m.group(1) if m else None
 
+def matched(value, flt):
+    if not flt:
+        return True
+    if match_mode == 'contains':
+        return flt in value
+    if match_mode == 'exact':
+        return value == flt
+    try:
+        return re.search(flt, value) is not None
+    except re.error as e:
+        print(f"ERROR: invalid regex for --match-mode regex: {e}", file=sys.stderr)
+        sys.exit(2)
+
 status=read_kv(status_path)
 
 counts={}
@@ -461,9 +484,9 @@ if summary_path and os.path.exists(summary_path):
             monitor=get_kv(line,'monitor') or ''
             if only and st != only:
                 continue
-            if host_filter and host_filter not in host:
+            if not matched(host, host_filter):
                 continue
-            if monitor_filter and monitor_filter not in monitor:
+            if not matched(monitor, monitor_filter):
                 continue
             counts[st]=counts.get(st,0)+1
             if st!='OK':
@@ -539,15 +562,28 @@ PY
       if [[ "$VERBOSE" -eq 1 ]]; then
         echo "(verbose; last $TAIL_N lines from: $summary_file)"
         if [[ -n "$ONLY" || -n "$HOST_FILTER" || -n "$MONITOR_FILTER" ]]; then
-          python3 - "$summary_file" "$TAIL_N" "$ONLY" "$HOST_FILTER" "$MONITOR_FILTER" <<'PY'
+          python3 - "$summary_file" "$TAIL_N" "$ONLY" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" <<'PY'
 import re, sys
 
-path, tail_n, only, host_filter, monitor_filter = sys.argv[1:6]
+path, tail_n, only, host_filter, monitor_filter, match_mode = sys.argv[1:7]
 tail_n=int(tail_n)
 
 def get_kv(line, key):
     m=re.search(rf"\b{re.escape(key)}=([^ ]+)", line)
     return m.group(1) if m else None
+
+def matched(value, flt):
+    if not flt:
+        return True
+    if match_mode == 'contains':
+        return flt in value
+    if match_mode == 'exact':
+        return value == flt
+    try:
+        return re.search(flt, value) is not None
+    except re.error as e:
+        print(f"ERROR: invalid regex for --match-mode regex: {e}", file=sys.stderr)
+        sys.exit(2)
 
 matched=[]
 with open(path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -560,9 +596,9 @@ with open(path, 'r', encoding='utf-8', errors='ignore') as f:
         monitor=get_kv(line,'monitor') or ''
         if only and st != only:
             continue
-        if host_filter and host_filter not in host:
+        if not matched(host, host_filter):
             continue
-        if monitor_filter and monitor_filter not in monitor:
+        if not matched(monitor, monitor_filter):
             continue
         matched.append(line)
 
@@ -574,9 +610,9 @@ PY
         fi
       else
         [[ "$QUIET" -eq 0 ]] && echo "(from: $summary_file)"
-        python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" <<'PY'
+        python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" <<'PY'
 import re, sys
-path, only, limit, host_filter, monitor_filter = sys.argv[1:6]
+path, only, limit, host_filter, monitor_filter, match_mode = sys.argv[1:7]
 limit=int(limit)
 
 # Example line:
@@ -585,6 +621,19 @@ limit=int(limit)
 def get_kv(line, key):
     m=re.search(rf"\b{re.escape(key)}=([^ ]+)", line)
     return m.group(1) if m else None
+
+def matched(value, flt):
+    if not flt:
+        return True
+    if match_mode == 'contains':
+        return flt in value
+    if match_mode == 'exact':
+        return value == flt
+    try:
+        return re.search(flt, value) is not None
+    except re.error as e:
+        print(f"ERROR: invalid regex for --match-mode regex: {e}", file=sys.stderr)
+        sys.exit(2)
 
 counts={}
 problems=[]
@@ -598,9 +647,9 @@ with open(path, 'r', encoding='utf-8', errors='ignore') as f:
         monitor=get_kv(line,'monitor') or ''
         if only and st != only:
             continue
-        if host_filter and host_filter not in host:
+        if not matched(host, host_filter):
             continue
-        if monitor_filter and monitor_filter not in monitor:
+        if not matched(monitor, monitor_filter):
             continue
         counts[st]=counts.get(st,0)+1
         if st == 'OK':

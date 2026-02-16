@@ -206,6 +206,7 @@ Tips:
 - `sudo linux-maint diff` to show changes since the last run
 - `sudo linux-maint status --problems 100` to list more problems (max 100)
 - `sudo linux-maint status --host web --monitor service --only WARN` to narrow noisy output quickly
+- `sudo linux-maint status --host '^web-[0-9]+$' --match-mode regex` for exact regex targeting
 
 - **Exit codes** (wrapper): `0 OK`, `1 WARN`, `2 CRIT`, `3 UNKNOWN`
 - Logs:
