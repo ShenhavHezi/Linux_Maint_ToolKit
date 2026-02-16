@@ -82,6 +82,16 @@ export LM_SERVERLIST="${LM_SERVERLIST:-$CFG_DIR/servers.txt}"
 export LM_EXCLUDED="${LM_EXCLUDED:-$CFG_DIR/excluded.txt}"
 export LM_SERVICES="${LM_SERVICES:-$CFG_DIR/services.txt}"
 
+# Dark-site profile: optional conservative defaults for air-gapped operators.
+# Never override explicit values set by config/env/CLI.
+if [[ "${LM_DARK_SITE:-false}" == "true" ]]; then
+  export LM_LOCAL_ONLY="${LM_LOCAL_ONLY:-true}"
+  export LM_NOTIFY_ONLY_ON_CHANGE="${LM_NOTIFY_ONLY_ON_CHANGE:-1}"
+  MONITOR_TIMEOUT_SECS="${MONITOR_TIMEOUT_SECS:-300}"
+else
+  MONITOR_TIMEOUT_SECS="${MONITOR_TIMEOUT_SECS:-600}"
+fi
+
 
 # service_monitor requires services.txt; provide safe defaults if missing
 if [ ! -s "$CFG_DIR/services.txt" ]; then
@@ -97,9 +107,6 @@ fi
 
 # Disable email unless explicitly enabled
 export LM_EMAIL_ENABLED="${LM_EMAIL_ENABLED:-false}"
-
-# Per-monitor execution timeout (wrapper-level safety)
-MONITOR_TIMEOUT_SECS="${MONITOR_TIMEOUT_SECS:-600}"
 
 # Optional per-monitor timeouts (format: monitor_name=seconds)
 # Example file: /etc/linux_maint/monitor_timeouts.conf
@@ -172,6 +179,9 @@ fi
   echo "SUMMARY full_health_monitor host=$(hostname -f 2>/dev/null || hostname) started=$(date -Is)"
   echo "SCRIPTS_DIR=$SCRIPTS_DIR"
   echo "LM_EMAIL_ENABLED=$LM_EMAIL_ENABLED"
+  echo "LM_DARK_SITE=${LM_DARK_SITE:-false}"
+  echo "LM_LOCAL_ONLY=${LM_LOCAL_ONLY:-false}"
+  echo "MONITOR_TIMEOUT_SECS=$MONITOR_TIMEOUT_SECS"
   echo "SCRIPT_ORDER=${scripts[*]}"
   echo "============================================================"
 } > "$tmp_report"
@@ -193,20 +203,25 @@ run_one() {
     return 0
   }
 
-  # Skip monitors that require config/baselines unless present
+  # Skip monitors that require optional config/baselines unless present.
+  # Use CFG_DIR so repo/unprivileged runs and dark-site deployments can keep
+  # local config without writing to /etc.
   case "$s" in
     cert_monitor.sh)
-      [ -s /etc/linux_maint/certs.txt ] || { skip_monitor "missing:/etc/linux_maint/certs.txt"; }
+      [ -s "$CFG_DIR/certs.txt" ] || { skip_monitor "missing:$CFG_DIR/certs.txt"; }
+      ;;
+    network_monitor.sh)
+      [ -s "$CFG_DIR/network_targets.txt" ] || { skip_monitor "missing:$CFG_DIR/network_targets.txt"; }
       ;;
     ports_baseline_monitor.sh)
-      [ -s /etc/linux_maint/ports_baseline.txt ] || { skip_monitor "missing:/etc/linux_maint/ports_baseline.txt"; }
+      [ -s "$CFG_DIR/ports_baseline.txt" ] || { skip_monitor "missing:$CFG_DIR/ports_baseline.txt"; }
       ;;
     config_drift_monitor.sh)
-      [ -s /etc/linux_maint/config_paths.txt ] || { skip_monitor "missing:/etc/linux_maint/config_paths.txt"; }
+      [ -s "$CFG_DIR/config_paths.txt" ] || { skip_monitor "missing:$CFG_DIR/config_paths.txt"; }
       ;;
     user_monitor.sh)
-      [ -s /etc/linux_maint/baseline_users.txt ] || { skip_monitor "missing:/etc/linux_maint/baseline_users.txt"; }
-      [ -s /etc/linux_maint/baseline_sudoers.txt ] || { skip_monitor "missing:/etc/linux_maint/baseline_sudoers.txt"; }
+      [ -s "$CFG_DIR/baseline_users.txt" ] || { skip_monitor "missing:$CFG_DIR/baseline_users.txt"; }
+      [ -s "$CFG_DIR/baseline_sudoers.txt" ] || { skip_monitor "missing:$CFG_DIR/baseline_sudoers.txt"; }
       ;;
   esac
 
