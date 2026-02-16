@@ -206,7 +206,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P3.2 Disk trend inode summary rollup (NOT DONE)
+### P3.2 Disk trend inode summary rollup (DONE 2026-02-16)
 **Why**: inode trend data exists but does not surface concise summary signal.
 
 **Where**:
@@ -219,6 +219,8 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Extend inode trend test assertions.
+- ✅ Implemented: `disk_trend_monitor` now emits concise inode rollup keys (`inode_mounts`, `inode_warn`, `inode_crit`) when inode trend mode is enabled.
+- ✅ Coverage: extended `tests/disk_trend_inode_trend_test.sh` to assert inode rollup summary keys.
 
 ---
 

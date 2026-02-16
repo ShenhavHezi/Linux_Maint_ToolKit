@@ -348,3 +348,7 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 ## 2026-02-16
 - preflight_check: remove per-dependency `lm_require_cmd` summary emissions so preflight now emits a single actionable summary line per run; move dependency detail lists to `LM_LOGFILE`.
 - tests: extend `tests/preflight_missing_ssh_test.sh` to assert single-line summary output and set `LINUX_MAINT_LIB` explicitly for stable repo-mode execution.
+
+## 2026-02-16
+- disk_trend_monitor: when `LM_DISK_TREND_INODES=1|true`, summary output now includes compact inode rollup keys (`inode_mounts`, `inode_warn`, `inode_crit`) to surface inode pressure signal without expanding per-mount summary noise.
+- tests: extend `tests/disk_trend_inode_trend_test.sh` to assert inode rollup keys in the monitor summary output.
