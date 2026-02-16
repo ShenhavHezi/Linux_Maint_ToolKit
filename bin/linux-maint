@@ -76,12 +76,20 @@ validate_ssh_opts(){
   local s="${LM_SSH_OPTS:-}"
   [[ -z "$s" ]] && return 0
 
-  # Disallow shell metacharacters and newlines/carriage returns.
-  if printf '%s' "$s" | grep -Eq '[;&|`<>]|\$\(|\$\{|\r|\n'; then
+  # Disallow shell metacharacters.
+  # Newline/carriage-return checks are done separately with ANSI-C escapes.
+  if printf '%s' "$s" | grep -Eq '[;&|`<>]|\$\(|\$\{'; then
     echo "ERROR: unsafe characters detected in --ssh-opts / LM_SSH_OPTS" >&2
     echo "LM_SSH_OPTS=$s" >&2
     exit 2
   fi
+  case "$s" in
+    *$'\n'*|*$'\r'*)
+      echo "ERROR: unsafe characters detected in --ssh-opts / LM_SSH_OPTS" >&2
+      echo "LM_SSH_OPTS=$s" >&2
+      exit 2
+      ;;
+  esac
 }
 
 

@@ -166,7 +166,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P2.2 SSH option policy docs + guardrails (NOT DONE)
+### P2.2 SSH option policy docs + guardrails (DONE 2026-02-15)
 **Why**: fleet mode relies on `LM_SSH_OPTS`; policy clarity reduces accidental insecure overrides.
 
 **Where**:
@@ -179,6 +179,7 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Extend SSH-option validation tests.
+- ✅ Implemented: documented accepted/rejected `LM_SSH_OPTS` patterns and safe examples in `docs/reference.md`; added `tests/ssh_opts_validation_test.sh` for safe/unsafe option strings and expected exit behavior.
 
 ---
 

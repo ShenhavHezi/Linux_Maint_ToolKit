@@ -349,6 +349,17 @@ Notes:
 - This project intentionally splits `LM_SSH_OPTS` into ssh argv. Avoid shell metacharacters; prefer only `-o Key=Value` style options.
 - If you enable strict host key verification in your environment, pre-populate the dedicated known_hosts file used by `UserKnownHostsFile`.
 
+Validation guardrails (in `linux-maint run`):
+- Unsafe shell metacharacters are rejected in `--ssh-opts` / `LM_SSH_OPTS` with exit code `2`.
+- Rejected patterns include: `;`, `&`, `|`, `` ` ``, `<`, `>`, `$(`, `${`, and newline/carriage-return bytes.
+
+Recommended safe examples:
+
+```bash
+linux-maint run --ssh-opts "-o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new"
+linux-maint run --ssh-opts "-o UserKnownHostsFile=/var/lib/linux_maint/known_hosts -o GlobalKnownHostsFile=/dev/null"
+```
+
 
 
 

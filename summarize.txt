@@ -340,3 +340,4 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 - cli: add `linux-maint deps` command to print per-monitor required/optional command manifest with local availability counters (offline-friendly); docs/tests updated.
 - security: strengthen `tools/pack_logs.sh` redaction for password/token/api_key/secret/authorization patterns and extend `tests/pack_logs_test.sh` to assert secret removal plus placeholder preservation.
 - tests: fix ShellCheck SC2251 in `tests/pack_logs_test.sh` by replacing negated standalone `grep` checks with explicit assertion helper failures.
+- ssh policy: document `LM_SSH_OPTS` guardrails (accepted/rejected patterns + safe examples) and add `tests/ssh_opts_validation_test.sh` coverage for safe/unsafe strings with expected rc=2 on unsafe input.
