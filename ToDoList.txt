@@ -224,6 +224,22 @@ This is the single backlog source of truth.
 
 ---
 
+### P3.3 [ops][dx] Document inode trend rollup contract (DONE 2026-02-16)
+**Why**: inode rollup keys were added to `disk_trend_monitor` summary output, but operator docs did not describe the toggle/keys clearly.
+
+**Where**:
+- `docs/reference.md`
+
+**Acceptance**:
+- Document `LM_DISK_TREND_INODES` behavior and defaults.
+- Document `inode_mounts`, `inode_warn`, and `inode_crit` summary keys.
+
+**Verify**:
+- Docs describe the toggle and the emitted summary keys in the disk trend section.
+- ✅ Implemented: added `LM_DISK_TREND_INODES` default/behavior note and documented inode rollup summary keys in `docs/reference.md`.
+
+---
+
 ## P4 — DX / release polish
 
 ### P4.1 [dx] Add `make install-githooks` (DONE 2026-02-15)

@@ -352,3 +352,6 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 ## 2026-02-16
 - disk_trend_monitor: when `LM_DISK_TREND_INODES=1|true`, summary output now includes compact inode rollup keys (`inode_mounts`, `inode_warn`, `inode_crit`) to surface inode pressure signal without expanding per-mount summary noise.
 - tests: extend `tests/disk_trend_inode_trend_test.sh` to assert inode rollup keys in the monitor summary output.
+
+## 2026-02-16
+- docs/reference: document `LM_DISK_TREND_INODES` toggle/default and the inode rollup summary keys emitted by `disk_trend_monitor` (`inode_mounts`, `inode_warn`, `inode_crit`) to keep operator contract docs aligned with current monitor output.
