@@ -17,6 +17,12 @@ sudo linux-maint status --problems 100
 # Raw summary lines
 sudo linux-maint status --verbose
 
+# Filter by host/monitor/status
+sudo linux-maint status --host web --monitor service --only WARN
+
+# Regex matching mode for host/monitor filters
+sudo linux-maint status --host '^web-[0-9]+$' --match-mode regex
+
 # Diff since last run
 sudo linux-maint diff
 
@@ -28,6 +34,9 @@ sudo linux-maint logs 200
 
 # Diagnostics
 sudo linux-maint doctor
+
+# Offline dependency manifest (required vs optional tools)
+sudo linux-maint deps
 ```
 
 ## Fleet runs (monitoring node)

@@ -1,85 +1,253 @@
-# linux-maint / linux_Maint_Scripts — ToDoList (living backlog)
-#
-# Rules:
-# - Pick ONE item per session.
-# - Prefer safe, minimal changes; assume current behavior is correct.
-# - No new dependencies / no large refactors.
-# - For any behavior change, add/extend tests and update summarize.txt.
-#
-# Priority legend:
-# - P0: correctness/contract break or data loss risk
-# - P1: high-value reliability improvements
-# - P2: monitoring quality improvements
-# - P3: DX/release polish
+# linux-maint — ToDoList (fresh roadmap)
 
-## P0 — Contract / correctness
+This is the single backlog source of truth.
 
-### P0.1 Make summary_contract.sh robust to unprivileged baseline monitors (NOT DONE)
-**Why**: `tests/summary_contract.sh` currently fails in unprivileged mode on `ports_baseline_monitor.sh` due to baseline dir permission errors, even though `tests/monitor_summary_emission_test.sh` already sets `LM_CFG_DIR` to avoid this.
+## Working style
+- Pick **one** item per PR.
+- Keep changes small, reversible, and test-backed.
+- Prefer improving existing behavior over adding new monitors.
+- Dark-site/offline reliability is the primary product focus.
+
+## Priority legend
+- **P0**: correctness/contract/runtime reliability
+- **P1**: dark-site operator experience
+- **P2**: security and hardening
+- **P3**: signal quality and observability
+- **P4**: DX/release polish
+
+## Tags
+- `[dark-site]` offline/air-gapped operator flow
+- `[contract]` summary/output guarantees and test robustness
+- `[ops]` runbook/doctor/operator experience
+- `[security]` hardening and data handling
+- `[dx]` contributor and release workflow
+
+---
+
+## P0 — Correctness / contract / runtime reliability
+
+### P0.0 [ops][dx] Resolve ToDoList/summarize merge-conflict workflow (DONE 2026-02-15)
+**Why**: requiring frequent updates to both planning/history docs caused recurring PR merge conflicts.
+
+**Where**:
+- `.github/workflows/docs_consistency.yml`
+- `CONTRIBUTING.md`
+- `summarize.txt`
+
+**Acceptance**:
+- Code-change policy requires `ToDoList.txt` updates as the single planning source.
+- `summarize.txt` is documented as less-frequent capability snapshot (not per-fix changelog).
+
+**Verify**:
+- CI meta-doc check references `ToDoList.txt` only.
+
+---
+
+### P0.1 [dark-site][ops] Doctor gate parity with wrapper (DONE 2026-02-15)
+**Why**: wrapper now SKIPs `network_monitor` when `network_targets.txt` is missing, but `linux-maint doctor` skip-gate hints do not show that gate yet.
+
+**Where**:
+- `bin/linux-maint`
+
+**Acceptance**:
+- `doctor` prints a `network_monitor` skip-gate hint when `$CFG_DIR/network_targets.txt` is missing/empty.
+- Keep current output format style and no breaking changes.
+
+**Verify**:
+- Add/extend a test to assert the new doctor hint.
+- ✅ Implemented: doctor now reports network_targets gate to match wrapper SKIP behavior.
+
+---
+
+### P0.2 [contract] Contract test monitor timeout guard (DONE 2026-02-15)
+**Why**: if one monitor hangs in CI, `tests/summary_contract.sh` can stall too long and hide root cause.
 
 **Where**:
 - `tests/summary_contract.sh`
 
 **Acceptance**:
-- The contract test should run monitors with a writable `LM_CFG_DIR` (like `monitor_summary_emission_test.sh`) so baseline-based monitors can emit `monitor=` lines even when `/etc/linux_maint` is not writable.
-- No behavior change to production code.
+- Wrap each monitor invocation with a bounded timeout.
+- On timeout, fail with clear monitor name and include captured output tail.
 
 **Verify**:
-- Running `bash tests/summary_contract.sh` succeeds as non-root.
+- Add a fixture monitor or controlled path proving timeout handling works.
+- ✅ Implemented: per-monitor timeout guard added to `tests/summary_contract.sh` plus `tests/summary_contract_timeout_guard_test.sh`.
 
 ---
 
-## P1 — GitHub hygiene / readability (docs + repo layout)
-
-### P1.0 Make README GitHub-friendly + add docs index (NOT DONE)
-**Why**: README is the landing page. It should quickly answer: what is this, how do I run it, and where are the docs.
+### P0.3 [contract] Preflight summary-line noise reduction (NOT DONE)
+**Why**: preflight currently emits multiple summary lines from optional dependency checks, making contract output noisy.
 
 **Where**:
-- `README.md`
-- `docs/INDEX.md`
+- `monitors/preflight_check.sh`
+- `lib/linux_maint.sh` (only if needed)
 
 **Acceptance**:
-- README has a prominent **Docs / references** block linking to:
-  - `docs/INDEX.md`
-  - `docs/QUICK_REFERENCE.md`
-  - `docs/reference.md`
-  - `docs/DARK_SITE.md`
-  - `docs/REASONS.md`
-- `docs/INDEX.md` exists and lists all major docs with 1-line descriptions.
-- All links are relative and work on GitHub.
+- Keep one actionable summary line per host in normal paths.
+- Move extra details to log output, not summary contract lines.
 
 **Verify**:
-- Click all doc links from README in GitHub UI.
+- Extend `tests/summary_contract.sh` / preflight-focused test coverage.
 
+---
 
-## P2 — Monitoring quality (optional, safe)
+## P1 — Dark-site / offline operator experience (main focus)
 
-### P2.1 Disk trend monitor: surface inode metrics in summary (optional) (NOT DONE)
-**Why**: we now collect inode state (optional), but summary still only reports space trend counters.
+### P1.1 [dark-site] Add `LM_DARK_SITE=true` profile toggle (DONE 2026-02-15)
+**Why**: air-gapped operators need one simple switch with conservative defaults.
+
+**Where**:
+- `run_full_health_monitor.sh`
+- `etc/linux_maint/linux-maint.conf.example`
+- `docs/DARK_SITE.md`
+
+**Acceptance**:
+- Profile is optional and fully backward-compatible when unset.
+- Document exactly which defaults change (minimal, predictable set).
+
+**Verify**:
+- Add tests for profile on/off behavior.
+- ✅ Implemented: wrapper now applies conservative defaults when `LM_DARK_SITE=true` while preserving explicit env/config overrides; covered by `tests/wrapper_dark_site_profile_test.sh`.
+- ✅ Maintenance: fixed ShellCheck SC2068 in `tests/wrapper_dark_site_profile_test.sh` by quoting forwarded env assignments (`env "$@"`).
+
+---
+
+### P1.2 [dark-site][ops] Dark-site “day-0 bootstrap” checklist (DONE 2026-02-15)
+**Why**: first-run friction is still higher than needed for base users.
+
+**Where**:
+- `docs/DARK_SITE.md`
+- `README.md`
+
+**Acceptance**:
+- Add a short “minimum files for first successful run” section.
+- Include expected SKIP statuses so operators know what is normal.
+
+**Verify**:
+- Walk through docs end-to-end in a clean VM/container.
+- ✅ Implemented: added a day-0 checklist to `docs/DARK_SITE.md` (minimum required files + expected first-run SKIP statuses) and linked it from `README.md`.
+
+---
+
+### P1.3 Offline dependency manifest helper (DONE 2026-02-15)
+**Why**: offline teams need a quick way to know optional tools that improve coverage.
+
+**Where**:
+- `bin/linux-maint` (new subcommand or doctor extension)
+- `docs/reference.md`
+
+**Acceptance**:
+- Print required vs optional command matrix by monitor.
+- No network calls; pure local report.
+
+**Verify**:
+- Add test that validates stable key output lines.
+- ✅ Implemented: added `linux-maint deps` command with per-monitor required/optional command matrix and local availability counters; covered by `tests/deps_manifest_test.sh` and docs updates.
+
+---
+
+## P2 — Security / hardening
+
+### P2.1 [security] Pack-logs redaction review + tests (DONE 2026-02-15)
+**Why**: support bundles are critical in dark-site incident handoff; redaction needs explicit test coverage for sensitive patterns.
+
+**Where**:
+- `tools/pack_logs.sh`
+- `tests/pack_logs_test.sh`
+
+**Acceptance**:
+- Add redaction cases for common secret-like keys/tokens in config snapshots.
+- Preserve troubleshooting usefulness while removing sensitive values.
+
+**Verify**:
+- Tests assert sensitive strings are absent and placeholders are present.
+- ✅ Implemented: expanded redaction patterns in `tools/pack_logs.sh` for token/password/api_key/secret/authorization variants and added coverage in `tests/pack_logs_test.sh` asserting secrets are removed while non-sensitive lines remain.
+- ✅ Maintenance: fixed ShellCheck SC2251 in `tests/pack_logs_test.sh` by replacing standalone negated `grep` checks with explicit assertion helper logic.
+
+---
+
+### P2.2 SSH option policy docs + guardrails (DONE 2026-02-15)
+**Why**: fleet mode relies on `LM_SSH_OPTS`; policy clarity reduces accidental insecure overrides.
+
+**Where**:
+- `bin/linux-maint`
+- `docs/reference.md`
+
+**Acceptance**:
+- Keep current validation strict, document accepted patterns and examples.
+- Add test cases for safe/unsafe option strings.
+
+**Verify**:
+- Extend SSH-option validation tests.
+- ✅ Implemented: documented accepted/rejected `LM_SSH_OPTS` patterns and safe examples in `docs/reference.md`; added `tests/ssh_opts_validation_test.sh` for safe/unsafe option strings and expected exit behavior.
+- ✅ Maintenance: fixed ShellCheck SC2016 in `tests/ssh_opts_validation_test.sh` by using escaped command-substitution literals in double-quoted unsafe test fixtures.
+
+---
+
+## P3 — Signal quality / observability
+
+### P3.1 Status filter matching modes (DONE 2026-02-15)
+**Why**: current `--host/--monitor` use substring matching only; exact/regex mode helps automation.
+
+**Where**:
+- `bin/linux-maint`
+- `tests/status_filters_test.sh`
+- `docs/reference.md`
+
+**Acceptance**:
+- Add explicit exact and/or regex modes while preserving current behavior.
+- Keep compact and JSON output behavior aligned.
+
+**Verify**:
+- Positive and negative filter tests for each mode.
+- ✅ Implemented: added `--match-mode contains|exact|regex` for status host/monitor filtering across compact, verbose, and JSON outputs; added/extended tests for exact/regex behavior and invalid regex failure handling.
+
+---
+
+### P3.2 Disk trend inode summary rollup (NOT DONE)
+**Why**: inode trend data exists but does not surface concise summary signal.
 
 **Where**:
 - `monitors/disk_trend_monitor.sh`
+- `tests/disk_trend_inode_trend_test.sh`
 
 **Acceptance**:
-- When `LM_DISK_TREND_INODES=1`, include a small, parse-safe inode rollup in summary, e.g. `inode_mounts=<n>` and `inode_max_used_pct=<n>` (or similar).
-- Keep summary line short; avoid listing per-mount details.
+- When inode trend enabled, emit compact inode rollup keys in summary.
+- Keep summary length bounded and parse-safe.
 
 **Verify**:
-- Extend `tests/disk_trend_inode_trend_test.sh` to assert the new inode summary keys.
+- Extend inode trend test assertions.
 
 ---
 
-## P3 — DX / release polish
+## P4 — DX / release polish
 
-### P3.1 Make target for hooks install: `make install-githooks` (NOT DONE)
-**Why**: now that `tools/install_githooks.sh` exists, a make alias is a small QoL for contributors.
+### P4.1 [dx] Add `make install-githooks` (NOT DONE)
+**Why**: lower contributor friction and standardize local checks.
 
 **Where**:
 - `Makefile`
 
 **Acceptance**:
-- `make install-githooks` runs `./tools/install_githooks.sh`.
-- Mentioned in `make help`.
+- Add make target and include it in `make help`.
+- Idempotent behavior.
 
 **Verify**:
-- Running twice is safe.
+- Run target twice; second run remains clean.
+
+---
+
+### P4.2 Remove `summarize.txt` from active workflow (decision item) (DONE 2026-02-15)
+**Why**: maintaining two planning/history files (`ToDoList.txt` + `summarize.txt`) increases overhead.
+
+**Where**:
+- `CONTRIBUTING.md`
+- CI/documentation policy (where applicable)
+
+**Acceptance**:
+- Decide single source of truth for planning/history.
+- If deprecated, state migration path and update contributor guidance.
+
+**Verify**:
+- CI/docs checks pass with the new policy.
+- ✅ Implemented: `ToDoList.txt` is now the required planning update file for code changes; `summarize.txt` remains an optional high-level snapshot to reduce conflict churn.
