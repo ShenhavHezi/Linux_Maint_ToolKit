@@ -339,3 +339,4 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 - dark-site docs: add day-0 bootstrap checklist (minimum required files + expected first-run SKIP statuses) and link it from README for quicker offline onboarding.
 - cli: add `linux-maint deps` command to print per-monitor required/optional command manifest with local availability counters (offline-friendly); docs/tests updated.
 - security: strengthen `tools/pack_logs.sh` redaction for password/token/api_key/secret/authorization patterns and extend `tests/pack_logs_test.sh` to assert secret removal plus placeholder preservation.
+- tests: fix ShellCheck SC2251 in `tests/pack_logs_test.sh` by replacing negated standalone `grep` checks with explicit assertion helper failures.

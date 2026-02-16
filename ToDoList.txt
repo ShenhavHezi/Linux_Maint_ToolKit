@@ -162,6 +162,7 @@ This is the single backlog source of truth.
 **Verify**:
 - Tests assert sensitive strings are absent and placeholders are present.
 - ✅ Implemented: expanded redaction patterns in `tools/pack_logs.sh` for token/password/api_key/secret/authorization variants and added coverage in `tests/pack_logs_test.sh` asserting secrets are removed while non-sensitive lines remain.
+- ✅ Maintenance: fixed ShellCheck SC2251 in `tests/pack_logs_test.sh` by replacing standalone negated `grep` checks with explicit assertion helper logic.
 
 ---
 

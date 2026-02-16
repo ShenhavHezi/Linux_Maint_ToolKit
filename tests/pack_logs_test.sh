@@ -42,11 +42,19 @@ grep -qi 'Authorization: REDACTED' "$extracted_cfg"
 grep -qi 'token=REDACTED' "$extracted_cfg"
 
 # Original secret values must not appear
-! grep -q 'hunter2' "$extracted_cfg"
-! grep -q 'ABCD-1234' "$extracted_cfg"
-! grep -q 'topsecret' "$extracted_cfg"
-! grep -q 'very-sensitive-token' "$extracted_cfg"
-! grep -q 'abc123' "$extracted_cfg"
+assert_not_contains() {
+  local needle="$1" file="$2"
+  if grep -q -- "$needle" "$file"; then
+    echo "unexpected secret found in redacted file: $needle" >&2
+    exit 1
+  fi
+}
+
+assert_not_contains 'hunter2' "$extracted_cfg"
+assert_not_contains 'ABCD-1234' "$extracted_cfg"
+assert_not_contains 'topsecret' "$extracted_cfg"
+assert_not_contains 'very-sensitive-token' "$extracted_cfg"
+assert_not_contains 'abc123' "$extracted_cfg"
 
 # Non-secret useful line preserved
 grep -q '^localhost$' "$extracted_cfg"
