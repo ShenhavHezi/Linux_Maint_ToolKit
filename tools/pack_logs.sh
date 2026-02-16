@@ -20,9 +20,11 @@ redact_file() {
   local in="$1" out="$2"
   # Best-effort redact patterns like: token=..., password=..., Authorization: ...
   sed -E \
-    -e 's/(token=)[^[:space:]]+/\1REDACTED/gI' \
-    -e 's/(password=)[^[:space:]]+/\1REDACTED/gI' \
-    -e 's/(authorization:)[[:space:]]*[^[:space:]]+/\1 REDACTED/gI' \
+    -e 's/([[:alnum:]_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key)[[:alnum:]_]*)[[:space:]]*=[[:space:]]*[^[:space:]"'\'';]+/\1=REDACTED/gI' \
+    -e 's/([[:alnum:]_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key)[[:alnum:]_]*)[[:space:]]*=[[:space:]]*"[^"]*"/\1="REDACTED"/gI' \
+    -e "s/([[:alnum:]_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key)[[:alnum:]_]*)[[:space:]]*=[[:space:]]*'[^']*'/\\1='REDACTED'/gI" \
+    -e 's/(authorization:).*/\1 REDACTED/gI' \
+    -e 's/(bearer)[[:space:]]+[[:alnum:]._~+\/-]+=*/\1 REDACTED/gI' \
     "$in" > "$out" 2>/dev/null || cp -f "$in" "$out"
 }
 
