@@ -75,7 +75,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P0.3 [contract] Preflight summary-line noise reduction (NOT DONE)
+### P0.3 [contract] Preflight summary-line noise reduction (DONE 2026-02-16)
 **Why**: preflight currently emits multiple summary lines from optional dependency checks, making contract output noisy.
 
 **Where**:
@@ -88,6 +88,8 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Extend `tests/summary_contract.sh` / preflight-focused test coverage.
+- ✅ Implemented: preflight no longer emits per-dependency summary lines; dependency details now go to the monitor log and a single actionable `monitor=preflight_check` summary line is emitted.
+- ✅ Coverage: extended `tests/preflight_missing_ssh_test.sh` to assert single-line summary output on missing required dependency paths.
 
 ---
 
@@ -204,7 +206,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P3.2 Disk trend inode summary rollup (NOT DONE)
+### P3.2 Disk trend inode summary rollup (DONE 2026-02-16)
 **Why**: inode trend data exists but does not surface concise summary signal.
 
 **Where**:
@@ -217,6 +219,8 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Extend inode trend test assertions.
+- ✅ Implemented: `disk_trend_monitor` now emits concise inode rollup keys (`inode_mounts`, `inode_warn`, `inode_crit`) when inode trend mode is enabled.
+- ✅ Coverage: extended `tests/disk_trend_inode_trend_test.sh` to assert inode rollup summary keys.
 
 ---
 
