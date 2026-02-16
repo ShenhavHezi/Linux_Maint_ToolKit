@@ -222,7 +222,7 @@ This is the single backlog source of truth.
 
 ## P4 — DX / release polish
 
-### P4.1 [dx] Add `make install-githooks` (NOT DONE)
+### P4.1 [dx] Add `make install-githooks` (DONE 2026-02-15)
 **Why**: lower contributor friction and standardize local checks.
 
 **Where**:
@@ -234,6 +234,7 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Run target twice; second run remains clean.
+- ✅ Implemented: added `install-githooks` target to `Makefile`/`make help` and added `tests/install_githooks_make_target_test.sh` to verify idempotent double-run behavior.
 
 ---
 
