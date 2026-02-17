@@ -40,6 +40,46 @@ jobs:
           chmod +x tests/smoke.sh
           ./tests/smoke.sh || true
 
+  bash-compat-matrix:
+    name: Bash compatibility (${{ matrix.distro }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: ubuntu-24.04
+            image: ubuntu:24.04
+            pkg_install: apt-get update && apt-get install -y bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates
+          - distro: debian-12
+            image: debian:12
+            pkg_install: apt-get update && apt-get install -y bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - name: Install runtime dependencies
+        run: |
+          set -euo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          bash -lc "${{ matrix.pkg_install }}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bash version
+        run: |
+          bash --version | head -n 1
+
+      - name: Smoke test (matrix)
+        run: |
+          chmod +x tests/smoke.sh
+          rc=0
+          ./tests/smoke.sh || rc=$?
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then
+            echo "smoke failed with rc=$rc"
+            exit "$rc"
+          fi
+          echo "smoke matrix ok (rc=$rc)"
+
   build-rpm-rocky9:
     runs-on: ubuntu-latest
     container:

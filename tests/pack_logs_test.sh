@@ -23,6 +23,11 @@ api_key = "ABCD-1234"
 secret='topsecret'
 Authorization: Bearer very-sensitive-token
 LM_NOTIFY_TOKEN=abc123
+session_id = "sess-42"
+refresh_token='refresh-secret'
+id_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.abcdefghijklmnop.qrstuvwxyzABCD"
+x-auth-token: token-raw-value
+notes: sessionization is normal text
 CFG
 
 bundle_path="$(OUTDIR="$workdir" LOG_DIR="$logdir" CFG_DIR="$cfgdir" REPO_ROOT="$ROOT_DIR" "$ROOT_DIR/tools/pack_logs.sh")"
@@ -41,6 +46,11 @@ grep -qi "secret='REDACTED'" "$extracted_cfg"
 grep -qi 'Authorization: REDACTED' "$extracted_cfg"
 grep -qi 'token=REDACTED' "$extracted_cfg"
 
+grep -qi 'session_id="REDACTED"' "$extracted_cfg"
+grep -qi "refresh_token='REDACTED'" "$extracted_cfg"
+grep -qi 'id_token: "REDACTED"' "$extracted_cfg"
+grep -qi '^x-auth-token: REDACTED$' "$extracted_cfg"
+
 # Original secret values must not appear
 assert_not_contains() {
   local needle="$1" file="$2"
@@ -55,8 +65,13 @@ assert_not_contains 'ABCD-1234' "$extracted_cfg"
 assert_not_contains 'topsecret' "$extracted_cfg"
 assert_not_contains 'very-sensitive-token' "$extracted_cfg"
 assert_not_contains 'abc123' "$extracted_cfg"
+assert_not_contains 'sess-42' "$extracted_cfg"
+assert_not_contains 'refresh-secret' "$extracted_cfg"
+assert_not_contains 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.abcdefghijklmnop.qrstuvwxyzABCD' "$extracted_cfg"
+assert_not_contains 'token-raw-value' "$extracted_cfg"
 
 # Non-secret useful line preserved
 grep -q '^localhost$' "$extracted_cfg"
+grep -q '^notes: sessionization is normal text$' "$extracted_cfg"
 
 echo "ok: pack-logs"

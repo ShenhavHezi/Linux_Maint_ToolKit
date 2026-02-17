@@ -43,6 +43,8 @@ EMAIL_ON_ISSUE="true"
 : "${NFS_STAT_TIMEOUT:=5}"
 
 ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" nfs_mount_monitor.alerts.XXXXXX)"
+cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
+trap cleanup_tmpfiles EXIT
 append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 mail_if_enabled(){ [ "$EMAIL_ON_ISSUE" = "true" ] || return 0; lm_mail "$1" "$2"; }
 
@@ -65,7 +67,7 @@ run_for_host(){
     lm_err "[$host] SSH unreachable"
     append_alert "$host|ssh|unreachable"
     bad=$((bad+1))
-    lm_summary "nfs_mount_monitor" "$host" "CRIT" checked="$checked" bad="$bad"
+    lm_summary "nfs_mount_monitor" "$host" "CRIT" reason=ssh_unreachable checked="$checked" bad="$bad"
     # legacy:
     # echo "nfs_mount_monitor host=$host status=CRIT checked="$checked" bad="$bad""
     lm_info "===== Completed $host ====="
@@ -108,10 +110,15 @@ run_for_host(){
     lm_info "[$host] [OK] NFS mount healthy: $mp (src=${src:-?})"
   done <<<"$mounts"
 
-  local status=OK
+  local status=OK reason=""
   [ "$bad" -gt 0 ] && status=CRIT
 
-  lm_summary "nfs_mount_monitor" "$host" "$status" checked="$checked" bad="$bad"
+  if [ "$status" != "OK" ]; then
+    reason=nfs_unhealthy
+    lm_summary "nfs_mount_monitor" "$host" "$status" reason="$reason" checked="$checked" bad="$bad"
+  else
+    lm_summary "nfs_mount_monitor" "$host" "$status" checked="$checked" bad="$bad"
+  fi
   # legacy:
   # echo "nfs_mount_monitor host=$host status=$status checked="$checked" bad="$bad""
   lm_info "===== Completed $host ====="

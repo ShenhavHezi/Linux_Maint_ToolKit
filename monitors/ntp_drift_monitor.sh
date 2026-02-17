@@ -156,6 +156,8 @@ rate_status() {
 # Aggregation
 # ========================
 ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" ntp_drift.alerts.XXXXXX)"
+cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
+trap cleanup_tmpfiles EXIT
 append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 
 # ========================
