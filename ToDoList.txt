@@ -144,7 +144,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P2.2 [security] Expand log redaction coverage to structured auth fields (NOT DONE)
+### P2.2 [security] Expand log redaction coverage to structured auth fields (DONE 2026-02-17)
 **Why**: support bundles/logs may include structured credentials (Bearer/JWT/session-like values) not fully covered by current patterns.
 
 **Where**:
@@ -159,6 +159,8 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Extend tests with positive/negative fixtures for false-positive control.
+- ✅ Implemented: expanded redaction patterns for structured auth fields (`session_id`, `id_token`, `refresh_token`, `x-auth-token`), bearer/header variants, and JWT-like token blobs in both runtime logging (`lm_redact_line`) and support-bundle config redaction (`tools/pack_logs.sh`).
+- ✅ Coverage: extended `tests/log_redaction_test.sh` and `tests/pack_logs_test.sh` with positive redaction checks and non-secret context preservation assertions.
 
 ---
 

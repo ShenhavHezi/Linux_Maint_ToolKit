@@ -63,11 +63,15 @@ lm_redact_line() {
       ;;
   esac
 
-  # Best-effort token/password redaction
-  # - password=... / passwd=... / token=... / api_key=...
+  # Best-effort secret redaction in free-form logs
+  # - key=value forms (password/token/session/auth variants)
+  # - auth headers / bearer credentials
+  # - JWT-like blobs (three base64url-ish dot-separated segments)
   s="$(printf '%s' "$s" | sed -E \
-    -e 's/\b(password|passwd|token|api[_-]?key)=([^[:space:]]+)/\1=REDACTED/Ig' \
-    -e 's/\b(Authorization:)[[:space:]]+[^[:space:]]+/\1 REDACTED/Ig' \
+    -e 's/\b([[:alnum:]_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key|session([_-]?id)?|id[_-]?token|refresh[_-]?token|x[_-]?auth[_-]?token)[[:alnum:]_]*)=([^[:space:]]+)/\1=REDACTED/Ig' \
+    -e 's/\b(Authorization:|X-Auth-Token:)[[:space:]]+[^[:space:]]+/\1 REDACTED/Ig' \
+    -e 's/\b(Bearer)[[:space:]]+[[:alnum:]_.~+\/-]+=*/\1 REDACTED/Ig' \
+    -e 's/\b[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}\b/REDACTED_JWT/g' \
   )"
 
   printf '%s' "$s"

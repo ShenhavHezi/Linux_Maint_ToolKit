@@ -381,3 +381,8 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 ## 2026-02-16
 - security: add trap-based cleanup for mktemp-backed monitor files to reduce temp-file leakage on early exits/timeouts.
 - tests: add `tests/nfs_tempfile_cleanup_on_timeout_test.sh` (wired into smoke) to verify temp alert files are removed after forced timeout termination.
+
+
+## 2026-02-17
+- security/redaction: expand structured auth redaction coverage in runtime logs and support bundles to include session/id/refresh token-style keys, `x-auth-token` header forms, and JWT-like blobs while preserving key names/context.
+- tests: extend `tests/log_redaction_test.sh` and `tests/pack_logs_test.sh` with new structured-auth fixtures plus false-positive controls to keep non-secret text intact.
