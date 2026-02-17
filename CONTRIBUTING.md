@@ -27,6 +27,12 @@ make test
 
 This runs the same core checks as CI (summary contract + smoke).
 
+For a fast pre-push gate (contract/lint focused):
+
+```bash
+make quick-check
+```
+
 For the full local maintainer flow (lint + smoke):
 
 ```bash
