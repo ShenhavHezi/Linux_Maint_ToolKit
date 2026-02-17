@@ -14,6 +14,9 @@ sudo linux-maint status
 # Show more problems (max 100)
 sudo linux-maint status --problems 100
 
+# Top reason tokens (non-OK only)
+sudo linux-maint status --reasons 5
+
 # Raw summary lines
 sudo linux-maint status --verbose
 

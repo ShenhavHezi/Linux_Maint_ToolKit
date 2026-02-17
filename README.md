@@ -206,6 +206,7 @@ Tips:
 - `sudo linux-maint status --verbose` for raw summary lines
 - `sudo linux-maint diff` to show changes since the last run
 - `sudo linux-maint status --problems 100` to list more problems (max 100)
+- `sudo linux-maint status --reasons 5` to show the top reason tokens with counts
 - `sudo linux-maint status --host web --monitor service --only WARN` to narrow noisy output quickly
 - `sudo linux-maint status --host '^web-[0-9]+$' --match-mode regex` for exact regex targeting
 

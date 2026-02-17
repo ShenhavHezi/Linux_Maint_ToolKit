@@ -166,7 +166,7 @@ This is the single backlog source of truth.
 
 ## P3 — Signal quality / observability
 
-### P3.1 [ops] Add top-N reason rollup in `linux-maint status` (NOT DONE)
+### P3.1 [ops] Add top-N reason rollup in `linux-maint status` (DONE 2026-02-17)
 **Why**: compact status is useful, but operators still need quick visibility into dominant failure reasons across monitors/hosts.
 
 **Where**:
@@ -180,6 +180,8 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Add fixture-driven tests with mixed reason tokens.
+- ✅ Implemented: `linux-maint status` now supports `--reasons N` (default hidden, max 20) and emits a top-N non-OK `reason=` rollup in compact mode; `status --json` includes `reason_rollup` when requested.
+- ✅ Coverage: added `tests/status_reason_rollup_test.sh` with mixed-status fixtures validating text and JSON rollups, and default backward-compatible behavior when `--reasons` is omitted.
 
 ---
 

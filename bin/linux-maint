@@ -165,7 +165,7 @@ Usage: linux-maint <command> [args]
 
 Commands:
   run [flags]         Run the full package (wrapper)
-  status [--only S] [--host P] [--monitor P] [--match-mode M] [--tail N]  Show last run status + filtered summary lines
+  status [--only S] [--host P] [--monitor P] [--match-mode M] [--tail N] [--reasons N]  Show last run status + filtered summary lines
   diff [--json]       Show diff since last run (uses wrapper diff state)
   validate            Validate config file formats (best-effort)
   preflight           Run preflight checks
@@ -360,6 +360,7 @@ case "$cmd" in
     HOST_FILTER=""
     MONITOR_FILTER=""
     MATCH_MODE="contains"
+    REASONS_N=0
 
 
     while [[ $# -gt 0 ]]; do
@@ -373,9 +374,10 @@ case "$cmd" in
         --monitor) MONITOR_FILTER="$2"; shift 2;;
         --match-mode) MATCH_MODE="$2"; shift 2;;
         --problems) PROB_N="$2"; shift 2;;
+        --reasons) REASONS_N="$2"; shift 2;;
         --last) LAST_N="$2"; shift 2;;
         -h|--help)
-          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--problems N (max 100)] [--last N]"
+          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--problems N (max 100)] [--reasons N (max 20)] [--last N]"
           exit 0;;
         *) echo "Unknown status flag: $1" >&2; exit 2;;
       esac
@@ -392,12 +394,20 @@ case "$cmd" in
     # Validate/cap PROB_N (default 20, max 100)
     if [[ ! "$PROB_N" =~ ^[0-9]+$ ]]; then
       PROB_N=20
-    JSON=0
 
     elif (( PROB_N > 100 )); then
       PROB_N=100
     elif (( PROB_N < 0 )); then
       PROB_N=0
+    fi
+
+    # Validate/cap REASONS_N (default 0=disabled, max 20)
+    if [[ ! "$REASONS_N" =~ ^[0-9]+$ ]]; then
+      REASONS_N=0
+    elif (( REASONS_N > 20 )); then
+      REASONS_N=20
+    elif (( REASONS_N < 0 )); then
+      REASONS_N=0
     fi
 
     # History mode: show last N wrapper runs (best-effort)
@@ -433,11 +443,12 @@ case "$cmd" in
         summary_file="$INST_SUMMARY_LATEST"
       fi
 
-      python3 - "$MODE" "$status_file" "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" <<'PY'
+      python3 - "$MODE" "$status_file" "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" <<'PY'
 import json, os, re, sys
 
-mode, status_path, summary_path, only, limit, host_filter, monitor_filter, match_mode = sys.argv[1:9]
+mode, status_path, summary_path, only, limit, host_filter, monitor_filter, match_mode, reasons_limit = sys.argv[1:10]
 limit=int(limit)
+reasons_limit=int(reasons_limit)
 
 def read_kv(path):
     d={}
@@ -473,6 +484,7 @@ status=read_kv(status_path)
 
 counts={}
 problems=[]
+reason_counts={}
 if summary_path and os.path.exists(summary_path):
     with open(summary_path,'r',encoding='utf-8',errors='ignore') as f:
         for line in f:
@@ -495,6 +507,7 @@ if summary_path and os.path.exists(summary_path):
                 entry={'status':st,'monitor':mon,'host':host}
                 if reason:
                     entry['reason']=reason
+                    reason_counts[reason]=reason_counts.get(reason,0)+1
                 problems.append(entry)
 
 sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3,'OK':4}
@@ -507,6 +520,9 @@ out={
     'totals': {k: counts.get(k,0) for k in ['CRIT','WARN','UNKNOWN','SKIP','OK']},
     'problems': problems[:limit],
 }
+if reasons_limit > 0:
+    rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    out['reason_rollup']=[{'reason':r,'count':c} for r,c in rollup[:reasons_limit]]
 print(json.dumps(out, indent=2, sort_keys=True))
 PY
       exit 0
@@ -610,10 +626,11 @@ PY
         fi
       else
         [[ "$QUIET" -eq 0 ]] && echo "(from: $summary_file)"
-        python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" <<'PY'
+        python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" <<'PY'
 import re, sys
-path, only, limit, host_filter, monitor_filter, match_mode = sys.argv[1:7]
+path, only, limit, host_filter, monitor_filter, match_mode, reasons_limit = sys.argv[1:8]
 limit=int(limit)
+reasons_limit=int(reasons_limit)
 
 # Example line:
 # monitor=config_validate host=localhost status=WARN node=localhost warn=1 crit=0 reason=...
@@ -637,6 +654,7 @@ def matched(value, flt):
 
 counts={}
 problems=[]
+reason_counts={}
 with open(path, 'r', encoding='utf-8', errors='ignore') as f:
     for line in f:
         line=line.strip()
@@ -659,6 +677,7 @@ with open(path, 'r', encoding='utf-8', errors='ignore') as f:
         # Format D: "STATUS monitor reason=..." (reason only if exists)
         if reason:
             problems.append(f"{st} {mon} host={host} reason={reason}")
+            reason_counts[reason]=reason_counts.get(reason,0)+1
         else:
             problems.append(f"{st} {mon} host={host}")
 
@@ -673,6 +692,15 @@ if problems:
         print(l)
 else:
     print('\nproblems: none (all OK)')
+
+if reasons_limit > 0:
+    print('\nreason_rollup:')
+    if reason_counts:
+        rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+        for reason, count in rollup[:reasons_limit]:
+            print(f"{reason}={count}")
+    else:
+        print('none')
 PY
       fi
     else

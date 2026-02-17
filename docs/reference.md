@@ -319,6 +319,7 @@ Status flags (installed mode):
 
 - `--verbose` — show raw summary lines
 - `--problems N` — number of problem entries to display (default 20, max 100)
+- `--reasons N` — optional top-N reason rollup section for non-OK lines (default 0=hidden, max 20)
 - `--only OK|WARN|CRIT|UNKNOWN|SKIP` — filter by status
 - `--host PATTERN` — show only entries where `host` contains `PATTERN`
 - `--monitor PATTERN` — show only entries where `monitor` contains `PATTERN`
