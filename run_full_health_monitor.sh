@@ -497,9 +497,19 @@ if prom_file and rows:
         os.makedirs(os.path.dirname(prom_file), exist_ok=True)
         prom_rows = dedup_rows_worst(rows)
         counts={"OK":0,"WARN":0,"CRIT":0,"UNKNOWN":0,"SKIP":0}
+        reason_counts={}
+        max_reason_labels=20
+        try:
+            max_reason_labels=max(0, int(os.environ.get("LM_PROM_MAX_REASON_LABELS","20")))
+        except Exception:
+            max_reason_labels=20
         for r in prom_rows:
             st=r.get("status","UNKNOWN")
             counts[st]=counts.get(st,0)+1
+            if st != "OK":
+                reason=r.get("reason")
+                if reason:
+                    reason_counts[reason]=reason_counts.get(reason,0)+1
         with open(prom_file,"w",encoding="utf-8") as f:
             f.write("# HELP linux_maint_monitor_status Monitor status as exit-code scale (OK=0,WARN=1,CRIT=2,UNKNOWN/SKIP=3)\n")
             f.write("# TYPE linux_maint_monitor_status gauge\n")
@@ -517,6 +527,13 @@ if prom_file and rows:
             f.write("# TYPE linux_maint_monitor_status_count gauge\n")
             for st in ("OK","WARN","CRIT","UNKNOWN","SKIP"):
                 f.write(f"linux_maint_monitor_status_count{{status=\"{st.lower()}\"}} {counts.get(st,0)}\n")
+
+            f.write("\n# HELP linux_maint_reason_count Count of non-OK monitor results by reason token (deduped by monitor+host; top N reasons)\n")
+            f.write("# TYPE linux_maint_reason_count gauge\n")
+            if reason_counts and max_reason_labels > 0:
+                for reason, count in sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))[:max_reason_labels]:
+                    esc_reason=str(reason).replace("\\","\\\\").replace("\"","\\\"")
+                    f.write(f"linux_maint_reason_count{{reason=\"{esc_reason}\"}} {count}\n")
 
             for r in prom_rows:
                 mon=r.get("monitor","unknown"); host=r.get("host","all"); st=r.get("status","UNKNOWN")

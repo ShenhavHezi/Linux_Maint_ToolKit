@@ -65,3 +65,13 @@ echo "Wrote: $sums_file"
 
 echo "Contents checksum (sha256):"
 sha256sum "$tarball" | awk '{print $1"  "$2}'
+
+
+# Optional detached signature (requires gpg and SIGN_KEY).
+# Example: SIGN_KEY="ops-release@example.com" ./tools/make_tarball.sh
+if command -v gpg >/dev/null 2>&1 && [[ -n "${SIGN_KEY:-}" ]]; then
+  sig_file="$OUTDIR/$(basename "$tarball").asc"
+  gpg --batch --yes --armor --detach-sign --local-user "$SIGN_KEY" \
+    --output "$sig_file" "$tarball"
+  echo "Wrote: $sig_file"
+fi
