@@ -337,7 +337,30 @@ Status flags (installed mode):
 - `--host PATTERN` — show only entries where `host` contains `PATTERN`
 - `--monitor PATTERN` — show only entries where `monitor` contains `PATTERN`
 - `--match-mode contains|exact|regex` — how `--host`/`--monitor` are matched (default: `contains`)
+- `--since <int><s|m|h|d>` — include only timestamped summary artifacts from the recent time window (e.g., `30s`, `15m`, `2h`, `1d`)
 
+
+### `linux-maint status --json` compatibility contract
+
+`linux-maint status --json` is intended for automation use and keeps a stable top-level shape.
+
+Top-level keys:
+- `status_json_contract_version` (integer, current value: `1`)
+- `mode` (string: `repo` or `installed`)
+- `last_status` (object; parsed from `last_status_full` key/value file)
+- `summary_file` (string path when present, `null` when no summary is available)
+- `totals` (object with integer keys: `CRIT`, `WARN`, `UNKNOWN`, `SKIP`, `OK`)
+- `problems` (array of objects; severity-sorted, bounded by `--problems`)
+- `reason_rollup` (optional array; present only when `--reasons N` is requested)
+
+Compatibility policy:
+- Existing keys/types above are treated as stable for contract version `1`.
+- Additive keys may be introduced without breaking compatibility.
+- Breaking shape/type changes require incrementing `status_json_contract_version`.
+
+
+
+- `linux-maint trend [--last N] [--json]` *(root required)*: aggregate severity and reason trends across recent timestamped summary artifacts (default last 10 runs).
 
 - `linux-maint logs [n]` *(root required)*: tail the latest wrapper log (default `n=200`).
 
@@ -492,7 +515,11 @@ This file is intended for automation/CI ingestion and is what `linux-maint statu
 Optional: Prometheus export (textfile collector format)
 
 - Default path: `/var/lib/node_exporter/textfile_collector/linux_maint.prom`
-- Metric: `linux_maint_monitor_status{monitor="...",host="..."}` where OK=0, WARN=1, CRIT=2, UNKNOWN/SKIP=3
+- `linux_maint_overall_status` — overall run status gauge (OK=0, WARN=1, CRIT=2, UNKNOWN=3)
+- `linux_maint_summary_hosts_count{status=...}` — host-level counters derived from `monitor=` lines
+- `linux_maint_monitor_status_count{status=...}` — deduped monitor result counters by status
+- `linux_maint_monitor_status{monitor="...",host="..."}` — per monitor/host status gauge (OK=0, WARN=1, CRIT=2, UNKNOWN/SKIP=3)
+- `linux_maint_reason_count{reason="..."}` — top non-OK reason token counts (deduped by monitor+host, bounded by `LM_PROM_MAX_REASON_LABELS`, default 20)
 
 Each script prints a **single one-line summary** to stdout so the wrapper log stays readable.
 
@@ -853,6 +880,7 @@ echo "##active_line4##"
 
 echo "##active_line5##"
 `linux-maint diff` compares the latest summary against a persisted copy from the previous run.
+`linux-maint diff` first canonicalizes repeated `monitor`+`host` rows using **worst-status-wins** semantics (`UNKNOWN` > `CRIT` > `WARN` > `OK/SKIP`), with last-wins tie-break when severity is equal.
 echo "##active_line6##"
 
 echo "##active_line7##"

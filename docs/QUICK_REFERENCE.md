@@ -26,8 +26,18 @@ sudo linux-maint status --host web --monitor service --only WARN
 # Regex matching mode for host/monitor filters
 sudo linux-maint status --host '^web-[0-9]+$' --match-mode regex
 
+# Focus on recent run artifacts only
+sudo linux-maint status --since 2h
+
 # Diff since last run
 sudo linux-maint diff
+
+
+# Trend over recent summary runs
+sudo linux-maint trend --last 10
+
+# Trend in JSON
+sudo linux-maint trend --last 10 --json
 
 # Diff in JSON (automation)
 sudo linux-maint diff --json
@@ -40,6 +50,13 @@ sudo linux-maint doctor
 
 # Diagnostics (JSON for automation)
 sudo linux-maint doctor --json
+
+
+# Verify offline tarball checksum
+linux-maint verify-release linux_Maint_Scripts-*.tgz --sums SHA256SUMS
+
+# Explain a reason token quickly
+linux-maint explain reason ssh_unreachable
 
 # Offline dependency manifest (required vs optional tools)
 sudo linux-maint deps
