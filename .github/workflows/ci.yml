@@ -49,10 +49,10 @@ jobs:
         include:
           - distro: ubuntu-24.04
             image: ubuntu:24.04
-            pkg_install: apt-get update && apt-get install -y bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates
+            pkg_install: apt-get update && apt-get install -y bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute2
           - distro: debian-12
             image: debian:12
-            pkg_install: apt-get update && apt-get install -y bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates
+            pkg_install: apt-get update && apt-get install -y bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute2
     container:
       image: ${{ matrix.image }}
     steps:
