@@ -206,11 +206,6 @@ When `LM_DISK_TREND_INODES=1|true`, `disk_trend_monitor` also emits compact inod
 - `inode_warn=<count>`
 - `inode_crit=<count>`
 
-When `LM_DISK_TREND_INODES=1|true`, `disk_trend_monitor` also emits compact inode rollup summary keys:
-- `inode_mounts=<count>`
-- `inode_warn=<count>`
-- `inode_crit=<count>`
-
 ### `nfs_mount_monitor.sh`
 - `NFS_STAT_TIMEOUT` = `5`
 - `EMAIL_ON_ISSUE` = `"true"`

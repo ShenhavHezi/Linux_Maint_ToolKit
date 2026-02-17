@@ -359,3 +359,7 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 ## 2026-02-16
 - disk_trend_monitor: make trend state path resolution deterministic with precedence `STATE_BASE` → `${LM_STATE_DIR}/linux_maint/disk_trend` → `/var/lib/linux_maint/disk_trend`; if unresolved path is not writable, monitor falls back to `/tmp/linux_maint/disk_trend` and logs a warning.
 - tests/docs: tighten inode trend test to assert deterministic `LM_STATE_DIR` artifact path and document the state path precedence/fallback in `docs/reference.md`.
+
+## 2026-02-16
+- cli: add `linux-maint doctor --json` for machine-readable diagnostics in dark-site automation workflows, including config presence, monitor skip-gates, dependency availability, writable location checks, and recommended next actions.
+- tests/docs: add `tests/doctor_json_test.sh` (wired into smoke) and document `doctor --json` usage in README and quick reference.

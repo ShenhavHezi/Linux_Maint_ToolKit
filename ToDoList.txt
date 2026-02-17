@@ -82,7 +82,7 @@ This is the single backlog source of truth.
 
 ## P1 — Dark-site / offline operator experience
 
-### P1.1 [dark-site][ops] Add `linux-maint doctor --json` for automation (NOT DONE)
+### P1.1 [dark-site][ops] Add `linux-maint doctor --json` for automation (DONE 2026-02-16)
 **Why**: dark-site operators often need machine-readable diagnostics to integrate with internal runbooks and ticketing.
 
 **Where**:
@@ -96,6 +96,8 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Validate stable JSON keys via tests.
+- ✅ Implemented: added `linux-maint doctor --json` output with stable machine-readable keys for config, monitor gates, dependencies, writable locations, and next actions.
+- ✅ Coverage: added `tests/doctor_json_test.sh` and wired it into `tests/smoke.sh`.
 
 ---
 
