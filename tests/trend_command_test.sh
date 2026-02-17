@@ -6,8 +6,8 @@ LM="$ROOT_DIR/bin/linux-maint"
 LOG_DIR="$ROOT_DIR/.logs"
 mkdir -p "$LOG_DIR"
 
-f1="$LOG_DIR/full_health_monitor_summary_2099-01-01_010101.log"
-f2="$LOG_DIR/full_health_monitor_summary_2099-01-02_010101.log"
+f1="$LOG_DIR/full_health_monitor_summary_9999-12-30_235958.log"
+f2="$LOG_DIR/full_health_monitor_summary_9999-12-31_235959.log"
 trap 'rm -f "$f1" "$f2"' EXIT
 
 cat > "$f1" <<'S'

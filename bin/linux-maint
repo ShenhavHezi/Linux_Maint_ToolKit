@@ -878,6 +878,7 @@ for fp in files:
     rc={k:0 for k in order}
     with open(fp,'r',encoding='utf-8',errors='ignore') as f:
         for line in f:
+            line=line.strip()
             if not line.startswith('monitor='):
                 continue
             st=get_kv(line,'status') or 'UNKNOWN'

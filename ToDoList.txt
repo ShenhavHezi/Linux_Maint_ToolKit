@@ -194,7 +194,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P3.2 [ops] Improve Prometheus export metadata for monitor and reason dimensions
+### P3.2 [ops] Improve Prometheus export metadata for monitor and reason dimensions (DONE 2026-02-17)
 **Why**: dashboards and alerts benefit from consistent labels and clear metric help text.
 
 **Where**:
@@ -207,7 +207,8 @@ This is the single backlog source of truth.
 - Update HELP/TYPE docs and examples.
 
 **Verify**:
-- Extend prom textfile tests for label consistency and expected cardinality.
+- ✅ Implemented: added bounded reason-dimension metric `linux_maint_reason_count{reason=...}` and clarified Prometheus metric set in docs.
+- ✅ Coverage: extended `tests/prom_textfile_output_test.sh` to validate reason metric presence/headers and duplicate-labelset safety.
 
 ---
 

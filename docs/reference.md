@@ -515,7 +515,11 @@ This file is intended for automation/CI ingestion and is what `linux-maint statu
 Optional: Prometheus export (textfile collector format)
 
 - Default path: `/var/lib/node_exporter/textfile_collector/linux_maint.prom`
-- Metric: `linux_maint_monitor_status{monitor="...",host="..."}` where OK=0, WARN=1, CRIT=2, UNKNOWN/SKIP=3
+- `linux_maint_overall_status` — overall run status gauge (OK=0, WARN=1, CRIT=2, UNKNOWN=3)
+- `linux_maint_summary_hosts_count{status=...}` — host-level counters derived from `monitor=` lines
+- `linux_maint_monitor_status_count{status=...}` — deduped monitor result counters by status
+- `linux_maint_monitor_status{monitor="...",host="..."}` — per monitor/host status gauge (OK=0, WARN=1, CRIT=2, UNKNOWN/SKIP=3)
+- `linux_maint_reason_count{reason="..."}` — top non-OK reason token counts (deduped by monitor+host, bounded by `LM_PROM_MAX_REASON_LABELS`, default 20)
 
 Each script prints a **single one-line summary** to stdout so the wrapper log stays readable.
 
