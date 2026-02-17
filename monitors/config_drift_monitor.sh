@@ -264,7 +264,11 @@ run_for_host(){
 
   total_changes=$((modified+added+removed))
   status=$( [ "$total_changes" -gt 0 ] && echo WARN || echo OK )
-  lm_summary "config_drift_monitor" "$host" "$status" modified="$modified" added="$added" removed="$removed"
+  if [ "$status" != "OK" ]; then
+    lm_summary "config_drift_monitor" "$host" "$status" reason=config_drift_changed modified="$modified" added="$added" removed="$removed"
+  else
+    lm_summary "config_drift_monitor" "$host" "$status" modified="$modified" added="$added" removed="$removed"
+  fi
   # legacy:
   # echo "config_drift_monitor host=$host status=$status modified="$modified" added="$added" removed="$removed""
 

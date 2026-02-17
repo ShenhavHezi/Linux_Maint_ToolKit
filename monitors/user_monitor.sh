@@ -54,6 +54,8 @@ FAILED_CRIT=50
 ensure_dirs(){ mkdir -p "$(dirname "$LM_LOGFILE")" "$USERS_BASELINE_DIR" "$SUDO_BASELINE_DIR"; }
 
 ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" user_monitor.alerts.XXXXXX)"
+cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
+trap cleanup_tmpfiles EXIT
 append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 
 mail_if_enabled(){ [ "$EMAIL_ON_ALERT" = "true" ] || return 0; lm_mail "$1" "$2"; }
@@ -183,7 +185,11 @@ run_for_host(){
   lm_info "[$host] failed SSH logins last ${FAILED_WINDOW_HOURS}h: $failed ($failed_status)"
 
   status=$( [ "$anomalies" -gt 0 ] && echo WARN || echo OK )
-  lm_summary "user_monitor" "$host" "$status" anomalies="$anomalies"
+  if [ "$status" != "OK" ]; then
+    lm_summary "user_monitor" "$host" "$status" reason=user_anomalies anomalies="$anomalies"
+  else
+    lm_summary "user_monitor" "$host" "$status" anomalies="$anomalies"
+  fi
   # legacy:
   # echo "user_monitor host=$host status=$status anomalies="$anomalies""
 
