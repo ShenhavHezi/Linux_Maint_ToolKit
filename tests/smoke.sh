@@ -43,6 +43,8 @@ bash "$ROOT_DIR/tests/no_eval_lint.sh" >/dev/null
 
 # Dependency behavior example: network_monitor should emit missing_dependency when curl missing
 bash "$ROOT_DIR/tests/network_monitor_missing_curl_test.sh" >/dev/null
+bash "$ROOT_DIR/tests/nfs_reason_unreachable_test.sh" >/dev/null
+bash "$ROOT_DIR/tests/nfs_tempfile_cleanup_on_timeout_test.sh" >/dev/null
 
 # Fleet safety: --dry-run must not invoke ssh
 bash "$ROOT_DIR/tests/dry_run_no_ssh_test.sh" >/dev/null
@@ -52,6 +54,7 @@ bash "$ROOT_DIR/tests/per_monitor_timeout_override_test.sh" >/dev/null
 
 # Summary noise guardrail
 bash "$ROOT_DIR/tests/summary_noise_lint.sh" >/dev/null
+bash "$ROOT_DIR/tests/summary_budget_lint_fixture_test.sh" >/dev/null
 
 # Prometheus textfile output (best-effort; does not require sudo)
 bash "$ROOT_DIR/tests/prom_textfile_output_test.sh" >/dev/null
@@ -65,9 +68,12 @@ bash "$ROOT_DIR/tests/ntp_chrony_parsing_variants_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/log_spike_fixture_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/cert_monitor_scan_dir_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/verify_install_test.sh" >/dev/null
+bash "$ROOT_DIR/tests/init_minimal_idempotent_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/pack_logs_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/doctor_offline_hints_test.sh" >/dev/null
+bash "$ROOT_DIR/tests/doctor_json_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/explain_reason_test.sh" >/dev/null
+bash "$ROOT_DIR/tests/status_reason_rollup_test.sh" >/dev/null
 
 # Sudo-gated tests
 if sudo -n true >/dev/null 2>&1; then
