@@ -337,6 +337,27 @@ Status flags (installed mode):
 - `--host PATTERN` — show only entries where `host` contains `PATTERN`
 - `--monitor PATTERN` — show only entries where `monitor` contains `PATTERN`
 - `--match-mode contains|exact|regex` — how `--host`/`--monitor` are matched (default: `contains`)
+- `--since <int><s|m|h|d>` — include only timestamped summary artifacts from the recent time window (e.g., `30s`, `15m`, `2h`, `1d`)
+
+
+### `linux-maint status --json` compatibility contract
+
+`linux-maint status --json` is intended for automation use and keeps a stable top-level shape.
+
+Top-level keys:
+- `status_json_contract_version` (integer, current value: `1`)
+- `mode` (string: `repo` or `installed`)
+- `last_status` (object; parsed from `last_status_full` key/value file)
+- `summary_file` (string path when present, `null` when no summary is available)
+- `totals` (object with integer keys: `CRIT`, `WARN`, `UNKNOWN`, `SKIP`, `OK`)
+- `problems` (array of objects; severity-sorted, bounded by `--problems`)
+- `reason_rollup` (optional array; present only when `--reasons N` is requested)
+
+Compatibility policy:
+- Existing keys/types above are treated as stable for contract version `1`.
+- Additive keys may be introduced without breaking compatibility.
+- Breaking shape/type changes require incrementing `status_json_contract_version`.
+
 
 
 - `linux-maint logs [n]` *(root required)*: tail the latest wrapper log (default `n=200`).
@@ -853,6 +874,7 @@ echo "##active_line4##"
 
 echo "##active_line5##"
 `linux-maint diff` compares the latest summary against a persisted copy from the previous run.
+`linux-maint diff` first canonicalizes repeated `monitor`+`host` rows using **worst-status-wins** semantics (`UNKNOWN` > `CRIT` > `WARN` > `OK/SKIP`), with last-wins tie-break when severity is equal.
 echo "##active_line6##"
 
 echo "##active_line7##"
