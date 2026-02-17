@@ -173,6 +173,7 @@ Commands:
   install [args]      Run ./install.sh (pass-through)
   uninstall [args]    Run ./install.sh --uninstall (pass-through)
   make-tarball        Build offline release tarball (tools/make_tarball.sh)
+  verify-release      Verify release tarball integrity (tools/verify_release.sh)
   logs [n]            Tail latest wrapper log (default n=200)
   init [--minimal]    Install /etc/linux_maint templates (from repo checkout)
   doctor [--json]     Diagnose installation/config/state permissions
@@ -826,6 +827,10 @@ PY
 
   make-tarball)
     exec ./tools/make_tarball.sh "$@"
+    ;;
+
+  verify-release)
+    exec ./tools/verify_release.sh "$@"
     ;;
 
   init)

@@ -83,6 +83,7 @@ run_required "cert_monitor_scan_dir_test" bash "$ROOT_DIR/tests/cert_monitor_sca
 run_required "verify_install_test" bash "$ROOT_DIR/tests/verify_install_test.sh"
 run_required "init_minimal_idempotent_test" bash "$ROOT_DIR/tests/init_minimal_idempotent_test.sh"
 run_required "pack_logs_test" bash "$ROOT_DIR/tests/pack_logs_test.sh"
+run_required "release_verify_test" bash "$ROOT_DIR/tests/release_verify_test.sh"
 run_required "doctor_offline_hints_test" bash "$ROOT_DIR/tests/doctor_offline_hints_test.sh"
 run_required "doctor_json_test" bash "$ROOT_DIR/tests/doctor_json_test.sh"
 run_required "explain_reason_test" bash "$ROOT_DIR/tests/explain_reason_test.sh"

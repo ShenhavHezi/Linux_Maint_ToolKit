@@ -10,6 +10,9 @@ cd linux_Maint_Scripts
 
 ./tools/make_tarball.sh
 # output: dist/linux_Maint_Scripts-<version>-<sha>.tgz
+
+# optional detached signature (if GPG key is available)
+SIGN_KEY="ops-release@example.com" ./tools/make_tarball.sh
 ```
 
 Integrity file (recommended):
@@ -32,6 +35,9 @@ On the offline side verify from the directory containing the files:
 
 ```bash
 sha256sum -c SHA256SUMS
+
+# or use bundled helper
+linux-maint verify-release linux_Maint_Scripts-*.tgz --sums SHA256SUMS
 ```
 
 ## 3) Install on the offline server(s)
@@ -160,6 +166,9 @@ When transferring tarballs/packages into an air-gapped environment, verify integ
 sha256sum linux_Maint_Scripts-*.tgz > SHA256SUMS
 # transfer both files
 sha256sum -c SHA256SUMS
+
+# or use bundled helper
+linux-maint verify-release linux_Maint_Scripts-*.tgz --sums SHA256SUMS
 ```
 
 If you use an internal artifact repository, store the checksum alongside the artifact.

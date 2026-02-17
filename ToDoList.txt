@@ -154,7 +154,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P2.2 [security] Add checksum/signature verification path for offline release tarballs
+### P2.2 [security] Add checksum/signature verification path for offline release tarballs (DONE 2026-02-17)
 **Why**: dark-site transfer paths need integrity verification before installation.
 
 **Where**:
@@ -167,7 +167,8 @@ This is the single backlog source of truth.
 - Installer docs include verification as a required step.
 
 **Verify**:
-- Add test for checksum generation and verification failure on tampered archive.
+- ✅ Implemented: added `tools/verify_release.sh` and `linux-maint verify-release` for checksum verification with optional detached-signature verification (`--sig`).
+- ✅ Coverage: added `tests/release_verify_test.sh` with pass path and tampered-archive failure path.
 
 ---
 

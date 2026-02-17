@@ -44,6 +44,10 @@ sudo linux-maint doctor
 # Diagnostics (JSON for automation)
 sudo linux-maint doctor --json
 
+
+# Verify offline tarball checksum
+linux-maint verify-release linux_Maint_Scripts-*.tgz --sums SHA256SUMS
+
 # Offline dependency manifest (required vs optional tools)
 sudo linux-maint deps
 ```
