@@ -225,7 +225,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P4.2 [dx] CI matrix sanity for bash compatibility (NOT DONE)
+### P4.2 [dx] CI matrix sanity for bash compatibility (DONE 2026-02-17)
 **Why**: project relies on Bash features; testing one environment can miss distro/shell-version edge cases.
 
 **Where**:
@@ -238,3 +238,5 @@ This is the single backlog source of truth.
 
 **Verify**:
 - CI passes on all matrix entries with clear failure attribution.
+- ✅ Implemented: added `bash-compat-matrix` CI job in `.github/workflows/ci.yml` with two distro families (`ubuntu:24.04`, `debian:12`) and explicit runtime dependency bootstrap.
+- ✅ Coverage: matrix smoke step runs `tests/smoke.sh` and treats `rc=0` and optional-skip `rc=3` as pass while failing other non-zero codes.

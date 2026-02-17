@@ -396,3 +396,7 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 - contract/lint: add summary guardrails for both line length and key count, including optional per-monitor override maps to keep noisy monitors explicit and reviewed.
 - tests: add `tests/summary_budget_lint_fixture_test.sh` fixture coverage for pass/fail key-budget and length-budget cases; wire into `tests/smoke.sh`.
 - docs: document summary lint budget knobs (`LM_SUMMARY_MAX_LEN`, `LM_SUMMARY_MONITOR_MAX_LEN_MAP`, `LM_SUMMARY_MAX_KEYS`, `LM_SUMMARY_MONITOR_MAX_KEYS_MAP`) in `docs/reference.md`.
+
+## 2026-02-17
+- ci/dx: add `bash-compat-matrix` workflow job to run smoke checks across `ubuntu:24.04` and `debian:12` containers for broader bash/runtime sanity.
+- ci/smoke: matrix smoke step now preserves optional semantics by accepting smoke exit codes `0` (full pass) and `3` (optional sudo-gated checks skipped), while failing other non-zero codes.
