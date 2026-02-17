@@ -190,7 +190,7 @@ Most defaults below are taken directly from the scripts (current repository vers
 - `OPT_CMDS` = `(openssl ss netstat journalctl smartctl nvme mail timeout)`
 
 ### `disk_trend_monitor.sh`
-- `STATE_BASE` = `"/var/lib/linux_maint/disk_trend"`
+- `STATE_BASE` = `""` (optional override; state path precedence is: explicit `STATE_BASE` → `${LM_STATE_DIR}/linux_maint/disk_trend` when `LM_STATE_DIR` is set → `/var/lib/linux_maint/disk_trend`)
 - `WARN_DAYS` = `14`
 - `CRIT_DAYS` = `7`
 - `HARD_WARN_PCT` = `90`
@@ -199,6 +199,12 @@ Most defaults below are taken directly from the scripts (current repository vers
 - `LM_DISK_TREND_INODES` = `0` (set to `1|true` to collect inode trend state and include inode rollup counters in summary output)
 - `EXCLUDE_FSTYPES_RE` = `'^(tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup2?|debugfs|rpc_pipefs|autofs|devpts|mqueue|hugetlbfs|fuse\..*|binfmt_misc|pstore|nsfs)$'`
 - `EXCLUDE_MOUNTS_FILE` = `"/etc/linux_maint/disk_trend_exclude_mounts.txt"`
+- If the resolved state path is not writable, monitor falls back to `/tmp/linux_maint/disk_trend` and logs a warning.
+
+When `LM_DISK_TREND_INODES=1|true`, `disk_trend_monitor` also emits compact inode rollup summary keys:
+- `inode_mounts=<count>`
+- `inode_warn=<count>`
+- `inode_crit=<count>`
 
 When `LM_DISK_TREND_INODES=1|true`, `disk_trend_monitor` also emits compact inode rollup summary keys:
 - `inode_mounts=<count>`

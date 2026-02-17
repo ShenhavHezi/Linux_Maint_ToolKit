@@ -26,7 +26,7 @@ This is the single backlog source of truth.
 
 ## P0 — Correctness / contract / runtime reliability
 
-### P0.1 [contract] Disk-trend state path determinism for unprivileged runs (NOT DONE)
+### P0.1 [contract] Disk-trend state path determinism for unprivileged runs (DONE 2026-02-16)
 **Why**: `disk_trend_monitor` can write state under `/var/lib/linux_maint/disk_trend` when writable, but tests and operators often rely on `LM_STATE_DIR`; this creates ambiguous artifact locations and fragile expectations.
 
 **Where**:
@@ -42,6 +42,8 @@ This is the single backlog source of truth.
 **Verify**:
 - Extend/adjust tests to assert a single deterministic state path.
 - Run summary contract + inode trend test to confirm no regressions.
+- ✅ Implemented: `disk_trend_monitor` now resolves state path deterministically with precedence `STATE_BASE` → `${LM_STATE_DIR}/linux_maint/disk_trend` → `/var/lib/linux_maint/disk_trend` (with logged fallback to `/tmp` only when resolved path is not writable).
+- ✅ Coverage: `tests/disk_trend_inode_trend_test.sh` now asserts inode state artifact only at the deterministic `LM_STATE_DIR` path.
 
 ---
 

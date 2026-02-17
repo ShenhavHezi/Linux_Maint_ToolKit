@@ -43,7 +43,7 @@ lm_require_cmd "disk_trend_monitor" "localhost" df || exit $?
 MAIL_SUBJECT_PREFIX='[Disk Trend Monitor]'
 EMAIL_ON_ALERT="true"
 
-STATE_BASE="${STATE_BASE:-/var/lib/linux_maint/disk_trend}"
+STATE_BASE="${STATE_BASE:-}"
 
 # Trend thresholds (days until projected 100%)
 WARN_DAYS=14
@@ -69,12 +69,28 @@ ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" disk_trend_monitor.alerts.X
 append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 mail_if_enabled(){ [ "$EMAIL_ON_ALERT" = "true" ] || return 0; lm_mail "$1" "$2"; }
 
+resolve_state_base(){
+  # Precedence: explicit STATE_BASE > LM_STATE_DIR > default /var/lib path.
+  if [ -n "${STATE_BASE:-}" ]; then
+    printf '%s\n' "$STATE_BASE"
+    return 0
+  fi
+
+  if [ -n "${LM_STATE_DIR:-}" ]; then
+    printf '%s/linux_maint/disk_trend\n' "$LM_STATE_DIR"
+    return 0
+  fi
+
+  printf '/var/lib/linux_maint/disk_trend\n'
+}
+
 ensure_dirs(){
   mkdir -p "$(dirname "$LM_LOGFILE")" 2>/dev/null || true
+  STATE_BASE="$(resolve_state_base)"
   if ! mkdir -p "$STATE_BASE" 2>/dev/null; then
-    # fallback for unprivileged runs
-    STATE_BASE="${LM_STATE_DIR:-/tmp}/linux_maint/disk_trend"
+    STATE_BASE="/tmp/linux_maint/disk_trend"
     mkdir -p "$STATE_BASE" 2>/dev/null || true
+    lm_warn "STATE_BASE not writable; falling back to $STATE_BASE"
   fi
   chmod 0755 "${STATE_BASE%/*}" 2>/dev/null || true
 }
@@ -98,15 +114,7 @@ EOF
 append_state(){
   local host="$1" mount="$2" used_pct="$3" used_kb="$4"
   local f="$STATE_BASE/${host}.csv"
-  if ! printf "%s,%s,%s,%s
-" "$(date +%s)" "$mount" "$used_pct" "$used_kb" >> "$f" 2>/dev/null; then
-    # If we cannot write to STATE_BASE (permissions), fallback to unprivileged location.
-    STATE_BASE="${LM_STATE_DIR:-/tmp}/linux_maint/disk_trend"
-    mkdir -p "$STATE_BASE" 2>/dev/null || true
-    f="$STATE_BASE/${host}.csv"
-    printf "%s,%s,%s,%s
-" "$(date +%s)" "$mount" "$used_pct" "$used_kb" >> "$f" 2>/dev/null || true
-  fi
+  printf "%s,%s,%s,%s\n" "$(date +%s)" "$mount" "$used_pct" "$used_kb" >> "$f" 2>/dev/null || true
 }
 
 
@@ -337,13 +345,7 @@ CMD
 append_inode_state(){
   local host="$1" mount="$2" iused_pct="$3" iused="$4"
   local f="$STATE_BASE/${host}.inodes.csv"
-  if ! printf "%s,%s,%s,%s\n" "$(date +%s)" "$mount" "$iused_pct" "$iused" >> "$f" 2>/dev/null; then
-    # fallback for unprivileged runs
-    STATE_BASE="${LM_STATE_DIR:-/tmp}/linux_maint/disk_trend"
-    mkdir -p "$STATE_BASE" 2>/dev/null || true
-    f="$STATE_BASE/${host}.inodes.csv"
-    printf "%s,%s,%s,%s\n" "$(date +%s)" "$mount" "$iused_pct" "$iused" >> "$f" 2>/dev/null || true
-  fi
+  printf "%s,%s,%s,%s\n" "$(date +%s)" "$mount" "$iused_pct" "$iused" >> "$f" 2>/dev/null || true
 }
 
 main "$@"

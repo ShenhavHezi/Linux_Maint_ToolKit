@@ -355,3 +355,7 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 
 ## 2026-02-16
 - docs/reference: document `LM_DISK_TREND_INODES` toggle/default and the inode rollup summary keys emitted by `disk_trend_monitor` (`inode_mounts`, `inode_warn`, `inode_crit`) to keep operator contract docs aligned with current monitor output.
+
+## 2026-02-16
+- disk_trend_monitor: make trend state path resolution deterministic with precedence `STATE_BASE` → `${LM_STATE_DIR}/linux_maint/disk_trend` → `/var/lib/linux_maint/disk_trend`; if unresolved path is not writable, monitor falls back to `/tmp/linux_maint/disk_trend` and logs a warning.
+- tests/docs: tighten inode trend test to assert deterministic `LM_STATE_DIR` artifact path and document the state path precedence/fallback in `docs/reference.md`.

@@ -80,13 +80,10 @@ printf '%s\n' "$out" | grep -Eq ' inode_mounts=[0-9]+ '
 printf '%s\n' "$out" | grep -Eq ' inode_warn=[0-9]+ '
 printf '%s\n' "$out" | grep -Eq ' inode_crit=[0-9]+$'
 
-# Ensure inode state file created
+# Ensure inode state file created at deterministic LM_STATE_DIR-backed path
 inode_state="$LM_STATE_DIR/linux_maint/disk_trend/testhost.inodes.csv"
 if [ ! -f "$inode_state" ]; then
-  inode_state="/var/lib/linux_maint/disk_trend/testhost.inodes.csv"
-fi
-if [ ! -f "$inode_state" ]; then
-  echo "Expected inode state file under LM_STATE_DIR or /var/lib/linux_maint/disk_trend" >&2
+  echo "Expected inode state file: $inode_state" >&2
   find "$LM_STATE_DIR" -maxdepth 5 -type f -print >&2 || true
   exit 1
 fi
