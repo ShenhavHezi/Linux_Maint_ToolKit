@@ -83,7 +83,7 @@ This is the single backlog source of truth.
 
 ## P1 — Operator UX and understandability
 
-### P1.1 [ops] Add `linux-maint explain <reason>` command linked to `docs/REASONS.md`
+### P1.1 [ops] Add `linux-maint explain <reason>` command linked to `docs/REASONS.md` (DONE 2026-02-17)
 **Why**: on-call users seeing `reason=` tokens need immediate remediation guidance.
 
 **Where**:
@@ -97,7 +97,8 @@ This is the single backlog source of truth.
 - Clear behavior for unknown/typo reason tokens.
 
 **Verify**:
-- Add tests for known token, unknown token, and JSON/human output parity (if JSON mode added).
+- ✅ Implemented: `linux-maint explain reason <token>` and `linux-maint explain status <S>` are available with explicit unknown-token error behavior.
+- ✅ Coverage: expanded `tests/explain_reason_test.sh` to assert known token output, unknown token `rc=1`, and all status explanations.
 
 ---
 

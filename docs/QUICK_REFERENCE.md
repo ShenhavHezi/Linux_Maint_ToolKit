@@ -48,6 +48,9 @@ sudo linux-maint doctor --json
 # Verify offline tarball checksum
 linux-maint verify-release linux_Maint_Scripts-*.tgz --sums SHA256SUMS
 
+# Explain a reason token quickly
+linux-maint explain reason ssh_unreachable
+
 # Offline dependency manifest (required vs optional tools)
 sudo linux-maint deps
 ```
