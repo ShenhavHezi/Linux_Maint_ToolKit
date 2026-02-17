@@ -57,6 +57,7 @@ jobs:
       image: ${{ matrix.image }}
     steps:
       - name: Install runtime dependencies
+        shell: bash
         run: |
           set -euo pipefail
           export DEBIAN_FRONTEND=noninteractive
