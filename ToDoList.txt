@@ -47,7 +47,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P0.2 [contract] Standardize non-OK summary `reason=` coverage (NOT DONE)
+### P0.2 [contract] Standardize non-OK summary `reason=` coverage (DONE 2026-02-16)
 **Why**: non-OK summary lines should consistently include `reason=` for reliable automation and on-call triage.
 
 **Where**:
@@ -60,6 +60,8 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Add/extend regression tests for monitors currently missing `reason=` on non-OK outputs.
+- ✅ Implemented: added missing non-OK `reason=` coverage across key monitors (`disk_trend_monitor`, `nfs_mount_monitor`, `kernel_events_monitor`, `inode_monitor`, `config_drift_monitor`, `ports_baseline_monitor`, `user_monitor`, `health_monitor`, `backup_check`).
+- ✅ Coverage: added `tests/nfs_reason_unreachable_test.sh` and wired it into smoke to assert `nfs_mount_monitor` emits `reason=ssh_unreachable` on CRIT unreachable paths.
 
 ---
 

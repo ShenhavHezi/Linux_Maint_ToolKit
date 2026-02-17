@@ -363,3 +363,7 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 ## 2026-02-16
 - cli: add `linux-maint doctor --json` for machine-readable diagnostics in dark-site automation workflows, including config presence, monitor skip-gates, dependency availability, writable location checks, and recommended next actions.
 - tests/docs: add `tests/doctor_json_test.sh` (wired into smoke) and document `doctor --json` usage in README and quick reference.
+
+## 2026-02-16
+- contract: standardize non-OK summary `reason=` coverage across key monitors, including disk trend, NFS, kernel events, inode, config drift, ports baseline, user, health, and backup summary paths.
+- tests: add `tests/nfs_reason_unreachable_test.sh` and wire it into `tests/smoke.sh` to assert CRIT unreachable NFS paths emit `reason=ssh_unreachable`.
