@@ -51,6 +51,7 @@ run_required "quick_check_make_target_test" bash "$ROOT_DIR/tests/quick_check_ma
 
 # Security lint: forbid eval usage
 run_required "no_eval_lint" bash "$ROOT_DIR/tests/no_eval_lint.sh"
+run_required "secret_scan_lint_test" bash "$ROOT_DIR/tests/secret_scan_lint_test.sh"
 
 # Dependency behavior example: network_monitor should emit missing_dependency when curl missing
 run_required "network_monitor_missing_curl_test" bash "$ROOT_DIR/tests/network_monitor_missing_curl_test.sh"

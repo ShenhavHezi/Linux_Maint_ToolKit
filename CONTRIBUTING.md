@@ -27,6 +27,12 @@ make test
 
 This runs the same core checks as CI (summary contract + smoke).
 
+Optional high-confidence secret lint:
+
+```bash
+./tools/secret_scan.sh
+```
+
 For a fast pre-push gate (contract/lint focused):
 
 ```bash

@@ -139,7 +139,7 @@ This is the single backlog source of truth.
 
 ## P2 — Security / hardening
 
-### P2.1 [security] Add optional secret scanning lint for committed fixtures/docs
+### P2.1 [security] Add optional secret scanning lint for committed fixtures/docs (DONE 2026-02-17)
 **Why**: test fixtures and docs are common accidental secret-leak vectors.
 
 **Where**:
@@ -152,7 +152,8 @@ This is the single backlog source of truth.
 - CI should fail only on high-confidence leaks.
 
 **Verify**:
-- Add positive/negative fixtures to validate signal/noise behavior.
+- ✅ Implemented: added lightweight scanner `tools/secret_scan.sh` with allowlist support (`tests/secret_scan_allowlist.txt`) and CI wiring.
+- ✅ Coverage: added `tests/secret_scan_lint_test.sh` with fail/pass fixture paths and smoke integration.
 
 ---
 
