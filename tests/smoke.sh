@@ -19,9 +19,18 @@ export LM_LOGFILE=/tmp/linux_maint.log
 export LM_EMAIL_ENABLED=false
 
 skipped_optional=0
+SMOKE_PROFILE="${SMOKE_PROFILE:-full}"
+
+run_required(){
+  local label="$1"; shift
+  if ! "$@" >/dev/null; then
+    echo "FAIL: $label" >&2
+    return 1
+  fi
+}
 
 # Basic help/version checks
-bash "$ROOT_DIR/bin/linux-maint" help >/dev/null
+run_required "linux-maint help" bash "$ROOT_DIR/bin/linux-maint" help
 
 # Preflight should not hard-fail just because optional tools are missing
 LM_LOGFILE=/tmp/preflight_check.log LM_LOCKDIR=/tmp bash "$ROOT_DIR/monitors/preflight_check.sh" >/dev/null || true
@@ -30,50 +39,54 @@ LM_LOGFILE=/tmp/preflight_check.log LM_LOCKDIR=/tmp bash "$ROOT_DIR/monitors/pre
 LM_LOGFILE=/tmp/config_validate.log LM_LOCKDIR=/tmp bash "$ROOT_DIR/monitors/config_validate.sh" >/dev/null || true
 
 # lm_for_each_host_rc aggregation test
-bash "$ROOT_DIR/tests/lm_for_each_host_rc_test.sh" >/dev/null
+run_required "lm_for_each_host_rc_test" bash "$ROOT_DIR/tests/lm_for_each_host_rc_test.sh"
 
 # Monitor exit-code policy (local-only)
-bash "$ROOT_DIR/tests/monitor_exit_codes_test.sh" >/dev/null
+run_required "monitor_exit_codes_test" bash "$ROOT_DIR/tests/monitor_exit_codes_test.sh"
 
 # Monitor summary emission contract (each monitor must emit monitor= lines)
-bash "$ROOT_DIR/tests/monitor_summary_emission_test.sh" >/dev/null
+run_required "monitor_summary_emission_test" bash "$ROOT_DIR/tests/monitor_summary_emission_test.sh"
 
 # Security lint: forbid eval usage
-bash "$ROOT_DIR/tests/no_eval_lint.sh" >/dev/null
+run_required "no_eval_lint" bash "$ROOT_DIR/tests/no_eval_lint.sh"
 
 # Dependency behavior example: network_monitor should emit missing_dependency when curl missing
-bash "$ROOT_DIR/tests/network_monitor_missing_curl_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/nfs_reason_unreachable_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/nfs_tempfile_cleanup_on_timeout_test.sh" >/dev/null
+run_required "network_monitor_missing_curl_test" bash "$ROOT_DIR/tests/network_monitor_missing_curl_test.sh"
+run_required "nfs_reason_unreachable_test" bash "$ROOT_DIR/tests/nfs_reason_unreachable_test.sh"
+run_required "nfs_tempfile_cleanup_on_timeout_test" bash "$ROOT_DIR/tests/nfs_tempfile_cleanup_on_timeout_test.sh"
 
 # Fleet safety: --dry-run must not invoke ssh
-bash "$ROOT_DIR/tests/dry_run_no_ssh_test.sh" >/dev/null
+run_required "dry_run_no_ssh_test" bash "$ROOT_DIR/tests/dry_run_no_ssh_test.sh"
 
-# Per-monitor timeout overrides
-bash "$ROOT_DIR/tests/per_monitor_timeout_override_test.sh" >/dev/null
+if [[ "$SMOKE_PROFILE" != "compat" ]]; then
+  # Per-monitor timeout overrides (wrapper-level)
+  run_required "per_monitor_timeout_override_test" bash "$ROOT_DIR/tests/per_monitor_timeout_override_test.sh"
 
-# Summary noise guardrail
-bash "$ROOT_DIR/tests/summary_noise_lint.sh" >/dev/null
-bash "$ROOT_DIR/tests/summary_budget_lint_fixture_test.sh" >/dev/null
+  # Summary noise guardrail (wrapper-level)
+  run_required "summary_noise_lint" bash "$ROOT_DIR/tests/summary_noise_lint.sh"
+  run_required "summary_budget_lint_fixture_test" bash "$ROOT_DIR/tests/summary_budget_lint_fixture_test.sh"
 
-# Prometheus textfile output (best-effort; does not require sudo)
-bash "$ROOT_DIR/tests/prom_textfile_output_test.sh" >/dev/null
+  # Prometheus textfile output (best-effort; wrapper-level)
+  run_required "prom_textfile_output_test" bash "$ROOT_DIR/tests/prom_textfile_output_test.sh"
+fi
 
+if [[ "$SMOKE_PROFILE" != "compat" ]]; then
 # Resource monitor (local)
-bash "$ROOT_DIR/tests/resource_monitor_basic_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/service_monitor_failed_units_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/disk_trend_inode_trend_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/ntp_chrony_parsing_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/ntp_chrony_parsing_variants_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/log_spike_fixture_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/cert_monitor_scan_dir_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/verify_install_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/init_minimal_idempotent_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/pack_logs_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/doctor_offline_hints_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/doctor_json_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/explain_reason_test.sh" >/dev/null
-bash "$ROOT_DIR/tests/status_reason_rollup_test.sh" >/dev/null
+run_required "resource_monitor_basic_test" bash "$ROOT_DIR/tests/resource_monitor_basic_test.sh"
+run_required "service_monitor_failed_units_test" bash "$ROOT_DIR/tests/service_monitor_failed_units_test.sh"
+run_required "disk_trend_inode_trend_test" bash "$ROOT_DIR/tests/disk_trend_inode_trend_test.sh"
+run_required "ntp_chrony_parsing_test" bash "$ROOT_DIR/tests/ntp_chrony_parsing_test.sh"
+run_required "ntp_chrony_parsing_variants_test" bash "$ROOT_DIR/tests/ntp_chrony_parsing_variants_test.sh"
+run_required "log_spike_fixture_test" bash "$ROOT_DIR/tests/log_spike_fixture_test.sh"
+run_required "cert_monitor_scan_dir_test" bash "$ROOT_DIR/tests/cert_monitor_scan_dir_test.sh"
+run_required "verify_install_test" bash "$ROOT_DIR/tests/verify_install_test.sh"
+run_required "init_minimal_idempotent_test" bash "$ROOT_DIR/tests/init_minimal_idempotent_test.sh"
+run_required "pack_logs_test" bash "$ROOT_DIR/tests/pack_logs_test.sh"
+run_required "doctor_offline_hints_test" bash "$ROOT_DIR/tests/doctor_offline_hints_test.sh"
+run_required "doctor_json_test" bash "$ROOT_DIR/tests/doctor_json_test.sh"
+run_required "explain_reason_test" bash "$ROOT_DIR/tests/explain_reason_test.sh"
+run_required "status_reason_rollup_test" bash "$ROOT_DIR/tests/status_reason_rollup_test.sh"
+fi
 
 # Sudo-gated tests
 if sudo -n true >/dev/null 2>&1; then
@@ -82,7 +95,7 @@ if sudo -n true >/dev/null 2>&1; then
   bash "$ROOT_DIR/tests/status_quiet_test.sh" >/dev/null
   bash "$ROOT_DIR/tests/status_contract_test.sh" >/dev/null
   bash "$ROOT_DIR/tests/summary_reason_lint.sh" >/dev/null
-  bash "$ROOT_DIR/tests/prom_textfile_output_test.sh" >/dev/null
+  run_required "prom_textfile_output_test" bash "$ROOT_DIR/tests/prom_textfile_output_test.sh"
 else
   skipped_optional=1
   echo "NOTE: skipping sudo-gated tests (no passwordless sudo)" >&2

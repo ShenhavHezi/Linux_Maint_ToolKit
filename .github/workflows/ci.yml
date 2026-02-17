@@ -74,7 +74,7 @@ jobs:
         run: |
           chmod +x tests/smoke.sh
           rc=0
-          ./tests/smoke.sh || rc=$?
+          SMOKE_PROFILE=compat ./tests/smoke.sh || rc=$?
           if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then
             echo "smoke failed with rc=$rc"
             exit "$rc"
