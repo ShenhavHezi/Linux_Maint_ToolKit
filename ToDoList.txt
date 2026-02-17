@@ -185,7 +185,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P3.2 [contract] Summary length + key-budget guardrails per monitor (NOT DONE)
+### P3.2 [contract] Summary length + key-budget guardrails per monitor (DONE 2026-02-17)
 **Why**: a global max-line lint exists, but per-monitor key growth can still regress readability and parser safety.
 
 **Where**:
@@ -199,6 +199,8 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Add lint fixtures for pass/fail cases.
+- ✅ Implemented: enhanced `summary_noise_lint.sh` with optional per-monitor length overrides (`LM_SUMMARY_MONITOR_MAX_LEN_MAP`) and enhanced `summary_parse_safety_lint.py` with key-budget checks (`LM_SUMMARY_MAX_KEYS` + per-monitor overrides via `LM_SUMMARY_MONITOR_MAX_KEYS_MAP`).
+- ✅ Coverage: added `tests/summary_budget_lint_fixture_test.sh` with explicit pass/fail fixtures for key-budget and length-budget guardrails, and wired it into smoke.
 
 ---
 

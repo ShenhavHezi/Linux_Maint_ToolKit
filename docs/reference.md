@@ -269,6 +269,19 @@ Common `reason` values used in this project:
 - `no_timesync_tool`
 - `early_exit`
 
+### Summary lint guardrails (length + key budget)
+
+The test suite enforces summary readability and parser safety with explicit budgets:
+
+- `tests/summary_noise_lint.sh`
+  - Global line-length budget via `LM_SUMMARY_MAX_LEN` (default `220`).
+  - Optional per-monitor overrides via `LM_SUMMARY_MONITOR_MAX_LEN_MAP` (example: `inventory_export=260,disk_trend_monitor=240`).
+- `tests/summary_parse_safety_lint.py`
+  - Global key-count budget via `LM_SUMMARY_MAX_KEYS` (default `18`).
+  - Optional per-monitor overrides via `LM_SUMMARY_MONITOR_MAX_KEYS_MAP` (example: `inventory_export=24`).
+
+Keep overrides explicit and minimal so growth is intentional and reviewed.
+
 ### Artifacts written by the wrapper
 
 When running the full wrapper (`run_full_health_monitor.sh`) in installed mode:

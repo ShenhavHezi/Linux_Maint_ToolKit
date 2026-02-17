@@ -54,6 +54,7 @@ bash "$ROOT_DIR/tests/per_monitor_timeout_override_test.sh" >/dev/null
 
 # Summary noise guardrail
 bash "$ROOT_DIR/tests/summary_noise_lint.sh" >/dev/null
+bash "$ROOT_DIR/tests/summary_budget_lint_fixture_test.sh" >/dev/null
 
 # Prometheus textfile output (best-effort; does not require sudo)
 bash "$ROOT_DIR/tests/prom_textfile_output_test.sh" >/dev/null

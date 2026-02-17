@@ -391,3 +391,8 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 - status/ops: add optional `linux-maint status --reasons N` top-N reason rollup (non-OK only) for faster triage while keeping default compact output unchanged.
 - status/json: when `--reasons` is set, include structured `reason_rollup` counts in `status --json` for automation.
 - tests/docs: add `tests/status_reason_rollup_test.sh` and document `--reasons` in README/reference/quick-reference.
+
+## 2026-02-17
+- contract/lint: add summary guardrails for both line length and key count, including optional per-monitor override maps to keep noisy monitors explicit and reviewed.
+- tests: add `tests/summary_budget_lint_fixture_test.sh` fixture coverage for pass/fail key-budget and length-budget cases; wire into `tests/smoke.sh`.
+- docs: document summary lint budget knobs (`LM_SUMMARY_MAX_LEN`, `LM_SUMMARY_MONITOR_MAX_LEN_MAP`, `LM_SUMMARY_MAX_KEYS`, `LM_SUMMARY_MONITOR_MAX_KEYS_MAP`) in `docs/reference.md`.
