@@ -27,6 +27,12 @@ make test
 
 This runs the same core checks as CI (summary contract + smoke).
 
+For the full local maintainer flow (regenerate summary snapshot + lint + smoke):
+
+```bash
+make dev-check
+```
+
 ## Monitor output contract (summary lines)
 
 Each monitor should emit at least one machine-parseable summary line:

@@ -35,6 +35,9 @@ sudo linux-maint logs 200
 # Diagnostics
 sudo linux-maint doctor
 
+# Diagnostics (JSON for automation)
+sudo linux-maint doctor --json
+
 # Offline dependency manifest (required vs optional tools)
 sudo linux-maint deps
 ```
