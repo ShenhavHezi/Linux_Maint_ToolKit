@@ -91,17 +91,22 @@ run_for_host(){
   sample=$(echo "$out" | sed -n 's/^.*sample=//p')
   [ -z "$count" ] && count=0
 
-  local status rc
+  local status rc reason
   status="OK"; rc=0
-  if [ "$count" -ge "$CRIT_COUNT" ]; then status="CRIT"; rc=2
-  elif [ "$count" -ge "$WARN_COUNT" ]; then status="WARN"; rc=1
+  reason=""
+  if [ "$count" -ge "$CRIT_COUNT" ]; then status="CRIT"; rc=2; reason="kernel_events_crit"
+  elif [ "$count" -ge "$WARN_COUNT" ]; then status="WARN"; rc=1; reason="kernel_events_warn"
   fi
 
   if [ "$rc" -ge 1 ]; then
     append_alert "$host|kernel_events|matches=$count|sample=${sample:0:300}"
   fi
 
-  lm_summary "kernel_events_monitor" "$host" "$status" matches="$count" window_h="$KERNEL_WINDOW_HOURS"
+  if [ "$status" != "OK" ] && [ -n "$reason" ]; then
+    lm_summary "kernel_events_monitor" "$host" "$status" reason="$reason" matches="$count" window_h="$KERNEL_WINDOW_HOURS"
+  else
+    lm_summary "kernel_events_monitor" "$host" "$status" matches="$count" window_h="$KERNEL_WINDOW_HOURS"
+  fi
   # legacy:
   # echo "kernel_events_monitor host=$host status=$status matches=$count window_h=$KERNEL_WINDOW_HOURS"
   return "$rc"

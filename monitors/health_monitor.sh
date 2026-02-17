@@ -139,8 +139,13 @@ lines=$(wc -l < "$REPORT_FILE" 2>/dev/null || echo 0)
 lines=$(printf "%s" "$lines" | tail -n 1 | tr -d "[:space:]")
 lines=${lines:-0}
 status="OK"
-if [ "$unreachable" -gt 0 ]; then status="CRIT"; fi
-lm_summary "health_monitor" "runner" "$status" hosts="$hosts" unreachable="$unreachable" report_lines="$lines"
+reason=""
+if [ "$unreachable" -gt 0 ]; then status="CRIT"; reason="ssh_unreachable"; fi
+if [ "$status" != "OK" ] && [ -n "$reason" ]; then
+  lm_summary "health_monitor" "runner" "$status" reason="$reason" hosts="$hosts" unreachable="$unreachable" report_lines="$lines"
+else
+  lm_summary "health_monitor" "runner" "$status" hosts="$hosts" unreachable="$unreachable" report_lines="$lines"
+fi
 # legacy:
 # echo health_monitor summary status=OK hosts=$hosts report_lines=$lines
 rm -f "$REPORT_FILE" "$REPORT_LOCK" 2>/dev/null || true
