@@ -10,7 +10,7 @@ help:
 	@echo "  make install-githooks - install executable hooks from .githooks/ into .git/hooks"
 	@echo "  make release-tarball - build offline release tarball (./dist)"
 	@echo "  make test   - run repo test suite (contract + smoke)"
-	@echo "  make dev-check - regenerate summarize + lint + smoke"
+	@echo "  make dev-check - run lint + smoke"
 
 lint:
 	@./tools/shellcheck_wrapper.sh -x run_full_health_monitor.sh
