@@ -176,7 +176,7 @@ This is the single backlog source of truth.
 
 ## P3 — Observability / reporting quality
 
-### P3.1 [contract] Add summary trend report utility (`linux-maint trend`) for reason/severity drift
+### P3.1 [contract] Add summary trend report utility (`linux-maint trend`) for reason/severity drift (DONE 2026-02-17)
 **Why**: teams need trend visibility, not only latest snapshot.
 
 **Where**:
@@ -189,7 +189,8 @@ This is the single backlog source of truth.
 - Keep output deterministic and script-friendly.
 
 **Verify**:
-- Fixture tests for stable sort/order and numeric correctness.
+- ✅ Implemented: added `linux-maint trend [--last N] [--json]` for aggregate severity and reason counts over recent summary artifacts.
+- ✅ Coverage: added `tests/trend_command_test.sh` for text/json output correctness and invalid-input validation.
 
 ---
 

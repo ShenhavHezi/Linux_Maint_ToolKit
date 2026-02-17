@@ -167,6 +167,7 @@ Commands:
   run [flags]         Run the full package (wrapper)
   status [--only S] [--host P] [--monitor P] [--match-mode M] [--tail N] [--since D] [--reasons N]  Show last run status + filtered summary lines
   diff [--json]       Show diff since last run (uses wrapper diff state)
+  trend [--last N] [--json]  Show severity/reason trends over recent runs
   validate            Validate config file formats (best-effort)
   preflight           Run preflight checks
   version             Print installed BUILD_INFO (if present)
@@ -815,6 +816,100 @@ PY
         echo "No log: $log"
       fi
     fi
+    ;;
+
+
+  trend)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for trend
+    fi
+
+    LAST_N=10
+    JSON=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --last) LAST_N="$2"; shift 2 ;;
+        --json) JSON=1; shift 1 ;;
+        -h|--help)
+          echo "Usage: linux-maint trend [--last N] [--json]"
+          exit 0 ;;
+        *) echo "Unknown trend flag: $1" >&2; exit 2 ;;
+      esac
+    done
+
+    if [[ ! "$LAST_N" =~ ^[0-9]+$ ]] || (( LAST_N <= 0 )); then
+      echo "ERROR: --last must be a positive integer" >&2
+      exit 2
+    fi
+
+    if [[ "$MODE" == "repo" ]]; then
+      log_dir="$REPO_LOG_DIR"
+    else
+      log_dir="/var/log/health"
+    fi
+
+    python3 - "$log_dir" "$LAST_N" "$JSON" <<'PY'
+import glob, json, os, re, sys
+
+log_dir, last_n, json_mode = sys.argv[1:4]
+last_n=int(last_n)
+json_mode = json_mode == '1'
+
+pat = os.path.join(log_dir, 'full_health_monitor_summary_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9].log')
+files=sorted(glob.glob(pat), reverse=True)[:last_n]
+
+if not files:
+    if json_mode:
+        print(json.dumps({'runs':[], 'totals':{'CRIT':0,'WARN':0,'UNKNOWN':0,'SKIP':0,'OK':0}, 'reasons':[]}, indent=2, sort_keys=True))
+    else:
+        print(f'No summary artifacts found in: {log_dir}')
+    sys.exit(0)
+
+order=['CRIT','WARN','UNKNOWN','SKIP','OK']
+overall={k:0 for k in order}
+reason_counts={}
+runs=[]
+
+def get_kv(line, key):
+    m=re.search(rf"\b{re.escape(key)}=([^ ]+)", line)
+    return m.group(1) if m else None
+
+for fp in files:
+    rc={k:0 for k in order}
+    with open(fp,'r',encoding='utf-8',errors='ignore') as f:
+        for line in f:
+            if not line.startswith('monitor='):
+                continue
+            st=get_kv(line,'status') or 'UNKNOWN'
+            if st not in rc:
+                st='UNKNOWN'
+            rc[st]+=1
+            overall[st]=overall.get(st,0)+1
+            if st!='OK':
+                reason=get_kv(line,'reason')
+                if reason:
+                    reason_counts[reason]=reason_counts.get(reason,0)+1
+    runs.append({'file': fp, 'totals': rc})
+
+rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+if json_mode:
+    out={'runs':runs, 'totals':overall, 'reasons':[{'reason':r,'count':c} for r,c in rollup]}
+    print(json.dumps(out, indent=2, sort_keys=True))
+else:
+    print(f'trend_runs={len(runs)} source_dir={log_dir}')
+    print('totals: ' + ' '.join(f"{k}={overall.get(k,0)}" for k in order))
+    print('')
+    print('runs:')
+    for r in runs:
+      print(f"- {os.path.basename(r['file'])}: " + ' '.join(f"{k}={r['totals'].get(k,0)}" for k in order))
+    print('')
+    print('reasons:')
+    if rollup:
+      for reason, count in rollup[:20]:
+          print(f"{reason}={count}")
+    else:
+      print('none')
+PY
     ;;
 
   install)

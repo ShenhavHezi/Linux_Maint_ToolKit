@@ -360,6 +360,8 @@ Compatibility policy:
 
 
 
+- `linux-maint trend [--last N] [--json]` *(root required)*: aggregate severity and reason trends across recent timestamped summary artifacts (default last 10 runs).
+
 - `linux-maint logs [n]` *(root required)*: tail the latest wrapper log (default `n=200`).
 
 - `linux-maint preflight` *(root recommended)*: check dependencies/SSH/config readiness.

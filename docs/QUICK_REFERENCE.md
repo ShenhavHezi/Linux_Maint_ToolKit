@@ -32,6 +32,13 @@ sudo linux-maint status --since 2h
 # Diff since last run
 sudo linux-maint diff
 
+
+# Trend over recent summary runs
+sudo linux-maint trend --last 10
+
+# Trend in JSON
+sudo linux-maint trend --last 10 --json
+
 # Diff in JSON (automation)
 sudo linux-maint diff --json
 
