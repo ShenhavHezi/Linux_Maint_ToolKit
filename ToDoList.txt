@@ -1,23 +1,23 @@
-# linux-maint — ToDoList (next roadmap refresh)
+# linux-maint — ToDoList (roadmap refresh)
 
 This is the single backlog source of truth.
 
 ## Working style
-- Pick **one** item per PR.
-- Keep changes small, reversible, and test-backed.
-- Prefer improving existing behavior over adding new monitors.
-- Dark-site/offline reliability is the primary product focus.
+- Bundle related roadmap items into PRs when it improves delivery and review flow.
+- Changes can be broad when needed, but must remain test-backed and clearly documented.
+- Prioritize operator clarity and safe defaults over feature count.
+- Dark-site/offline reliability remains a primary product focus.
 
 ## Priority legend
 - **P0**: correctness/contract/runtime reliability
-- **P1**: dark-site operator experience
+- **P1**: operator UX and understandability
 - **P2**: security and hardening
-- **P3**: signal quality and observability
-- **P4**: DX/release polish
+- **P3**: observability/reporting quality
+- **P4**: DX/release/packaging polish
 
 ## Tags
 - `[dark-site]` offline/air-gapped operator flow
-- `[contract]` summary/output guarantees and test robustness
+- `[contract]` summary/output guarantees and parser safety
 - `[ops]` runbook/doctor/operator experience
 - `[security]` hardening and data handling
 - `[dx]` contributor and release workflow
@@ -26,217 +26,221 @@ This is the single backlog source of truth.
 
 ## P0 — Correctness / contract / runtime reliability
 
-### P0.1 [contract] Disk-trend state path determinism for unprivileged runs (DONE 2026-02-16)
-**Why**: `disk_trend_monitor` can write state under `/var/lib/linux_maint/disk_trend` when writable, but tests and operators often rely on `LM_STATE_DIR`; this creates ambiguous artifact locations and fragile expectations.
-
-**Where**:
-- `monitors/disk_trend_monitor.sh`
-- `tests/disk_trend_inode_trend_test.sh`
-- `docs/reference.md`
-
-**Acceptance**:
-- Define clear precedence for trend state location (e.g., explicit `STATE_BASE` > `LM_STATE_DIR` > `/var/lib/...`).
-- Ensure inode + disk trend state follow the same location rules.
-- Avoid requiring fallback checks across two directories in tests.
-
-**Verify**:
-- Extend/adjust tests to assert a single deterministic state path.
-- Run summary contract + inode trend test to confirm no regressions.
-- ✅ Implemented: `disk_trend_monitor` now resolves state path deterministically with precedence `STATE_BASE` → `${LM_STATE_DIR}/linux_maint/disk_trend` → `/var/lib/linux_maint/disk_trend` (with logged fallback to `/tmp` only when resolved path is not writable).
-- ✅ Coverage: `tests/disk_trend_inode_trend_test.sh` now asserts inode state artifact only at the deterministic `LM_STATE_DIR` path.
-
----
-
-### P0.2 [contract] Standardize non-OK summary `reason=` coverage (DONE 2026-02-16)
-**Why**: non-OK summary lines should consistently include `reason=` for reliable automation and on-call triage.
-
-**Where**:
-- `monitors/*.sh` (target only missing paths)
-- `tests/summary_reason_lint.sh`
-
-**Acceptance**:
-- For `WARN|CRIT|UNKNOWN|SKIP`, enforce `reason=` across monitor summary output.
-- Keep existing reason vocabulary aligned with `docs/REASONS.md`.
-
-**Verify**:
-- Add/extend regression tests for monitors currently missing `reason=` on non-OK outputs.
-- ✅ Implemented: added missing non-OK `reason=` coverage across key monitors (`disk_trend_monitor`, `nfs_mount_monitor`, `kernel_events_monitor`, `inode_monitor`, `config_drift_monitor`, `ports_baseline_monitor`, `user_monitor`, `health_monitor`, `backup_check`).
-- ✅ Coverage: added `tests/nfs_reason_unreachable_test.sh` and wired it into smoke to assert `nfs_mount_monitor` emits `reason=ssh_unreachable` on CRIT unreachable paths.
-
----
-
-### P0.3 [contract] Wrapper + monitor timeout policy harmonization (DONE 2026-02-16)
-**Why**: timeout behavior exists at wrapper and contract-test levels, but monitor-level timeouts are inconsistent and not centrally documented.
-
-**Where**:
-- `run_full_health_monitor.sh`
-- `monitors/*.sh`
-- `docs/reference.md`
-
-**Acceptance**:
-- Publish a clear timeout policy (wrapper timeout, per-monitor override, command-level timeout usage).
-- Ensure long-running monitors use bounded external calls.
-
-**Verify**:
-- Add targeted tests for at least one slow/failing external command path.
-- ✅ Implemented: documented timeout policy in `docs/reference.md` (wrapper default, per-monitor override file, and monitor-local bounded probes).
-- ✅ Coverage: extended `tests/per_monitor_timeout_override_test.sh` to assert `timeout_secs` metadata for wrapper timeout events.
-
----
-
-## P1 — Dark-site / offline operator experience
-
-### P1.1 [dark-site][ops] Add `linux-maint doctor --json` for automation (DONE 2026-02-16)
-**Why**: dark-site operators often need machine-readable diagnostics to integrate with internal runbooks and ticketing.
+### P0.1 [contract] Add a strict machine-output compatibility gate for `status --json` (DONE 2026-02-17)
+**Why**: automation depends on stable keys/types; accidental output drift can break internal tooling.
 
 **Where**:
 - `bin/linux-maint`
-- `tests/doctor_offline_hints_test.sh` (or new JSON-focused test)
+- `tests/status_json_compat_test.sh`
 - `docs/reference.md`
 
 **Acceptance**:
-- Add JSON mode for doctor output without changing default human output.
-- Include key checks: config presence, permissions hints, monitor skip-gates, dependency hints.
+- Define versioned JSON compatibility policy (required keys + type guarantees).
+- Add explicit regression assertions for key presence/type and nullability behavior.
+- Document compatibility expectations and deprecation path.
 
 **Verify**:
-- Validate stable JSON keys via tests.
-- ✅ Implemented: added `linux-maint doctor --json` output with stable machine-readable keys for config, monitor gates, dependencies, writable locations, and next actions.
-- ✅ Coverage: added `tests/doctor_json_test.sh` and wired it into `tests/smoke.sh`.
+- ✅ Implemented: added explicit JSON contract version key (`status_json_contract_version=1`) and documented stable key/type guarantees.
+- ✅ Coverage: added `tests/status_json_compat_test.sh` for required keys/types and `summary_file` nullability behavior.
 
 ---
 
-### P1.2 [dark-site] Bootstrap helper for minimum config skeleton (DONE 2026-02-16)
-**Why**: first-run friction still exists even with docs; operators benefit from a command that creates minimum viable config files with safe defaults.
+### P0.2 [contract] Add monitor summary dedup/canonicalization tests for repeated emissions (DONE 2026-02-17)
+**Why**: some monitors can emit multiple lines per host; rollups/diffs need deterministic behavior.
 
 **Where**:
-- `bin/linux-maint` (e.g., `init --minimal`)
-- `etc/linux_maint/*.example`
-- `docs/DARK_SITE.md`
+- `run_full_health_monitor.sh`
+- `tools/summary_diff.py`
+- `tests/monitor_summary_emission_test.sh`
 
 **Acceptance**:
-- One command creates minimum required files for a successful local run.
-- Preserve existing `init` behavior and avoid destructive overwrites unless explicitly requested.
+- Define canonical rule for repeated monitor/host lines (last-wins vs worst-status-wins).
+- Apply the same rule to text summary, JSON summary, and diff tooling.
 
 **Verify**:
-- Add test covering idempotent re-run behavior.
-- ✅ Implemented: added `linux-maint init --minimal` to create the minimum startup config files (`servers.txt`, `excluded.txt`, `services.txt`) without full optional template/baseline scaffolding.
-- ✅ Coverage: added `tests/init_minimal_idempotent_test.sh` and wired it into smoke to validate idempotent double-run behavior.
+- ✅ Implemented: `tools/summary_diff.py` now canonicalizes duplicate `monitor`+`host` lines via worst-status-wins with last-wins tie-break.
+- ✅ Coverage: added `tests/summary_diff_canonicalization_test.sh` and wired it into smoke.
+
+---
+
+### P0.3 [dark-site][ops] Improve failure resilience when writable log/state dirs are unavailable
+**Why**: restricted hosts sometimes block `/var/log`/`/var/lib`; failures should degrade predictably.
+
+**Where**:
+- `run_full_health_monitor.sh`
+- `lib/linux_maint.sh`
+- `tests/*` (new fallback-path test)
+
+**Acceptance**:
+- Centralize fallback chain for logs/state in one helper.
+- Emit explicit warning summary when fallback paths are used.
+- Avoid partial-run silent failures.
+
+**Verify**:
+- Add test that simulates unwritable default paths and confirms graceful completion.
+
+---
+
+## P1 — Operator UX and understandability
+
+### P1.1 [ops] Add `linux-maint explain <reason>` command linked to `docs/REASONS.md`
+**Why**: on-call users seeing `reason=` tokens need immediate remediation guidance.
+
+**Where**:
+- `bin/linux-maint`
+- `docs/REASONS.md`
+- `docs/QUICK_REFERENCE.md`
+- `tests/explain_reason_test.sh`
+
+**Acceptance**:
+- Command prints concise explanation + likely causes + next checks.
+- Clear behavior for unknown/typo reason tokens.
+
+**Verify**:
+- Add tests for known token, unknown token, and JSON/human output parity (if JSON mode added).
+
+---
+
+### P1.2 [ops] Add `linux-maint status --since <duration>` for recent-run focus (DONE 2026-02-17)
+**Why**: operators often only care about recent health regressions, not full history tail.
+
+**Where**:
+- `bin/linux-maint`
+- `tests/status_since_test.sh`
+- `README.md`, `docs/QUICK_REFERENCE.md`
+
+**Acceptance**:
+- Support duration parsing (`15m`, `2h`, `1d`, `30s`) against timestamped summary artifacts.
+- Preserve existing defaults when flag is omitted.
+
+**Verify**:
+- ✅ Implemented: `linux-maint status` now supports `--since <duration>` for both compact and `--json` modes and filters by timestamped summary files only.
+- ✅ Coverage: added `tests/status_since_test.sh` for include/exclude filtering and invalid-duration validation (`rc=2`).
+
+---
+
+### P1.3 [dark-site] Publish a “first 30 minutes” runbook section for offline onboarding (DONE 2026-02-17)
+**Why**: onboarding friction remains high for new admins in constrained environments.
+
+**Where**:
+- `docs/DARK_SITE.md`
+- `README.md`
+
+**Acceptance**:
+- Step-by-step minimal setup, first run, common SKIP reasons, and immediate triage.
+- Include copy/paste-safe commands and expected outputs.
+
+**Verify**:
+- ✅ Implemented: added a day-0 “First 30 minutes runbook” with verification, init, first-run triage, and pack-logs flow.
+- ✅ Docs: runbook published in `docs/DARK_SITE.md` and linked from operator docs.
 
 ---
 
 ## P2 — Security / hardening
 
-### P2.1 [security] Harden temporary-file cleanup across monitors (DONE 2026-02-16)
-**Why**: several monitors use `mktemp`; inconsistent cleanup can leave sensitive/large temp files behind after failures.
+### P2.1 [security] Add optional secret scanning lint for committed fixtures/docs
+**Why**: test fixtures and docs are common accidental secret-leak vectors.
 
 **Where**:
-- `monitors/*.sh` with `mktemp` usage
-- `tests/` (new targeted cleanup tests)
+- `tools/` (new scanner wrapper)
+- `.github/workflows/ci.yml`
+- `tests/` (fixture allowlist tests)
 
 **Acceptance**:
-- Add consistent `trap`-based cleanup for temp files in monitors that create them.
-- Keep monitor behavior unchanged on success/failure semantics.
+- Add lightweight scanner integration with explicit allowlist for known safe test tokens.
+- CI should fail only on high-confidence leaks.
 
 **Verify**:
-- Add tests that simulate error paths and assert temp artifacts are removed.
-- ✅ Implemented: added trap-based temp cleanup in mktemp-backed monitors (`backup_check`, `inode_monitor`, `kernel_events_monitor`, `nfs_mount_monitor`, `user_monitor`, `disk_trend_monitor`, `storage_health_monitor`, `ntp_drift_monitor`, `health_monitor`).
-- ✅ Coverage: added `tests/nfs_tempfile_cleanup_on_timeout_test.sh` and wired it into smoke to assert no leaked NFS temp alert files after forced timeout termination.
+- Add positive/negative fixtures to validate signal/noise behavior.
 
 ---
 
-### P2.2 [security] Expand log redaction coverage to structured auth fields (DONE 2026-02-17)
-**Why**: support bundles/logs may include structured credentials (Bearer/JWT/session-like values) not fully covered by current patterns.
+### P2.2 [security] Add checksum/signature verification path for offline release tarballs (DONE 2026-02-17)
+**Why**: dark-site transfer paths need integrity verification before installation.
 
 **Where**:
-- `lib/linux_maint.sh`
-- `tools/pack_logs.sh`
-- `tests/log_redaction_test.sh`
-- `tests/pack_logs_test.sh`
+- `tools/make_tarball.sh`
+- `install.sh`
+- `docs/README.md` / `docs/DARK_SITE.md`
 
 **Acceptance**:
-- Add conservative redaction for common structured auth/token patterns.
-- Preserve troubleshooting context (key names and surrounding non-sensitive text).
+- Generate checksums (and optional detached signatures) with clear verify command.
+- Installer docs include verification as a required step.
 
 **Verify**:
-- Extend tests with positive/negative fixtures for false-positive control.
-- ✅ Implemented: expanded redaction patterns for structured auth fields (`session_id`, `id_token`, `refresh_token`, `x-auth-token`), bearer/header variants, and JWT-like token blobs in both runtime logging (`lm_redact_line`) and support-bundle config redaction (`tools/pack_logs.sh`).
-- ✅ Coverage: extended `tests/log_redaction_test.sh` and `tests/pack_logs_test.sh` with positive redaction checks and non-secret context preservation assertions.
+- ✅ Implemented: added `tools/verify_release.sh` and `linux-maint verify-release` for checksum verification with optional detached-signature verification (`--sig`).
+- ✅ Coverage: added `tests/release_verify_test.sh` with pass path and tampered-archive failure path.
 
 ---
 
-## P3 — Signal quality / observability
+## P3 — Observability / reporting quality
 
-### P3.1 [ops] Add top-N reason rollup in `linux-maint status` (DONE 2026-02-17)
-**Why**: compact status is useful, but operators still need quick visibility into dominant failure reasons across monitors/hosts.
+### P3.1 [contract] Add summary trend report utility (`linux-maint trend`) for reason/severity drift
+**Why**: teams need trend visibility, not only latest snapshot.
 
 **Where**:
 - `bin/linux-maint`
-- `tests/status_contract_test.sh` and/or `tests/status_filters_test.sh`
-- `docs/QUICK_REFERENCE.md`
+- `tools/` (optional parser helper)
+- `tests/` (new trend fixtures)
 
 **Acceptance**:
-- Add optional reason rollup section (e.g., top 5 reasons with counts).
-- Keep default output concise and backward compatible.
+- Show reason/severity counts over last N runs.
+- Keep output deterministic and script-friendly.
 
 **Verify**:
-- Add fixture-driven tests with mixed reason tokens.
-- ✅ Implemented: `linux-maint status` now supports `--reasons N` (default hidden, max 20) and emits a top-N non-OK `reason=` rollup in compact mode; `status --json` includes `reason_rollup` when requested.
-- ✅ Coverage: added `tests/status_reason_rollup_test.sh` with mixed-status fixtures validating text and JSON rollups, and default backward-compatible behavior when `--reasons` is omitted.
+- Fixture tests for stable sort/order and numeric correctness.
 
 ---
 
-### P3.2 [contract] Summary length + key-budget guardrails per monitor (DONE 2026-02-17)
-**Why**: a global max-line lint exists, but per-monitor key growth can still regress readability and parser safety.
+### P3.2 [ops] Improve Prometheus export metadata for monitor and reason dimensions
+**Why**: dashboards and alerts benefit from consistent labels and clear metric help text.
 
 **Where**:
-- `tests/summary_noise_lint.sh`
-- `tests/summary_parse_safety_lint.py`
+- `run_full_health_monitor.sh`
 - `docs/reference.md`
+- `tests/prom_textfile_output_test.sh`
 
 **Acceptance**:
-- Introduce guardrails for excessive key count and/or monitor-specific line budgets.
-- Keep exceptions explicit and documented.
+- Ensure label set is consistent and bounded.
+- Update HELP/TYPE docs and examples.
 
 **Verify**:
-- Add lint fixtures for pass/fail cases.
-- ✅ Implemented: enhanced `summary_noise_lint.sh` with optional per-monitor length overrides (`LM_SUMMARY_MONITOR_MAX_LEN_MAP`) and enhanced `summary_parse_safety_lint.py` with key-budget checks (`LM_SUMMARY_MAX_KEYS` + per-monitor overrides via `LM_SUMMARY_MONITOR_MAX_KEYS_MAP`).
-- ✅ Coverage: added `tests/summary_budget_lint_fixture_test.sh` with explicit pass/fail fixtures for key-budget and length-budget guardrails, and wired it into smoke.
+- Extend prom textfile tests for label consistency and expected cardinality.
 
 ---
 
-## P4 — DX / release polish
+## P4 — DX / release / packaging polish
 
-### P4.1 [dx] Add `make dev-check` target (DONE 2026-02-16)
-**Why**: `tools/dev_check.sh` exists, but contributors expect a discoverable Make target aligned with existing workflow.
+### P4.1 [dx] Add a lightweight local “quick-check” target for contributors (DONE 2026-02-17)
+**Why**: full smoke can be slow during iteration; contributors need a fast guardrail.
 
 **Where**:
 - `Makefile`
-- `tests/` (optional Make-target test)
+- `tools/dev_check.sh`
 - `CONTRIBUTING.md`
 
 **Acceptance**:
-- Add `make dev-check` and include in `make help`.
-- Keep current script behavior intact.
+- Add `make quick-check` (syntax + key contract lints only).
+- Keep `make test` and `make dev-check` as full checks.
 
 **Verify**:
-- Run `make dev-check` in CI/local unprivileged mode.
-- ✅ Implemented: added `dev-check` Make target and help text, wired to `tools/dev_check.sh`.
-- ✅ Docs: CONTRIBUTING now includes `make dev-check` in the recommended local workflow.
+- ✅ Implemented: added `make quick-check` and `tools/quick_check.sh` for fast contract/lint gate.
+- ✅ Coverage: added `tests/quick_check_make_target_test.sh` and integrated it into smoke.
 
 ---
 
-### P4.2 [dx] CI matrix sanity for bash compatibility (DONE 2026-02-17)
-**Why**: project relies on Bash features; testing one environment can miss distro/shell-version edge cases.
+### P4.2 [dx] Add architecture diagram + data-flow doc for wrapper/monitors/artifacts (DONE 2026-02-17)
+**Why**: repo is mature but mental model is still hard for new contributors.
 
 **Where**:
-- `.github/workflows/*`
-- `tests/smoke.sh`
+- `docs/INDEX.md`
+- `docs/reference.md`
+- `docs/README.md`
 
 **Acceptance**:
-- Add lightweight matrix job(s) for at least two distro families or shell baselines.
-- Keep runtime cost reasonable.
+- Include one concise architecture diagram and lifecycle walkthrough.
+- Cross-link from README and quick reference.
 
 **Verify**:
-- CI passes on all matrix entries with clear failure attribution.
-- ✅ Implemented: added `bash-compat-matrix` CI job in `.github/workflows/ci.yml` with two distro families (`ubuntu:24.04`, `debian:12`) and explicit runtime dependency bootstrap.
-- ✅ Coverage: matrix smoke step runs `tests/smoke.sh` and treats `rc=0` and optional-skip `rc=3` as pass while failing other non-zero codes.
+- ✅ Implemented: added architecture/data-flow section to `docs/README.md` and cross-links from `docs/INDEX.md`.
+- ✅ Docs: linked detailed artifact behavior through `docs/reference.md`.
