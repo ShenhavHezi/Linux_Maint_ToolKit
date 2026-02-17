@@ -18,13 +18,15 @@ STATE_DIR="${STATE_DIR:-/var/lib/linux_maint}"
 # We only redact common key patterns in *.conf and *.txt.
 redact_file() {
   local in="$1" out="$2"
-  # Best-effort redact patterns like: token=..., password=..., Authorization: ...
+  # Best-effort redact common key/value + structured auth patterns.
   sed -E \
-    -e 's/([[:alnum:]_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key)[[:alnum:]_]*)[[:space:]]*=[[:space:]]*[^[:space:]"'\'';]+/\1=REDACTED/gI' \
-    -e 's/([[:alnum:]_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key)[[:alnum:]_]*)[[:space:]]*=[[:space:]]*"[^"]*"/\1="REDACTED"/gI' \
-    -e "s/([[:alnum:]_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key)[[:alnum:]_]*)[[:space:]]*=[[:space:]]*'[^']*'/\\1='REDACTED'/gI" \
-    -e 's/(authorization:).*/\1 REDACTED/gI' \
+    -e 's/([[:alnum:]_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key|session([_-]?id)?|id[_-]?token|refresh[_-]?token|x[_-]?auth[_-]?token)[[:alnum:]_]*)[[:space:]]*=[[:space:]]*[^[:space:]"'\'';]+/\1=REDACTED/gI' \
+    -e 's/([[:alnum:]_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key|session([_-]?id)?|id[_-]?token|refresh[_-]?token|x[_-]?auth[_-]?token)[[:alnum:]_]*)[[:space:]]*=[[:space:]]*"[^"]*"/\1="REDACTED"/gI' \
+    -e "s/([[:alnum:]_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key|session([_-]?id)?|id[_-]?token|refresh[_-]?token|x[_-]?auth[_-]?token)[[:alnum:]_]*)[[:space:]]*=[[:space:]]*'[^']*'/\\1='REDACTED'/gI" \
+    -e 's/("?(authorization|x-auth-token|session_id|session|id_token|refresh_token|access_token)"?[[:space:]]*:[[:space:]]*)"[^"]*"/\1"REDACTED"/gI' \
+    -e 's/(authorization:|x-auth-token:).*/\1 REDACTED/gI' \
     -e 's/(bearer)[[:space:]]+[[:alnum:]._~+\/-]+=*/\1 REDACTED/gI' \
+    -e 's/[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}/REDACTED_JWT/g' \
     "$in" > "$out" 2>/dev/null || cp -f "$in" "$out"
 }
 

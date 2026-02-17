@@ -159,6 +159,8 @@ run_for_host(){
 # Main
 # ========================
 ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" backup_check.alerts.XXXXXX)"
+cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
+trap cleanup_tmpfiles EXIT
 lm_info "=== Backup Check Started (verify_timeout=${VERIFY_TIMEOUT}s) ==="
 
 lm_for_each_host_rc run_for_host
@@ -171,7 +173,11 @@ alerts="$(cat "$ALERTS_FILE" 2>/dev/null)"
 failures=$(printf %s "$alerts" | sed '/^$/d' | wc -l | tr -d " ")
 status=OK
 [ "$failures" != "0" ] && status=CRIT
-lm_summary "backup_check" "runner" "$status" failures="$failures"
+if [ "$status" != "OK" ]; then
+  lm_summary "backup_check" "runner" "$status" reason=backup_failures failures="$failures"
+else
+  lm_summary "backup_check" "runner" "$status" failures="$failures"
+fi
 # legacy:
 # echo backup_check summary status=$status failures="$failures"
 rm -f "$ALERTS_FILE" 2>/dev/null || true

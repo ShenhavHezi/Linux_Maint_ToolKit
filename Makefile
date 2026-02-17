@@ -2,7 +2,7 @@
 
 SHELL := /usr/bin/env bash
 
-.PHONY: help lint test release-tarball install-githooks
+.PHONY: help lint test dev-check release-tarball install-githooks
 
 help:
 	@echo "Targets:"
@@ -10,6 +10,7 @@ help:
 	@echo "  make install-githooks - install executable hooks from .githooks/ into .git/hooks"
 	@echo "  make release-tarball - build offline release tarball (./dist)"
 	@echo "  make test   - run repo test suite (contract + smoke)"
+	@echo "  make dev-check - regenerate summarize + lint + smoke"
 
 lint:
 	@./tools/shellcheck_wrapper.sh -x run_full_health_monitor.sh
@@ -27,6 +28,10 @@ test:
 	@./tests/summary_contract.sh
 	@./tests/summary_contract_lint.sh
 	@./tests/smoke.sh
+
+
+dev-check:
+	@./tools/dev_check.sh
 
 release-tarball:
 	@./tools/make_tarball.sh

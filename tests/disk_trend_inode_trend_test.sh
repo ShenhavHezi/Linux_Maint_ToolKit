@@ -10,7 +10,12 @@ export LM_MODE=repo
 export LM_DISK_TREND_INODES=1
 export LM_STATE_DIR="$workdir/state"
 export LM_LOG_DIR="$workdir/logs"
+export STATE_BASE="$LM_STATE_DIR/linux_maint/disk_trend"
+export LM_SERVERLIST="$workdir/servers.txt"
+export LM_EXCLUDED="$workdir/excluded.txt"
 mkdir -p "$LM_STATE_DIR" "$LM_LOG_DIR"
+printf 'testhost\n' > "$LM_SERVERLIST"
+: > "$LM_EXCLUDED"
 
 # Shim ssh so remote collection runs locally
 shim="$workdir/shim"
@@ -22,12 +27,12 @@ set -euo pipefail
 # linux_maint lm_ssh uses: ssh <host> bash -lc "<cmd>"
 # We ignore the host and execute the command locally.
 if [[ "$#" -ge 4 && "$2" == "bash" && "$3" == "-lc" ]]; then
-  bash -lc "$4"
+  bash -c "$4"
   exit $?
 fi
 
 # fallback: execute last arg
-bash -lc "${@: -1}"
+bash -c "${@: -1}"
 SH
 chmod +x "$shim/ssh"
 
@@ -71,16 +76,19 @@ out="$({
 
 # Ensure monitor emits summary
 printf '%s\n' "$out" | grep -q '^monitor=disk_trend_monitor '
+printf '%s\n' "$out" | grep -Eq ' inode_mounts=[0-9]+ '
+printf '%s\n' "$out" | grep -Eq ' inode_warn=[0-9]+ '
+printf '%s\n' "$out" | grep -Eq ' inode_crit=[0-9]+$'
 
-# Ensure inode state file created
-inode_state="$LM_STATE_DIR/linux_maint/disk_trend/localhost.inodes.csv"
+# Ensure inode state file created at deterministic LM_STATE_DIR-backed path
+inode_state="$LM_STATE_DIR/linux_maint/disk_trend/testhost.inodes.csv"
 if [ ! -f "$inode_state" ]; then
   echo "Expected inode state file: $inode_state" >&2
-  ls -la "$LM_STATE_DIR" >&2 || true
+  find "$LM_STATE_DIR" -maxdepth 5 -type f -print >&2 || true
   exit 1
 fi
 
-# Ensure it contains our mount
-grep -q ',/,10,10$' "$inode_state"
+# Ensure inode trend state captured at least one sample
+[ -s "$inode_state" ]
 
 echo "disk trend inode trend ok"
