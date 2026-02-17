@@ -27,7 +27,7 @@ make test
 
 This runs the same core checks as CI (summary contract + smoke).
 
-For the full local maintainer flow (regenerate summary snapshot + lint + smoke):
+For the full local maintainer flow (lint + smoke):
 
 ```bash
 make dev-check
@@ -74,8 +74,6 @@ The wrapper returns the worst exit code across executed monitors.
 
 Use these files intentionally to reduce merge conflicts:
 - Update `ToDoList.txt` only when roadmap scope/priority/status truly changes.
-- Update `summarize.txt` only for meaningful capability/architecture snapshots (not routine fixes).
-- If summarize autogen markers are touched, run `python3 tools/gen_summarize.py`.
 
 ## Git hooks (optional)
 
