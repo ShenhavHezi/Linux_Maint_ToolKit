@@ -46,6 +46,7 @@ run_required "monitor_exit_codes_test" bash "$ROOT_DIR/tests/monitor_exit_codes_
 
 # Monitor summary emission contract (each monitor must emit monitor= lines)
 run_required "monitor_summary_emission_test" bash "$ROOT_DIR/tests/monitor_summary_emission_test.sh"
+run_required "quick_check_make_target_test" bash "$ROOT_DIR/tests/quick_check_make_target_test.sh"
 
 # Security lint: forbid eval usage
 run_required "no_eval_lint" bash "$ROOT_DIR/tests/no_eval_lint.sh"
@@ -82,10 +83,13 @@ run_required "cert_monitor_scan_dir_test" bash "$ROOT_DIR/tests/cert_monitor_sca
 run_required "verify_install_test" bash "$ROOT_DIR/tests/verify_install_test.sh"
 run_required "init_minimal_idempotent_test" bash "$ROOT_DIR/tests/init_minimal_idempotent_test.sh"
 run_required "pack_logs_test" bash "$ROOT_DIR/tests/pack_logs_test.sh"
+run_required "release_verify_test" bash "$ROOT_DIR/tests/release_verify_test.sh"
 run_required "doctor_offline_hints_test" bash "$ROOT_DIR/tests/doctor_offline_hints_test.sh"
 run_required "doctor_json_test" bash "$ROOT_DIR/tests/doctor_json_test.sh"
 run_required "explain_reason_test" bash "$ROOT_DIR/tests/explain_reason_test.sh"
 run_required "status_reason_rollup_test" bash "$ROOT_DIR/tests/status_reason_rollup_test.sh"
+run_required "status_json_compat_test" bash "$ROOT_DIR/tests/status_json_compat_test.sh"
+run_required "status_since_test" bash "$ROOT_DIR/tests/status_since_test.sh"
 fi
 
 # Sudo-gated tests

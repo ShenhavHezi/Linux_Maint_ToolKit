@@ -10,6 +10,9 @@ cd linux_Maint_Scripts
 
 ./tools/make_tarball.sh
 # output: dist/linux_Maint_Scripts-<version>-<sha>.tgz
+
+# optional detached signature (if GPG key is available)
+SIGN_KEY="ops-release@example.com" ./tools/make_tarball.sh
 ```
 
 Integrity file (recommended):
@@ -32,6 +35,9 @@ On the offline side verify from the directory containing the files:
 
 ```bash
 sha256sum -c SHA256SUMS
+
+# or use bundled helper
+linux-maint verify-release linux_Maint_Scripts-*.tgz --sums SHA256SUMS
 ```
 
 ## 3) Install on the offline server(s)
@@ -96,6 +102,46 @@ Expected day-0 status behavior:
 These SKIPs are normal on first run and indicate missing optional inputs, not wrapper failure.
 
 
+## First 30 minutes runbook (offline day-0)
+
+Use this when you are onboarding a new offline host and want a predictable first success path.
+
+1) **Verify install + paths**
+
+```bash
+linux-maint verify-install || true
+linux-maint version || true
+```
+
+2) **Create minimum config only**
+
+```bash
+sudo linux-maint init --minimal
+```
+
+3) **Fill minimum input files**
+- `/etc/linux_maint/servers.txt` (at least one host or `localhost`)
+- `/etc/linux_maint/services.txt` (a few critical services)
+- `/etc/linux_maint/excluded.txt` (optional, may stay empty)
+
+4) **Run first check and inspect status**
+
+```bash
+sudo linux-maint run
+sudo linux-maint status --reasons 5
+```
+
+5) **Interpret normal first-run SKIPs**
+- `reason=missing:/etc/linux_maint/network_targets.txt` → expected until network targets are defined.
+- `reason=missing:/etc/linux_maint/certs.txt` → expected until certificate paths are defined.
+- Baseline-related SKIPs → expected until baseline files are created/populated.
+
+6) **Collect troubleshooting bundle (if needed)**
+
+```bash
+sudo linux-maint pack-logs
+```
+
 ## 5) Run manually (quick test)
 
 ```bash
@@ -120,6 +166,9 @@ When transferring tarballs/packages into an air-gapped environment, verify integ
 sha256sum linux_Maint_Scripts-*.tgz > SHA256SUMS
 # transfer both files
 sha256sum -c SHA256SUMS
+
+# or use bundled helper
+linux-maint verify-release linux_Maint_Scripts-*.tgz --sums SHA256SUMS
 ```
 
 If you use an internal artifact repository, store the checksum alongside the artifact.
