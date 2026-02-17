@@ -108,6 +108,15 @@ Dark-site wrapper profile:
 
 Most defaults below are taken directly from the scripts (current repository version).
 
+### Timeout policy
+
+Timeout protection exists at two layers:
+- Wrapper-level timeout: `MONITOR_TIMEOUT_SECS` (default `600`, dark-site profile default `300`) limits each monitor script runtime.
+- Optional per-monitor wrapper overrides: `MONITOR_TIMEOUTS_FILE` (default `${LM_CFG_DIR:-/etc/linux_maint}/monitor_timeouts.conf`) with lines like `disk_trend_monitor=60`.
+
+Monitor-specific bounded operations should still use local command timeouts where applicable.
+Example: `nfs_mount_monitor` uses `NFS_STAT_TIMEOUT` (default `5s`) for per-mount responsiveness probes.
+
 ### `inode_monitor.sh`
 - `THRESHOLDS` = `"/etc/linux_maint/inode_thresholds.txt"   # CSV: mountpoint,warn%,crit% (supports '*' default)`
 - `EXCLUDE_MOUNTS` = `"/etc/linux_maint/inode_exclude.txt"  # Optional: list of mountpoints to skip`
@@ -190,14 +199,21 @@ Most defaults below are taken directly from the scripts (current repository vers
 - `OPT_CMDS` = `(openssl ss netstat journalctl smartctl nvme mail timeout)`
 
 ### `disk_trend_monitor.sh`
-- `STATE_BASE` = `"/var/lib/linux_maint/disk_trend"`
+- `STATE_BASE` = `""` (optional override; state path precedence is: explicit `STATE_BASE` → `${LM_STATE_DIR}/linux_maint/disk_trend` when `LM_STATE_DIR` is set → `/var/lib/linux_maint/disk_trend`)
 - `WARN_DAYS` = `14`
 - `CRIT_DAYS` = `7`
 - `HARD_WARN_PCT` = `90`
 - `HARD_CRIT_PCT` = `95`
 - `MIN_POINTS` = `2`
+- `LM_DISK_TREND_INODES` = `0` (set to `1|true` to collect inode trend state and include inode rollup counters in summary output)
 - `EXCLUDE_FSTYPES_RE` = `'^(tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup2?|debugfs|rpc_pipefs|autofs|devpts|mqueue|hugetlbfs|fuse\..*|binfmt_misc|pstore|nsfs)$'`
 - `EXCLUDE_MOUNTS_FILE` = `"/etc/linux_maint/disk_trend_exclude_mounts.txt"`
+- If the resolved state path is not writable, monitor falls back to `/tmp/linux_maint/disk_trend` and logs a warning.
+
+When `LM_DISK_TREND_INODES=1|true`, `disk_trend_monitor` also emits compact inode rollup summary keys:
+- `inode_mounts=<count>`
+- `inode_warn=<count>`
+- `inode_crit=<count>`
 
 ### `nfs_mount_monitor.sh`
 - `NFS_STAT_TIMEOUT` = `5`
@@ -253,6 +269,19 @@ Common `reason` values used in this project:
 - `no_timesync_tool`
 - `early_exit`
 
+### Summary lint guardrails (length + key budget)
+
+The test suite enforces summary readability and parser safety with explicit budgets:
+
+- `tests/summary_noise_lint.sh`
+  - Global line-length budget via `LM_SUMMARY_MAX_LEN` (default `220`).
+  - Optional per-monitor overrides via `LM_SUMMARY_MONITOR_MAX_LEN_MAP` (example: `inventory_export=260,disk_trend_monitor=240`).
+- `tests/summary_parse_safety_lint.py`
+  - Global key-count budget via `LM_SUMMARY_MAX_KEYS` (default `18`).
+  - Optional per-monitor overrides via `LM_SUMMARY_MONITOR_MAX_KEYS_MAP` (example: `inventory_export=24`).
+
+Keep overrides explicit and minimal so growth is intentional and reviewed.
+
 ### Artifacts written by the wrapper
 
 When running the full wrapper (`run_full_health_monitor.sh`) in installed mode:
@@ -303,6 +332,7 @@ Status flags (installed mode):
 
 - `--verbose` — show raw summary lines
 - `--problems N` — number of problem entries to display (default 20, max 100)
+- `--reasons N` — optional top-N reason rollup section for non-OK lines (default 0=hidden, max 20)
 - `--only OK|WARN|CRIT|UNKNOWN|SKIP` — filter by status
 - `--host PATTERN` — show only entries where `host` contains `PATTERN`
 - `--monitor PATTERN` — show only entries where `monitor` contains `PATTERN`
