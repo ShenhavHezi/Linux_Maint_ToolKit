@@ -154,6 +154,7 @@ sudo linux-maint diff
 
 ```bash
 sudo linux-maint doctor
+sudo linux-maint doctor --json
 sudo linux-maint deps
 sudo linux-maint pack-logs --out /tmp
 ```
