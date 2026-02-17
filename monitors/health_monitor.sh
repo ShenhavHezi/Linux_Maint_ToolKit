@@ -43,6 +43,8 @@ MAIL_SUBJECT_PREFIX='[Health Monitor]'
 # ========================
 REPORT_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" health_report.XXXXXX)"
 REPORT_LOCK="${REPORT_FILE}.lock"
+cleanup_tmpfiles(){ rm -f "$REPORT_FILE" "$REPORT_LOCK" 2>/dev/null || true; }
+trap cleanup_tmpfiles EXIT
 
 append_report() {
   # Append stdin to report with a lock (safe under parallelism)

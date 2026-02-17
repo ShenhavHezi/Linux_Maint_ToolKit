@@ -66,6 +66,8 @@ EXCLUDE_FSTYPES_RE='^(tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup2?|debugf
 EXCLUDE_MOUNTS_FILE="/etc/linux_maint/disk_trend_exclude_mounts.txt"
 
 ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" disk_trend_monitor.alerts.XXXXXX)"
+cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
+trap cleanup_tmpfiles EXIT
 append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 mail_if_enabled(){ [ "$EMAIL_ON_ALERT" = "true" ] || return 0; lm_mail "$1" "$2"; }
 

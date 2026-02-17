@@ -45,6 +45,8 @@ MAIL_SUBJECT_PREFIX='[Inode Monitor]'
 # Helpers (script-local)
 # ========================
 ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" inode_monitor.alerts.XXXXXX)"
+cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
+trap cleanup_tmpfiles EXIT
 append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 
 is_mount_excluded(){

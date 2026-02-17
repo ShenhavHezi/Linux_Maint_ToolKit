@@ -43,6 +43,8 @@ EMAIL_ON_ISSUE="true"
 : "${NFS_STAT_TIMEOUT:=5}"
 
 ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" nfs_mount_monitor.alerts.XXXXXX)"
+cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
+trap cleanup_tmpfiles EXIT
 append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 mail_if_enabled(){ [ "$EMAIL_ON_ISSUE" = "true" ] || return 0; lm_mail "$1" "$2"; }
 

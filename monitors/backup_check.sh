@@ -159,6 +159,8 @@ run_for_host(){
 # Main
 # ========================
 ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" backup_check.alerts.XXXXXX)"
+cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
+trap cleanup_tmpfiles EXIT
 lm_info "=== Backup Check Started (verify_timeout=${VERIFY_TIMEOUT}s) ==="
 
 lm_for_each_host_rc run_for_host

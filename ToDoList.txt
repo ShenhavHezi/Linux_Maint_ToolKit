@@ -126,7 +126,7 @@ This is the single backlog source of truth.
 
 ## P2 — Security / hardening
 
-### P2.1 [security] Harden temporary-file cleanup across monitors (NOT DONE)
+### P2.1 [security] Harden temporary-file cleanup across monitors (DONE 2026-02-16)
 **Why**: several monitors use `mktemp`; inconsistent cleanup can leave sensitive/large temp files behind after failures.
 
 **Where**:
@@ -139,6 +139,8 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Add tests that simulate error paths and assert temp artifacts are removed.
+- ✅ Implemented: added trap-based temp cleanup in mktemp-backed monitors (`backup_check`, `inode_monitor`, `kernel_events_monitor`, `nfs_mount_monitor`, `user_monitor`, `disk_trend_monitor`, `storage_health_monitor`, `ntp_drift_monitor`, `health_monitor`).
+- ✅ Coverage: added `tests/nfs_tempfile_cleanup_on_timeout_test.sh` and wired it into smoke to assert no leaked NFS temp alert files after forced timeout termination.
 
 ---
 

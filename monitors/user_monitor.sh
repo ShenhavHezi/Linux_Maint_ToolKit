@@ -54,6 +54,8 @@ FAILED_CRIT=50
 ensure_dirs(){ mkdir -p "$(dirname "$LM_LOGFILE")" "$USERS_BASELINE_DIR" "$SUDO_BASELINE_DIR"; }
 
 ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" user_monitor.alerts.XXXXXX)"
+cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
+trap cleanup_tmpfiles EXIT
 append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 
 mail_if_enabled(){ [ "$EMAIL_ON_ALERT" = "true" ] || return 0; lm_mail "$1" "$2"; }
