@@ -188,7 +188,7 @@ This is the single backlog source of truth.
 
 ## P4 — DX / release polish
 
-### P4.1 [dx] Add `make dev-check` target (NOT DONE)
+### P4.1 [dx] Add `make dev-check` target (DONE 2026-02-16)
 **Why**: `tools/dev_check.sh` exists, but contributors expect a discoverable Make target aligned with existing workflow.
 
 **Where**:
@@ -202,6 +202,8 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Run `make dev-check` in CI/local unprivileged mode.
+- ✅ Implemented: added `dev-check` Make target and help text, wired to `tools/dev_check.sh`.
+- ✅ Docs: CONTRIBUTING now includes `make dev-check` in the recommended local workflow.
 
 ---
 
