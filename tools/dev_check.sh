@@ -5,9 +5,6 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "$ROOT_DIR"
 
-echo "==> gen_summarize.py"
-python3 tools/gen_summarize.py
-
 echo "==> shellcheck"
 ./tools/shellcheck_wrapper.sh \
   -x run_full_health_monitor.sh \
