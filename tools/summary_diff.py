@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, re, json
+import sys, json
 from pathlib import Path
 
 def parse_line(line: str):
@@ -11,31 +11,49 @@ def parse_line(line: str):
             d[k]=v
     return d
 
-def load_summary(path: Path):
-    rows=[]
-    if not path.exists():
-        return rows
-    for line in path.read_text(errors='ignore').splitlines():
-        if line.startswith('monitor='):
-            rows.append(parse_line(line))
-    return rows
+def sev(st):
+    return {'OK':0,'SKIP':0,'WARN':1,'CRIT':2,'UNKNOWN':3}.get(st,3)
 
 def key(row):
     return (row.get('monitor',''), row.get('host',''))
 
+def canonicalize_rows_worst(rows):
+    """Deduplicate rows by (monitor,host) keeping the worst status.
+
+    Tie-break rule when severity is equal: keep the later row (last-wins).
+    """
+    out={}
+    for r in rows:
+        k=key(r)
+        if k not in out:
+            out[k]=r
+            continue
+        prev=out[k]
+        prev_sev=sev(prev.get('status','UNKNOWN'))
+        cur_sev=sev(r.get('status','UNKNOWN'))
+        if cur_sev > prev_sev:
+            out[k]=r
+        elif cur_sev == prev_sev:
+            out[k]=r
+    return out
+
+def load_summary_map(path: Path):
+    rows=[]
+    if not path.exists():
+        return {}
+    for line in path.read_text(errors='ignore').splitlines():
+        if line.startswith('monitor='):
+            rows.append(parse_line(line))
+    return canonicalize_rows_worst(rows)
+
 def main(prev_path, cur_path, fmt='text'):
-    prev=load_summary(Path(prev_path))
-    cur=load_summary(Path(cur_path))
-    prev_map={key(r): r for r in prev}
-    cur_map={key(r): r for r in cur}
+    prev_map=load_summary_map(Path(prev_path))
+    cur_map=load_summary_map(Path(cur_path))
 
     new_fail=[]
     recovered=[]
     changed=[]
     still_bad=[]
-
-    def sev(st):
-        return {'OK':0,'SKIP':0,'WARN':1,'CRIT':2,'UNKNOWN':3}.get(st,3)
 
     for k, r in cur_map.items():
         prev_r = prev_map.get(k)

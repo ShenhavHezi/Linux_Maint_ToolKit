@@ -26,6 +26,11 @@ jobs:
           ./tools/shellcheck_wrapper.sh -x tools/*.sh
 
 
+
+      - name: Secret scan (high-confidence, allowlisted)
+        run: |
+          ./tools/secret_scan.sh
+
       - name: Summary contract test (unprivileged)
         run: |
           mkdir -p .logs
