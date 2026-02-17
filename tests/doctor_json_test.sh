@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
-out="$($ROOT_DIR/bin/linux-maint doctor --json)"
+out="$("$ROOT_DIR"/bin/linux-maint doctor --json)"
 
 python3 - <<'PY' "$out"
 import json
