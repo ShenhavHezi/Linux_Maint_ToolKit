@@ -108,6 +108,15 @@ Dark-site wrapper profile:
 
 Most defaults below are taken directly from the scripts (current repository version).
 
+### Timeout policy
+
+Timeout protection exists at two layers:
+- Wrapper-level timeout: `MONITOR_TIMEOUT_SECS` (default `600`, dark-site profile default `300`) limits each monitor script runtime.
+- Optional per-monitor wrapper overrides: `MONITOR_TIMEOUTS_FILE` (default `${LM_CFG_DIR:-/etc/linux_maint}/monitor_timeouts.conf`) with lines like `disk_trend_monitor=60`.
+
+Monitor-specific bounded operations should still use local command timeouts where applicable.
+Example: `nfs_mount_monitor` uses `NFS_STAT_TIMEOUT` (default `5s`) for per-mount responsiveness probes.
+
 ### `inode_monitor.sh`
 - `THRESHOLDS` = `"/etc/linux_maint/inode_thresholds.txt"   # CSV: mountpoint,warn%,crit% (supports '*' default)`
 - `EXCLUDE_MOUNTS` = `"/etc/linux_maint/inode_exclude.txt"  # Optional: list of mountpoints to skip`

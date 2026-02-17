@@ -65,7 +65,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P0.3 [contract] Wrapper + monitor timeout policy harmonization (NOT DONE)
+### P0.3 [contract] Wrapper + monitor timeout policy harmonization (DONE 2026-02-16)
 **Why**: timeout behavior exists at wrapper and contract-test levels, but monitor-level timeouts are inconsistent and not centrally documented.
 
 **Where**:
@@ -79,6 +79,8 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Add targeted tests for at least one slow/failing external command path.
+- ✅ Implemented: documented timeout policy in `docs/reference.md` (wrapper default, per-monitor override file, and monitor-local bounded probes).
+- ✅ Coverage: extended `tests/per_monitor_timeout_override_test.sh` to assert `timeout_secs` metadata for wrapper timeout events.
 
 ---
 

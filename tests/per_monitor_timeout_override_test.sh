@@ -34,3 +34,10 @@ if ! grep -q "monitor=disk_trend_monitor .*status=UNKNOWN .*reason=timeout" "$su
   cat "$summary" >&2 || true
   exit 1
 fi
+
+if ! grep -q "monitor=disk_trend_monitor .*timeout_secs=1" "$summary"; then
+  echo "Expected disk_trend_monitor timeout summary to include timeout_secs=1." >&2
+  echo "--- summary ---" >&2
+  cat "$summary" >&2 || true
+  exit 1
+fi

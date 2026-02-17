@@ -367,3 +367,7 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 ## 2026-02-16
 - contract: standardize non-OK summary `reason=` coverage across key monitors, including disk trend, NFS, kernel events, inode, config drift, ports baseline, user, health, and backup summary paths.
 - tests: add `tests/nfs_reason_unreachable_test.sh` and wire it into `tests/smoke.sh` to assert CRIT unreachable NFS paths emit `reason=ssh_unreachable`.
+
+## 2026-02-16
+- timeout policy: document wrapper-level (`MONITOR_TIMEOUT_SECS`), per-monitor override file (`monitor_timeouts.conf`), and monitor-local bounded probe timeout behavior in `docs/reference.md`.
+- tests: extend `tests/per_monitor_timeout_override_test.sh` to assert timeout metadata (`timeout_secs`) on wrapper-enforced monitor timeout summaries.
