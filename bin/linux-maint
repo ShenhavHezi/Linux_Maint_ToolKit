@@ -174,8 +174,8 @@ Commands:
   uninstall [args]    Run ./install.sh --uninstall (pass-through)
   make-tarball        Build offline release tarball (tools/make_tarball.sh)
   logs [n]            Tail latest wrapper log (default n=200)
-  init                Install /etc/linux_maint templates (from repo checkout)
-  doctor              Diagnose installation/config/state permissions
+  init [--minimal]    Install /etc/linux_maint templates (from repo checkout)
+  doctor [--json]     Diagnose installation/config/state permissions
   deps                Print required/optional dependency manifest by monitor (offline-friendly)
   verify-install      Verify installation layout, permissions, and systemd wiring (best-effort)
   pack-logs [--out DIR]  Create a support bundle tar.gz (logs, config redacted, meta)
@@ -713,7 +713,14 @@ PY
       need_root_for init
     fi
 
-    CFG_DIR="/etc/linux_maint"
+    INIT_MINIMAL=0
+    case "${1:-}" in
+      --minimal) INIT_MINIMAL=1; shift ;;
+      "") ;;
+      *) echo "Unknown init flag: $1" >&2; exit 2 ;;
+    esac
+
+    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
     # Prefer repo templates in repo mode; in installed mode use PREFIX share templates.
     SRC_DIR="$REPO_ROOT/etc/linux_maint"
     if [[ "$MODE" == "installed" ]]; then
@@ -729,10 +736,24 @@ PY
       exit 1
     fi
 
-    sudo mkdir -p "$CFG_DIR" "$CFG_DIR/baselines" "$CFG_DIR/baselines/ports" "$CFG_DIR/baselines/configs" "$CFG_DIR/baselines/users" "$CFG_DIR/baselines/sudoers"
+    sudo mkdir -p "$CFG_DIR"
+    if [[ "$INIT_MINIMAL" -eq 0 ]]; then
+      sudo mkdir -p "$CFG_DIR/baselines" "$CFG_DIR/baselines/ports" "$CFG_DIR/baselines/configs" "$CFG_DIR/baselines/users" "$CFG_DIR/baselines/sudoers"
+    fi
 
-    shopt -s nullglob
-    for f in "$SRC_DIR"/*.example; do
+    if [[ "$INIT_MINIMAL" -eq 1 ]]; then
+      init_templates=(
+        "$SRC_DIR/servers.txt.example"
+        "$SRC_DIR/excluded.txt.example"
+        "$SRC_DIR/services.txt.example"
+      )
+    else
+      shopt -s nullglob
+      init_templates=("$SRC_DIR"/*.example)
+    fi
+
+    for f in "${init_templates[@]}"; do
+      [[ -f "$f" ]] || continue
       base="$(basename "$f" .example)"
       dest="$CFG_DIR/$base"
       if [[ -e "$dest" ]]; then
@@ -745,8 +766,11 @@ PY
 
     echo ""
     echo "Next steps:"
-    echo "  - Edit /etc/linux_maint/servers.txt"
+    echo "  - Edit $CFG_DIR/servers.txt"
     echo "  - Run: sudo linux-maint doctor"
+    if [[ "$INIT_MINIMAL" -eq 1 ]]; then
+      echo "  - Optional later: run 'sudo linux-maint init' to install full optional templates"
+    fi
     ;;
 
 
@@ -964,7 +988,125 @@ PY
       need_root_for doctor
     fi
 
+    DOCTOR_JSON=0
+    case "${1:-}" in
+      --json) DOCTOR_JSON=1; shift ;;
+      "") ;;
+      *) echo "Unknown doctor flag: $1" >&2; exit 2 ;;
+    esac
+
     CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+
+    if [[ "$DOCTOR_JSON" -eq 1 ]]; then
+      MODE="$MODE" PREFIX="$PREFIX" WRAPPER="$wrapper" LIBEXEC="$LIBEXEC" LINUX_MAINT_LIB="${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" CFG_DIR="$CFG_DIR" python3 - <<'PYJSON'
+import json
+import os
+import pathlib
+import shutil
+
+mode = os.environ.get("MODE", "")
+prefix = os.environ.get("PREFIX", "")
+wrapper = os.environ.get("WRAPPER", "")
+libexec = os.environ.get("LIBEXEC", "")
+lib = os.environ.get("LINUX_MAINT_LIB", "")
+cfg_dir = os.environ.get("CFG_DIR", "/etc/linux_maint")
+
+cfg_path = pathlib.Path(cfg_dir)
+
+
+def has_cmd(cmd: str) -> bool:
+    return shutil.which(cmd) is not None
+
+
+def active_hosts_count(path: pathlib.Path) -> int:
+    if not path.is_file():
+        return 0
+    count = 0
+    for raw in path.read_text(errors="ignore").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        count += 1
+    return count
+
+
+config_files = ["servers.txt", "excluded.txt", "services.txt", "emails.txt"]
+config = {
+    "dir_exists": cfg_path.is_dir(),
+    "files": {name: (cfg_path / name).exists() for name in config_files},
+    "hosts_configured": active_hosts_count(cfg_path / "servers.txt"),
+}
+
+gates = [
+    ("cert_monitor", "certs.txt"),
+    ("network_monitor", "network_targets.txt"),
+    ("ports_baseline_monitor", "ports_baseline.txt"),
+    ("config_drift_monitor", "config_paths.txt"),
+    ("user_monitor", "baseline_users.txt"),
+    ("user_monitor", "baseline_sudoers.txt"),
+    ("backup_check", "backup_targets.csv"),
+]
+monitor_gates = []
+for mon, fn in gates:
+    p = cfg_path / fn
+    monitor_gates.append(
+        {
+            "monitor": mon,
+            "path": str(p),
+            "present": p.exists() and p.stat().st_size > 0,
+        }
+    )
+
+dep_hints = [
+    ("awk", "gawk"),
+    ("sed", "sed"),
+    ("grep", "grep"),
+    ("df", "coreutils"),
+    ("find", "findutils"),
+    ("timeout", "coreutils"),
+    ("curl", "curl"),
+    ("openssl", "openssl"),
+    ("ssh", "openssh-clients"),
+    ("systemctl", "systemd"),
+]
+dependencies = [{"cmd": c, "present": has_cmd(c), "hint": h} for c, h in dep_hints]
+
+writable_paths = ["/var/log/health", "/var/log/inventory", "/var/lib/linux_maint", "/var/lock"]
+writable_locations = []
+for d in writable_paths:
+    p = pathlib.Path(d)
+    writable_locations.append(
+        {
+            "path": d,
+            "exists": p.is_dir(),
+            "writable": p.is_dir() and os.access(d, os.W_OK),
+        }
+    )
+
+result = {
+    "mode": mode,
+    "prefix": prefix,
+    "wrapper": wrapper,
+    "libexec": libexec,
+    "lib": lib,
+    "cfg_dir": cfg_dir,
+    "config": config,
+    "monitor_gates": monitor_gates,
+    "dependencies": dependencies,
+    "writable_locations": writable_locations,
+    "next_actions": [
+        "linux-maint verify-install",
+        "sudo linux-maint init",
+        "sudo linux-maint preflight",
+        "sudo linux-maint run",
+        "linux-maint pack-logs --out .",
+    ],
+}
+
+print(json.dumps(result, sort_keys=True))
+PYJSON
+      exit 0
+    fi
 
     echo "=== linux-maint doctor ==="
     echo "mode=$MODE"

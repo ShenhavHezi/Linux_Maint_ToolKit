@@ -344,3 +344,45 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 - tests: fix ShellCheck SC2016 in `tests/ssh_opts_validation_test.sh` by expressing unsafe command-substitution fixtures as escaped literals in double quotes.
 - status: add `--match-mode contains|exact|regex` for `--host`/`--monitor` filters across compact/verbose/JSON status paths; include test coverage for exact/regex matching and invalid-regex exit behavior.
 - dx: add `make install-githooks` target (listed in `make help`) and test idempotency with `tests/install_githooks_make_target_test.sh`.
+
+## 2026-02-16
+- preflight_check: remove per-dependency `lm_require_cmd` summary emissions so preflight now emits a single actionable summary line per run; move dependency detail lists to `LM_LOGFILE`.
+- tests: extend `tests/preflight_missing_ssh_test.sh` to assert single-line summary output and set `LINUX_MAINT_LIB` explicitly for stable repo-mode execution.
+
+## 2026-02-16
+- disk_trend_monitor: when `LM_DISK_TREND_INODES=1|true`, summary output now includes compact inode rollup keys (`inode_mounts`, `inode_warn`, `inode_crit`) to surface inode pressure signal without expanding per-mount summary noise.
+- tests: extend `tests/disk_trend_inode_trend_test.sh` to assert inode rollup keys in the monitor summary output.
+
+## 2026-02-16
+- docs/reference: document `LM_DISK_TREND_INODES` toggle/default and the inode rollup summary keys emitted by `disk_trend_monitor` (`inode_mounts`, `inode_warn`, `inode_crit`) to keep operator contract docs aligned with current monitor output.
+
+## 2026-02-16
+- disk_trend_monitor: make trend state path resolution deterministic with precedence `STATE_BASE` → `${LM_STATE_DIR}/linux_maint/disk_trend` → `/var/lib/linux_maint/disk_trend`; if unresolved path is not writable, monitor falls back to `/tmp/linux_maint/disk_trend` and logs a warning.
+- tests/docs: tighten inode trend test to assert deterministic `LM_STATE_DIR` artifact path and document the state path precedence/fallback in `docs/reference.md`.
+
+## 2026-02-16
+- cli: add `linux-maint doctor --json` for machine-readable diagnostics in dark-site automation workflows, including config presence, monitor skip-gates, dependency availability, writable location checks, and recommended next actions.
+- tests/docs: add `tests/doctor_json_test.sh` (wired into smoke) and document `doctor --json` usage in README and quick reference.
+
+## 2026-02-16
+- contract: standardize non-OK summary `reason=` coverage across key monitors, including disk trend, NFS, kernel events, inode, config drift, ports baseline, user, health, and backup summary paths.
+- tests: add `tests/nfs_reason_unreachable_test.sh` and wire it into `tests/smoke.sh` to assert CRIT unreachable NFS paths emit `reason=ssh_unreachable`.
+
+## 2026-02-16
+- timeout policy: document wrapper-level (`MONITOR_TIMEOUT_SECS`), per-monitor override file (`monitor_timeouts.conf`), and monitor-local bounded probe timeout behavior in `docs/reference.md`.
+- tests: extend `tests/per_monitor_timeout_override_test.sh` to assert timeout metadata (`timeout_secs`) on wrapper-enforced monitor timeout summaries.
+
+
+## 2026-02-16
+- dark-site bootstrap: add `linux-maint init --minimal` to create only minimum startup config files (`servers.txt`, `excluded.txt`, `services.txt`) while preserving existing full `init` behavior.
+- tests/docs: add `tests/init_minimal_idempotent_test.sh` (wired into smoke) and document minimal init usage in `docs/DARK_SITE.md`.
+
+
+## 2026-02-16
+- security: add trap-based cleanup for mktemp-backed monitor files to reduce temp-file leakage on early exits/timeouts.
+- tests: add `tests/nfs_tempfile_cleanup_on_timeout_test.sh` (wired into smoke) to verify temp alert files are removed after forced timeout termination.
+
+
+## 2026-02-17
+- security/redaction: expand structured auth redaction coverage in runtime logs and support bundles to include session/id/refresh token-style keys, `x-auth-token` header forms, and JWT-like blobs while preserving key names/context.
+- tests: extend `tests/log_redaction_test.sh` and `tests/pack_logs_test.sh` with new structured-auth fixtures plus false-positive controls to keep non-secret text intact.

@@ -22,21 +22,6 @@ LM_LOGFILE="${LM_LOGFILE:-/var/log/preflight_check.log}"
 
 lm_require_singleton "preflight_check"
 
-# Dependency checks (local runner)
-lm_require_cmd "preflight_check" "localhost" awk || true
-lm_require_cmd "preflight_check" "localhost" sed || true
-lm_require_cmd "preflight_check" "localhost" grep || true
-lm_require_cmd "preflight_check" "localhost" df || true
-lm_require_cmd "preflight_check" "localhost" ssh || true
-lm_require_cmd "preflight_check" "localhost" openssl --optional || true
-lm_require_cmd "preflight_check" "localhost" ss --optional || true
-lm_require_cmd "preflight_check" "localhost" netstat --optional || true
-lm_require_cmd "preflight_check" "localhost" journalctl --optional || true
-lm_require_cmd "preflight_check" "localhost" smartctl --optional || true
-lm_require_cmd "preflight_check" "localhost" nvme --optional || true
-lm_require_cmd "preflight_check" "localhost" mail --optional || true
-lm_require_cmd "preflight_check" "localhost" timeout --optional || true
-
 
 # Required commands
 REQ_CMDS=(awk sed grep df ssh)
@@ -66,6 +51,10 @@ main(){
       miss_opt_list+="$c,"
     fi
   done
+
+  if [ "$missing_req" -gt 0 ] || [ "$missing_opt" -gt 0 ]; then
+    echo "preflight_check deps missing required=[${miss_req_list%,}] optional=[${miss_opt_list%,}]" >> "$LM_LOGFILE"
+  fi
 
   # Check state/log dirs are writable
   local writable_state=1 writable_logs=1

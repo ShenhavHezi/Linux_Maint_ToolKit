@@ -32,6 +32,8 @@ CRIT_COUNT=5
 PATTERNS='oom-killer|out of memory|killed process|soft lockup|hard lockup|hung task|blocked for more than|I/O error|blk_update_request|Buffer I/O error|EXT4-fs error|XFS \(|btrfs: error|nvme.*timeout|resetting link|ata[0-9].*failed|mce:|machine check'
 
 ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" kernel_events_monitor.alerts.XXXXXX)"
+cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
+trap cleanup_tmpfiles EXIT
 append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 mail_if_enabled(){ [ "$EMAIL_ON_ALERT" = "true" ] || return 0; lm_mail "$1" "$2"; }
 
@@ -91,17 +93,22 @@ run_for_host(){
   sample=$(echo "$out" | sed -n 's/^.*sample=//p')
   [ -z "$count" ] && count=0
 
-  local status rc
+  local status rc reason
   status="OK"; rc=0
-  if [ "$count" -ge "$CRIT_COUNT" ]; then status="CRIT"; rc=2
-  elif [ "$count" -ge "$WARN_COUNT" ]; then status="WARN"; rc=1
+  reason=""
+  if [ "$count" -ge "$CRIT_COUNT" ]; then status="CRIT"; rc=2; reason="kernel_events_crit"
+  elif [ "$count" -ge "$WARN_COUNT" ]; then status="WARN"; rc=1; reason="kernel_events_warn"
   fi
 
   if [ "$rc" -ge 1 ]; then
     append_alert "$host|kernel_events|matches=$count|sample=${sample:0:300}"
   fi
 
-  lm_summary "kernel_events_monitor" "$host" "$status" matches="$count" window_h="$KERNEL_WINDOW_HOURS"
+  if [ "$status" != "OK" ] && [ -n "$reason" ]; then
+    lm_summary "kernel_events_monitor" "$host" "$status" reason="$reason" matches="$count" window_h="$KERNEL_WINDOW_HOURS"
+  else
+    lm_summary "kernel_events_monitor" "$host" "$status" matches="$count" window_h="$KERNEL_WINDOW_HOURS"
+  fi
   # legacy:
   # echo "kernel_events_monitor host=$host status=$status matches=$count window_h=$KERNEL_WINDOW_HOURS"
   return "$rc"
