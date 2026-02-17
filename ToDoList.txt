@@ -26,12 +26,12 @@ This is the single backlog source of truth.
 
 ## P0 — Correctness / contract / runtime reliability
 
-### P0.1 [contract] Add a strict machine-output compatibility gate for `status --json`
+### P0.1 [contract] Add a strict machine-output compatibility gate for `status --json` (DONE 2026-02-17)
 **Why**: automation depends on stable keys/types; accidental output drift can break internal tooling.
 
 **Where**:
 - `bin/linux-maint`
-- `tests/status_json_test.sh`
+- `tests/status_json_compat_test.sh`
 - `docs/reference.md`
 
 **Acceptance**:
@@ -40,7 +40,8 @@ This is the single backlog source of truth.
 - Document compatibility expectations and deprecation path.
 
 **Verify**:
-- Extend JSON tests with schema-like assertions and backward-compat fixtures.
+- ✅ Implemented: added explicit JSON contract version key (`status_json_contract_version=1`) and documented stable key/type guarantees.
+- ✅ Coverage: added `tests/status_json_compat_test.sh` for required keys/types and `summary_file` nullability behavior.
 
 ---
 
@@ -117,7 +118,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P1.3 [dark-site] Publish a “first 30 minutes” runbook section for offline onboarding
+### P1.3 [dark-site] Publish a “first 30 minutes” runbook section for offline onboarding (DONE 2026-02-17)
 **Why**: onboarding friction remains high for new admins in constrained environments.
 
 **Where**:
@@ -129,7 +130,8 @@ This is the single backlog source of truth.
 - Include copy/paste-safe commands and expected outputs.
 
 **Verify**:
-- Runbook walkthrough validated on a clean VM/container.
+- ✅ Implemented: added a day-0 “First 30 minutes runbook” with verification, init, first-run triage, and pack-logs flow.
+- ✅ Docs: runbook published in `docs/DARK_SITE.md` and linked from operator docs.
 
 ---
 
@@ -207,7 +209,7 @@ This is the single backlog source of truth.
 
 ## P4 — DX / release / packaging polish
 
-### P4.1 [dx] Add a lightweight local “quick-check” target for contributors
+### P4.1 [dx] Add a lightweight local “quick-check” target for contributors (DONE 2026-02-17)
 **Why**: full smoke can be slow during iteration; contributors need a fast guardrail.
 
 **Where**:
@@ -220,11 +222,12 @@ This is the single backlog source of truth.
 - Keep `make test` and `make dev-check` as full checks.
 
 **Verify**:
-- Add/adjust one Make-target test to ensure target exists and runs expected commands.
+- ✅ Implemented: added `make quick-check` and `tools/quick_check.sh` for fast contract/lint gate.
+- ✅ Coverage: added `tests/quick_check_make_target_test.sh` and integrated it into smoke.
 
 ---
 
-### P4.2 [dx] Add architecture diagram + data-flow doc for wrapper/monitors/artifacts
+### P4.2 [dx] Add architecture diagram + data-flow doc for wrapper/monitors/artifacts (DONE 2026-02-17)
 **Why**: repo is mature but mental model is still hard for new contributors.
 
 **Where**:
@@ -237,4 +240,5 @@ This is the single backlog source of truth.
 - Cross-link from README and quick reference.
 
 **Verify**:
-- Docs review: a new contributor can locate command flow and artifact paths in <10 minutes.
+- ✅ Implemented: added architecture/data-flow section to `docs/README.md` and cross-links from `docs/INDEX.md`.
+- ✅ Docs: linked detailed artifact behavior through `docs/reference.md`.

@@ -565,6 +565,7 @@ problems.sort(key=lambda e: sev_order.get(e.get('status','UNKNOWN'), 9))
 
 out={
     'mode': mode,
+    'status_json_contract_version': 1,
     'last_status': status,
     'summary_file': summary_path if summary_path and os.path.exists(summary_path) else None,
     'totals': {k: counts.get(k,0) for k in ['CRIT','WARN','UNKNOWN','SKIP','OK']},
