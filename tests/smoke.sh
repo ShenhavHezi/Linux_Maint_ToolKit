@@ -87,6 +87,7 @@ run_required "doctor_offline_hints_test" bash "$ROOT_DIR/tests/doctor_offline_hi
 run_required "doctor_json_test" bash "$ROOT_DIR/tests/doctor_json_test.sh"
 run_required "explain_reason_test" bash "$ROOT_DIR/tests/explain_reason_test.sh"
 run_required "status_reason_rollup_test" bash "$ROOT_DIR/tests/status_reason_rollup_test.sh"
+run_required "status_since_test" bash "$ROOT_DIR/tests/status_since_test.sh"
 fi
 
 # Sudo-gated tests

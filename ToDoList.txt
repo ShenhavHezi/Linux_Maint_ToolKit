@@ -99,20 +99,21 @@ This is the single backlog source of truth.
 
 ---
 
-### P1.2 [ops] Add `linux-maint status --since <duration>` for recent-run focus
+### P1.2 [ops] Add `linux-maint status --since <duration>` for recent-run focus (DONE 2026-02-17)
 **Why**: operators often only care about recent health regressions, not full history tail.
 
 **Where**:
 - `bin/linux-maint`
-- `tests/status_filters_test.sh`
-- `docs/reference.md`
+- `tests/status_since_test.sh`
+- `README.md`, `docs/QUICK_REFERENCE.md`
 
 **Acceptance**:
-- Support duration parsing (`15m`, `2h`, `1d`) against timestamped summary artifacts.
+- Support duration parsing (`15m`, `2h`, `1d`, `30s`) against timestamped summary artifacts.
 - Preserve existing defaults when flag is omitted.
 
 **Verify**:
-- Fixture-driven tests with synthetic timestamps and expected filtered outputs.
+- ✅ Implemented: `linux-maint status` now supports `--since <duration>` for both compact and `--json` modes and filters by timestamped summary files only.
+- ✅ Coverage: added `tests/status_since_test.sh` for include/exclude filtering and invalid-duration validation (`rc=2`).
 
 ---
 
