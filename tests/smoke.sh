@@ -43,6 +43,7 @@ bash "$ROOT_DIR/tests/no_eval_lint.sh" >/dev/null
 
 # Dependency behavior example: network_monitor should emit missing_dependency when curl missing
 bash "$ROOT_DIR/tests/network_monitor_missing_curl_test.sh" >/dev/null
+bash "$ROOT_DIR/tests/nfs_reason_unreachable_test.sh" >/dev/null
 
 # Fleet safety: --dry-run must not invoke ssh
 bash "$ROOT_DIR/tests/dry_run_no_ssh_test.sh" >/dev/null
@@ -65,8 +66,10 @@ bash "$ROOT_DIR/tests/ntp_chrony_parsing_variants_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/log_spike_fixture_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/cert_monitor_scan_dir_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/verify_install_test.sh" >/dev/null
+bash "$ROOT_DIR/tests/init_minimal_idempotent_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/pack_logs_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/doctor_offline_hints_test.sh" >/dev/null
+bash "$ROOT_DIR/tests/doctor_json_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/explain_reason_test.sh" >/dev/null
 
 # Sudo-gated tests

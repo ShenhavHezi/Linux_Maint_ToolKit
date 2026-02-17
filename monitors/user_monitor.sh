@@ -183,7 +183,11 @@ run_for_host(){
   lm_info "[$host] failed SSH logins last ${FAILED_WINDOW_HOURS}h: $failed ($failed_status)"
 
   status=$( [ "$anomalies" -gt 0 ] && echo WARN || echo OK )
-  lm_summary "user_monitor" "$host" "$status" anomalies="$anomalies"
+  if [ "$status" != "OK" ]; then
+    lm_summary "user_monitor" "$host" "$status" reason=user_anomalies anomalies="$anomalies"
+  else
+    lm_summary "user_monitor" "$host" "$status" anomalies="$anomalies"
+  fi
   # legacy:
   # echo "user_monitor host=$host status=$status anomalies="$anomalies""
 

@@ -154,8 +154,13 @@ run_for_host(){
   lm_info "===== Completed $host ====="
 
   status="OK"
-  if [ "$crit_count" -gt 0 ]; then status="CRIT"; elif [ "$warn_count" -gt 0 ]; then status="WARN"; fi
-  lm_summary "inode_monitor" "$host" "$status" checked="$checked" warn="$warn_count" crit="$crit_count"
+  reason=""
+  if [ "$crit_count" -gt 0 ]; then status="CRIT"; reason="inode_usage_crit"; elif [ "$warn_count" -gt 0 ]; then status="WARN"; reason="inode_usage_warn"; fi
+  if [ "$status" != "OK" ] && [ -n "$reason" ]; then
+    lm_summary "inode_monitor" "$host" "$status" reason="$reason" checked="$checked" warn="$warn_count" crit="$crit_count"
+  else
+    lm_summary "inode_monitor" "$host" "$status" checked="$checked" warn="$warn_count" crit="$crit_count"
+  fi
   # legacy:
   # echo "inode_monitor host=$host status=$status checked="$checked" warn="$warn_count" crit="$crit_count""
 

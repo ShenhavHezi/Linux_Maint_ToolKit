@@ -56,6 +56,7 @@ sudo linux-maint status || true
 ## 4) Minimal startup (after installation)
 
 1) Review the generated configs under `/etc/linux_maint/` (the installer creates defaults).
+   - If you want just the minimum startup files, run: `sudo linux-maint init --minimal`
 2) Run once manually to validate everything works:
 
 ```bash
