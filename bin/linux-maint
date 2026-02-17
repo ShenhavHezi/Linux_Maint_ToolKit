@@ -174,7 +174,7 @@ Commands:
   uninstall [args]    Run ./install.sh --uninstall (pass-through)
   make-tarball        Build offline release tarball (tools/make_tarball.sh)
   logs [n]            Tail latest wrapper log (default n=200)
-  init                Install /etc/linux_maint templates (from repo checkout)
+  init [--minimal]    Install /etc/linux_maint templates (from repo checkout)
   doctor [--json]     Diagnose installation/config/state permissions
   deps                Print required/optional dependency manifest by monitor (offline-friendly)
   verify-install      Verify installation layout, permissions, and systemd wiring (best-effort)
@@ -713,7 +713,14 @@ PY
       need_root_for init
     fi
 
-    CFG_DIR="/etc/linux_maint"
+    INIT_MINIMAL=0
+    case "${1:-}" in
+      --minimal) INIT_MINIMAL=1; shift ;;
+      "") ;;
+      *) echo "Unknown init flag: $1" >&2; exit 2 ;;
+    esac
+
+    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
     # Prefer repo templates in repo mode; in installed mode use PREFIX share templates.
     SRC_DIR="$REPO_ROOT/etc/linux_maint"
     if [[ "$MODE" == "installed" ]]; then
@@ -729,10 +736,24 @@ PY
       exit 1
     fi
 
-    sudo mkdir -p "$CFG_DIR" "$CFG_DIR/baselines" "$CFG_DIR/baselines/ports" "$CFG_DIR/baselines/configs" "$CFG_DIR/baselines/users" "$CFG_DIR/baselines/sudoers"
+    sudo mkdir -p "$CFG_DIR"
+    if [[ "$INIT_MINIMAL" -eq 0 ]]; then
+      sudo mkdir -p "$CFG_DIR/baselines" "$CFG_DIR/baselines/ports" "$CFG_DIR/baselines/configs" "$CFG_DIR/baselines/users" "$CFG_DIR/baselines/sudoers"
+    fi
 
-    shopt -s nullglob
-    for f in "$SRC_DIR"/*.example; do
+    if [[ "$INIT_MINIMAL" -eq 1 ]]; then
+      init_templates=(
+        "$SRC_DIR/servers.txt.example"
+        "$SRC_DIR/excluded.txt.example"
+        "$SRC_DIR/services.txt.example"
+      )
+    else
+      shopt -s nullglob
+      init_templates=("$SRC_DIR"/*.example)
+    fi
+
+    for f in "${init_templates[@]}"; do
+      [[ -f "$f" ]] || continue
       base="$(basename "$f" .example)"
       dest="$CFG_DIR/$base"
       if [[ -e "$dest" ]]; then
@@ -745,8 +766,11 @@ PY
 
     echo ""
     echo "Next steps:"
-    echo "  - Edit /etc/linux_maint/servers.txt"
+    echo "  - Edit $CFG_DIR/servers.txt"
     echo "  - Run: sudo linux-maint doctor"
+    if [[ "$INIT_MINIMAL" -eq 1 ]]; then
+      echo "  - Optional later: run 'sudo linux-maint init' to install full optional templates"
+    fi
     ;;
 
 

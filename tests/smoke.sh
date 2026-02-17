@@ -66,6 +66,7 @@ bash "$ROOT_DIR/tests/ntp_chrony_parsing_variants_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/log_spike_fixture_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/cert_monitor_scan_dir_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/verify_install_test.sh" >/dev/null
+bash "$ROOT_DIR/tests/init_minimal_idempotent_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/pack_logs_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/doctor_offline_hints_test.sh" >/dev/null
 bash "$ROOT_DIR/tests/doctor_json_test.sh" >/dev/null

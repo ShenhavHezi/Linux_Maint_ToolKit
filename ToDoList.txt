@@ -105,7 +105,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P1.2 [dark-site] Bootstrap helper for minimum config skeleton (NOT DONE)
+### P1.2 [dark-site] Bootstrap helper for minimum config skeleton (DONE 2026-02-16)
 **Why**: first-run friction still exists even with docs; operators benefit from a command that creates minimum viable config files with safe defaults.
 
 **Where**:
@@ -119,6 +119,8 @@ This is the single backlog source of truth.
 
 **Verify**:
 - Add test covering idempotent re-run behavior.
+- ✅ Implemented: added `linux-maint init --minimal` to create the minimum startup config files (`servers.txt`, `excluded.txt`, `services.txt`) without full optional template/baseline scaffolding.
+- ✅ Coverage: added `tests/init_minimal_idempotent_test.sh` and wired it into smoke to validate idempotent double-run behavior.
 
 ---
 

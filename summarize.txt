@@ -371,3 +371,8 @@ RPM packaging exists under `packaging/rpm/` (spec + systemd service/timer files)
 ## 2026-02-16
 - timeout policy: document wrapper-level (`MONITOR_TIMEOUT_SECS`), per-monitor override file (`monitor_timeouts.conf`), and monitor-local bounded probe timeout behavior in `docs/reference.md`.
 - tests: extend `tests/per_monitor_timeout_override_test.sh` to assert timeout metadata (`timeout_secs`) on wrapper-enforced monitor timeout summaries.
+
+
+## 2026-02-16
+- dark-site bootstrap: add `linux-maint init --minimal` to create only minimum startup config files (`servers.txt`, `excluded.txt`, `services.txt`) while preserving existing full `init` behavior.
+- tests/docs: add `tests/init_minimal_idempotent_test.sh` (wired into smoke) and document minimal init usage in `docs/DARK_SITE.md`.
