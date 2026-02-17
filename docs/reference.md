@@ -874,6 +874,7 @@ echo "##active_line4##"
 
 echo "##active_line5##"
 `linux-maint diff` compares the latest summary against a persisted copy from the previous run.
+`linux-maint diff` first canonicalizes repeated `monitor`+`host` rows using **worst-status-wins** semantics (`UNKNOWN` > `CRIT` > `WARN` > `OK/SKIP`), with last-wins tie-break when severity is equal.
 echo "##active_line6##"
 
 echo "##active_line7##"

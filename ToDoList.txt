@@ -45,7 +45,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P0.2 [contract] Add monitor summary dedup/canonicalization tests for repeated emissions
+### P0.2 [contract] Add monitor summary dedup/canonicalization tests for repeated emissions (DONE 2026-02-17)
 **Why**: some monitors can emit multiple lines per host; rollups/diffs need deterministic behavior.
 
 **Where**:
@@ -58,7 +58,8 @@ This is the single backlog source of truth.
 - Apply the same rule to text summary, JSON summary, and diff tooling.
 
 **Verify**:
-- Add fixtures with repeated lines and mixed severities; assert deterministic output.
+- ✅ Implemented: `tools/summary_diff.py` now canonicalizes duplicate `monitor`+`host` lines via worst-status-wins with last-wins tie-break.
+- ✅ Coverage: added `tests/summary_diff_canonicalization_test.sh` and wired it into smoke.
 
 ---
 
