@@ -46,6 +46,7 @@ run_required "monitor_exit_codes_test" bash "$ROOT_DIR/tests/monitor_exit_codes_
 
 # Monitor summary emission contract (each monitor must emit monitor= lines)
 run_required "monitor_summary_emission_test" bash "$ROOT_DIR/tests/monitor_summary_emission_test.sh"
+run_required "quick_check_make_target_test" bash "$ROOT_DIR/tests/quick_check_make_target_test.sh"
 
 # Security lint: forbid eval usage
 run_required "no_eval_lint" bash "$ROOT_DIR/tests/no_eval_lint.sh"
@@ -86,6 +87,7 @@ run_required "doctor_offline_hints_test" bash "$ROOT_DIR/tests/doctor_offline_hi
 run_required "doctor_json_test" bash "$ROOT_DIR/tests/doctor_json_test.sh"
 run_required "explain_reason_test" bash "$ROOT_DIR/tests/explain_reason_test.sh"
 run_required "status_reason_rollup_test" bash "$ROOT_DIR/tests/status_reason_rollup_test.sh"
+run_required "status_since_test" bash "$ROOT_DIR/tests/status_since_test.sh"
 fi
 
 # Sudo-gated tests

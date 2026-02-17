@@ -26,6 +26,9 @@ sudo linux-maint status --host web --monitor service --only WARN
 # Regex matching mode for host/monitor filters
 sudo linux-maint status --host '^web-[0-9]+$' --match-mode regex
 
+# Focus on recent run artifacts only
+sudo linux-maint status --since 2h
+
 # Diff since last run
 sudo linux-maint diff
 
