@@ -3,8 +3,8 @@
 This is the single backlog source of truth.
 
 ## Working style
-- Pick **one** item per PR.
-- Keep changes small, reversible, and test-backed.
+- Bundle related roadmap items into PRs when it improves delivery and review flow.
+- Changes can be broad when needed, but must remain test-backed and clearly documented.
 - Prioritize operator clarity and safe defaults over feature count.
 - Dark-site/offline reliability remains a primary product focus.
 
