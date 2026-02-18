@@ -1074,7 +1074,13 @@ PY
       if [[ -e "$dest" ]]; then
         echo "keep:   $dest (exists)"
       else
-        sudo install -m 0644 "$f" "$dest"
+        if [[ "${LM_INIT_USE_CP:-0}" == "1" ]]; then
+          # Some environments emit noisy SELinux warnings when using install(1).
+          sudo cp -f "$f" "$dest"
+          sudo chmod 0644 "$dest"
+        else
+          sudo install -m 0644 "$f" "$dest"
+        fi
         echo "create: $dest"
       fi
     done

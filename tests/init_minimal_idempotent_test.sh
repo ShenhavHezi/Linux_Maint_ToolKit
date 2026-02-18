@@ -23,6 +23,7 @@ chmod +x "$shim/sudo"
 run_init_minimal(){
   PATH="$shim:$PATH" \
   LM_CFG_DIR="$cfg_dir" \
+  LM_INIT_USE_CP=1 \
   "$ROOT_DIR/bin/linux-maint" init --minimal >/dev/null
 }
 
