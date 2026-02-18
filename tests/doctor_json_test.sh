@@ -12,12 +12,13 @@ import sys
 obj = json.loads(sys.argv[1])
 
 assert isinstance(obj, dict)
-for key in ("mode", "cfg_dir", "config", "monitor_gates", "dependencies", "writable_locations", "next_actions"):
+for key in ("mode", "cfg_dir", "config", "monitor_gates", "dependencies", "writable_locations", "fix_suggestions", "next_actions"):
     assert key in obj, f"missing key: {key}"
 
 assert isinstance(obj["monitor_gates"], list) and len(obj["monitor_gates"]) >= 1
 assert isinstance(obj["dependencies"], list) and len(obj["dependencies"]) >= 1
 assert isinstance(obj["writable_locations"], list) and len(obj["writable_locations"]) >= 1
+assert isinstance(obj["fix_suggestions"], list)
 
 cfg = obj["config"]
 assert "dir_exists" in cfg and "files" in cfg and "hosts_configured" in cfg

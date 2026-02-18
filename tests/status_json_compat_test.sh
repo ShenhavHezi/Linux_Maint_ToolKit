@@ -50,10 +50,11 @@ monitor=service_monitor host=web-1 status=WARN reason=failed_units
 monitor=network_monitor host=web-1 status=CRIT reason=http_down
 monitor=backup_check host=backup-1 status=SKIP reason=missing_targets_file
 monitor=service_monitor host=db-1 status=OK
+monitor=runtime_guard host=runner status=WARN reason=runtime_exceeded target_monitor=service_monitor runtime_ms=120000 threshold_ms=60000
 S
 
 json_out="$(bash "$LM" status --json --reasons 2)"
-printf '%s' "$json_out" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["status_json_contract_version"]==1; assert isinstance(o["mode"],str); assert isinstance(o["last_status"],dict); assert isinstance(o["totals"],dict); assert isinstance(o["problems"],list); assert isinstance(o["summary_file"],str); assert set(["CRIT","WARN","UNKNOWN","SKIP","OK"])<=set(o["totals"].keys()); rr=o.get("reason_rollup"); assert isinstance(rr,list); assert len(rr)==2'
+printf '%s' "$json_out" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["status_json_contract_version"]==1; assert isinstance(o["mode"],str); assert isinstance(o["last_status"],dict); assert isinstance(o["totals"],dict); assert isinstance(o["problems"],list); assert isinstance(o["summary_file"],str); assert set(["CRIT","WARN","UNKNOWN","SKIP","OK"])<=set(o["totals"].keys()); rr=o.get("reason_rollup"); assert isinstance(rr,list); assert len(rr)==2; rw=o.get("runtime_warnings"); assert isinstance(rw,list); assert len(rw)==1; assert rw[0]["monitor"]=="runtime_guard"; assert rw[0]["target_monitor"]=="service_monitor"'
 
 # Nullability contract: missing summary file => summary_file is null and empty totals.
 rm -f "$SUMMARY_FILE"

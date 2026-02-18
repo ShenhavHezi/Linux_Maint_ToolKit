@@ -386,12 +386,25 @@ Top-level keys:
 - `summary_file` (string path when present, `null` when no summary is available)
 - `totals` (object with integer keys: `CRIT`, `WARN`, `UNKNOWN`, `SKIP`, `OK`)
 - `problems` (array of objects; severity-sorted, bounded by `--problems`)
+- `runtime_warnings` (array of objects; entries from `runtime_guard` monitor lines, includes `target_monitor` and runtime details)
 - `reason_rollup` (optional array; present only when `--reasons N` is requested)
 
 Compatibility policy:
 - Existing keys/types above are treated as stable for contract version `1`.
 - Additive keys may be introduced without breaking compatibility.
 - Breaking shape/type changes require incrementing `status_json_contract_version`.
+
+### `linux-maint doctor --json` keys
+
+Top-level keys:
+- `mode` (string: `repo` or `installed`)
+- `cfg_dir` (string path)
+- `config` (object with `dir_exists`, `files`, `hosts_configured`)
+- `monitor_gates` (array of monitor gate entries and their `present` status)
+- `dependencies` (array of command availability with package hints)
+- `writable_locations` (array of path checks: `exists`, `writable`)
+- `fix_suggestions` (array of suggested remediation actions)
+- `next_actions` (array of recommended follow-up commands)
 
 
 
