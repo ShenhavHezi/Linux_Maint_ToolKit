@@ -97,12 +97,12 @@ This is the single backlog source of truth.
 
 ## P4 — DX / release polish
 
-### P4.1 Improve changelog discipline
+### P4.1 Improve changelog discipline (DONE 2026-02-18)
 **Why**: users need a human-readable release summary.
 **Acceptance**:
 - Add a release note template and update `CHANGELOG.md` for release tags.
 
-### P4.2 Provide a minimal containerized test harness
+### P4.2 Provide a minimal containerized test harness (DONE 2026-02-18)
 **Why**: consistent contributor experience.
 **Acceptance**:
 - Add `containers/` or `tools/dev_container.sh` with quick-start instructions.

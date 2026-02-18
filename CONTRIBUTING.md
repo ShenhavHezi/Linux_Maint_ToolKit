@@ -86,6 +86,7 @@ The wrapper returns the worst exit code across executed monitors.
 
 Use these files intentionally to reduce merge conflicts:
 - Update `ToDoList.txt` only when roadmap scope/priority/status truly changes.
+- Update `CHANGELOG.md` for releases using `docs/RELEASE_TEMPLATE.md`.
 
 ## Git hooks (optional)
 

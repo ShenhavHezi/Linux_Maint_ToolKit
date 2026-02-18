@@ -18,6 +18,17 @@ If you’re not sure, start in repo mode and install once you like the results.
 
 - Contribution workflow and contracts: [`../CONTRIBUTING.md`](../CONTRIBUTING.md)
 
+## Dev container (optional)
+
+If you want a consistent test environment, use the dev container:
+
+```bash
+./tools/dev_container.sh build
+./tools/dev_container.sh test
+```
+
+See `containers/dev.Dockerfile` and `tools/dev_container.sh`.
+
 
 ## Architecture and data flow
 
