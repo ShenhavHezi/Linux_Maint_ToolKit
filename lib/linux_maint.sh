@@ -124,6 +124,20 @@ lm_redact_line() {
   printf '%s' "$s"
 }
 
+# Redact key=value tokens without introducing spaces (safe for summary lines).
+lm_redact_kv_line() {
+  local s="$1"
+  case "${LM_REDACT_LOGS:-0}" in
+    1|true|TRUE|yes|YES) ;;
+    *) printf '%s' "$s"; return 0 ;;
+  esac
+  s="$(printf '%s' "$s" | sed -E \
+    -e 's/\b([[:alnum:]_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key|session([_-]?id)?|id[_-]?token|refresh[_-]?token|x[_-]?auth[_-]?token)[[:alnum:]_]*)=([^[:space:]]+)/\1=REDACTED/Ig' \
+    -e 's/\b[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}\b/REDACTED_JWT/g' \
+  )"
+  printf '%s' "$s"
+}
+
 
 # ========= Locking (prevent overlapping runs) =========
 # Usage: lm_require_singleton myscript      → exits if already running
@@ -420,7 +434,11 @@ lm_summary() {
   local node
   node="$(hostname -f 2>/dev/null || hostname)"
   # shellcheck disable=SC2086
-  echo "monitor=${monitor} host=${target_host} status=${status} node=${node} $*" | sed "s/[[:space:]]\+/ /g; s/[[:space:]]$//"
+  local line
+  line="monitor=${monitor} host=${target_host} status=${status} node=${node} $*"
+  line="$(printf '%s' "$line" | sed "s/[[:space:]]\\+/ /g; s/[[:space:]]$//")"
+  line="$(lm_redact_kv_line "$line")"
+  printf '%s\n' "$line"
 }
 
 # ========= Dependency helpers =========

@@ -102,6 +102,7 @@ run_required "explain_reason_test" bash "$ROOT_DIR/tests/explain_reason_test.sh"
 run_required "status_reason_rollup_test" bash "$ROOT_DIR/tests/status_reason_rollup_test.sh"
 run_required "status_json_compat_test" bash "$ROOT_DIR/tests/status_json_compat_test.sh"
 run_required "status_json_schema_test" bash "$ROOT_DIR/tests/status_json_schema_test.sh"
+run_required "export_json_test" bash "$ROOT_DIR/tests/export_json_test.sh"
 run_required "status_since_test" bash "$ROOT_DIR/tests/status_since_test.sh"
 run_required "trend_command_test" bash "$ROOT_DIR/tests/trend_command_test.sh"
 fi

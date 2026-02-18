@@ -474,6 +474,21 @@ Example (`trend --json`):
 }
 ```
 
+- `linux-maint export --json` *(root required)*: export a single JSON payload containing summary_result/summary_hosts plus raw `monitor=` rows (best for external ingestion).
+
+Example (`export --json`):
+
+```json
+{
+  "mode": "installed",
+  "summary_result": { "overall": "OK", "ok": 18, "warn": 0, "crit": 0, "unknown": 0, "skipped": 0 },
+  "summary_hosts": { "ok": 18, "warn": 0, "crit": 0, "unknown": 0, "skipped": 0 },
+  "rows": [
+    { "monitor": "health_monitor", "host": "server-a", "status": "OK" }
+  ]
+}
+```
+
 - `linux-maint logs [n]` *(root required)*: tail the latest wrapper log (default `n=200`).
 
 - `linux-maint preflight` *(root recommended)*: check dependencies/SSH/config readiness.
@@ -493,6 +508,8 @@ Example (`trend --json`):
 
 
 ### Environment
+
+- `LM_REDACT_LOGS=1` — redact common secret patterns from logs and summary lines (best-effort). When enabled, values like `password=...`, `token=...`, and JWT-like blobs are replaced with `REDACTED` in emitted log/summary lines.
 
 
 ### SSH security defaults (fleet mode)
@@ -516,6 +533,27 @@ Notes:
 - If you enable strict host key verification in your environment, pre-populate the dedicated known_hosts file used by `UserKnownHostsFile`.
 
 Validation guardrails (in `linux-maint run`):
+
+### Least-privilege guidance (SSH mode)
+
+For production, prefer running the wrapper as root on each host. If you need least-privilege SSH:
+
+1. Create a dedicated user (e.g., `linuxmaint`) with a locked-down SSH key.
+2. Restrict the key with a forced command:
+
+```
+command="sudo /usr/local/sbin/run_full_health_monitor.sh",no-port-forwarding,no-agent-forwarding,no-X11-forwarding ssh-ed25519 AAAA...
+```
+
+3. Add a sudoers entry allowing only the wrapper (and optionally read-only commands like `linux-maint status` on the runner):
+
+```
+# /etc/sudoers.d/linux-maint
+linuxmaint ALL=(root) NOPASSWD: /usr/local/sbin/run_full_health_monitor.sh
+linuxmaint ALL=(root) NOPASSWD: /usr/local/bin/linux-maint status, /usr/local/bin/linux-maint doctor, /usr/local/bin/linux-maint logs
+```
+
+Adjust paths if your `PREFIX` is not `/usr/local`.
 - Unsafe shell metacharacters are rejected in `--ssh-opts` / `LM_SSH_OPTS` with exit code `2`.
 - Rejected patterns include: `;`, `&`, `|`, `` ` ``, `<`, `>`, `$(`, `${`, and newline/carriage-return bytes.
 

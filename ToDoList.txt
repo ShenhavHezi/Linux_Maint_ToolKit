@@ -68,12 +68,12 @@ This is the single backlog source of truth.
 
 ## P2 — Security / hardening
 
-### P2.1 Add least-privilege guidance for SSH mode
+### P2.1 Add least-privilege guidance for SSH mode (DONE 2026-02-18)
 **Why**: operators need a safe baseline for sudoers and SSH keys.
 **Acceptance**:
 - `docs/reference.md` includes a minimal sudoers snippet and SSH guidance.
 
-### P2.2 Optional redaction toggle for logs
+### P2.2 Optional redaction toggle for logs (DONE 2026-02-18)
 **Why**: avoid accidental secret leakage.
 **Acceptance**:
 - Add a toggle that redacts known patterns in logs and summary JSON.
@@ -83,7 +83,7 @@ This is the single backlog source of truth.
 
 ## P3 — Observability / integrations
 
-### P3.1 Add `linux-maint export --json`
+### P3.1 Add `linux-maint export --json` (DONE 2026-02-18)
 **Why**: a single payload for SIEM/ELK/monitoring ingestion.
 **Acceptance**:
 - Output includes `SUMMARY_RESULT`, `SUMMARY_HOSTS`, and `monitor=` lines.

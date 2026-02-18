@@ -172,6 +172,7 @@ Commands:
   diff [--json]       Show diff since last run (uses wrapper diff state)
   trend [--last N] [--json]  Show severity/reason trends over recent runs
   runtimes [--last N] [--json]  Show per-monitor runtimes from wrapper logs
+  export --json       Export a single JSON payload (summary_result/hosts + rows)
   validate            Validate config file formats (best-effort)
   preflight           Run preflight checks
   version             Print installed BUILD_INFO (if present)
@@ -1005,6 +1006,154 @@ PY
         mon=""; ms=""
       }
     ' "${rt_files[@]}" | sort -rn | awk '{print "monitor="$2" ms="$1}'
+    ;;
+
+  export)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for export
+    fi
+
+    EXPORT_JSON=0
+    case "${1:-}" in
+      --json) EXPORT_JSON=1; shift ;;
+      -h|--help) EXPORT_JSON=0 ;;
+      "") ;;
+      *) echo "Unknown export flag: $1" >&2; exit 2 ;;
+    esac
+
+    if [[ "$EXPORT_JSON" -ne 1 ]]; then
+      echo "Usage: linux-maint export --json" >&2
+      exit 2
+    fi
+
+    if [[ "$MODE" == "repo" ]]; then
+      summary_file="$REPO_SUMMARY_LATEST"
+      status_file="$REPO_STATUS_FILE"
+      log_file="$REPO_LATEST_LOG"
+      summary_json="$REPO_LOG_DIR/full_health_monitor_summary_latest.json"
+    else
+      summary_file="$INST_SUMMARY_LATEST"
+      status_file="/var/log/health/last_status_full"
+      log_file="/var/log/health/full_health_monitor_latest.log"
+      summary_json="/var/log/health/full_health_monitor_summary_latest.json"
+    fi
+
+    python3 - "$MODE" "$status_file" "$summary_file" "$summary_json" "$log_file" <<'PY'
+import json, os, re, sys
+
+mode, status_path, summary_path, summary_json_path, log_path = sys.argv[1:6]
+
+def read_kv(path):
+    d={}
+    if not path or not os.path.exists(path):
+        return d
+    with open(path,'r',encoding='utf-8',errors='ignore') as f:
+        for line in f:
+            line=line.strip()
+            if not line or '=' not in line:
+                continue
+            k,v=line.split('=',1)
+            d[k]=v
+    return d
+
+def parse_kv_line(line):
+    d={}
+    for p in line.strip().split():
+        if '=' in p:
+            k,v=p.split('=',1)
+            d[k]=v
+    return d
+
+def read_rows():
+    if summary_json_path and os.path.exists(summary_json_path):
+        try:
+            with open(summary_json_path,'r',encoding='utf-8',errors='ignore') as f:
+                payload=json.load(f)
+            if isinstance(payload, dict) and 'rows' in payload:
+                return payload.get('rows',[]), payload.get('meta',{})
+            if isinstance(payload, list):
+                return payload, {}
+        except Exception:
+            pass
+    rows=[]
+    if summary_path and os.path.exists(summary_path):
+        with open(summary_path,'r',encoding='utf-8',errors='ignore') as f:
+            for line in f:
+                if line.startswith('monitor='):
+                    rows.append(parse_kv_line(line))
+    return rows, {}
+
+def parse_log_summary(log_path):
+    summary_result=None
+    summary_hosts=None
+    if not log_path or not os.path.exists(log_path):
+        return summary_result, summary_hosts
+    with open(log_path,'r',encoding='utf-8',errors='ignore') as f:
+        for line in f:
+            if 'SUMMARY_RESULT' in line:
+                m=re.search(r'SUMMARY_RESULT\\s+(.*)$', line)
+                if m:
+                    summary_result=parse_kv_line(m.group(1))
+            elif 'SUMMARY_HOSTS' in line:
+                m=re.search(r'SUMMARY_HOSTS\\s+(.*)$', line)
+                if m:
+                    summary_hosts=parse_kv_line(m.group(1))
+    return summary_result, summary_hosts
+
+def worst_status(rows):
+    order={'OK':0,'WARN':1,'CRIT':2,'UNKNOWN':3,'SKIP':3}
+    worst='OK'
+    for r in rows:
+        st=r.get('status','UNKNOWN')
+        if order.get(st,3) >= order.get(worst,0):
+            worst=st
+    return worst
+
+def derive_hosts(rows):
+    counts={'ok':0,'warn':0,'crit':0,'unknown':0,'skipped':0}
+    for r in rows:
+        st=(r.get('status') or 'UNKNOWN').upper()
+        if st == 'OK':
+            counts['ok']+=1
+        elif st == 'WARN':
+            counts['warn']+=1
+        elif st == 'CRIT':
+            counts['crit']+=1
+        elif st == 'SKIP':
+            counts['skipped']+=1
+        else:
+            counts['unknown']+=1
+    return counts
+
+rows, meta = read_rows()
+summary_result, summary_hosts = parse_log_summary(log_path)
+
+summary_result_source = 'log' if summary_result else 'derived'
+summary_hosts_source = 'log' if summary_hosts else 'derived'
+
+if not summary_result:
+    summary_result={'overall': worst_status(rows), 'derived': True}
+if not summary_hosts:
+    summary_hosts=derive_hosts(rows)
+    summary_hosts['derived'] = True
+
+out={
+    'mode': mode,
+    'summary_file': summary_path if summary_path and os.path.exists(summary_path) else None,
+    'summary_log': log_path if log_path and os.path.exists(log_path) else None,
+    'summary_json': summary_json_path if summary_json_path and os.path.exists(summary_json_path) else None,
+    'summary_result_source': summary_result_source,
+    'summary_hosts_source': summary_hosts_source,
+    'summary_result': summary_result,
+    'summary_hosts': summary_hosts,
+    'last_status': read_kv(status_path),
+    'rows': rows,
+}
+if meta:
+    out['meta']=meta
+
+print(json.dumps(out, indent=2, sort_keys=True))
+PY
     ;;
 
   install)

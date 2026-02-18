@@ -46,6 +46,9 @@ sudo linux-maint trend --last 10 --json
 sudo linux-maint runtimes
 sudo linux-maint runtimes --last 3 --json
 
+# Export a unified JSON payload
+sudo linux-maint export --json
+
 # Diff in JSON (automation)
 sudo linux-maint diff --json
 
