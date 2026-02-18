@@ -6,7 +6,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 mkdir -p "$TMPDIR"
 
-workdir="$(mktemp -d)"
+workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
 # Minimal repo-mode env

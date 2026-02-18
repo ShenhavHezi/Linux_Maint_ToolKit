@@ -8,7 +8,7 @@ LOG_DIR="$ROOT_DIR/.logs"
 mkdir -p "$LOG_DIR"
 mkdir -p "$TMPDIR"
 
-workdir="$(mktemp -d)"
+workdir="$(mktemp -d -p "$TMPDIR")"
 stash="$workdir/stash"
 mkdir -p "$stash"
 

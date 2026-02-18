@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
+TMPDIR="${TMPDIR:-/tmp}"
+mkdir -p "$TMPDIR"
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Run the wrapper with a minimal monitor list containing a monitor that emits no monitor= line
 # and exits non-zero. The wrapper should synthesize an UNKNOWN summary with reason=early_exit.
 
-workdir="$(mktemp -d)"
+workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
 mon_dir="$workdir/monitors"

@@ -47,6 +47,7 @@ run_required "lm_for_each_host_rc_test" bash "$ROOT_DIR/tests/lm_for_each_host_r
 
 # Monitor exit-code policy (local-only)
 run_required "monitor_exit_codes_test" bash "$ROOT_DIR/tests/monitor_exit_codes_test.sh"
+run_required "lm_mktemp_fallback_test" bash "$ROOT_DIR/tests/lm_mktemp_fallback_test.sh"
 
 # Monitor summary emission contract (each monitor must emit monitor= lines)
 run_required "monitor_summary_emission_test" bash "$ROOT_DIR/tests/monitor_summary_emission_test.sh"

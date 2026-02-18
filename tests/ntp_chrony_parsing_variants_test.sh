@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
+mkdir -p "$TMPDIR"
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -9,7 +10,7 @@ run_case(){
   local tracking_out="$2"
 
   local workdir
-  workdir="$(mktemp -d)"
+  workdir="$(mktemp -d -p "$TMPDIR")"
   trap 'rm -rf "$workdir"' RETURN
 
   local shim="$workdir/shim"

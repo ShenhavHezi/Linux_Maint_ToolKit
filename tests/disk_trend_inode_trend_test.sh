@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
+mkdir -p "$TMPDIR"
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
-workdir="$(mktemp -d)"
+workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
 export LM_MODE=repo

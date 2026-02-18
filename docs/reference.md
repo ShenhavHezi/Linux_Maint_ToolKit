@@ -117,6 +117,14 @@ Timeout protection exists at two layers:
 Monitor-specific bounded operations should still use local command timeouts where applicable.
 Example: `nfs_mount_monitor` uses `NFS_STAT_TIMEOUT` (default `5s`) for per-mount responsiveness probes.
 
+### Temp directory selection
+
+Several scripts create temporary files (wrapper, monitors, tools).
+
+- `TMPDIR` (if set) is used as the primary temp location.
+- If unwritable, the code falls back to `/var/tmp` then `/tmp` (best-effort).
+- Some monitors also consider `LM_STATE_DIR` for temp files when appropriate.
+
 ### `inode_monitor.sh`
 - `THRESHOLDS` = `"/etc/linux_maint/inode_thresholds.txt"   # CSV: mountpoint,warn%,crit% (supports '*' default)`
 - `EXCLUDE_MOUNTS` = `"/etc/linux_maint/inode_exclude.txt"  # Optional: list of mountpoints to skip`

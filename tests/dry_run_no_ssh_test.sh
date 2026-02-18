@@ -5,7 +5,8 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 LM="$ROOT_DIR/bin/linux-maint"
 
 # Create a fake ssh that fails if called
-TMPDIR="$(mktemp -d)"
+TMPDIR="$(mktemp -d -p "$TMPDIR")"
+mkdir -p "$TMPDIR"
 trap 'rm -rf "$TMPDIR"' EXIT
 
 cat > "$TMPDIR/ssh" <<'SH'

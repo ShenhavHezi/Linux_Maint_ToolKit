@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+TMPDIR="${TMPDIR:-/tmp}"
+mkdir -p "$TMPDIR"
 
 # Test: per-monitor timeout overrides are honored by the wrapper.
 # Use a purpose-built slow monitor to keep behavior deterministic across distros.
@@ -12,7 +14,7 @@ if ! command -v timeout >/dev/null 2>&1; then
   exit 0
 fi
 
-workdir="$(mktemp -d)"
+workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
 export LM_CFG_DIR="$workdir/etc_linux_maint"
