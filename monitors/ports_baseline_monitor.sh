@@ -145,15 +145,15 @@ is_allowed() {
 compare_and_report() {
   local host="$1" cur_file="$2" base_file="$3"
   local new_file removed_file
-  new_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
+  new_file="$(lm_mktemp ports_baseline.new.XXXXXX)"
   trap 'rm -f "$new_file" "$removed_file" "$new_filtered" 2>/dev/null || true' RETURN
-  removed_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
+  removed_file="$(lm_mktemp ports_baseline.removed.XXXXXX)"
 
   comm -13 "$base_file" "$cur_file" > "$new_file"
   comm -23 "$base_file" "$cur_file" > "$removed_file"
 
   # Filter NEW entries through allowlist
-  local new_filtered; new_filtered="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
+  local new_filtered; new_filtered="$(lm_mktemp ports_baseline.new_filtered.XXXXXX)"
   if [ -s "$new_file" ]; then
     while IFS= read -r e; do
       is_allowed "$e" && continue
@@ -212,7 +212,7 @@ run_for_host() {
     return 2
   fi
 
-  local cur_file; cur_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
+  local cur_file; cur_file="$(lm_mktemp ports_baseline.cur.XXXXXX)"
   collect_current "$host" | sort -u > "$cur_file"
 
   if [ ! -s "$cur_file" ]; then

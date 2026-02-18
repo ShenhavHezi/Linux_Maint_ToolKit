@@ -40,7 +40,7 @@ MAX_SMART_DEVICES=32
 # RAID controller tools (best-effort).
 RAID_TOOL_TIMEOUT_SECS=12
 
-ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" storage_health_monitor.alerts.XXXXXX)"
+ALERTS_FILE="$(lm_mktemp storage_health_monitor.alerts.XXXXXX)"
 cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
 trap cleanup_tmpfiles EXIT
 append_alert(){ echo "$1" >> "$ALERTS_FILE"; }

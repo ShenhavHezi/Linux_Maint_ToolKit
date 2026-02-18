@@ -42,7 +42,7 @@ EMAIL_ON_ISSUE="true"
 # timeout for responsiveness check per mount
 : "${NFS_STAT_TIMEOUT:=5}"
 
-ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" nfs_mount_monitor.alerts.XXXXXX)"
+ALERTS_FILE="$(lm_mktemp nfs_mount_monitor.alerts.XXXXXX)"
 cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
 # Cleanup must also run on timeout/termination paths (e.g., wrapper `timeout`).
 trap cleanup_tmpfiles EXIT INT TERM HUP

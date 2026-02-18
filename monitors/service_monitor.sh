@@ -52,7 +52,7 @@ CHECK_FAILED_UNITS="${LM_SERVICE_CHECK_FAILED_UNITS:-0}"
 # ========================
 # Helpers (script-local)
 # ========================
-ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" service_monitor.alerts.XXXXXX)"
+ALERTS_FILE="$(lm_mktemp service_monitor.alerts.XXXXXX)"
 append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 
 list_services(){

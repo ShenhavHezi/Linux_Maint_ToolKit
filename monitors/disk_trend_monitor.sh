@@ -65,7 +65,7 @@ EXCLUDE_FSTYPES_RE='^(tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup2?|debugf
 # Optional exclude mountpoints file
 EXCLUDE_MOUNTS_FILE="/etc/linux_maint/disk_trend_exclude_mounts.txt"
 
-ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" disk_trend_monitor.alerts.XXXXXX)"
+ALERTS_FILE="$(lm_mktemp disk_trend_monitor.alerts.XXXXXX)"
 cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
 trap cleanup_tmpfiles EXIT
 append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
@@ -90,7 +90,7 @@ ensure_dirs(){
   mkdir -p "$(dirname "$LM_LOGFILE")" 2>/dev/null || true
   STATE_BASE="$(resolve_state_base)"
   if ! mkdir -p "$STATE_BASE" 2>/dev/null; then
-    STATE_BASE="/tmp/linux_maint/disk_trend"
+    STATE_BASE="${TMPDIR:-/tmp}/linux_maint/disk_trend"
     mkdir -p "$STATE_BASE" 2>/dev/null || true
     lm_warn "STATE_BASE not writable; falling back to $STATE_BASE"
   fi

@@ -31,7 +31,7 @@ WARN_COUNT=1
 CRIT_COUNT=5
 PATTERNS='oom-killer|out of memory|killed process|soft lockup|hard lockup|hung task|blocked for more than|I/O error|blk_update_request|Buffer I/O error|EXT4-fs error|XFS \(|btrfs: error|nvme.*timeout|resetting link|ata[0-9].*failed|mce:|machine check'
 
-ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" kernel_events_monitor.alerts.XXXXXX)"
+ALERTS_FILE="$(lm_mktemp kernel_events_monitor.alerts.XXXXXX)"
 cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
 trap cleanup_tmpfiles EXIT
 append_alert(){ echo "$1" >> "$ALERTS_FILE"; }

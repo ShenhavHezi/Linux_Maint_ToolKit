@@ -132,22 +132,22 @@ compare_and_report(){
 
   # NEW and REMOVED by set difference
   local new_file removed_file
-  new_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
+  new_file="$(lm_mktemp config_drift.new.XXXXXX)"
   trap 'rm -f "$new_file" "$removed_file" "$modified_file" "$new_filtered" "$modified_filtered" 2>/dev/null || true' RETURN
-  removed_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
+  removed_file="$(lm_mktemp config_drift.removed.XXXXXX)"
   comm -13 <(printf "%s\n" "$base_paths") <(printf "%s\n" "$cur_paths") > "$new_file"
   comm -23 <(printf "%s\n" "$base_paths") <(printf "%s\n" "$cur_paths") > "$removed_file"
 
   # MODIFIED: paths in intersection where hash differs
   local modified_file
-  modified_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
+  modified_file="$(lm_mktemp config_drift.modified.XXXXXX)"
   awk -F'|' 'NR==FNR{b[$3]=$1"|" $2; next} {c[$3]=$1"|" $2} END{for(p in b){if(p in c && b[p]!=c[p]) print p "|" b[p] "|" c[p]}}' \
       "$base_file" "$cur_file" > "$modified_file"
 
   # Apply allowlist to NEW and MODIFIED (path-based)
   local new_filtered modified_filtered
-  new_filtered="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
-  modified_filtered="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
+  new_filtered="$(lm_mktemp config_drift.new_filtered.XXXXXX)"
+  modified_filtered="$(lm_mktemp config_drift.modified_filtered.XXXXXX)"
 
   if [ -s "$new_file" ]; then
     while IFS= read -r p; do
@@ -224,7 +224,7 @@ run_for_host(){
     return 2
   fi
 
-  local cur_file; cur_file="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}")"
+  local cur_file; cur_file="$(lm_mktemp config_drift.cur.XXXXXX)"
   collect_current "$host" > "$cur_file"
 
   if [ ! -s "$cur_file" ]; then

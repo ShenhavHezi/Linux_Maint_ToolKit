@@ -275,7 +275,7 @@ if [ -z "$CERTS_SCAN_DIR" ]; then
 fi
 
 
-ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" cert_monitor.alerts.XXXXXX)"
+ALERTS_FILE="$(lm_mktemp cert_monitor.alerts.XXXXXX)"
 checked=0
 warn=0
 crit=0

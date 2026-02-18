@@ -41,7 +41,7 @@ MAIL_SUBJECT_PREFIX='[Health Monitor]'
 # ========================
 # Report buffer (per run)
 # ========================
-REPORT_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" health_report.XXXXXX)"
+REPORT_FILE="$(lm_mktemp health_report.XXXXXX)"
 REPORT_LOCK="${REPORT_FILE}.lock"
 cleanup_tmpfiles(){ rm -f "$REPORT_FILE" "$REPORT_LOCK" 2>/dev/null || true; }
 trap cleanup_tmpfiles EXIT

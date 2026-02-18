@@ -74,6 +74,26 @@ lm_pick_writable_dir() {
   return 1
 }
 
+# ========= Temp helpers =========
+# lm_pick_tmpdir: choose a writable temp directory with a safe fallback chain.
+lm_pick_tmpdir() {
+  local req="${LM_STATE_DIR:-${TMPDIR:-/var/tmp}}"
+  if command -v lm_pick_writable_dir >/dev/null 2>&1; then
+    lm_pick_writable_dir "tmp" "$req" "${TMPDIR:-}" "/var/tmp" "/tmp"
+  else
+    printf '%s' "${TMPDIR:-/tmp}"
+  fi
+}
+
+# lm_mktemp [template]
+# Uses lm_pick_tmpdir to create a temp file in a writable directory.
+lm_mktemp() {
+  local tmpl="${1:-linux_maint.XXXXXX}"
+  local dir
+  dir="$(lm_pick_tmpdir 2>/dev/null)" || dir="${TMPDIR:-/tmp}"
+  mktemp -p "$dir" "$tmpl"
+}
+
 # ========= Optional log redaction =========
 # If LM_REDACT_LOGS=1|true, redact common secret patterns from log lines.
 # This is best-effort and intentionally conservative.

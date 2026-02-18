@@ -42,7 +42,7 @@ HTTP_EXPECT=""   # default: 200–399 when empty
 # ========================
 # Small helpers
 # ========================
-ALERTS_FILE="$(mktemp -p "${LM_STATE_DIR:-/var/tmp}" network_monitor.alerts.XXXXXX)"
+ALERTS_FILE="$(lm_mktemp network_monitor.alerts.XXXXXX)"
 append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 
 # HTTP code matcher
