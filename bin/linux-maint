@@ -1567,7 +1567,12 @@ PYJSON
     echo "== Can write state/logs? =="
     for d in /var/log/health /var/log/inventory /var/lib/linux_maint /var/lock; do
       if [[ -d "$d" ]]; then
-        if touch "$d/.lm_write_test" 2>/dev/null; then rm -f "$d/.lm_write_test"; echo "OK: writable $d"; else echo "WARN: not writable $d"; fi
+        if touch "$d/.lm_write_test" 2>/dev/null; then
+          rm -f "$d/.lm_write_test" 2>/dev/null || true
+          echo "OK: writable $d"
+        else
+          echo "WARN: not writable $d"
+        fi
         if ! touch "$d/.lm_write_test" 2>/dev/null; then
           add_fix "Ensure $d is writable (example: sudo install -d -m 0755 $d)"
         fi
