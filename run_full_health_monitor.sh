@@ -179,6 +179,10 @@ export LM_EMAIL_ENABLED="${LM_EMAIL_ENABLED:-false}"
 # Example file: /etc/linux_maint/monitor_timeouts.conf
 MONITOR_TIMEOUTS_FILE="${MONITOR_TIMEOUTS_FILE:-$CFG_DIR/monitor_timeouts.conf}"
 
+# Optional per-monitor runtime warn thresholds (seconds)
+# Example file: /etc/linux_maint/monitor_runtime_warn.conf
+MONITOR_RUNTIME_WARN_FILE="${MONITOR_RUNTIME_WARN_FILE:-$CFG_DIR/monitor_runtime_warn.conf}"
+
 get_monitor_timeout_secs(){
   local monitor_name="$1" # without .sh
   local default_secs="$2"
@@ -202,6 +206,33 @@ get_monitor_timeout_secs(){
         ;;
     esac
   done < "$MONITOR_TIMEOUTS_FILE"
+
+  echo "$default_secs"
+}
+
+get_monitor_runtime_warn_secs(){
+  local monitor_name="$1" # without .sh
+  local default_secs="${2:-0}"
+
+  [ -f "$MONITOR_RUNTIME_WARN_FILE" ] || { echo "$default_secs"; return 0; }
+
+  local line
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      ''|'#'*) continue;;
+    esac
+    case "$line" in
+      "$monitor_name"=*)
+        local val="${line#*=}"
+        if [[ "$val" =~ ^[0-9]+$ ]] && [ "$val" -gt 0 ]; then
+          echo "$val"
+        else
+          echo "$default_secs"
+        fi
+        return 0
+        ;;
+    esac
+  done < "$MONITOR_RUNTIME_WARN_FILE"
 
   echo "$default_secs"
 }
@@ -337,6 +368,8 @@ skipped=0
 worst=0
 ok=0; warn=0; crit=0; unk=0
 declare -A runtime_ms=()
+runtime_warned=0
+runtime_warn_count=0
 
 now_ms(){
   date +%s%3N 2>/dev/null || echo $(( $(date +%s) * 1000 ))
@@ -370,6 +403,23 @@ for s in "${scripts[@]}"; do
   [ "$rc" -gt "$worst" ] && worst="$rc"
 done
 
+# Runtime warn thresholds (synthetic wrapper guard)
+for mon in "${!runtime_ms[@]}"; do
+  ms="${runtime_ms[$mon]}"
+  [[ "$ms" =~ ^[0-9]+$ ]] || continue
+  warn_secs="$(get_monitor_runtime_warn_secs "$mon" "0")"
+  [[ "$warn_secs" =~ ^[0-9]+$ ]] || warn_secs=0
+  if [ "$warn_secs" -gt 0 ] && [ "$ms" -ge $((warn_secs * 1000)) ]; then
+    runtime_warned=1
+    runtime_warn_count=$((runtime_warn_count+1))
+    echo "monitor=runtime_guard host=runner status=WARN reason=runtime_exceeded target_monitor=$mon runtime_ms=$ms threshold_ms=$((warn_secs * 1000))" >> "$tmp_report"
+  fi
+done
+if [ "$runtime_warned" -eq 1 ]; then
+  warn=$((warn+runtime_warn_count))
+  [ "$worst" -lt 1 ] && worst=1
+fi
+
 case "$worst" in
   0) overall="OK";;
   1) overall="WARN";;
@@ -380,7 +430,7 @@ esac
 {
   echo "SUMMARY_RESULT overall=$overall ok=$ok warn=$warn crit=$crit unknown=$unk skipped=$skipped finished=$(date -Is) exit_code=$worst"
   echo "SUMMARY_MONITORS ok=$ok warn=$warn crit=$crit unknown=$unk skipped=$skipped"
-  echo "SUMMARY_RESULT_NOTE SUMMARY_RESULT counts are per-monitor-script exit codes; fleet counters are in SUMMARY_HOSTS derived from monitor= lines"
+  echo "SUMMARY_RESULT_NOTE SUMMARY_RESULT counts are per-monitor-script exit codes (plus runtime_guard if enabled); fleet counters are in SUMMARY_HOSTS derived from monitor= lines"
   echo "============================================================"
   # Final status summary: explicitly extract only standardized machine lines.
   # These come from lib/linux_maint.sh: lm_summary() -> lines starting with "monitor=".

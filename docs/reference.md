@@ -139,6 +139,19 @@ linux-maint runtimes
 linux-maint runtimes --last 3 --json
 ```
 
+### Runtime warn thresholds
+
+You can optionally warn on slow monitors by creating a runtime warn file:
+
+- `MONITOR_RUNTIME_WARN_FILE` = `${LM_CFG_DIR:-/etc/linux_maint}/monitor_runtime_warn.conf`
+- Format: `monitor_name=seconds` (one per line, comments allowed)
+
+When a monitor runtime exceeds its threshold, the wrapper emits:
+
+```
+monitor=runtime_guard host=runner status=WARN reason=runtime_exceeded target_monitor=<name> runtime_ms=<ms> threshold_ms=<ms>
+```
+
 ### `inode_monitor.sh`
 - `THRESHOLDS` = `"/etc/linux_maint/inode_thresholds.txt"   # CSV: mountpoint,warn%,crit% (supports '*' default)`
 - `EXCLUDE_MOUNTS` = `"/etc/linux_maint/inode_exclude.txt"  # Optional: list of mountpoints to skip`

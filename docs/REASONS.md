@@ -31,6 +31,7 @@ These are cross-monitor, reusable tokens. Prefer these before inventing a new on
 - `missing_optional_cmd` — optional command missing (monitor skipped/degraded)
 - `early_exit` — monitor exited without emitting a summary line (wrapper or monitor trap fallback)
 - `timeout` — command timed out
+- `runtime_exceeded` — monitor runtime exceeded warn threshold (wrapper guard)
 - `not_installed` — required tool/service missing
 - `permission_denied` — permission problem reading state/logs/etc
 - `config_missing` — required config file missing
