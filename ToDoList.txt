@@ -2,6 +2,12 @@
 
 This is the single backlog source of truth.
 
+## Working style
+- Prefer small, test-backed PRs.
+- Avoid breaking contract changes without explicit versioning.
+- Optimize for safe defaults and clear operator guidance.
+- Keep dark-site/offline reliability a top priority.
+
 ## Priorities
 - **P0**: correctness, reliability, determinism
 - **P1**: operator UX and documentation
@@ -16,65 +22,76 @@ This is the single backlog source of truth.
 ### P0.1 Make smoke tests deterministic in non-root environments
 **Why**: CI and local runs should not hang or emit avoidable platform noise.
 **Scope**:
-- Suppress or guard SELinux warnings when running under unprivileged test mode.
-- Ensure tests do not attempt to write under `/var/*` unless explicitly gated.
+- Guard SELinux-related calls in tests to avoid noisy errors under non-root.
+- Ensure test helpers do not attempt writes under `/var/*` unless sudo-gated.
+- Tighten timeouts on tests that can hang.
 **Acceptance**:
 - `make test` finishes reliably without manual intervention.
-- No repeated noisy warnings in smoke output for non-root runs.
+- No repeated warnings in smoke output when running without sudo.
 
-### P0.2 Add a JSON schema or explicit contract fixture for `status --json` and `doctor --json`
-**Why**: automation depends on stable output; schema validation reduces regressions.
+### P0.2 Add JSON schema validation for automation outputs
+**Why**: `status --json` and `doctor --json` are automation surfaces.
+**Scope**:
+- Add schemas under `docs/schemas/`.
+- Add tests that validate JSON output against schemas.
 **Acceptance**:
-- Ship `docs/schemas/status.json` and `docs/schemas/doctor.json` (or similar).
-- Add tests that validate JSON output against the schema.
+- Schemas exist and tests validate output in repo mode.
+
+### P0.3 Harden wrapper summary emission
+**Why**: summary artifacts are the core contract.
+**Scope**:
+- Ensure wrapper never emits duplicate or malformed `monitor=` lines.
+- Add a lint test that fails on malformed lines.
+**Acceptance**:
+- New lint test fails on malformed lines and passes on normal runs.
 
 ---
 
 ## P1 — Operator UX / documentation
 
-### P1.1 Add “first run” section to README (local + installed)
-**Why**: reduce onboarding friction for new users.
+### P1.1 Add “first run expectations” to README
+**Why**: new users need to know which SKIPs are normal.
 **Acceptance**:
-- README includes a short “first run” checklist and expected first-run SKIPs.
+- README includes a short list of normal first-run SKIPs and what to do next.
 
-### P1.2 Add example outputs to docs (status, doctor, trend)
-**Why**: concrete examples help operators debug quickly.
+### P1.2 Add example outputs (text + JSON)
+**Why**: examples speed troubleshooting.
 **Acceptance**:
-- `docs/reference.md` includes short sample outputs for `status --json`, `doctor --json`, and `trend --json`.
+- `docs/reference.md` includes short examples for `status`, `status --json`, `doctor --json`, `trend --json`.
 
-### P1.3 Add a “Which mode should I use?” guide (repo vs installed)
-**Why**: confusion between repo and installed modes is a common support issue.
+### P1.3 Add a “Repo vs Installed” decision guide in docs
+**Why**: reduce confusion about modes.
 **Acceptance**:
-- `docs/README.md` or `docs/QUICK_REFERENCE.md` includes a brief decision guide.
+- `docs/README.md` or `docs/QUICK_REFERENCE.md` has a short decision guide.
 
 ---
 
 ## P2 — Security / hardening
 
 ### P2.1 Add least-privilege guidance for SSH mode
-**Why**: operators need a clear, safe baseline for SSH permissions.
+**Why**: operators need a safe baseline for sudoers and SSH keys.
 **Acceptance**:
-- Add a section in `docs/reference.md` describing recommended `sudoers` snippets for limited commands.
+- `docs/reference.md` includes a minimal sudoers snippet and SSH guidance.
 
-### P2.2 Add redaction rules for logs (optional)
-**Why**: prevent accidental leakage of secrets in logs/exports.
+### P2.2 Optional redaction toggle for logs
+**Why**: avoid accidental secret leakage.
 **Acceptance**:
-- Provide a toggle to redact known sensitive patterns in summary/log output.
+- Add a toggle that redacts known patterns in logs and summary JSON.
 - Document how to enable it.
 
 ---
 
 ## P3 — Observability / integrations
 
-### P3.1 Add a small `linux-maint export --json` command
-**Why**: unify outputs for external tools (SIEM/ELK/monitoring).
+### P3.1 Add `linux-maint export --json`
+**Why**: a single payload for SIEM/ELK/monitoring ingestion.
 **Acceptance**:
-- Output includes `SUMMARY_RESULT`, `SUMMARY_HOSTS`, and `monitor=` lines in one JSON payload.
+- Output includes `SUMMARY_RESULT`, `SUMMARY_HOSTS`, and `monitor=` lines.
 
-### P3.2 Add optional node_exporter label cardinality guardrails
+### P3.2 Prometheus label cardinality guardrails
 **Why**: large fleets can overrun Prometheus limits.
 **Acceptance**:
-- Make max unique `host`/`monitor` label counts configurable with clear behavior when exceeded.
+- Configurable max unique `host`/`monitor` labels with clear drop behavior.
 
 ---
 
@@ -83,9 +100,9 @@ This is the single backlog source of truth.
 ### P4.1 Improve changelog discipline
 **Why**: users need a human-readable release summary.
 **Acceptance**:
-- Add a small release note template and update `CHANGELOG.md` on release tags.
+- Add a release note template and update `CHANGELOG.md` for release tags.
 
 ### P4.2 Provide a minimal containerized test harness
-**Why**: helps contributors run tests consistently.
+**Why**: consistent contributor experience.
 **Acceptance**:
-- Add a `tools/dev_container.sh` or `containers/` directory with quick-start instructions.
+- Add `containers/` or `tools/dev_container.sh` with quick-start instructions.
