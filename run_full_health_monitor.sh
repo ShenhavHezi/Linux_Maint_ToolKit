@@ -91,8 +91,18 @@ chmod 0755 "$LOG_DIR" 2>/dev/null || true
 
 logfile="$LOG_DIR/full_health_monitor_$(date +%F_%H%M%S).log"
 
-tmp_report="/tmp/full_health_monitor_report.$$"
-tmp_summary="/tmp/full_health_monitor_summary.$$"
+# Resolve temp dir (for wrapper temp files) with fallback chain.
+TMPDIR_REQUESTED="${TMPDIR:-/tmp}"
+if command -v lm_pick_writable_dir >/dev/null 2>&1; then
+  TMPDIR="$(lm_pick_writable_dir "tmp" "$TMPDIR_REQUESTED" "/var/tmp" "/tmp" 2>/dev/null || echo "/tmp")"
+else
+  TMPDIR="$TMPDIR_REQUESTED"
+fi
+mkdir -p "$TMPDIR" 2>/dev/null || true
+export TMPDIR
+
+tmp_report="$TMPDIR/full_health_monitor_report.$$"
+tmp_summary="$TMPDIR/full_health_monitor_summary.$$"
 
 # Optional: write machine-parseable summaries to a separate file
 # Defaults to /var/log/health/full_health_monitor_summary_latest.log
@@ -365,7 +375,7 @@ esac
   # Final status summary: explicitly extract only standardized machine lines.
   # These come from lib/linux_maint.sh: lm_summary() -> lines starting with "monitor=".
   echo "FINAL_STATUS_SUMMARY (monitor= lines only)"
-  tmp_mon=$(mktemp /tmp/linux_maint_mon.XXXXXX)
+  tmp_mon=$(mktemp -p "$TMPDIR" linux_maint_mon.XXXXXX)
   grep -a '^monitor=' "$tmp_report" > "$tmp_mon" || true
   cat "$tmp_mon" 2>/dev/null || true
   echo "============================================================"
@@ -374,7 +384,7 @@ esac
 # HUMAN_STATUS_SUMMARY (ops-friendly)
 # ------------------------
 # Avoid reading+appending to the same file in one block: snapshot monitor lines first.
-_tmp_mon_snapshot=$(mktemp /tmp/linux_maint_mon_snapshot.XXXXXX)
+_tmp_mon_snapshot=$(mktemp -p "$TMPDIR" linux_maint_mon_snapshot.XXXXXX)
 grep -a '^monitor=' "$tmp_report" > "$_tmp_mon_snapshot" 2>/dev/null || true
 
 # shellcheck disable=SC2030
@@ -399,7 +409,7 @@ fi
 
 
 echo "SUMMARY_HOSTS ok=$hosts_ok warn=$hosts_warn crit=$hosts_crit unknown=$hosts_unknown skipped=$hosts_skip"
-_tmp_human=$(mktemp /tmp/linux_maint_human.XXXXXX)
+_tmp_human=$(mktemp -p "$TMPDIR" linux_maint_human.XXXXXX)
 {
   echo ""
   echo "HUMAN_STATUS_SUMMARY"
@@ -461,7 +471,7 @@ ln -sfn "$logfile" "$LOG_DIR/full_health_monitor_latest.log"
 # Write a separate, machine-parseable summary file (optional but enabled by default).
 # Contains only "monitor=" lines (no timestamps) so it can be parsed by tools/CI.
 mkdir -p "$SUMMARY_DIR" 2>/dev/null || true
-tmp_mon=$(mktemp /tmp/linux_maint_mon.XXXXXX)
+tmp_mon=$(mktemp -p "$TMPDIR" linux_maint_mon.XXXXXX)
   grep -a '^monitor=' "$tmp_report" > "$tmp_mon" || true
   cat "$tmp_mon" > "$tmp_summary" 2>/dev/null || :
 cat "$tmp_summary" > "$SUMMARY_FILE" 2>/dev/null || true
