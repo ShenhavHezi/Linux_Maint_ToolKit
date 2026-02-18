@@ -44,6 +44,7 @@ LM_LOGFILE=${TMPDIR}/config_validate.log LM_LOCKDIR="${TMPDIR}" bash "$ROOT_DIR/
 
 # lm_for_each_host_rc aggregation test
 run_required "lm_for_each_host_rc_test" bash "$ROOT_DIR/tests/lm_for_each_host_rc_test.sh"
+run_required "lm_summary_strict_test" bash "$ROOT_DIR/tests/lm_summary_strict_test.sh"
 
 # Monitor exit-code policy (local-only)
 run_required "monitor_exit_codes_test" bash "$ROOT_DIR/tests/monitor_exit_codes_test.sh"
@@ -76,7 +77,8 @@ if [[ "$SMOKE_PROFILE" != "compat" ]]; then
   # Summary noise guardrail (wrapper-level)
   run_required "summary_noise_lint" bash "$ROOT_DIR/tests/summary_noise_lint.sh"
   run_required "summary_budget_lint_fixture_test" bash "$ROOT_DIR/tests/summary_budget_lint_fixture_test.sh"
-  run_required "wrapper_fallback_paths_test" bash "$ROOT_DIR/tests/wrapper_fallback_paths_test.sh"
+run_required "wrapper_fallback_paths_test" bash "$ROOT_DIR/tests/wrapper_fallback_paths_test.sh"
+run_required "wrapper_summary_write_fail_test" bash "$ROOT_DIR/tests/wrapper_summary_write_fail_test.sh"
 
   # Prometheus textfile output (best-effort; wrapper-level)
   run_required "prom_textfile_output_test" bash "$ROOT_DIR/tests/prom_textfile_output_test.sh"

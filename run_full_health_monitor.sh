@@ -7,6 +7,30 @@ set -euo pipefail
 # Default install location (can be overridden)
 SCRIPTS_DIR_BASE="${SCRIPTS_DIR:-/usr/local/libexec/linux_maint}"
 REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+lm_now_epoch() {
+  if [[ -n "${LM_TEST_TIME_EPOCH:-}" ]] && [[ "${LM_TEST_TIME_EPOCH}" =~ ^[0-9]+$ ]]; then
+    printf '%s' "${LM_TEST_TIME_EPOCH}"
+  else
+    date +%s
+  fi
+}
+
+lm_now_iso() {
+  if [[ -n "${LM_TEST_TIME_EPOCH:-}" ]] && [[ "${LM_TEST_TIME_EPOCH}" =~ ^[0-9]+$ ]]; then
+    date -Is -d "@${LM_TEST_TIME_EPOCH}"
+  else
+    date -Is
+  fi
+}
+
+lm_now_stamp() {
+  if [[ -n "${LM_TEST_TIME_EPOCH:-}" ]] && [[ "${LM_TEST_TIME_EPOCH}" =~ ^[0-9]+$ ]]; then
+    date -d "@${LM_TEST_TIME_EPOCH}" +%F_%H%M%S
+  else
+    date +%F_%H%M%S
+  fi
+}
+
 if [[ -d "$REPO_DIR/monitors" ]]; then
   SCRIPTS_DIR_DEFAULT="$REPO_DIR/monitors"
 else
@@ -89,7 +113,7 @@ STATUS_FILE="$LOG_DIR/last_status_full"
 mkdir -p "$LOG_DIR" 2>/dev/null || true
 chmod 0755 "$LOG_DIR" 2>/dev/null || true
 
-logfile="$LOG_DIR/full_health_monitor_$(date +%F_%H%M%S).log"
+logfile="$LOG_DIR/full_health_monitor_$(lm_now_stamp).log"
 
 # Resolve temp dir (for wrapper temp files) with fallback chain.
 TMPDIR_REQUESTED="${TMPDIR:-/tmp}"
@@ -127,10 +151,10 @@ fi
 
 SUMMARY_LATEST_FILE="${SUMMARY_LATEST_FILE:-$SUMMARY_DIR/full_health_monitor_summary_latest.log}"
 SUMMARY_JSON_LATEST_FILE="${SUMMARY_JSON_LATEST_FILE:-$SUMMARY_DIR/full_health_monitor_summary_latest.json}"
-SUMMARY_JSON_FILE="${SUMMARY_JSON_FILE:-$SUMMARY_DIR/full_health_monitor_summary_$(date +%F_%H%M%S).json}"
+SUMMARY_JSON_FILE="${SUMMARY_JSON_FILE:-$SUMMARY_DIR/full_health_monitor_summary_$(lm_now_stamp).json}"
 PROM_DIR="${PROM_DIR:-/var/lib/node_exporter/textfile_collector}"
 PROM_FILE="${PROM_FILE:-$PROM_DIR/linux_maint.prom}"
-SUMMARY_FILE="${SUMMARY_FILE:-$SUMMARY_DIR/full_health_monitor_summary_$(date +%F_%H%M%S).log}"
+SUMMARY_FILE="${SUMMARY_FILE:-$SUMMARY_DIR/full_health_monitor_summary_$(lm_now_stamp).log}"
 trap 'rm -f "$tmp_summary"' EXIT
 
 # Minimal config (local mode)
@@ -274,7 +298,7 @@ if [[ -n "${LM_MONITORS:-}" ]]; then
 fi
 
 {
-  echo "SUMMARY full_health_monitor host=$(hostname -f 2>/dev/null || hostname) started=$(date -Is)"
+  echo "SUMMARY full_health_monitor host=$(hostname -f 2>/dev/null || hostname) started=$(lm_now_iso)"
   echo "SCRIPTS_DIR=$SCRIPTS_DIR"
   echo "LM_EMAIL_ENABLED=$LM_EMAIL_ENABLED"
   echo "LM_DARK_SITE=${LM_DARK_SITE:-false}"
@@ -434,8 +458,9 @@ case "$worst" in
   *) overall="UNKNOWN";;
 esac
 
+ts_epoch="$(lm_now_epoch)"
 {
-  echo "SUMMARY_RESULT overall=$overall ok=$ok warn=$warn crit=$crit unknown=$unk skipped=$skipped finished=$(date -Is) exit_code=$worst"
+  echo "SUMMARY_RESULT overall=$overall ok=$ok warn=$warn crit=$crit unknown=$unk skipped=$skipped finished=$(lm_now_iso) exit_code=$worst"
   echo "SUMMARY_MONITORS ok=$ok warn=$warn crit=$crit unknown=$unk skipped=$skipped"
   echo "SUMMARY_RESULT_NOTE SUMMARY_RESULT counts are per-monitor-script exit codes (plus runtime_guard if enabled); fleet counters are in SUMMARY_HOSTS derived from monitor= lines"
   echo "============================================================"
@@ -486,7 +511,7 @@ fi
   echo ""
   echo "HUMAN_STATUS_SUMMARY"
   echo "run_host=$(hostname -f 2>/dev/null || hostname)"
-  echo "timestamp=$(date -Is)"
+  echo "timestamp=$(lm_now_iso)"
   echo "overall=$overall exit_code=$worst ok=$ok warn=$warn crit=$crit unknown=$unk skipped=$skipped"
   echo "fleet_hosts_ok=$hosts_ok fleet_hosts_warn=$hosts_warn fleet_hosts_crit=$hosts_crit fleet_hosts_unknown=$hosts_unknown fleet_hosts_skipped=$hosts_skip"
 
@@ -543,8 +568,14 @@ cat "$_tmp_human" >> "$tmp_report"
 
 
 cat "$tmp_report"
-
-} | awk '{ print strftime("[%F %T]"), $0 }' | tee "$logfile" >/dev/null
+set +e
+} | awk -v t="$ts_epoch" '{ print strftime("[%F %T]", t), $0 }' | tee "$logfile" >/dev/null
+log_rc=$?
+set -e
+if [[ "$log_rc" -ne 0 || ! -s "$logfile" ]]; then
+  echo "WARN: log write failed: $logfile" >> "$tmp_report"
+  echo "monitor=wrapper host=runner status=WARN reason=log_write_failed path=$logfile" >> "$tmp_report"
+fi
 
 ln -sfn "$logfile" "$LOG_DIR/full_health_monitor_latest.log"
 
@@ -554,7 +585,18 @@ mkdir -p "$SUMMARY_DIR" 2>/dev/null || true
 tmp_mon=$(mktemp -p "$TMPDIR" linux_maint_mon.XXXXXX)
   grep -a '^monitor=' "$tmp_report" > "$tmp_mon" || true
   cat "$tmp_mon" > "$tmp_summary" 2>/dev/null || :
-cat "$tmp_summary" > "$SUMMARY_FILE" 2>/dev/null || true
+{ cat "$tmp_summary" > "$SUMMARY_FILE"; } 2>/dev/null || true
+if [[ ! -s "$SUMMARY_FILE" ]]; then
+  warn_line="monitor=wrapper host=runner status=WARN reason=summary_write_failed path=$SUMMARY_FILE"
+  echo "WARN: summary write failed: $SUMMARY_FILE" >> "$tmp_report"
+  echo "$warn_line" >> "$tmp_report"
+  echo "$warn_line" >> "$tmp_summary"
+  { cat "$tmp_summary" > "$SUMMARY_FILE"; } 2>/dev/null || true
+  if [[ -s "$logfile" ]]; then
+    printf '%s\n' "[WARN] summary write failed: $SUMMARY_FILE" >> "$logfile" 2>/dev/null || true
+    printf '%s\n' "$warn_line" >> "$logfile" 2>/dev/null || true
+  fi
+fi
 ln -sfn "$(basename "$SUMMARY_FILE")" "$SUMMARY_LATEST_FILE" 2>/dev/null || true
 rm -f "$tmp_summary" 2>/dev/null || true
 
@@ -733,7 +775,7 @@ if prom_file and rows:
 PY
 
 {
-  echo "timestamp=$(date -Is)"
+  echo "timestamp=$(lm_now_iso)"
   echo "host=$(hostname -f 2>/dev/null || hostname)"
   echo "overall=$overall"
   echo "exit_code=$worst"

@@ -511,6 +511,7 @@ Example (`export --json`):
 
 - `LM_REDACT_LOGS=1` — redact common secret patterns from logs and summary lines (best-effort). When enabled, values like `password=...`, `token=...`, and JWT-like blobs are replaced with `REDACTED` in emitted log/summary lines.
 - `LM_REDACT_LOGS=1` also redacts values in `linux-maint export --json` output.
+- `LM_TEST_TIME_EPOCH=<unix_epoch>` — test-only override to freeze wrapper timestamps and filenames for deterministic output.
 
 
 ### SSH security defaults (fleet mode)

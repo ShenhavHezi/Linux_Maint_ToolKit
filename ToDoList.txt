@@ -3,8 +3,8 @@
 This is the single backlog source of truth.
 
 ## Working style
-- Prefer small, test-backed PRs.
-- Avoid breaking contract changes without explicit versioning.
+- Prefer small, test-backed changes.
+- Avoid breaking contracts without explicit versioning.
 - Optimize for safe defaults and clear operator guidance.
 - Keep dark-site/offline reliability a top priority.
 
@@ -19,90 +19,97 @@ This is the single backlog source of truth.
 
 ## P0 — Correctness / reliability
 
-### P0.1 Make smoke tests deterministic in non-root environments
-**Why**: CI and local runs should not hang or emit avoidable platform noise.
+### P0.1 Validate summary lines at source (lm_summary guardrails) (DONE 2026-02-18)
+**Why**: contract violations should be caught at emission time, not later.
 **Scope**:
-- Guard SELinux-related calls in tests to avoid noisy errors under non-root.
-- Ensure test helpers do not attempt writes under `/var/*` unless sudo-gated.
-- Tighten timeouts on tests that can hang.
+- Add an optional strict mode (`LM_SUMMARY_STRICT=1`) that validates required keys and allowed statuses.
+- In strict mode, log an error and exit non-zero when violations occur.
 **Acceptance**:
-- `make test` finishes reliably without manual intervention.
-- No repeated warnings in smoke output when running without sudo.
+- Unit-style tests covering strict and non-strict behavior.
 
-### P0.2 Add JSON schema validation for automation outputs (DONE 2026-02-18)
-**Why**: `status --json` and `doctor --json` are automation surfaces.
+### P0.2 Tighten wrapper failure modes and recovery (DONE 2026-02-18)
+**Why**: wrapper should never produce partial artifacts without clear warnings.
 **Scope**:
-- Add schemas under `docs/schemas/`.
-- Add tests that validate JSON output against schemas.
+- Emit explicit wrapper-level WARN lines when summary/log writes fail.
+- Ensure JSON output indicates missing artifacts clearly.
 **Acceptance**:
-- Schemas exist and tests validate output in repo mode.
+- New tests simulate unwritable log/summary directories and validate fallback messaging.
 
-### P0.3 Harden wrapper summary emission (DONE 2026-02-18)
-**Why**: summary artifacts are the core contract.
+### P0.3 Add deterministic test seed for time-based outputs (DONE 2026-02-18)
+**Why**: log timestamps and runtime summaries can cause nondeterministic tests.
 **Scope**:
-- Ensure wrapper never emits duplicate or malformed `monitor=` lines.
-- Add a lint test that fails on malformed lines.
+- Support `LM_TEST_TIME_EPOCH` for wrapper/test mode to freeze timestamps.
 **Acceptance**:
-- New lint test fails on malformed lines and passes on normal runs.
+- At least one test demonstrates stable output under frozen time.
 
 ---
 
 ## P1 — Operator UX / documentation
 
-### P1.1 Add “first run expectations” to README (DONE 2026-02-18)
-**Why**: new users need to know which SKIPs are normal.
+### P1.1 Add a troubleshooting decision tree
+**Why**: on-call needs a predictable path from WARN/CRIT to actions.
+**Scope**:
+- Add a short decision tree in `docs/QUICK_REFERENCE.md`.
 **Acceptance**:
-- README includes a short list of normal first-run SKIPs and what to do next.
+- Includes steps for `status`, `logs`, `doctor`, `diff`, `pack-logs`.
 
-### P1.2 Add example outputs (text + JSON) (DONE 2026-02-18)
-**Why**: examples speed troubleshooting.
+### P1.2 Add per-monitor “What to check next” snippets
+**Why**: makes `reason=` tokens actionable.
+**Scope**:
+- Add a section in `docs/reference.md` per monitor with next checks.
 **Acceptance**:
-- `docs/reference.md` includes short examples for `status`, `status --json`, `doctor --json`, `trend --json`.
-
-### P1.3 Add a “Repo vs Installed” decision guide in docs (DONE 2026-02-18)
-**Why**: reduce confusion about modes.
-**Acceptance**:
-- `docs/README.md` or `docs/QUICK_REFERENCE.md` has a short decision guide.
+- At least 5 monitors covered with concrete guidance.
 
 ---
 
 ## P2 — Security / hardening
 
-### P2.1 Add least-privilege guidance for SSH mode (DONE 2026-02-18)
-**Why**: operators need a safe baseline for sudoers and SSH keys.
+### P2.1 Add optional allowlist for summary keys
+**Why**: prevent untrusted data from being emitted into summary lines.
+**Scope**:
+- `LM_SUMMARY_ALLOWLIST` to restrict which keys can appear in `monitor=` lines.
 **Acceptance**:
-- `docs/reference.md` includes a minimal sudoers snippet and SSH guidance.
+- Default allows all; when set, extra keys are dropped with a warning.
 
-### P2.2 Optional redaction toggle for logs (DONE 2026-02-18, export-json redaction added)
-**Why**: avoid accidental secret leakage.
+### P2.2 Add log bundle redaction in pack-logs
+**Why**: bundles are shared externally.
+**Scope**:
+- Apply redaction to packed logs if `LM_REDACT_LOGS=1`.
 **Acceptance**:
-- Add a toggle that redacts known patterns in logs and summary JSON.
-- Document how to enable it.
+- New test verifies redaction in packed bundle.
 
 ---
 
 ## P3 — Observability / integrations
 
-### P3.1 Add `linux-maint export --json` (DONE 2026-02-18)
-**Why**: a single payload for SIEM/ELK/monitoring ingestion.
+### P3.1 Add JSON schema for export payload
+**Why**: `export --json` is now a stable integration surface.
+**Scope**:
+- Add `docs/schemas/export.json` and validation test.
 **Acceptance**:
-- Output includes `SUMMARY_RESULT`, `SUMMARY_HOSTS`, and `monitor=` lines.
+- Schema test passes in repo mode.
 
-### P3.2 Prometheus label cardinality guardrails
-**Why**: large fleets can overrun Prometheus limits.
+### P3.2 Add optional CSV export for summary rows
+**Why**: quick import into spreadsheets/BI tools.
+**Scope**:
+- `linux-maint export --csv` writes rows with stable columns.
 **Acceptance**:
-- Configurable max unique `host`/`monitor` labels with clear drop behavior.
+- CSV output includes header and at least `monitor,host,status,reason`.
 
 ---
 
 ## P4 — DX / release polish
 
-### P4.1 Improve changelog discipline (DONE 2026-02-18)
-**Why**: users need a human-readable release summary.
+### P4.1 Add a minimal CI smoke profile doc
+**Why**: contributors need to know which tests are run where.
+**Scope**:
+- Document `SMOKE_PROFILE=compat/full` and expected behavior.
 **Acceptance**:
-- Add a release note template and update `CHANGELOG.md` for release tags.
+- Added to `CONTRIBUTING.md`.
 
-### P4.2 Provide a minimal containerized test harness (DONE 2026-02-18)
-**Why**: consistent contributor experience.
+### P4.2 Add a release checklist
+**Why**: reduce release mistakes.
+**Scope**:
+- Add `docs/RELEASE_CHECKLIST.md`.
 **Acceptance**:
-- Add `containers/` or `tools/dev_container.sh` with quick-start instructions.
+- Checklist includes version bump, changelog, tarball, checksum, and validation steps.

@@ -433,6 +433,19 @@ lm_summary() {
   local monitor="$1" target_host="$2" status="$3"; shift 3
   local node
   node="$(hostname -f 2>/dev/null || hostname)"
+  if [[ "${LM_SUMMARY_STRICT:-0}" == "1" || "${LM_SUMMARY_STRICT:-}" == "true" ]]; then
+    if [[ -z "${monitor}" || -z "${target_host}" || -z "${status}" ]]; then
+      echo "ERROR: lm_summary missing required fields (monitor/host/status)" >&2
+      return 2
+    fi
+    case "$status" in
+      OK|WARN|CRIT|UNKNOWN|SKIP) ;;
+      *)
+        echo "ERROR: lm_summary invalid status '${status}'" >&2
+        return 2
+        ;;
+    esac
+  fi
   # shellcheck disable=SC2086
   local line
   line="monitor=${monitor} host=${target_host} status=${status} node=${node} $*"
