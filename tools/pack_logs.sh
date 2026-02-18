@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+TMPDIR="${TMPDIR:-/tmp}"
+
 # tools/pack_logs.sh
 # Build a support bundle (tar.gz) for incident handoff / dark-site export.
 # Best-effort: includes what exists; never fails just because optional files are missing.
@@ -31,7 +33,7 @@ redact_file() {
 }
 
 mkdir -p "$OUTDIR"
-workdir="$(mktemp -d)"
+workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
 bundle_root="$workdir/bundle"

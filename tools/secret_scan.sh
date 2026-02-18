@@ -2,6 +2,8 @@
 # Lightweight high-confidence secret scanner with allowlist support.
 set -euo pipefail
 
+TMPDIR="${TMPDIR:-/tmp}"
+
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 SCAN_DIR="$ROOT_DIR"
 ALLOWLIST="$ROOT_DIR/tests/secret_scan_allowlist.txt"
@@ -35,7 +37,7 @@ patterns=(
   'xox[baprs]-[A-Za-z0-9-]{20,}'
 )
 
-raw_matches="$(mktemp /tmp/lm_secret_scan_raw.XXXXXX)"
+raw_matches="$(mktemp -p "$TMPDIR" lm_secret_scan_raw.XXXXXX)"
 trap 'rm -f "$raw_matches"' EXIT
 : > "$raw_matches"
 
@@ -77,7 +79,7 @@ if [[ ! -s "$raw_matches" ]]; then
 fi
 
 # Apply allowlist (line contains any allowlist token => ignored).
-filtered="$(mktemp /tmp/lm_secret_scan_filtered.XXXXXX)"
+filtered="$(mktemp -p "$TMPDIR" lm_secret_scan_filtered.XXXXXX)"
 trap 'rm -f "$raw_matches" "$filtered"' EXIT
 cp "$raw_matches" "$filtered"
 

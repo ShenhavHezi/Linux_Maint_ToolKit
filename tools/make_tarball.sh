@@ -6,6 +6,8 @@
 
 set -euo pipefail
 
+TMPDIR="${TMPDIR:-/tmp}"
+
 OUTDIR="${OUTDIR:-dist}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -31,7 +33,7 @@ version_tag="$(git describe --tags --always 2>/dev/null || echo "$sha")"
 name="linux_Maint_Scripts-${version_tag}-${sha}"
 mkdir -p "$OUTDIR"
 
-workdir="$(mktemp -d)"
+workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
 # Export repo without .git
