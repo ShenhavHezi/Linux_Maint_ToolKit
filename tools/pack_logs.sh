@@ -32,6 +32,28 @@ redact_file() {
     "$in" > "$out" 2>/dev/null || cp -f "$in" "$out"
 }
 
+redact_enabled() {
+  case "${LM_REDACT_LOGS:-0}" in
+    1|true|TRUE|yes|YES) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+copy_log() {
+  local src="$1" dest_dir="$2"
+  local base
+  base="$(basename -- "$src")"
+  if redact_enabled; then
+    case "$src" in
+      *.log|*.json|*.txt|*.csv|*.conf)
+        redact_file "$src" "$dest_dir/$base" 2>/dev/null || true
+        return 0
+        ;;
+    esac
+  fi
+  cp -a "$src" "$dest_dir/" 2>/dev/null || true
+}
+
 mkdir -p "$OUTDIR"
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
@@ -50,7 +72,7 @@ for f in \
   "$LOG_DIR/last_status_full" \
   ; do
   if [[ -e "$f" ]]; then
-    cp -a "$f" "$bundle_root/logs/" 2>/dev/null || true
+    copy_log "$f" "$bundle_root/logs"
   fi
 done
 
@@ -59,15 +81,15 @@ MAX_LOGS="${MAX_LOGS:-3}"
 if [[ -d "$LOG_DIR" ]]; then
   # shellcheck disable=SC2012
   ls -1t "$LOG_DIR"/full_health_monitor_*.log 2>/dev/null | head -n "$MAX_LOGS" | while IFS= read -r p; do
-    cp -a "$p" "$bundle_root/logs/" 2>/dev/null || true
+    copy_log "$p" "$bundle_root/logs"
   done
   # shellcheck disable=SC2012
   ls -1t "$LOG_DIR"/full_health_monitor_summary_*.log 2>/dev/null | head -n "$MAX_LOGS" | while IFS= read -r p; do
-    cp -a "$p" "$bundle_root/logs/" 2>/dev/null || true
+    copy_log "$p" "$bundle_root/logs"
   done
   # shellcheck disable=SC2012
   ls -1t "$LOG_DIR"/full_health_monitor_summary_*.json 2>/dev/null | head -n "$MAX_LOGS" | while IFS= read -r p; do
-    cp -a "$p" "$bundle_root/logs/" 2>/dev/null || true
+    copy_log "$p" "$bundle_root/logs"
   done
 fi
 
@@ -118,7 +140,7 @@ if [[ -d "$STATE_DIR" ]]; then
   mkdir -p "$bundle_root/state"
   # only include small state files (<256KB)
   find "$STATE_DIR" -maxdepth 2 -type f -size -256k 2>/dev/null | while IFS= read -r f; do
-    cp -a "$f" "$bundle_root/state/" 2>/dev/null || true
+    copy_log "$f" "$bundle_root/state"
   done
 fi
 

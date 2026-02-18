@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint export --json",
+  "type": "object",
+  "required": ["mode", "summary_result", "summary_hosts", "rows", "last_status"],
+  "properties": {
+    "mode": { "type": "string" },
+    "summary_file": { "type": ["string", "null"] },
+    "summary_log": { "type": ["string", "null"] },
+    "summary_json": { "type": ["string", "null"] },
+    "summary_result_source": { "type": "string" },
+    "summary_hosts_source": { "type": "string" },
+    "summary_result": {
+      "type": "object",
+      "properties": {
+        "overall": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "summary_hosts": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "last_status": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "rows": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

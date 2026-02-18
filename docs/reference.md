@@ -59,6 +59,14 @@ sudo zypper install -y smartmontools nvme-cli
 | `backup_check.sh` | backup freshness/integrity | `backup_targets.csv` | old/missing/small/corrupt backups |
 | `inventory_export.sh` | HW/SW inventory CSV | none | collection failures |
 
+## What to check next (quick hints)
+
+- `network_monitor.sh`: verify `/etc/linux_maint/network_targets.txt`, test DNS/connectivity from the runner, and check firewall rules.
+- `service_monitor.sh`: confirm the unit name in `services.txt`, check `systemctl status <unit>`, and review recent journal entries.
+- `patch_monitor.sh`: run your distro’s update command to confirm pending updates and check reboot flags.
+- `ntp_drift_monitor.sh`: ensure chrony/timesyncd is running and reachable; check `chronyc tracking` or `timedatectl`.
+- `config_drift_monitor.sh`: validate baseline files exist and compare the reported path with your change history.
+
 
 
 ### Keeping README defaults in sync
@@ -475,6 +483,10 @@ Example (`trend --json`):
 ```
 
 - `linux-maint export --json` *(root required)*: export a single JSON payload containing summary_result/summary_hosts plus raw `monitor=` rows (best for external ingestion).
+- `linux-maint export --csv` *(root required)*: export `monitor,host,status,reason` rows as CSV (easy to import).
+
+Schema:
+- `docs/schemas/export.json` — JSON schema for `linux-maint export --json`.
 
 Example (`export --json`):
 
@@ -511,7 +523,9 @@ Example (`export --json`):
 
 - `LM_REDACT_LOGS=1` — redact common secret patterns from logs and summary lines (best-effort). When enabled, values like `password=...`, `token=...`, and JWT-like blobs are replaced with `REDACTED` in emitted log/summary lines.
 - `LM_REDACT_LOGS=1` also redacts values in `linux-maint export --json` output.
+- `LM_REDACT_LOGS=1` also redacts log content inside `linux-maint pack-logs` bundles.
 - `LM_TEST_TIME_EPOCH=<unix_epoch>` — test-only override to freeze wrapper timestamps and filenames for deterministic output.
+- `LM_SUMMARY_ALLOWLIST=key1,key2,...` — optional allowlist of summary keys to keep; extra keys are dropped with a warning.
 
 
 ### SSH security defaults (fleet mode)

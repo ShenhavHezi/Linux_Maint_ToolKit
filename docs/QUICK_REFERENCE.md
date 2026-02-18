@@ -49,6 +49,9 @@ sudo linux-maint runtimes --last 3 --json
 # Export a unified JSON payload
 sudo linux-maint export --json
 
+# Export summary rows as CSV
+sudo linux-maint export --csv
+
 # Diff in JSON (automation)
 sudo linux-maint diff --json
 
@@ -90,6 +93,17 @@ sudo linux-maint run --hosts server-a,server-b --exclude server-c
 1. `sudo linux-maint status --verbose`
 2. `sudo linux-maint logs 200`
 3. `sudo linux-maint doctor`
+
+## Troubleshooting decision tree
+
+1. If `status` shows `CRIT`:
+   `sudo linux-maint status --verbose`
+2. If the issue is new or unclear:
+   `sudo linux-maint diff`
+3. If the issue is config- or dependency-related:
+   `sudo linux-maint doctor`
+4. If you need a shareable bundle:
+   `sudo linux-maint pack-logs --out /tmp`
 
 ## Artifacts (installed mode)
 

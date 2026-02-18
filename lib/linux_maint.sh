@@ -448,7 +448,32 @@ lm_summary() {
   fi
   # shellcheck disable=SC2086
   local line
-  line="monitor=${monitor} host=${target_host} status=${status} node=${node} $*"
+  local args=("$@")
+  if [[ -n "${LM_SUMMARY_ALLOWLIST:-}" ]]; then
+    local allowlist
+    allowlist="$(printf '%s' "${LM_SUMMARY_ALLOWLIST}" | tr ', ' '\n' | awk 'NF{print $1}' | paste -sd '|' -)"
+    local filtered=()
+    local dropped=0
+    local tok key
+    for tok in "${args[@]}"; do
+      if [[ "$tok" == *=* ]]; then
+        key="${tok%%=*}"
+        if [[ -n "$allowlist" && "$key" =~ ^(${allowlist})$ ]]; then
+          filtered+=("$tok")
+        else
+          dropped=$((dropped+1))
+        fi
+      else
+        dropped=$((dropped+1))
+      fi
+    done
+    if [[ "$dropped" -gt 0 ]]; then
+      echo "WARN: lm_summary dropped ${dropped} key(s) not in LM_SUMMARY_ALLOWLIST" >&2
+    fi
+    args=("${filtered[@]}")
+  fi
+
+  line="monitor=${monitor} host=${target_host} status=${status} node=${node} ${args[*]}"
   line="$(printf '%s' "$line" | sed "s/[[:space:]]\\+/ /g; s/[[:space:]]$//")"
   line="$(lm_redact_kv_line "$line")"
   printf '%s\n' "$line"

@@ -13,7 +13,7 @@ mkdir -p "$logdir"
 
 echo "monitor=fake host=localhost status=OK node=test" > "$logdir/full_health_monitor_summary_latest.log"
 echo '{"rows":[]}' > "$logdir/full_health_monitor_summary_latest.json"
-echo "log" > "$logdir/full_health_monitor_latest.log"
+echo "token=rawsecret" > "$logdir/full_health_monitor_latest.log"
 echo "overall=OK" > "$logdir/last_status_full"
 
 cfgdir="$workdir/etc_linux_maint"
@@ -32,7 +32,7 @@ x-auth-token: token-raw-value
 notes: sessionization is normal text
 CFG
 
-bundle_path="$(OUTDIR="$workdir" LOG_DIR="$logdir" CFG_DIR="$cfgdir" REPO_ROOT="$ROOT_DIR" "$ROOT_DIR/tools/pack_logs.sh")"
+bundle_path="$(LM_REDACT_LOGS=1 OUTDIR="$workdir" LOG_DIR="$logdir" CFG_DIR="$cfgdir" REPO_ROOT="$ROOT_DIR" "$ROOT_DIR/tools/pack_logs.sh")"
 [[ -f "$bundle_path" ]]
 
 tar_list="$workdir/tar.list"
@@ -42,6 +42,9 @@ grep -q '^\./config/servers\.txt$' "$tar_list"
 
 extracted_cfg="$workdir/extracted_servers.txt"
 tar -xOf "$bundle_path" ./config/servers.txt > "$extracted_cfg"
+
+extracted_log="$workdir/extracted_log.txt"
+tar -xOf "$bundle_path" ./logs/full_health_monitor_latest.log > "$extracted_log"
 
 # Sensitive values must be redacted
 grep -qi 'password=REDACTED' "$extracted_cfg"
@@ -77,5 +80,9 @@ assert_not_contains 'token-raw-value' "$extracted_cfg"
 # Non-secret useful line preserved
 grep -q '^localhost$' "$extracted_cfg"
 grep -q '^notes: sessionization is normal text$' "$extracted_cfg"
+
+# Logs should be redacted when LM_REDACT_LOGS=1
+grep -qi 'token=REDACTED' "$extracted_log"
+assert_not_contains 'rawsecret' "$extracted_log"
 
 echo "ok: pack-logs"

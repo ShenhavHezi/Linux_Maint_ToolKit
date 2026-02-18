@@ -45,6 +45,7 @@ LM_LOGFILE=${TMPDIR}/config_validate.log LM_LOCKDIR="${TMPDIR}" bash "$ROOT_DIR/
 # lm_for_each_host_rc aggregation test
 run_required "lm_for_each_host_rc_test" bash "$ROOT_DIR/tests/lm_for_each_host_rc_test.sh"
 run_required "lm_summary_strict_test" bash "$ROOT_DIR/tests/lm_summary_strict_test.sh"
+run_required "lm_summary_allowlist_test" bash "$ROOT_DIR/tests/lm_summary_allowlist_test.sh"
 
 # Monitor exit-code policy (local-only)
 run_required "monitor_exit_codes_test" bash "$ROOT_DIR/tests/monitor_exit_codes_test.sh"
@@ -105,6 +106,8 @@ run_required "status_reason_rollup_test" bash "$ROOT_DIR/tests/status_reason_rol
 run_required "status_json_compat_test" bash "$ROOT_DIR/tests/status_json_compat_test.sh"
 run_required "status_json_schema_test" bash "$ROOT_DIR/tests/status_json_schema_test.sh"
 run_required "export_json_test" bash "$ROOT_DIR/tests/export_json_test.sh"
+run_required "export_json_schema_test" bash "$ROOT_DIR/tests/export_json_schema_test.sh"
+run_required "export_csv_test" bash "$ROOT_DIR/tests/export_csv_test.sh"
 run_required "status_since_test" bash "$ROOT_DIR/tests/status_since_test.sh"
 run_required "trend_command_test" bash "$ROOT_DIR/tests/trend_command_test.sh"
 fi

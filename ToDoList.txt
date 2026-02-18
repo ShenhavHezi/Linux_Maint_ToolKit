@@ -46,14 +46,14 @@ This is the single backlog source of truth.
 
 ## P1 — Operator UX / documentation
 
-### P1.1 Add a troubleshooting decision tree
+### P1.1 Add a troubleshooting decision tree (DONE 2026-02-18)
 **Why**: on-call needs a predictable path from WARN/CRIT to actions.
 **Scope**:
 - Add a short decision tree in `docs/QUICK_REFERENCE.md`.
 **Acceptance**:
 - Includes steps for `status`, `logs`, `doctor`, `diff`, `pack-logs`.
 
-### P1.2 Add per-monitor “What to check next” snippets
+### P1.2 Add per-monitor “What to check next” snippets (DONE 2026-02-18)
 **Why**: makes `reason=` tokens actionable.
 **Scope**:
 - Add a section in `docs/reference.md` per monitor with next checks.
@@ -64,14 +64,14 @@ This is the single backlog source of truth.
 
 ## P2 — Security / hardening
 
-### P2.1 Add optional allowlist for summary keys
+### P2.1 Add optional allowlist for summary keys (DONE 2026-02-18)
 **Why**: prevent untrusted data from being emitted into summary lines.
 **Scope**:
 - `LM_SUMMARY_ALLOWLIST` to restrict which keys can appear in `monitor=` lines.
 **Acceptance**:
 - Default allows all; when set, extra keys are dropped with a warning.
 
-### P2.2 Add log bundle redaction in pack-logs
+### P2.2 Add log bundle redaction in pack-logs (DONE 2026-02-18)
 **Why**: bundles are shared externally.
 **Scope**:
 - Apply redaction to packed logs if `LM_REDACT_LOGS=1`.
@@ -82,14 +82,14 @@ This is the single backlog source of truth.
 
 ## P3 — Observability / integrations
 
-### P3.1 Add JSON schema for export payload
+### P3.1 Add JSON schema for export payload (DONE 2026-02-18)
 **Why**: `export --json` is now a stable integration surface.
 **Scope**:
 - Add `docs/schemas/export.json` and validation test.
 **Acceptance**:
 - Schema test passes in repo mode.
 
-### P3.2 Add optional CSV export for summary rows
+### P3.2 Add optional CSV export for summary rows (DONE 2026-02-18)
 **Why**: quick import into spreadsheets/BI tools.
 **Scope**:
 - `linux-maint export --csv` writes rows with stable columns.
