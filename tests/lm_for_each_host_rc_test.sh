@@ -13,7 +13,7 @@ export LM_LOCKDIR="${TMPDIR}"
 export LM_LOGFILE=${TMPDIR}/lm_for_each_host_rc_test.log
 
 # Create a temporary host list. These are not real hosts; our function will ignore the name.
-HOSTS_FILE="$(mktemp ${TMPDIR}/lm_hosts.XXXXXX)"
+HOSTS_FILE="$(mktemp "${TMPDIR}"/lm_hosts.XXXXXX)"
 trap 'rm -f "$HOSTS_FILE"' EXIT
 printf '%s\n' h0 h1 h2 h3 h4 h5 h6 h7 h8 h9 > "$HOSTS_FILE"
 export LM_SERVERLIST="$HOSTS_FILE"

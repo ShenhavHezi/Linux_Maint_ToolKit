@@ -27,7 +27,7 @@ out="$(
   env \
     LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh" \
     LM_LOCKDIR="${TMPDIR}" \
-    LM_LOGFILE=${TMPDIR}/linux_maint_cert_scan_test.log \
+    LM_LOGFILE="${TMPDIR}"/linux_maint_cert_scan_test.log \
     CERTS_SCAN_DIR="$workdir" \
     CERTS_SCAN_IGNORE_FILE="$workdir/ignore.txt" \
     CERTS_SCAN_EXTS="crt" \

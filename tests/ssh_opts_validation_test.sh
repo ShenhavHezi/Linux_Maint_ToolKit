@@ -35,6 +35,6 @@ assert_unsafe '-o BatchMode=yes;id'
 assert_unsafe '-o BatchMode=yes | cat'
 assert_unsafe "-o ProxyCommand=\$(id)"
 assert_unsafe "-o ProxyCommand=\`id\`"
-assert_unsafe '-o UserKnownHostsFile=${TMPDIR}/kh < /dev/null'
+assert_unsafe "-o UserKnownHostsFile=${TMPDIR}/kh < /dev/null"
 
 echo "ssh opts validation ok"
