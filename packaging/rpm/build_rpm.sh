@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+TMPDIR="${TMPDIR:-/tmp}"
+
 # Build an RPM using rpmbuild.
 # Usage:
 #   ./packaging/rpm/build_rpm.sh [version]
@@ -9,7 +11,7 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 SPEC="$ROOT/packaging/rpm/linux-maint.spec"
 VERSION="${1:-$(cat "$ROOT/VERSION" 2>/dev/null || echo 0.1.0)}"
 
-WORK="${WORK:-/tmp/linux-maint-rpmbuild}"
+WORK="${WORK:-${TMPDIR}/linux-maint-rpmbuild}"
 rm -rf "$WORK"
 mkdir -p "$WORK"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
 

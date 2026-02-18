@@ -3,6 +3,9 @@
 
 set -euo pipefail
 
+# Prefer a writable temp dir when creating tmp files.
+TMPDIR="${TMPDIR:-/tmp}"
+
 # If running from a git checkout, prefer repo paths automatically.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
@@ -113,7 +116,7 @@ trap cleanup_tmpfiles EXIT
 make_list_tmpfile(){
   local csv="$1" prefix="$2"
   local f
-  f="$(mktemp "/tmp/linux_maint_${prefix}.XXXXXX")"
+  f="$(mktemp -p "$TMPDIR" "linux_maint_${prefix}.XXXXXX")"
   _run_tmpfiles+=("$f")
   # split on comma and whitespace
   echo "$csv" | tr ',' '\n' | awk '{gsub(/^[ \t]+|[ \t]+$/,"",$0); if($0!="") print $0}' > "$f"
@@ -457,7 +460,7 @@ case "$cmd" in
       fi
 
       if [[ -n "$SINCE" ]]; then
-        tmp_since="$(mktemp /tmp/linux_maint_status_since.XXXXXX.log)"
+        tmp_since="$(mktemp -p "$TMPDIR" linux_maint_status_since.XXXXXX.log)"
         _run_tmpfiles+=("$tmp_since")
         python3 - "$log_dir" "$SINCE" <<'PY' | while IFS= read -r f; do
 import os, re, sys, time
@@ -630,7 +633,7 @@ PY
     fi
 
     if [[ -n "$SINCE" ]]; then
-      tmp_since="$(mktemp /tmp/linux_maint_status_since.XXXXXX.log)"
+      tmp_since="$(mktemp -p "$TMPDIR" linux_maint_status_since.XXXXXX.log)"
       _run_tmpfiles+=("$tmp_since")
       python3 - "$log_dir" "$SINCE" <<'PY' | while IFS= read -r f; do
 import os, re, sys, time
