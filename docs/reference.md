@@ -555,6 +555,8 @@ Optional: Prometheus export (textfile collector format)
 - `linux_maint_monitor_status_count{status=...}` — deduped monitor result counters by status
 - `linux_maint_monitor_status{monitor="...",host="..."}` — per monitor/host status gauge (OK=0, WARN=1, CRIT=2, UNKNOWN/SKIP=3)
 - `linux_maint_reason_count{reason="..."}` — top non-OK reason token counts (deduped by monitor+host, bounded by `LM_PROM_MAX_REASON_LABELS`, default 20)
+- `linux_maint_monitor_runtime_ms{monitor="..."}` — per-monitor runtime in milliseconds (wrapper)
+- `linux_maint_runtime_warn_count` — count of monitors exceeding runtime warn thresholds
 
 Each script prints a **single one-line summary** to stdout so the wrapper log stays readable.
 

@@ -34,6 +34,8 @@ req_metrics=(
   "linux_maint_monitor_status_count"
   "linux_maint_monitor_status"
   "linux_maint_reason_count"
+  "linux_maint_monitor_runtime_ms"
+  "linux_maint_runtime_warn_count"
 )
 
 for m in "${req_metrics[@]}"; do
@@ -55,7 +57,9 @@ p = r'''$PROM_FILE'''
 text=open(p,'r',errors='ignore').read().splitlines()
 pat_status=re.compile(r'^linux_maint_monitor_status\{([^}]*)\}\s')
 pat_reason=re.compile(r'^linux_maint_reason_count\{([^}]*)\}\s')
+pat_runtime=re.compile(r'^linux_maint_monitor_runtime_ms\{([^}]*)\}\s')
 seen_status=Counter(); seen_reason=Counter()
+seen_runtime=Counter()
 for line in text:
     m=pat_status.match(line)
     if m:
@@ -63,6 +67,9 @@ for line in text:
     m2=pat_reason.match(line)
     if m2:
         seen_reason[m2.group(1)]+=1
+    m3=pat_runtime.match(line)
+    if m3:
+        seen_runtime[m3.group(1)]+=1
 
 dups=[(k,v) for k,v in seen_status.items() if v>1]
 if dups:
@@ -71,5 +78,9 @@ if dups:
 dups_reason=[(k,v) for k,v in seen_reason.items() if v>1]
 if dups_reason:
     raise SystemExit(f"duplicate linux_maint_reason_count labelsets found: {dups_reason[:5]}")
+
+dups_runtime=[(k,v) for k,v in seen_runtime.items() if v>1]
+if dups_runtime:
+    raise SystemExit(f"duplicate linux_maint_monitor_runtime_ms labelsets found: {dups_runtime[:5]}")
 print('prom textfile ok')
 PY

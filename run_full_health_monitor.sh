@@ -370,6 +370,7 @@ ok=0; warn=0; crit=0; unk=0
 declare -A runtime_ms=()
 runtime_warned=0
 runtime_warn_count=0
+runtime_file="$TMPDIR/linux_maint_runtime.$$"
 
 now_ms(){
   date +%s%3N 2>/dev/null || echo $(( $(date +%s) * 1000 ))
@@ -401,6 +402,12 @@ for s in "${scripts[@]}"; do
     *) unk=$((unk+1)); rc=3;;
   esac
   [ "$rc" -gt "$worst" ] && worst="$rc"
+done
+
+# Persist runtime data for downstream outputs (prometheus).
+: > "$runtime_file" 2>/dev/null || true
+for mon in "${!runtime_ms[@]}"; do
+  echo "monitor=$mon ms=${runtime_ms[$mon]}" >> "$runtime_file" 2>/dev/null || true
 done
 
 # Runtime warn thresholds (synthetic wrapper guard)
@@ -553,7 +560,7 @@ rm -f "$tmp_summary" 2>/dev/null || true
 
 # Also write JSON + Prometheus outputs (best-effort)
 # shellcheck disable=SC2031
-SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" LM_HOSTS_OK="${hosts_ok:-0}" LM_HOSTS_WARN="${hosts_warn:-0}" LM_HOSTS_CRIT="${hosts_crit:-0}" LM_HOSTS_UNKNOWN="${hosts_unknown:-0}" LM_HOSTS_SKIPPED="${hosts_skip:-0}" LM_OVERALL="$overall" LM_EXIT_CODE="$worst" LM_STATUS_FILE="$STATUS_FILE" python3 - <<'PY' || true
+SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" LM_HOSTS_OK="${hosts_ok:-0}" LM_HOSTS_WARN="${hosts_warn:-0}" LM_HOSTS_CRIT="${hosts_crit:-0}" LM_HOSTS_UNKNOWN="${hosts_unknown:-0}" LM_HOSTS_SKIPPED="${hosts_skip:-0}" LM_OVERALL="$overall" LM_EXIT_CODE="$worst" LM_STATUS_FILE="$STATUS_FILE" LM_RUNTIME_FILE="$runtime_file" LM_RUNTIME_WARN_COUNT="$runtime_warn_count" python3 - <<'PY' || true
 import json, os
 summary_file=os.environ.get("SUMMARY_FILE")
 json_file=os.environ.get("SUMMARY_JSON_FILE")
@@ -566,6 +573,8 @@ hosts_unknown=int(os.environ.get("LM_HOSTS_UNKNOWN","0"))
 hosts_skipped=int(os.environ.get("LM_HOSTS_SKIPPED","0"))
 overall=os.environ.get("LM_OVERALL","UNKNOWN")
 exit_code=int(os.environ.get("LM_EXIT_CODE","3"))
+runtime_file=os.environ.get("LM_RUNTIME_FILE")
+runtime_warn_count=int(os.environ.get("LM_RUNTIME_WARN_COUNT","0"))
 
 def parse_kv(line):
     parts=line.strip().split()
@@ -693,6 +702,33 @@ if prom_file and rows:
                 mon=r.get("monitor","unknown"); host=r.get("host","all"); st=r.get("status","UNKNOWN")
                 val=status_map.get(st,3)
                 f.write(f"linux_maint_monitor_status{{monitor=\"{mon}\",host=\"{host}\"}} {val}\n")
+
+            # Runtime metrics (per monitor script)
+            if runtime_file:
+                f.write("\n# HELP linux_maint_monitor_runtime_ms Monitor runtime in milliseconds (wrapper)\n")
+                f.write("# TYPE linux_maint_monitor_runtime_ms gauge\n")
+                try:
+                    with open(runtime_file,"r",encoding="utf-8",errors="ignore") as rf:
+                        for line in rf:
+                            if not line.startswith("monitor="):
+                                continue
+                            parts=line.strip().split()
+                            d={}
+                            for p in parts:
+                                if "=" in p:
+                                    k,v=p.split("=",1)
+                                    d[k]=v
+                            mon=d.get("monitor")
+                            ms=d.get("ms")
+                            if mon and ms and ms.isdigit():
+                                f.write(f"linux_maint_monitor_runtime_ms{{monitor=\"{mon}\"}} {ms}\n")
+                except FileNotFoundError:
+                    pass
+
+            # Runtime warning count (wrapper guard)
+            f.write("\n# HELP linux_maint_runtime_warn_count Count of monitors exceeding runtime warn thresholds\n")
+            f.write("# TYPE linux_maint_runtime_warn_count gauge\n")
+            f.write(f"linux_maint_runtime_warn_count {runtime_warn_count}\n")
     except: pass
 PY
 
@@ -705,6 +741,6 @@ PY
 } > "$STATUS_FILE"
 chmod 0644 "$STATUS_FILE"
 
-rm -f "$tmp_report" 2>/dev/null || true
+rm -f "$tmp_report" "$runtime_file" 2>/dev/null || true
 
 exit "$worst"
