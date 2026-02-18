@@ -397,6 +397,21 @@ Compatibility policy:
 Schemas:
 - `docs/schemas/status.json` — JSON schema for `linux-maint status --json`.
 
+Example (`status --json`):
+
+```json
+{
+  "mode": "installed",
+  "status_json_contract_version": 1,
+  "summary_file": "/var/log/health/full_health_monitor_summary_latest.log",
+  "totals": { "CRIT": 0, "WARN": 1, "UNKNOWN": 0, "SKIP": 2, "OK": 14 },
+  "problems": [
+    { "status": "WARN", "monitor": "patch_monitor", "host": "server-a", "reason": "security_updates_pending" }
+  ],
+  "runtime_warnings": []
+}
+```
+
 ### `linux-maint doctor --json` keys
 
 Top-level keys:
@@ -412,9 +427,52 @@ Top-level keys:
 Schema:
 - `docs/schemas/doctor.json` — JSON schema for `linux-maint doctor --json`.
 
+Example (`doctor --json`):
+
+```json
+{
+  "mode": "installed",
+  "cfg_dir": "/etc/linux_maint",
+  "config": { "dir_exists": true, "hosts_configured": 3, "files": { "servers.txt": true } },
+  "monitor_gates": [
+    { "monitor": "network_monitor", "path": "/etc/linux_maint/network_targets.txt", "present": false }
+  ],
+  "dependencies": [
+    { "cmd": "curl", "present": true, "hint": "curl" }
+  ],
+  "writable_locations": [
+    { "path": "/var/log/health", "exists": true, "writable": true }
+  ],
+  "fix_suggestions": [
+    "Add network targets to /etc/linux_maint/network_targets.txt"
+  ],
+  "next_actions": [
+    "linux-maint verify-install",
+    "sudo linux-maint init"
+  ]
+}
+```
+
 
 
 - `linux-maint trend [--last N] [--json]` *(root required)*: aggregate severity and reason trends across recent timestamped summary artifacts (default last 10 runs).
+
+Example (`trend --json`):
+
+```json
+{
+  "runs": 10,
+  "reasons": [
+    { "reason": "ssh_unreachable", "count": 4 },
+    { "reason": "security_updates_pending", "count": 2 }
+  ],
+  "statuses": [
+    { "status": "CRIT", "count": 1 },
+    { "status": "WARN", "count": 5 },
+    { "status": "OK", "count": 20 }
+  ]
+}
+```
 
 - `linux-maint logs [n]` *(root required)*: tail the latest wrapper log (default `n=200`).
 

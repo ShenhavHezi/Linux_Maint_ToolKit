@@ -49,17 +49,17 @@ This is the single backlog source of truth.
 
 ## P1 — Operator UX / documentation
 
-### P1.1 Add “first run expectations” to README
+### P1.1 Add “first run expectations” to README (DONE 2026-02-18)
 **Why**: new users need to know which SKIPs are normal.
 **Acceptance**:
 - README includes a short list of normal first-run SKIPs and what to do next.
 
-### P1.2 Add example outputs (text + JSON)
+### P1.2 Add example outputs (text + JSON) (DONE 2026-02-18)
 **Why**: examples speed troubleshooting.
 **Acceptance**:
 - `docs/reference.md` includes short examples for `status`, `status --json`, `doctor --json`, `trend --json`.
 
-### P1.3 Add a “Repo vs Installed” decision guide in docs
+### P1.3 Add a “Repo vs Installed” decision guide in docs (DONE 2026-02-18)
 **Why**: reduce confusion about modes.
 **Acceptance**:
 - `docs/README.md` or `docs/QUICK_REFERENCE.md` has a short decision guide.

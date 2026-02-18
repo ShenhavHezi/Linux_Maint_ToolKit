@@ -7,6 +7,13 @@
 - **Reason tokens** (`reason=` contract): [`REASONS.md`](REASONS.md)
 - **Offline / dark-site usage**: [`DARK_SITE.md`](DARK_SITE.md)
 
+## Which mode should I use?
+
+- **Repo mode** (`./run_full_health_monitor.sh`, `./bin/linux-maint`): best for evaluation, local development, and quick trials.
+- **Installed mode** (`linux-maint`, systemd timer/cron): best for scheduled production runs.
+
+If you’re not sure, start in repo mode and install once you like the results.
+
 ## Contributor docs
 
 - Contribution workflow and contracts: [`../CONTRIBUTING.md`](../CONTRIBUTING.md)

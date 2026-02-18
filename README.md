@@ -249,6 +249,19 @@ Notes:
 - `SKIP` means the monitor intentionally did not evaluate (e.g., missing optional config/baseline).
 - See [`docs/REASONS.md`](docs/REASONS.md) for standardized `reason=` tokens.
 
+## First run expectations (normal SKIPs)
+
+On a fresh install, it’s normal to see `status=SKIP` for monitors that need optional inputs:
+
+- `network_monitor` — missing `/etc/linux_maint/network_targets.txt`
+- `cert_monitor` — missing `/etc/linux_maint/certs.txt`
+- `ports_baseline_monitor` — missing `/etc/linux_maint/ports_baseline.txt`
+- `config_drift_monitor` — missing `/etc/linux_maint/config_paths.txt`
+- `user_monitor` — missing `/etc/linux_maint/baseline_users.txt` or `baseline_sudoers.txt`
+- `backup_check` — missing `/etc/linux_maint/backup_targets.csv`
+
+These SKIPs are expected until you populate the files. Use `linux-maint doctor` for specific fix suggestions.
+
 ### Automation-friendly JSON outputs
 
 - `linux-maint status --json` — latest status, totals, problems, and runtime warnings.
