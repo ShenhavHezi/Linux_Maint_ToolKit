@@ -117,8 +117,8 @@ fi
 # --- Build info ---
 mkdir -p "$bundle_root/meta"
 for f in \
-  "/usr/local/share/linux_Maint_Scripts/BUILD_INFO" \
-  "/usr/local/share/linux_Maint_Scripts/VERSION" \
+  "/usr/local/share/Linux_Maint_ToolKit/BUILD_INFO" \
+  "/usr/local/share/Linux_Maint_ToolKit/VERSION" \
   "/usr/local/share/linux-maint/BUILD_INFO" \
   "/usr/local/share/linux-maint/VERSION" \
   ; do

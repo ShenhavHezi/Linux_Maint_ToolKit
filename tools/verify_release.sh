@@ -7,9 +7,9 @@ usage(){
 Usage: $0 <tarball> [--sums FILE] [--sig FILE]
 
 Examples:
-  $0 dist/linux_Maint_Scripts-*.tgz
-  $0 dist/linux_Maint_Scripts-*.tgz --sums dist/SHA256SUMS
-  $0 dist/linux_Maint_Scripts-*.tgz --sums dist/SHA256SUMS --sig dist/linux_Maint_Scripts-*.tgz.asc
+  $0 dist/Linux_Maint_ToolKit-*.tgz
+  $0 dist/Linux_Maint_ToolKit-*.tgz --sums dist/SHA256SUMS
+  $0 dist/Linux_Maint_ToolKit-*.tgz --sums dist/SHA256SUMS --sig dist/Linux_Maint_ToolKit-*.tgz.asc
 
 Behavior:
 - Always verifies SHA256 checksum from SHA256SUMS (default next to tarball).

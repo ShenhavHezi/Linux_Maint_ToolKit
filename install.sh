@@ -125,9 +125,9 @@ install_files(){
   mkdir -p "$prefix/share/linux_maint"
   # Operator docs (useful for dark-site installs).
   # Keep under share so installed-mode commands (e.g. `linux-maint explain`) can find them.
-  mkdir -p "$prefix/share/linux_Maint_Scripts/docs"
+  mkdir -p "$prefix/share/Linux_Maint_ToolKit/docs"
   if [ -d "docs" ]; then
-    cp -a docs/*.md "$prefix/share/linux_Maint_Scripts/docs/" 2>/dev/null || true
+    cp -a docs/*.md "$prefix/share/Linux_Maint_ToolKit/docs/" 2>/dev/null || true
   fi
   # config templates for linux-maint init (installed-mode)
   mkdir -p "$prefix/share/linux_maint/templates"
@@ -224,7 +224,7 @@ uninstall_files(){
   rm -f "$prefix/sbin/run_full_health_monitor.sh"
   rm -f "$prefix/lib/linux_maint.sh"
   rm -rf "$prefix/libexec/linux_maint"
-  rm -rf "$prefix/share/linux_Maint_Scripts/docs" 2>/dev/null || true
+  rm -rf "$prefix/share/Linux_Maint_ToolKit/docs" 2>/dev/null || true
   echo "Uninstall complete. (Kept /etc/linux_maint and /var/log by default.)"
   if $PURGE; then
     echo "Purging systemd units and logrotate (and optional dirs)"

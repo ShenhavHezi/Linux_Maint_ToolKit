@@ -46,6 +46,9 @@ LM_LOGFILE=${TMPDIR}/config_validate.log LM_LOCKDIR="${TMPDIR}" bash "$ROOT_DIR/
 run_required "lm_for_each_host_rc_test" bash "$ROOT_DIR/tests/lm_for_each_host_rc_test.sh"
 run_required "lm_summary_strict_test" bash "$ROOT_DIR/tests/lm_summary_strict_test.sh"
 run_required "lm_summary_allowlist_test" bash "$ROOT_DIR/tests/lm_summary_allowlist_test.sh"
+run_required "lm_time_test" bash "$ROOT_DIR/tests/lm_time_test.sh"
+run_required "lm_ssh_allowlist_test" bash "$ROOT_DIR/tests/lm_ssh_allowlist_test.sh"
+run_required "lm_log_json_test" bash "$ROOT_DIR/tests/lm_log_json_test.sh"
 
 # Monitor exit-code policy (local-only)
 run_required "monitor_exit_codes_test" bash "$ROOT_DIR/tests/monitor_exit_codes_test.sh"
@@ -80,6 +83,7 @@ if [[ "$SMOKE_PROFILE" != "compat" ]]; then
   run_required "summary_budget_lint_fixture_test" bash "$ROOT_DIR/tests/summary_budget_lint_fixture_test.sh"
 run_required "wrapper_fallback_paths_test" bash "$ROOT_DIR/tests/wrapper_fallback_paths_test.sh"
 run_required "wrapper_summary_write_fail_test" bash "$ROOT_DIR/tests/wrapper_summary_write_fail_test.sh"
+run_required "summary_checksum_test" bash "$ROOT_DIR/tests/summary_checksum_test.sh"
 
   # Prometheus textfile output (best-effort; wrapper-level)
   run_required "prom_textfile_output_test" bash "$ROOT_DIR/tests/prom_textfile_output_test.sh"
@@ -102,6 +106,7 @@ run_required "doctor_offline_hints_test" bash "$ROOT_DIR/tests/doctor_offline_hi
 run_required "doctor_json_test" bash "$ROOT_DIR/tests/doctor_json_test.sh"
 run_required "doctor_json_schema_test" bash "$ROOT_DIR/tests/doctor_json_schema_test.sh"
 run_required "explain_reason_test" bash "$ROOT_DIR/tests/explain_reason_test.sh"
+run_required "self_check_json_test" bash "$ROOT_DIR/tests/self_check_json_test.sh"
 run_required "status_reason_rollup_test" bash "$ROOT_DIR/tests/status_reason_rollup_test.sh"
 run_required "status_json_compat_test" bash "$ROOT_DIR/tests/status_json_compat_test.sh"
 run_required "status_json_schema_test" bash "$ROOT_DIR/tests/status_json_schema_test.sh"

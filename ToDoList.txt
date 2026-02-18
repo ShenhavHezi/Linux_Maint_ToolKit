@@ -1,12 +1,12 @@
-# linux-maint — ToDoList (roadmap refresh)
+# Linux_Maint_ToolKit — Roadmap
 
 This is the single backlog source of truth.
 
 ## Working style
-- Prefer small, test-backed changes.
-- Avoid breaking contracts without explicit versioning.
-- Optimize for safe defaults and clear operator guidance.
-- Keep dark-site/offline reliability a top priority.
+- Keep changes small, test-backed, and documented.
+- Preserve output contracts; version them when needed.
+- Prefer safe defaults and clear operator guidance.
+- Offline/dark-site support remains a core constraint.
 
 ## Priorities
 - **P0**: correctness, reliability, determinism
@@ -19,97 +19,89 @@ This is the single backlog source of truth.
 
 ## P0 — Correctness / reliability
 
-### P0.1 Validate summary lines at source (lm_summary guardrails) (DONE 2026-02-18)
-**Why**: contract violations should be caught at emission time, not later.
+### P0.1 Add wrapper self-check mode (DONE 2026-02-18)
+**Why**: quickly validate environment and config before real runs.
 **Scope**:
-- Add an optional strict mode (`LM_SUMMARY_STRICT=1`) that validates required keys and allowed statuses.
-- In strict mode, log an error and exit non-zero when violations occur.
+- New `linux-maint self-check` that validates config readability, writable paths, and basic deps.
+- Outputs a single JSON report when `--json` is used.
 **Acceptance**:
-- Unit-style tests covering strict and non-strict behavior.
+- Test coverage for both text and JSON output.
 
-### P0.2 Tighten wrapper failure modes and recovery (DONE 2026-02-18)
-**Why**: wrapper should never produce partial artifacts without clear warnings.
+### P0.2 Improve monitor runtime accuracy (DONE 2026-02-18)
+**Why**: current runtime measurement wraps the whole script; slow subprocesses are not distinguished.
 **Scope**:
-- Emit explicit wrapper-level WARN lines when summary/log writes fail.
-- Ensure JSON output indicates missing artifacts clearly.
+- Add optional per-subcommand timing with a helper (`lm_time`) to emit `RUNTIME_STEP` lines.
 **Acceptance**:
-- New tests simulate unwritable log/summary directories and validate fallback messaging.
-
-### P0.3 Add deterministic test seed for time-based outputs (DONE 2026-02-18)
-**Why**: log timestamps and runtime summaries can cause nondeterministic tests.
-**Scope**:
-- Support `LM_TEST_TIME_EPOCH` for wrapper/test mode to freeze timestamps.
-**Acceptance**:
-- At least one test demonstrates stable output under frozen time.
+- Backward compatible; no changes to existing RUNTIME lines.
 
 ---
 
 ## P1 — Operator UX / documentation
 
-### P1.1 Add a troubleshooting decision tree (DONE 2026-02-18)
-**Why**: on-call needs a predictable path from WARN/CRIT to actions.
+### P1.1 Add a “common fixes” section to README (DONE 2026-02-18)
+**Why**: reduce time-to-resolution for frequent warnings.
 **Scope**:
-- Add a short decision tree in `docs/QUICK_REFERENCE.md`.
+- Map 5–7 common `reason=` tokens to concrete remediation steps.
 **Acceptance**:
-- Includes steps for `status`, `logs`, `doctor`, `diff`, `pack-logs`.
+- README contains a concise table or list.
 
-### P1.2 Add per-monitor “What to check next” snippets (DONE 2026-02-18)
-**Why**: makes `reason=` tokens actionable.
+### P1.2 Add a “day-2 operations” page (DONE 2026-02-18)
+**Why**: operators need guidance for routine upkeep and tuning.
 **Scope**:
-- Add a section in `docs/reference.md` per monitor with next checks.
+- New `docs/DAY2.md` with patching flow, baseline refresh, and runtime warn tuning.
 **Acceptance**:
-- At least 5 monitors covered with concrete guidance.
+- Linked from `docs/README.md`.
 
 ---
 
 ## P2 — Security / hardening
 
-### P2.1 Add optional allowlist for summary keys (DONE 2026-02-18)
-**Why**: prevent untrusted data from being emitted into summary lines.
+### P2.1 Add SSH command allowlist for remote runs (DONE 2026-02-18)
+**Why**: reduce blast radius for remote execution.
 **Scope**:
-- `LM_SUMMARY_ALLOWLIST` to restrict which keys can appear in `monitor=` lines.
+- Optional `LM_SSH_ALLOWLIST` for commands invoked through `lm_ssh`.
 **Acceptance**:
-- Default allows all; when set, extra keys are dropped with a warning.
+- Tests cover allow/deny behavior.
 
-### P2.2 Add log bundle redaction in pack-logs (DONE 2026-02-18)
-**Why**: bundles are shared externally.
+### P2.2 Add optional integrity stamp for summary artifacts (DONE 2026-02-18)
+**Why**: tamper-evidence for summary logs shipped off-host.
 **Scope**:
-- Apply redaction to packed logs if `LM_REDACT_LOGS=1`.
+- Generate a SHA256 for summary log and JSON (stored alongside in `.sha256`).
 **Acceptance**:
-- New test verifies redaction in packed bundle.
+- Tests verify checksums are written and match.
 
 ---
 
 ## P3 — Observability / integrations
 
-### P3.1 Add JSON schema for export payload (DONE 2026-02-18)
-**Why**: `export --json` is now a stable integration surface.
+### P3.1 Add structured JSON log output mode (DONE 2026-02-18)
+**Why**: simplify ingestion into SIEM/ELK.
 **Scope**:
-- Add `docs/schemas/export.json` and validation test.
+- `LM_LOG_FORMAT=json` to emit one JSON object per log line.
 **Acceptance**:
-- Schema test passes in repo mode.
+- Disabled by default; tests validate output shape when enabled.
 
-### P3.2 Add optional CSV export for summary rows (DONE 2026-02-18)
-**Why**: quick import into spreadsheets/BI tools.
+### P3.2 Add OpenMetrics compatibility for Prometheus output (DONE 2026-02-18)
+**Why**: improve compatibility with stricter collectors.
 **Scope**:
-- `linux-maint export --csv` writes rows with stable columns.
+- Optional `LM_PROM_FORMAT=openmetrics` (adds `# EOF` and proper formatting).
 **Acceptance**:
-- CSV output includes header and at least `monitor,host,status,reason`.
+- Test ensures output includes required markers.
 
 ---
 
 ## P4 — DX / release polish
 
-### P4.1 Add a minimal CI smoke profile doc
-**Why**: contributors need to know which tests are run where.
+### P4.1 Add a “breaking changes” checklist (DONE 2026-02-18)
+**Why**: enforce contract stability.
 **Scope**:
-- Document `SMOKE_PROFILE=compat/full` and expected behavior.
+- Extend `docs/RELEASE_CHECKLIST.md` with a breaking-change audit.
 **Acceptance**:
-- Added to `CONTRIBUTING.md`.
+- Checklist references JSON schemas and summary contract.
 
-### P4.2 Add a release checklist
-**Why**: reduce release mistakes.
+### P4.2 Add repo rename compatibility notes (DONE 2026-02-18)
+**Why**: users updating from older name need a clean path.
 **Scope**:
-- Add `docs/RELEASE_CHECKLIST.md`.
+- Add a short note to README + docs on the old repo name.
 **Acceptance**:
-- Checklist includes version bump, changelog, tarball, checksum, and validation steps.
+- Both README and docs/README mention the previous `linux_Maint_Scripts` name.

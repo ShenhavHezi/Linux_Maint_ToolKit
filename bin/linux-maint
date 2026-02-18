@@ -183,6 +183,7 @@ Commands:
   logs [n]            Tail latest wrapper log (default n=200)
   init [--minimal]    Install /etc/linux_maint templates (from repo checkout)
   doctor [--json]     Diagnose installation/config/state permissions
+  self-check [--json] Quick preflight validation (config/paths/deps)
   deps                Print required/optional dependency manifest by monitor (offline-friendly)
   verify-install      Verify installation layout, permissions, and systemd wiring (best-effort)
   pack-logs [--out DIR]  Create a support bundle tar.gz (logs, config redacted, meta)
@@ -1241,8 +1242,8 @@ PY
     if [[ -z "$SRC_DIR" || ! -d "$SRC_DIR" ]]; then
       echo "ERROR: templates not found at $SRC_DIR" >&2
       echo "Run init from a git checkout:" >&2
-      echo "  git clone https://github.com/ShenhavHezi/linux_Maint_Scripts.git" >&2
-      echo "  cd linux_Maint_Scripts" >&2
+      echo "  git clone https://github.com/ShenhavHezi/Linux_Maint_ToolKit.git" >&2
+      echo "  cd Linux_Maint_ToolKit" >&2
       echo "  sudo ./bin/linux-maint init" >&2
       exit 1
     fi
@@ -1308,9 +1309,9 @@ PY
           # installed mode: docs may be under share
           for alt in \
             "$SHARE/docs/REASONS.md" \
-            "$PREFIX/share/linux_Maint_Scripts/docs/REASONS.md" \
+            "$PREFIX/share/Linux_Maint_ToolKit/docs/REASONS.md" \
             "$PREFIX/share/linux-maint/docs/REASONS.md" \
-            "/usr/share/linux_Maint_Scripts/docs/REASONS.md" \
+            "/usr/share/Linux_Maint_ToolKit/docs/REASONS.md" \
             "/usr/share/linux-maint/docs/REASONS.md" \
             "/usr/share/linux_maint/docs/REASONS.md" \
           ; do
@@ -1799,6 +1800,91 @@ PYJSON
     echo "- sudo linux-maint preflight"
     echo "- sudo linux-maint run"
     echo "- linux-maint pack-logs --out .  # create bundle for export"
+    ;;
+
+  self-check)
+    SC_JSON=0
+    case "${1:-}" in
+      --json) SC_JSON=1; shift ;;
+      "") ;;
+      *) echo "Unknown self-check flag: $1" >&2; exit 2 ;;
+    esac
+
+    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+    if [[ "$MODE" == "repo" ]]; then
+      LOG_DIR_SC="${LOG_DIR:-$REPO_LOG_DIR}"
+      STATE_DIR_SC="${LM_STATE_DIR:-/tmp}"
+      LOCK_DIR_SC="${LM_LOCKDIR:-/tmp}"
+    else
+      LOG_DIR_SC="${LOG_DIR:-/var/log/health}"
+      STATE_DIR_SC="${LM_STATE_DIR:-/var/lib/linux_maint}"
+      LOCK_DIR_SC="${LM_LOCKDIR:-/var/lock}"
+    fi
+
+    if [[ "$SC_JSON" -eq 1 ]]; then
+      MODE="$MODE" CFG_DIR="$CFG_DIR" LOG_DIR_SC="$LOG_DIR_SC" STATE_DIR_SC="$STATE_DIR_SC" LOCK_DIR_SC="$LOCK_DIR_SC" python3 - <<'PY'
+import json, os, pathlib, shutil
+
+mode = os.environ.get("MODE","")
+cfg_dir = os.environ.get("CFG_DIR","/etc/linux_maint")
+log_dir = os.environ.get("LOG_DIR_SC","/var/log/health")
+state_dir = os.environ.get("STATE_DIR_SC","/var/lib/linux_maint")
+lock_dir = os.environ.get("LOCK_DIR_SC","/var/lock")
+
+cfg_path = pathlib.Path(cfg_dir)
+config_files = ["servers.txt", "excluded.txt", "services.txt"]
+config = {
+    "dir_exists": cfg_path.is_dir(),
+    "files": {name: (cfg_path / name).exists() for name in config_files},
+}
+
+def writable(path: str) -> bool:
+    p = pathlib.Path(path)
+    if not p.is_dir():
+        return False
+    return os.access(path, os.W_OK)
+
+paths = [
+    {"path": log_dir, "exists": pathlib.Path(log_dir).is_dir(), "writable": writable(log_dir)},
+    {"path": state_dir, "exists": pathlib.Path(state_dir).is_dir(), "writable": writable(state_dir)},
+    {"path": lock_dir, "exists": pathlib.Path(lock_dir).is_dir(), "writable": writable(lock_dir)},
+]
+
+deps_list = ["bash","awk","sed","grep","df","find","timeout","ssh"]
+deps = [{"cmd": d, "present": shutil.which(d) is not None} for d in deps_list]
+
+out = {
+    "mode": mode,
+    "cfg_dir": cfg_dir,
+    "config": config,
+    "paths": paths,
+    "dependencies": deps,
+}
+
+print(json.dumps(out, sort_keys=True))
+PY
+      exit 0
+    fi
+
+    echo "=== linux-maint self-check ==="
+    echo "mode=$MODE"
+    echo "cfg_dir=$CFG_DIR"
+    echo "== Config files =="
+    for f in "$CFG_DIR/servers.txt" "$CFG_DIR/excluded.txt" "$CFG_DIR/services.txt"; do
+      [[ -e "$f" ]] && echo "OK: $f" || echo "WARN: missing $f"
+    done
+    echo "== Paths (writable) =="
+    for d in "$LOG_DIR_SC" "$STATE_DIR_SC" "$LOCK_DIR_SC"; do
+      if [[ -d "$d" ]]; then
+        [[ -w "$d" ]] && echo "OK: writable $d" || echo "WARN: not writable $d"
+      else
+        echo "WARN: missing dir $d"
+      fi
+    done
+    echo "== Dependencies =="
+    for cmd in bash awk sed grep df find timeout ssh; do
+      command -v "$cmd" >/dev/null 2>&1 && echo "OK: $cmd" || echo "WARN: missing $cmd"
+    done
     ;;
 
   deps)

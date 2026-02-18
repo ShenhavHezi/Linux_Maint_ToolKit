@@ -3,6 +3,8 @@
 `linux-maint` is a lightweight health/maintenance toolkit for Linux administrators.
 Run it locally or from a monitoring node over SSH, get structured logs + a simple OK/WARN/CRIT summary.
 
+Note: this project was previously named `linux_Maint_Scripts` on GitHub. The CLI remains `linux-maint`.
+
 ## Table of Contents
 
 - [Docs / references](#docs-references)
@@ -97,8 +99,8 @@ Release/version tracking notes and deeper configuration reference: [`docs/refere
 ### Local run (from the repo)
 
 ```bash
-git clone https://github.com/ShenhavHezi/linux_Maint_Scripts.git
-cd linux_Maint_Scripts
+git clone https://github.com/ShenhavHezi/Linux_Maint_ToolKit.git
+cd Linux_Maint_ToolKit
 sudo ./run_full_health_monitor.sh
 sudo ./bin/linux-maint status
 ```
@@ -261,6 +263,15 @@ On a fresh install, it’s normal to see `status=SKIP` for monitors that need op
 - `backup_check` — missing `/etc/linux_maint/backup_targets.csv`
 
 These SKIPs are expected until you populate the files. Use `linux-maint doctor` for specific fix suggestions.
+
+## Common fixes (quick reference)
+
+- `ssh_unreachable`: confirm host is reachable, SSH keys are valid, and firewall allows port 22.
+- `missing_dependency`: install the missing tool listed in the summary (e.g., `curl`, `smartctl`).
+- `config_missing`: run `sudo linux-maint init` and populate the missing file.
+- `baseline_missing`: allow baseline auto-init or create baseline files under `/etc/linux_maint/baselines/`.
+- `service_failed`: check `systemctl status <unit>` and recent journal logs.
+- `security_updates_pending`: run your distro update command and re-check.
 
 ### Automation-friendly JSON outputs
 

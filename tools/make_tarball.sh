@@ -30,7 +30,7 @@ branch="$(git rev-parse --abbrev-ref HEAD)"
 date_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 version_tag="$(git describe --tags --always 2>/dev/null || echo "$sha")"
 
-name="linux_Maint_Scripts-${version_tag}-${sha}"
+name="Linux_Maint_ToolKit-${version_tag}-${sha}"
 mkdir -p "$OUTDIR"
 
 workdir="$(mktemp -d -p "$TMPDIR")"
@@ -46,7 +46,7 @@ else
 fi
 
 cat > "$workdir/BUILD_INFO" <<EOF
-project=linux_Maint_Scripts
+project=Linux_Maint_ToolKit
 version=${version_tag}
 commit=${sha}
 branch=${branch}

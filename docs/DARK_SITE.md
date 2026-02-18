@@ -5,11 +5,11 @@ This project supports offline installation by generating a self-contained tarbal
 ## 1) Build the tarball (connected workstation)
 
 ```bash
-git clone https://github.com/ShenhavHezi/linux_Maint_Scripts.git
-cd linux_Maint_Scripts
+git clone https://github.com/ShenhavHezi/Linux_Maint_ToolKit.git
+cd Linux_Maint_ToolKit
 
 ./tools/make_tarball.sh
-# output: dist/linux_Maint_Scripts-<version>-<sha>.tgz
+# output: dist/Linux_Maint_ToolKit-<version>-<sha>.tgz
 
 # optional detached signature (if GPG key is available)
 SIGN_KEY="ops-release@example.com" ./tools/make_tarball.sh
@@ -18,7 +18,7 @@ SIGN_KEY="ops-release@example.com" ./tools/make_tarball.sh
 Integrity file (recommended):
 
 ```bash
-( cd dist && sha256sum linux_Maint_Scripts-*.tgz > SHA256SUMS )
+( cd dist && sha256sum Linux_Maint_ToolKit-*.tgz > SHA256SUMS )
 ```
 
 ## 2) Transfer into the offline environment (staging / hop)
@@ -28,7 +28,7 @@ Move the tarball using your approved process. In many environments this is a mul
 - connected workstation → staging machine / scanning station → removable media → offline network → target servers
 
 Copy:
-- `dist/linux_Maint_Scripts-*.tgz`
+- `dist/Linux_Maint_ToolKit-*.tgz`
 - `dist/SHA256SUMS`
 
 On the offline side verify from the directory containing the files:
@@ -37,7 +37,7 @@ On the offline side verify from the directory containing the files:
 sha256sum -c SHA256SUMS
 
 # or use bundled helper
-linux-maint verify-release linux_Maint_Scripts-*.tgz --sums SHA256SUMS
+linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
 ```
 
 ## 3) Install on the offline server(s)
@@ -45,8 +45,8 @@ linux-maint verify-release linux_Maint_Scripts-*.tgz --sums SHA256SUMS
 On each target server (after you copy the tarball over, it will usually be in your working directory — not under `dist/`):
 
 ```bash
-tar -xzf linux_Maint_Scripts-*.tgz
-cd linux_Maint_Scripts-*
+tar -xzf Linux_Maint_ToolKit-*.tgz
+cd Linux_Maint_ToolKit-*
 
 sudo ./install.sh --with-logrotate
 # optional:
@@ -163,12 +163,12 @@ sudo linux-maint logs 200
 When transferring tarballs/packages into an air-gapped environment, verify integrity:
 
 ```bash
-sha256sum linux_Maint_Scripts-*.tgz > SHA256SUMS
+sha256sum Linux_Maint_ToolKit-*.tgz > SHA256SUMS
 # transfer both files
 sha256sum -c SHA256SUMS
 
 # or use bundled helper
-linux-maint verify-release linux_Maint_Scripts-*.tgz --sums SHA256SUMS
+linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
 ```
 
 If you use an internal artifact repository, store the checksum alongside the artifact.

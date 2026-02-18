@@ -74,6 +74,7 @@ monitor=health_monitor host=server-a status=OK
 monitor=network_monitor host=server-a status=WARN reason=ping_failed
 S
 
+mkdir -p "$LOG_DIR"
 cat > "$LOG_FILE" <<'S'
 [2099-01-01 00:00:00] SUMMARY_RESULT overall=WARN ok=1 warn=1 crit=0 unknown=0 skipped=0 exit_code=1
 [2099-01-01 00:00:00] SUMMARY_HOSTS ok=1 warn=1 crit=0 unknown=0 skipped=0

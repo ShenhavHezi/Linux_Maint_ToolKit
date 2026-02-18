@@ -4,7 +4,7 @@ Release:        1.%{?commit}%{?dist}
 Summary:        Linux maintenance/monitoring toolkit (wrapper + monitors + CLI)
 
 License:        MIT
-URL:            https://github.com/ShenhavHezi/linux_Maint_Scripts
+URL:            https://github.com/ShenhavHezi/Linux_Maint_ToolKit
 Source0:        %{name}-%{version}.tar.gz
 
 # Short git sha (passed by rpmbuild --define "commit <sha>")
@@ -42,7 +42,7 @@ install -d %{buildroot}/usr/lib
 install -d %{buildroot}/usr/libexec/linux_maint
 install -d %{buildroot}/usr/share/linux_maint
 install -d %{buildroot}/usr/share/linux_maint/templates
-install -d %{buildroot}/usr/share/linux_Maint_Scripts/docs
+install -d %{buildroot}/usr/share/Linux_Maint_ToolKit/docs
 
 install -m 0755 bin/linux-maint %{buildroot}/usr/bin/linux-maint
 install -m 0755 run_full_health_monitor.sh %{buildroot}/usr/sbin/run_full_health_monitor.sh
@@ -53,7 +53,7 @@ install -m 0755 monitors/*.sh %{buildroot}/usr/libexec/linux_maint/
 install -m 0755 tools/summary_diff.py %{buildroot}/usr/libexec/linux_maint/summary_diff.py
 
 # operator docs (for dark-site usage and `linux-maint explain`)
-cp -a docs/*.md %{buildroot}/usr/share/linux_Maint_Scripts/docs/ 2>/dev/null || true
+cp -a docs/*.md %{buildroot}/usr/share/Linux_Maint_ToolKit/docs/ 2>/dev/null || true
 
 # templates for init
 cp -a etc/linux_maint %{buildroot}/usr/share/linux_maint/templates/
@@ -84,7 +84,7 @@ fi
 /usr/lib/linux_maint.sh
 /usr/libexec/linux_maint/*
 /usr/share/linux_maint/
-/usr/share/linux_Maint_Scripts/docs/
+/usr/share/Linux_Maint_ToolKit/docs/
 /usr/lib/systemd/system/linux-maint.service
 /usr/lib/systemd/system/linux-maint.timer
 

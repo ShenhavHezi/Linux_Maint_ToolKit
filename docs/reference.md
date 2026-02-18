@@ -139,6 +139,8 @@ The wrapper records per-monitor runtime in milliseconds and includes:
 
 - `RUNTIME monitor=<name> ms=<duration>` lines in the wrapper log
 - A “Top runtimes (ms)” section in the human summary
+- Optional per-step timings may be emitted by monitors using `lm_time`:
+  - `RUNTIME_STEP monitor=<name> step=<label> ms=<duration> rc=<rc>`
 
 You can extract recent runtimes with:
 
@@ -507,6 +509,8 @@ Example (`export --json`):
 
 - `linux-maint validate` *(root recommended)*: validate `/etc/linux_maint` config file formats (best-effort).
 
+- `linux-maint self-check [--json]`: quick validation for config/paths/deps (safe in repo mode).
+
 - `linux-maint version`: show installed `BUILD_INFO` (if present).
 
 - `linux-maint install [args]`: run `./install.sh` from a checkout (pass-through).
@@ -526,6 +530,8 @@ Example (`export --json`):
 - `LM_REDACT_LOGS=1` also redacts log content inside `linux-maint pack-logs` bundles.
 - `LM_TEST_TIME_EPOCH=<unix_epoch>` — test-only override to freeze wrapper timestamps and filenames for deterministic output.
 - `LM_SUMMARY_ALLOWLIST=key1,key2,...` — optional allowlist of summary keys to keep; extra keys are dropped with a warning.
+- `LM_SSH_ALLOWLIST=pattern1,pattern2` — optional regex allowlist for commands sent via SSH; non-matching commands are blocked.
+- `LM_LOG_FORMAT=json` — emit JSON logs from `lm_log` (one JSON object per line).
 
 
 ### SSH security defaults (fleet mode)
@@ -688,6 +694,7 @@ Optional: Prometheus export (textfile collector format)
 - `linux_maint_reason_count{reason="..."}` — top non-OK reason token counts (deduped by monitor+host, bounded by `LM_PROM_MAX_REASON_LABELS`, default 20)
 - `linux_maint_monitor_runtime_ms{monitor="..."}` — per-monitor runtime in milliseconds (wrapper)
 - `linux_maint_runtime_warn_count` — count of monitors exceeding runtime warn thresholds
+- `LM_PROM_FORMAT=openmetrics` — append `# EOF` for OpenMetrics-compatible output.
 
 Each script prints a **single one-line summary** to stdout so the wrapper log stays readable.
 
@@ -827,13 +834,13 @@ Build a tarball on a connected workstation:
 
 ```bash
 ./tools/make_tarball.sh
-# output: dist/linux_Maint_Scripts-<version>-<sha>.tgz
+# output: dist/Linux_Maint_ToolKit-<version>-<sha>.tgz
 ```
 
 Copy the tarball to the offline server, extract, then install:
 
 ```bash
-tar -xzf dist/linux_Maint_Scripts-*.tgz
+tar -xzf dist/Linux_Maint_ToolKit-*.tgz
 sudo ./install.sh
 cat /usr/local/share/linux_maint/BUILD_INFO
 ```
@@ -845,18 +852,18 @@ If your target servers cannot access GitHub/the Internet, you can still deploy t
 On a connected workstation:
 
 ```bash
-git clone https://github.com/ShenhavHezi/linux_Maint_Scripts.git
-cd linux_Maint_Scripts
+git clone https://github.com/ShenhavHezi/Linux_Maint_ToolKit.git
+cd Linux_Maint_ToolKit
 
 # Recommended: build a versioned tarball with BUILD_INFO
 ./tools/make_tarball.sh
-# output: dist/linux_Maint_Scripts-<version>-<sha>.tgz
+# output: dist/Linux_Maint_ToolKit-<version>-<sha>.tgz
 ```
 
 Copy the generated tarball from `dist/` to the dark-site server, extract, then install:
 
 ```bash
-tar -xzf linux_Maint_Scripts-*.tgz
+tar -xzf Linux_Maint_ToolKit-*.tgz
 sudo ./install.sh --with-logrotate
 # (optional)
 # sudo ./install.sh --with-user --with-timer --with-logrotate
@@ -876,7 +883,7 @@ Prereqs:
 Build:
 
 ```bash
-cd linux_Maint_Scripts
+cd Linux_Maint_ToolKit
 # optional: pass an explicit version; otherwise VERSION file is used
 ./packaging/rpm/build_rpm.sh
 # or: ./packaging/rpm/build_rpm.sh 0.1.0
@@ -1029,7 +1036,7 @@ Notes:
 To upgrade on a node where you installed using the recommended paths:
 
 ```bash
-cd /path/to/linux_Maint_Scripts
+cd /path/to/Linux_Maint_ToolKit
 git pull
 
 sudo install -D -m 0755 lib/linux_maint.sh /usr/local/lib/linux_maint.sh

@@ -9,7 +9,7 @@ trap 'rm -rf "$workdir"' EXIT
 
 mkdir -p "$workdir/dist"
 
-tarball="$workdir/dist/linux_Maint_Scripts-test.tgz"
+tarball="$workdir/dist/Linux_Maint_ToolKit-test.tgz"
 printf 'hello\n' > "$workdir/payload.txt"
 ( cd "$workdir" && tar -czf "$tarball" payload.txt )
 

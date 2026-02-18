@@ -37,7 +37,16 @@ lm_ts() { date '+%Y-%m-%d %H:%M:%S'; }
 lm_log() {
   local lvl="$1"; shift
   local line
-  line="$(lm_ts) - ${LM_PREFIX}${lvl} - $(lm_redact_line "$*")"
+  if [[ "${LM_LOG_FORMAT:-text}" == "json" ]]; then
+    local msg ts esc_msg esc_prefix
+    ts="$(lm_ts)"
+    msg="$(lm_redact_line "$*")"
+    esc_msg="$(lm_json_escape "$msg")"
+    esc_prefix="$(lm_json_escape "${LM_PREFIX}")"
+    line="{\"ts\":\"${ts}\",\"level\":\"${lvl}\",\"prefix\":\"${esc_prefix}\",\"msg\":\"${esc_msg}\"}"
+  else
+    line="$(lm_ts) - ${LM_PREFIX}${lvl} - $(lm_redact_line "$*")"
+  fi
   # print to stdout and append to LM_LOGFILE (create parent dir if needed)
   mkdir -p "$(dirname "$LM_LOGFILE")" 2>/dev/null || true
   echo "$line" | tee -a "$LM_LOGFILE" >/dev/null
@@ -46,6 +55,16 @@ lm_info(){ lm_log INFO "$@"; }
 lm_warn(){ lm_log WARN "$@"; }
 lm_err(){  lm_log ERROR "$@"; }
 lm_die(){  lm_err "$@"; exit 1; }
+
+lm_json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\r'/\\r}"
+  s="${s//$'\t'/\\t}"
+  printf '%s' "$s"
+}
 
 # ========= Writable dir selection (fallback chain) =========
 # lm_pick_writable_dir <label> <primary> [fallback1 ...]
@@ -92,6 +111,35 @@ lm_mktemp() {
   local dir
   dir="$(lm_pick_tmpdir 2>/dev/null)" || dir="${TMPDIR:-/tmp}"
   mktemp -p "$dir" "$tmpl"
+}
+
+# ========= Timing helper =========
+# lm_time <monitor> <step> <command...>
+# Emits: RUNTIME_STEP monitor=<name> step=<label> ms=<duration> rc=<rc>
+lm_now_ms() {
+  local ms
+  ms="$(date +%s%3N 2>/dev/null || true)"
+  if [[ "$ms" =~ ^[0-9]+$ ]]; then
+    printf '%s' "$ms"
+    return 0
+  fi
+  python3 - <<'PY'
+import time
+print(int(time.time()*1000))
+PY
+}
+
+lm_time() {
+  local monitor="$1" step="$2"; shift 2
+  local start end rc
+  start="$(lm_now_ms)"
+  "$@"
+  rc=$?
+  end="$(lm_now_ms)"
+  if [[ "$start" =~ ^[0-9]+$ && "$end" =~ ^[0-9]+$ ]]; then
+    echo "RUNTIME_STEP monitor=$monitor step=$step ms=$((end-start)) rc=$rc"
+  fi
+  return "$rc"
 }
 
 # ========= Optional log redaction =========
@@ -251,6 +299,13 @@ lm_notify_send() {
 # lm_ssh HOST CMD...
 lm_ssh() {
   local host="$1"; shift
+  if [[ -n "${LM_SSH_ALLOWLIST:-}" ]]; then
+    local cmdline="$*"
+    if ! lm_ssh_allowed_cmd "$cmdline"; then
+      lm_warn "SSH command blocked by LM_SSH_ALLOWLIST"
+      return 2
+    fi
+  fi
   if [ "$host" = "localhost" ] || [ "$host" = "127.0.0.1" ]; then
     # Preserve caller PATH for localhost runs so test shims and local tools are respected.
     bash -lc "PATH=\"$PATH\" $*" 2>/dev/null
@@ -265,6 +320,23 @@ lm_ssh() {
 }
 # quick reachability probe (0=ok)
 lm_reachable() { lm_ssh "$1" "echo ok" | grep -q ok; }
+
+# LM_SSH_ALLOWLIST: comma/space-separated regex patterns.
+# Returns 0 if the command line matches any pattern.
+lm_ssh_allowed_cmd() {
+  local cmdline="$1"
+  [[ -z "${LM_SSH_ALLOWLIST:-}" ]] && return 0
+  local allow
+  local pat
+  allow="$(printf '%s' "$LM_SSH_ALLOWLIST" | tr ', ' '\n' | awk 'NF{print $1}')"
+  while IFS= read -r pat; do
+    [[ -z "$pat" ]] && continue
+    if [[ "$cmdline" =~ $pat ]]; then
+      return 0
+    fi
+  done <<< "$allow"
+  return 1
+}
 
 # ========= Exclusions & host list =========
 lm_is_excluded() { [ -f "$LM_EXCLUDED" ] && grep -Fxq "$1" "$LM_EXCLUDED"; }

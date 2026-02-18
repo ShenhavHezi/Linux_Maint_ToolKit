@@ -117,7 +117,7 @@ jobs:
           dnf -y install /tmp/linux-maint-rpmbuild/RPMS/noarch/*.rpm
           linux-maint --help | head -n 40
           linux-maint version || true
-          test -f /usr/share/linux_Maint_Scripts/docs/REASONS.md
+          test -f /usr/share/Linux_Maint_ToolKit/docs/REASONS.md
           linux-maint explain reason ssh_unreachable
           # systemd checks (may be limited inside container, but unit files should exist)
           test -f /usr/lib/systemd/system/linux-maint.timer

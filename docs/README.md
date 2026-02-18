@@ -1,11 +1,14 @@
 # Documentation index
 
+Note: this repo was previously named `linux_Maint_Scripts`. The CLI remains `linux-maint`.
+
 ## Operator docs (start here)
 
 - **Quick reference (cheat-sheet)**: [`QUICK_REFERENCE.md`](QUICK_REFERENCE.md)
 - **Full reference (configuration, monitors, outputs)**: [`reference.md`](reference.md)
 - **Reason tokens** (`reason=` contract): [`REASONS.md`](REASONS.md)
 - **Offline / dark-site usage**: [`DARK_SITE.md`](DARK_SITE.md)
+- **Day-2 operations**: [`DAY2.md`](DAY2.md)
 
 ## Which mode should I use?
 
@@ -17,6 +20,7 @@ If you’re not sure, start in repo mode and install once you like the results.
 ## Contributor docs
 
 - Contribution workflow and contracts: [`../CONTRIBUTING.md`](../CONTRIBUTING.md)
+- Release checklist: [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md)
 
 ## Dev container (optional)
 

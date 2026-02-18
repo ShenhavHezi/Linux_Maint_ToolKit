@@ -608,6 +608,7 @@ summary_file=os.environ.get("SUMMARY_FILE")
 json_file=os.environ.get("SUMMARY_JSON_FILE")
 json_latest=os.environ.get("SUMMARY_JSON_LATEST_FILE")
 prom_file=os.environ.get("PROM_FILE")
+prom_format=os.environ.get("LM_PROM_FORMAT","")
 hosts_ok=int(os.environ.get("LM_HOSTS_OK","0"))
 hosts_warn=int(os.environ.get("LM_HOSTS_WARN","0"))
 hosts_crit=int(os.environ.get("LM_HOSTS_CRIT","0"))
@@ -771,8 +772,46 @@ if prom_file and rows:
             f.write("\n# HELP linux_maint_runtime_warn_count Count of monitors exceeding runtime warn thresholds\n")
             f.write("# TYPE linux_maint_runtime_warn_count gauge\n")
             f.write(f"linux_maint_runtime_warn_count {runtime_warn_count}\n")
+            if prom_format == "openmetrics":
+                f.write("# EOF\n")
     except: pass
 PY
+
+write_checksum() {
+  local path="$1"
+  local out="${path}.sha256"
+  command -v sha256sum >/dev/null 2>&1 || return 0
+  [[ -s "$path" ]] || return 1
+  if ! sha256sum "$path" > "$out" 2>/dev/null; then
+    return 2
+  fi
+  return 0
+}
+
+checksum_warn() {
+  local msg="$1"
+  local warn_line="monitor=wrapper host=runner status=WARN reason=summary_checksum_failed msg=$msg"
+  echo "WARN: $msg" >> "$tmp_report"
+  echo "$warn_line" >> "$tmp_report"
+  if [[ -s "$SUMMARY_FILE" ]]; then
+    printf '%s\n' "$warn_line" >> "$SUMMARY_FILE" 2>/dev/null || true
+  fi
+  if [[ -s "$logfile" ]]; then
+    printf '%s\n' "[WARN] $msg" >> "$logfile" 2>/dev/null || true
+    printf '%s\n' "$warn_line" >> "$logfile" 2>/dev/null || true
+  fi
+}
+
+if [[ -n "${SUMMARY_FILE:-}" ]]; then
+  if ! write_checksum "$SUMMARY_FILE"; then
+    checksum_warn "checksum write failed for $SUMMARY_FILE"
+  fi
+fi
+if [[ -n "${SUMMARY_JSON_FILE:-}" && -s "${SUMMARY_JSON_FILE:-}" ]]; then
+  if ! write_checksum "$SUMMARY_JSON_FILE"; then
+    checksum_warn "checksum write failed for $SUMMARY_JSON_FILE"
+  fi
+fi
 
 {
   echo "timestamp=$(lm_now_iso)"

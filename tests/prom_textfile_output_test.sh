@@ -84,3 +84,13 @@ if dups_runtime:
     raise SystemExit(f"duplicate linux_maint_monitor_runtime_ms labelsets found: {dups_runtime[:5]}")
 print('prom textfile ok')
 PY
+
+# OpenMetrics format check (optional)
+OM_FILE="$ROOT_DIR/.logs/linux_maint_openmetrics.prom"
+(
+  cd "$ROOT_DIR"
+  PROM_FILE="$OM_FILE" LM_PROM_FORMAT="openmetrics" bash ./run_full_health_monitor.sh >/dev/null 2>&1 || true
+)
+if [ -s "$OM_FILE" ]; then
+  tail -n 1 "$OM_FILE" | grep -q '^# EOF$'
+fi
