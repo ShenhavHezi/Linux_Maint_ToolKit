@@ -53,6 +53,7 @@ run_required "lm_mktemp_fallback_test" bash "$ROOT_DIR/tests/lm_mktemp_fallback_
 run_required "monitor_summary_emission_test" bash "$ROOT_DIR/tests/monitor_summary_emission_test.sh"
 run_required "summary_diff_canonicalization_test" bash "$ROOT_DIR/tests/summary_diff_canonicalization_test.sh"
 run_required "quick_check_make_target_test" bash "$ROOT_DIR/tests/quick_check_make_target_test.sh"
+run_required "wrapper_runtime_summary_test" bash "$ROOT_DIR/tests/wrapper_runtime_summary_test.sh"
 
 # Security lint: forbid eval usage
 run_required "no_eval_lint" bash "$ROOT_DIR/tests/no_eval_lint.sh"

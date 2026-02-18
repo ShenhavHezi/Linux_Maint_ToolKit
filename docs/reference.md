@@ -125,6 +125,13 @@ Several scripts create temporary files (wrapper, monitors, tools).
 - If unwritable, the code falls back to `/var/tmp` then `/tmp` (best-effort).
 - Some monitors also consider `LM_STATE_DIR` for temp files when appropriate.
 
+### Runtime summary (wrapper logs)
+
+The wrapper records per-monitor runtime in milliseconds and includes:
+
+- `RUNTIME monitor=<name> ms=<duration>` lines in the wrapper log
+- A “Top runtimes (ms)” section in the human summary
+
 ### `inode_monitor.sh`
 - `THRESHOLDS` = `"/etc/linux_maint/inode_thresholds.txt"   # CSV: mountpoint,warn%,crit% (supports '*' default)`
 - `EXCLUDE_MOUNTS` = `"/etc/linux_maint/inode_exclude.txt"  # Optional: list of mountpoints to skip`

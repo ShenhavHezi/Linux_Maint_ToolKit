@@ -336,15 +336,25 @@ run_one() {
 skipped=0
 worst=0
 ok=0; warn=0; crit=0; unk=0
+declare -A runtime_ms=()
+
+now_ms(){
+  date +%s%3N 2>/dev/null || echo $(( $(date +%s) * 1000 ))
+}
 
 for s in "${scripts[@]}"; do
   set +e
+  start_ms="$(now_ms)"
   before_lines=$(grep -a -c "^monitor=" "$tmp_report" 2>/dev/null || true)
   before_lines=${before_lines:-0}
   run_one "$s"
   rc=$?
   after_lines=$(grep -a -c "^monitor=" "$tmp_report" 2>/dev/null || true)
   after_lines=${after_lines:-0}
+  end_ms="$(now_ms)"
+  if [[ "$end_ms" =~ ^[0-9]+$ && "$start_ms" =~ ^[0-9]+$ ]]; then
+    runtime_ms["${s%.sh}"]=$((end_ms - start_ms))
+  fi
   if [ "$rc" -ne 0 ] && [ "$after_lines" -le "$before_lines" ]; then
     # Hardening: a monitor failed but emitted no standardized summary line.
     echo "monitor=${s%.sh} host=runner status=UNKNOWN node=$(hostname -f 2>/dev/null || hostname) reason=early_exit rc=$rc" >> "$tmp_report"
@@ -408,8 +418,13 @@ if [ -f "$_tmp_mon_snapshot" ]; then
 fi
 
 
-echo "SUMMARY_HOSTS ok=$hosts_ok warn=$hosts_warn crit=$hosts_crit unknown=$hosts_unknown skipped=$hosts_skip"
-_tmp_human=$(mktemp -p "$TMPDIR" linux_maint_human.XXXXXX)
+  echo "SUMMARY_HOSTS ok=$hosts_ok warn=$hosts_warn crit=$hosts_crit unknown=$hosts_unknown skipped=$hosts_skip"
+  echo ""
+  echo "RUNTIME_SUMMARY (per-monitor ms)"
+  for m in "${!runtime_ms[@]}"; do
+    echo "RUNTIME monitor=$m ms=${runtime_ms[$m]}"
+  done
+  _tmp_human=$(mktemp -p "$TMPDIR" linux_maint_human.XXXXXX)
 {
   echo ""
   echo "HUMAN_STATUS_SUMMARY"
@@ -426,6 +441,14 @@ _tmp_human=$(mktemp -p "$TMPDIR" linux_maint_human.XXXXXX)
     st=="CRIT" || st=="WARN" || st=="UNKNOWN" {print st ": " host " " mon (msg?" - " msg:"")}
   ' "$_tmp_mon_snapshot" | head -n 50
 
+  echo ""
+  echo "Top runtimes (ms)"
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    ms="${line%% *}"
+    mon="${line#* }"
+    echo "${mon} ms=${ms}"
+  done < <(for m in "${!runtime_ms[@]}"; do echo "${runtime_ms[$m]} $m"; done | sort -rn | head -n 10)
   echo ""
   echo "Logs: $logfile"
   echo "Summary: $SUMMARY_FILE"

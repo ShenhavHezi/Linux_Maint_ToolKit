@@ -1351,6 +1351,8 @@ PYJSON
     fi
 
     echo "== Config presence =="
+    fix_suggestions=()
+    add_fix(){ fix_suggestions+=("$1"); }
     if [[ -d "$CFG_DIR" ]]; then
       for f in "$CFG_DIR/servers.txt" "$CFG_DIR/excluded.txt" "$CFG_DIR/services.txt" "$CFG_DIR/emails.txt"; do
         [[ -e "$f" ]] && echo "OK: $f" || echo "MISSING: $f"
@@ -1358,30 +1360,34 @@ PYJSON
 
       if [[ ! -s "$CFG_DIR/servers.txt" ]]; then
         echo "WARN: servers.txt missing/empty" >&2
+        add_fix "Create $CFG_DIR/servers.txt (example: printf '%s\\n' localhost | sudo tee $CFG_DIR/servers.txt)"
       else
         n_hosts=$(grep -c -vE '^\s*(#|$)' "$CFG_DIR/servers.txt" 2>/dev/null || echo 0)
         echo "hosts_configured=$n_hosts"
         if [[ "$n_hosts" -eq 0 ]]; then
           echo "WARN: servers.txt has no active hosts (only comments/blank lines)" >&2
+          add_fix "Add hosts to $CFG_DIR/servers.txt (one per line)"
         fi
       fi
 
       if [[ -f "$CFG_DIR/services.txt" && ! -s "$CFG_DIR/services.txt" ]]; then
         echo "WARN: services.txt is empty; service monitor may be ineffective" >&2
+        add_fix "Populate $CFG_DIR/services.txt with critical services (one per line)"
       fi
     else
       echo "MISSING: config dir $CFG_DIR" >&2
       echo "Tip: sudo linux-maint init" >&2
+      add_fix "Initialize config templates: sudo linux-maint init"
     fi
 
     echo "== Monitor gates (what may SKIP) =="
-    [[ -s "$CFG_DIR/certs.txt" ]] || echo "SKIP gate: cert_monitor -> missing/empty $CFG_DIR/certs.txt"
-    [[ -s "$CFG_DIR/network_targets.txt" ]] || echo "SKIP gate: network_monitor -> missing/empty $CFG_DIR/network_targets.txt"
-    [[ -s "$CFG_DIR/ports_baseline.txt" ]] || echo "SKIP gate: ports_baseline_monitor -> missing/empty $CFG_DIR/ports_baseline.txt"
-    [[ -s "$CFG_DIR/config_paths.txt" ]] || echo "SKIP gate: config_drift_monitor -> missing/empty $CFG_DIR/config_paths.txt"
-    [[ -s "$CFG_DIR/baseline_users.txt" ]] || echo "SKIP gate: user_monitor -> missing/empty $CFG_DIR/baseline_users.txt"
-    [[ -s "$CFG_DIR/baseline_sudoers.txt" ]] || echo "SKIP gate: user_monitor -> missing/empty $CFG_DIR/baseline_sudoers.txt"
-    [[ -s "$CFG_DIR/backup_targets.csv" ]] || echo "SKIP gate: backup_check -> missing/empty $CFG_DIR/backup_targets.csv"
+    [[ -s "$CFG_DIR/certs.txt" ]] || { echo "SKIP gate: cert_monitor -> missing/empty $CFG_DIR/certs.txt"; add_fix "Add cert paths to $CFG_DIR/certs.txt"; }
+    [[ -s "$CFG_DIR/network_targets.txt" ]] || { echo "SKIP gate: network_monitor -> missing/empty $CFG_DIR/network_targets.txt"; add_fix "Add network targets to $CFG_DIR/network_targets.txt"; }
+    [[ -s "$CFG_DIR/ports_baseline.txt" ]] || { echo "SKIP gate: ports_baseline_monitor -> missing/empty $CFG_DIR/ports_baseline.txt"; add_fix "Add baseline allowlist to $CFG_DIR/ports_baseline.txt"; }
+    [[ -s "$CFG_DIR/config_paths.txt" ]] || { echo "SKIP gate: config_drift_monitor -> missing/empty $CFG_DIR/config_paths.txt"; add_fix "Add config paths to $CFG_DIR/config_paths.txt"; }
+    [[ -s "$CFG_DIR/baseline_users.txt" ]] || { echo "SKIP gate: user_monitor -> missing/empty $CFG_DIR/baseline_users.txt"; add_fix "Generate baseline users list at $CFG_DIR/baseline_users.txt"; }
+    [[ -s "$CFG_DIR/baseline_sudoers.txt" ]] || { echo "SKIP gate: user_monitor -> missing/empty $CFG_DIR/baseline_sudoers.txt"; add_fix "Generate baseline sudoers list at $CFG_DIR/baseline_sudoers.txt"; }
+    [[ -s "$CFG_DIR/backup_targets.csv" ]] || { echo "SKIP gate: backup_check -> missing/empty $CFG_DIR/backup_targets.csv"; add_fix "Add backup targets to $CFG_DIR/backup_targets.csv"; }
 
     echo "== Dependencies (best-effort) =="
     need_cmd() {
@@ -1391,6 +1397,7 @@ PYJSON
       else
         echo "WARN: missing command: $cmd" >&2
         [[ -n "$pkg_hint" ]] && echo "  hint: install package: $pkg_hint" >&2
+        [[ -n "$pkg_hint" ]] && add_fix "Install missing dependency: $pkg_hint"
       fi
     }
 
@@ -1426,10 +1433,23 @@ PYJSON
     for d in /var/log/health /var/log/inventory /var/lib/linux_maint /var/lock; do
       if [[ -d "$d" ]]; then
         if touch "$d/.lm_write_test" 2>/dev/null; then rm -f "$d/.lm_write_test"; echo "OK: writable $d"; else echo "WARN: not writable $d"; fi
+        if ! touch "$d/.lm_write_test" 2>/dev/null; then
+          add_fix "Ensure $d is writable (example: sudo install -d -m 0755 $d)"
+        fi
       else
         echo "WARN: missing dir $d" >&2
+        add_fix "Create missing dir: sudo install -d -m 0755 $d"
       fi
     done
+
+    echo "== Fix suggestions =="
+    if [[ "${#fix_suggestions[@]}" -eq 0 ]]; then
+      echo "- none"
+    else
+      for f in "${fix_suggestions[@]}"; do
+        echo "- $f"
+      done
+    fi
 
     echo "== Next recommended actions =="
     echo "- linux-maint verify-install"
