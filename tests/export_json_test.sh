@@ -71,7 +71,7 @@ S
 
 cat > "$SUMMARY_FILE" <<'S'
 monitor=health_monitor host=server-a status=OK
-monitor=network_monitor host=server-a status=WARN reason=ping_failed
+monitor=network_monitor host=server-a status=WARN reason=ping_failed token=shh-secret
 S
 
 cat > "$LOG_FILE" <<'S'
@@ -94,4 +94,14 @@ assert sr.get("overall") == "WARN"
 sh=o["summary_hosts"]
 assert sh.get("warn") == 1
 print("export json ok")
+'
+
+export_out="$(LM_REDACT_LOGS=1 bash "$LM" export --json)"
+printf '%s' "$export_out" | python3 -c '
+import json,sys
+o=json.load(sys.stdin)
+for row in o.get("rows", []):
+    if "token" in row:
+        assert row["token"] == "REDACTED"
+print("export json redaction ok")
 '

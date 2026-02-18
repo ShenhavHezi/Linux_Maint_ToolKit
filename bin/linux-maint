@@ -1064,6 +1064,29 @@ def parse_kv_line(line):
             d[k]=v
     return d
 
+def redact_value(val: str) -> str:
+    lower = val.lower()
+    secret_keys = (
+        "password","passwd","token","api_key","apikey","secret",
+        "access_key","private_key","session","session_id","id_token",
+        "refresh_token","x_auth_token"
+    )
+    if any(k in lower for k in secret_keys):
+        return "REDACTED"
+    if val.count(".") == 2 and all(len(p) >= 12 for p in val.split(".")):
+        return "REDACTED_JWT"
+    return val
+
+def redact_kv_map(row):
+    out = {}
+    for k,v in row.items():
+        kl = k.lower()
+        if any(x in kl for x in ("password","passwd","token","api_key","apikey","secret","access_key","private_key","session","id_token","refresh_token","x_auth_token")):
+            out[k] = "REDACTED"
+        else:
+            out[k] = redact_value(v)
+    return out
+
 def read_rows():
     if summary_json_path and os.path.exists(summary_json_path):
         try:
@@ -1126,6 +1149,10 @@ def derive_hosts(rows):
     return counts
 
 rows, meta = read_rows()
+if os.environ.get("LM_REDACT_LOGS","0") in ("1","true","TRUE","yes","YES"):
+    rows = [redact_kv_map(r) for r in rows]
+    if meta:
+        meta = redact_kv_map(meta)
 summary_result, summary_hosts = parse_log_summary(log_path)
 
 summary_result_source = 'log' if summary_result else 'derived'
