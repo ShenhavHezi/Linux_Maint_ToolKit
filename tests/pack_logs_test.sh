@@ -33,8 +33,10 @@ CFG
 bundle_path="$(OUTDIR="$workdir" LOG_DIR="$logdir" CFG_DIR="$cfgdir" REPO_ROOT="$ROOT_DIR" "$ROOT_DIR/tools/pack_logs.sh")"
 [[ -f "$bundle_path" ]]
 
-tar -tzf "$bundle_path" | grep -q '^\./logs/full_health_monitor_summary_latest\.log$'
-tar -tzf "$bundle_path" | grep -q '^\./config/servers\.txt$'
+tar_list="$workdir/tar.list"
+tar -tzf "$bundle_path" > "$tar_list"
+grep -q '^\./logs/full_health_monitor_summary_latest\.log$' "$tar_list"
+grep -q '^\./config/servers\.txt$' "$tar_list"
 
 extracted_cfg="$workdir/extracted_servers.txt"
 tar -xOf "$bundle_path" ./config/servers.txt > "$extracted_cfg"

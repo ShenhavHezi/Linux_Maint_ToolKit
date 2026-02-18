@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+TMPDIR="${TMPDIR:-/tmp}"
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 LM="$ROOT_DIR/bin/linux-maint"
@@ -9,8 +10,8 @@ mkdir -p "$LOG_DIR"
 SUMMARY_FILE="$LOG_DIR/full_health_monitor_summary_latest.log"
 STATUS_FILE="$LOG_DIR/last_status_full"
 
-bak_summary="$(mktemp /tmp/lm_summary_bak.XXXXXX)"
-bak_status="$(mktemp /tmp/lm_status_bak.XXXXXX)"
+bak_summary="$(mktemp ${TMPDIR}/lm_summary_bak.XXXXXX)"
+bak_status="$(mktemp ${TMPDIR}/lm_status_bak.XXXXXX)"
 had_summary=0
 had_status=0
 

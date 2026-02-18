@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
+TMPDIR="${TMPDIR:-/tmp}"
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 out="$({
   LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh" \
-  LM_LOCKDIR=/tmp \
-  LM_LOGFILE=/tmp/linux_maint_resource_test.log \
+  LM_LOCKDIR="${TMPDIR}" \
+  LM_LOGFILE=${TMPDIR}/linux_maint_resource_test.log \
   bash "$ROOT_DIR/monitors/resource_monitor.sh"
 } 2>/dev/null || true)"
 

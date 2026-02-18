@@ -29,7 +29,7 @@ These are cross-monitor, reusable tokens. Prefer these before inventing a new on
 - `ssh_unreachable` — cannot reach host via SSH / command execution
 - `missing_dependency` — required command missing on runner/host
 - `missing_optional_cmd` — optional command missing (monitor skipped/degraded)
-- `no_summary_emitted` — monitor exited without emitting a summary line (wrapper fallback)
+- `early_exit` — monitor exited without emitting a summary line (wrapper or monitor trap fallback)
 - `timeout` — command timed out
 - `not_installed` — required tool/service missing
 - `permission_denied` — permission problem reading state/logs/etc

@@ -63,7 +63,7 @@ This is the single backlog source of truth.
 
 ---
 
-### P0.3 [dark-site][ops] Improve failure resilience when writable log/state dirs are unavailable
+### P0.3 [dark-site][ops] Improve failure resilience when writable log/state dirs are unavailable (DONE 2026-02-18)
 **Why**: restricted hosts sometimes block `/var/log`/`/var/lib`; failures should degrade predictably.
 
 **Where**:
@@ -77,7 +77,8 @@ This is the single backlog source of truth.
 - Avoid partial-run silent failures.
 
 **Verify**:
-- Add test that simulates unwritable default paths and confirms graceful completion.
+- ✅ Implemented: centralized writable-dir fallback helper and wrapper warnings for log/state/summary fallback.
+- ✅ Coverage: added `tests/wrapper_fallback_paths_test.sh` to simulate unwritable paths and confirm graceful completion.
 
 ---
 

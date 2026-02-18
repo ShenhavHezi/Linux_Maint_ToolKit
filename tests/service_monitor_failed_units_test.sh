@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
+TMPDIR="${TMPDIR:-/tmp}"
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+mkdir -p "$TMPDIR"
 
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
@@ -55,7 +58,8 @@ chmod +x "$shim/systemctl"
 out="$({
   PATH="$shim:$PATH" \
   LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh" \
-  LM_LOCKDIR=/tmp \
+  LM_LOCKDIR="${TMPDIR}" \
+  LM_STATE_DIR="${TMPDIR}" \
   LM_LOGFILE="$workdir/service_monitor.log" \
   bash "$ROOT_DIR/monitors/service_monitor.sh"
 } 2>/dev/null || true)"

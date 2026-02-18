@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
+TMPDIR="${TMPDIR:-/tmp}"
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 LM="$ROOT_DIR/bin/linux-maint"
 LOG_DIR="$ROOT_DIR/.logs"
 mkdir -p "$LOG_DIR"
+mkdir -p "$TMPDIR"
+
+workdir="$(mktemp -d)"
+stash="$workdir/stash"
+mkdir -p "$stash"
 
 SUMMARY_FILE="$LOG_DIR/full_health_monitor_summary_latest.log"
 STATUS_FILE="$LOG_DIR/last_status_full"
 
-bak_summary="$(mktemp /tmp/lm_summary_bak.XXXXXX)"
-bak_status="$(mktemp /tmp/lm_status_bak.XXXXXX)"
+bak_summary="$(mktemp ${TMPDIR}/lm_summary_bak.XXXXXX)"
+bak_status="$(mktemp ${TMPDIR}/lm_status_bak.XXXXXX)"
 had_summary=0
 had_status=0
 
@@ -25,6 +31,13 @@ fi
 
 cleanup(){
   rm -f "$LOG_DIR"/full_health_monitor_summary_2020-01-01_000000.log "$LOG_DIR"/full_health_monitor_summary_2099-12-31_000000.log
+  if [[ -d "$stash" ]]; then
+    shopt -s nullglob
+    for f in "$stash"/*; do
+      mv "$f" "$LOG_DIR"/ 2>/dev/null || true
+    done
+    shopt -u nullglob
+  fi
   if [[ "$had_summary" -eq 1 ]]; then
     cp "$bak_summary" "$SUMMARY_FILE"
   else
@@ -36,8 +49,16 @@ cleanup(){
     rm -f "$STATUS_FILE"
   fi
   rm -f "$bak_summary" "$bak_status"
+  rm -rf "$workdir"
 }
 trap cleanup EXIT
+
+# Isolate this test from existing summary history.
+shopt -s nullglob
+for f in "$LOG_DIR"/full_health_monitor_summary_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9].log; do
+  mv "$f" "$stash"/ 2>/dev/null || true
+done
+shopt -u nullglob
 
 cat > "$STATUS_FILE" <<'S'
 status=warn

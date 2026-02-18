@@ -19,7 +19,6 @@ if [[ -f "$REPO_DIR/lib/linux_maint.sh" ]]; then
   export LINUX_MAINT_LIB="$REPO_DIR/lib/linux_maint.sh"
 fi
 export LM_LOCKDIR="${LM_LOCKDIR:-/tmp}"
-export LM_STATE_DIR="${LM_STATE_DIR:-/tmp}"
 
 # Load optional notification config (wrapper-level). Default OFF.
 if [[ -f "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" ]]; then
@@ -33,8 +32,10 @@ fi
 
 if [[ -d "$REPO_DIR/monitors" ]]; then
   LOG_DIR_DEFAULT="$REPO_DIR/.logs"
+  STATE_DIR_DEFAULT="/tmp"
 else
   LOG_DIR_DEFAULT="/var/log/health"
+  STATE_DIR_DEFAULT="/var/lib/linux_maint"
 fi
 
 # Load installed configuration files (best-effort).
@@ -44,11 +45,49 @@ if [ -f "$REPO_DIR/lib/linux_maint_conf.sh" ]; then
   if command -v lm_load_config >/dev/null 2>&1; then lm_load_config || true; fi
 fi
 
-LOG_DIR="${LOG_DIR:-$LOG_DIR_DEFAULT}"
+# Resolve state dir with fallback chain (writable-required)
+STATE_DIR_REQUESTED="${LM_STATE_DIR:-$STATE_DIR_DEFAULT}"
+STATE_DIR_FALLBACK_FROM=""
+STATE_DIR_FALLBACK_TO=""
+if command -v lm_pick_writable_dir >/dev/null 2>&1; then
+  if STATE_DIR_CHOSEN="$(lm_pick_writable_dir "state" "$STATE_DIR_REQUESTED" "/var/tmp/linux_maint" "/tmp/linux_maint" "${TMPDIR:-/tmp}/linux_maint")"; then
+    export LM_STATE_DIR="$STATE_DIR_CHOSEN"
+    if [[ "$STATE_DIR_CHOSEN" != "$STATE_DIR_REQUESTED" ]]; then
+      STATE_DIR_FALLBACK_FROM="$STATE_DIR_REQUESTED"
+      STATE_DIR_FALLBACK_TO="$STATE_DIR_CHOSEN"
+    fi
+  else
+    echo "ERROR: no writable state directory found (requested=$STATE_DIR_REQUESTED)" >&2
+    exit 3
+  fi
+else
+  export LM_STATE_DIR="$STATE_DIR_REQUESTED"
+fi
+
+# Resolve log dir with fallback chain (writable-required)
+LOG_DIR_REQUESTED="${LOG_DIR:-$LOG_DIR_DEFAULT}"
+LOG_DIR_FALLBACK_FROM=""
+LOG_DIR_FALLBACK_TO=""
+if command -v lm_pick_writable_dir >/dev/null 2>&1; then
+  if LOG_DIR_CHOSEN="$(lm_pick_writable_dir "logs" "$LOG_DIR_REQUESTED" "/var/tmp/linux_maint/logs" "/tmp/linux_maint/logs" "${TMPDIR:-/tmp}/linux_maint/logs")"; then
+    LOG_DIR="$LOG_DIR_CHOSEN"
+    if [[ "$LOG_DIR_CHOSEN" != "$LOG_DIR_REQUESTED" ]]; then
+      LOG_DIR_FALLBACK_FROM="$LOG_DIR_REQUESTED"
+      LOG_DIR_FALLBACK_TO="$LOG_DIR_CHOSEN"
+    fi
+  else
+    echo "ERROR: no writable log directory found (requested=$LOG_DIR_REQUESTED)" >&2
+    exit 3
+  fi
+else
+  LOG_DIR="$LOG_DIR_REQUESTED"
+  mkdir -p "$LOG_DIR" 2>/dev/null || true
+fi
+
 STATUS_FILE="$LOG_DIR/last_status_full"
 
-mkdir -p "$LOG_DIR"
-chmod 0755 "$LOG_DIR"
+mkdir -p "$LOG_DIR" 2>/dev/null || true
+chmod 0755 "$LOG_DIR" 2>/dev/null || true
 
 logfile="$LOG_DIR/full_health_monitor_$(date +%F_%H%M%S).log"
 
@@ -57,7 +96,25 @@ tmp_summary="/tmp/full_health_monitor_summary.$$"
 
 # Optional: write machine-parseable summaries to a separate file
 # Defaults to /var/log/health/full_health_monitor_summary_latest.log
-SUMMARY_DIR="${SUMMARY_DIR:-$LOG_DIR}"
+SUMMARY_DIR_REQUESTED="${SUMMARY_DIR:-$LOG_DIR}"
+SUMMARY_DIR_FALLBACK_FROM=""
+SUMMARY_DIR_FALLBACK_TO=""
+if command -v lm_pick_writable_dir >/dev/null 2>&1; then
+  if SUMMARY_DIR_CHOSEN="$(lm_pick_writable_dir "summary" "$SUMMARY_DIR_REQUESTED" "/var/tmp/linux_maint/logs" "/tmp/linux_maint/logs" "${TMPDIR:-/tmp}/linux_maint/logs")"; then
+    SUMMARY_DIR="$SUMMARY_DIR_CHOSEN"
+    if [[ "$SUMMARY_DIR_CHOSEN" != "$SUMMARY_DIR_REQUESTED" ]]; then
+      SUMMARY_DIR_FALLBACK_FROM="$SUMMARY_DIR_REQUESTED"
+      SUMMARY_DIR_FALLBACK_TO="$SUMMARY_DIR_CHOSEN"
+    fi
+  else
+    echo "ERROR: no writable summary directory found (requested=$SUMMARY_DIR_REQUESTED)" >&2
+    exit 3
+  fi
+else
+  SUMMARY_DIR="$SUMMARY_DIR_REQUESTED"
+  mkdir -p "$SUMMARY_DIR" 2>/dev/null || true
+fi
+
 SUMMARY_LATEST_FILE="${SUMMARY_LATEST_FILE:-$SUMMARY_DIR/full_health_monitor_summary_latest.log}"
 SUMMARY_JSON_LATEST_FILE="${SUMMARY_JSON_LATEST_FILE:-$SUMMARY_DIR/full_health_monitor_summary_latest.json}"
 SUMMARY_JSON_FILE="${SUMMARY_JSON_FILE:-$SUMMARY_DIR/full_health_monitor_summary_$(date +%F_%H%M%S).json}"
@@ -185,6 +242,20 @@ fi
   echo "SCRIPT_ORDER=${scripts[*]}"
   echo "============================================================"
 } > "$tmp_report"
+
+# Emit explicit warnings if we had to fall back to alternate writable dirs.
+if [[ -n "$LOG_DIR_FALLBACK_TO" ]]; then
+  echo "WARN: log dir fallback from $LOG_DIR_FALLBACK_FROM to $LOG_DIR_FALLBACK_TO" >> "$tmp_report"
+  echo "monitor=wrapper host=runner status=WARN reason=log_dir_fallback from=$LOG_DIR_FALLBACK_FROM to=$LOG_DIR_FALLBACK_TO" >> "$tmp_report"
+fi
+if [[ -n "$SUMMARY_DIR_FALLBACK_TO" ]]; then
+  echo "WARN: summary dir fallback from $SUMMARY_DIR_FALLBACK_FROM to $SUMMARY_DIR_FALLBACK_TO" >> "$tmp_report"
+  echo "monitor=wrapper host=runner status=WARN reason=summary_dir_fallback from=$SUMMARY_DIR_FALLBACK_FROM to=$SUMMARY_DIR_FALLBACK_TO" >> "$tmp_report"
+fi
+if [[ -n "$STATE_DIR_FALLBACK_TO" ]]; then
+  echo "WARN: state dir fallback from $STATE_DIR_FALLBACK_FROM to $STATE_DIR_FALLBACK_TO" >> "$tmp_report"
+  echo "monitor=wrapper host=runner status=WARN reason=state_dir_fallback from=$STATE_DIR_FALLBACK_FROM to=$STATE_DIR_FALLBACK_TO" >> "$tmp_report"
+fi
 
 run_one() {
   local s="$1"
@@ -357,7 +428,7 @@ cat "$_tmp_human" >> "$tmp_report"
 
   # ---- notify (optional, wrapper-level) ----
   # ---- diff since last run (optional, for more actionable notifications) ----
-  DIFF_STATE_DIR="${LM_NOTIFY_STATE_DIR:-/var/lib/linux_maint}"
+  DIFF_STATE_DIR="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-/var/lib/linux_maint}}"
   PREV_SUMMARY="$DIFF_STATE_DIR/last_summary_monitor_lines.log"
   CUR_SUMMARY="$_tmp_mon_snapshot"
   DIFF_TEXT=""

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+TMPDIR="${TMPDIR:-/tmp}"
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -22,29 +23,29 @@ monitor=health_monitor host=localhost status=WARN node=localhost reason=too_many
 S
 
 set +e
-python3 "$ROOT_DIR/tests/summary_parse_safety_lint.py" "$summary_bad_keys" >/tmp/summary_bad_keys.out 2>&1
+python3 "$ROOT_DIR/tests/summary_parse_safety_lint.py" "$summary_bad_keys" >${TMPDIR}/summary_bad_keys.out 2>&1
 rc_keys=$?
 set -e
 if [[ "$rc_keys" -eq 0 ]]; then
   echo "expected key-budget lint to fail" >&2
-  cat /tmp/summary_bad_keys.out >&2 || true
+  cat ${TMPDIR}/summary_bad_keys.out >&2 || true
   exit 1
 fi
-grep -q 'summary key budget exceeded' /tmp/summary_bad_keys.out
+grep -q 'summary key budget exceeded' ${TMPDIR}/summary_bad_keys.out
 
 cat > "$summary_bad_len" <<'S'
 monitor=health_monitor host=localhost status=WARN node=localhost reason=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 S
 
 set +e
-LM_SUMMARY_MAX_LEN=120 bash "$ROOT_DIR/tests/summary_noise_lint.sh" "$summary_bad_len" >/tmp/summary_bad_len.out 2>&1
+LM_SUMMARY_MAX_LEN=120 bash "$ROOT_DIR/tests/summary_noise_lint.sh" "$summary_bad_len" >${TMPDIR}/summary_bad_len.out 2>&1
 rc_len=$?
 set -e
 if [[ "$rc_len" -eq 0 ]]; then
   echo "expected length lint to fail" >&2
-  cat /tmp/summary_bad_len.out >&2 || true
+  cat ${TMPDIR}/summary_bad_len.out >&2 || true
   exit 1
 fi
-grep -q 'summary line too long' /tmp/summary_bad_len.out
+grep -q 'summary line too long' ${TMPDIR}/summary_bad_len.out
 
 echo "summary budget lint fixtures ok"

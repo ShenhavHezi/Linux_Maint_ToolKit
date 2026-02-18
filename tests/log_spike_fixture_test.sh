@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+TMPDIR="${TMPDIR:-/tmp}"
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -7,8 +8,8 @@ run_case() {
   local fixture="$1" warn="$2" crit="$3" exp_status="$4"
   out="$({
     LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh" \
-    LM_LOCKDIR=/tmp \
-    LM_LOGFILE=/tmp/linux_maint_log_spike_test.log \
+    LM_LOCKDIR="${TMPDIR}" \
+    LM_LOGFILE=${TMPDIR}/linux_maint_log_spike_test.log \
     LM_LOG_SPIKE_SOURCE=file \
     LM_LOG_SPIKE_FIXTURE_FILE="$ROOT_DIR/tests/fixtures/$fixture" \
     LM_LOG_SPIKE_WARN="$warn" \

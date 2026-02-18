@@ -9,13 +9,17 @@ set -euo pipefail
 #   3 = skipped optional checks (e.g., sudo-gated tests not run)
 #   other non-zero = failure (a required smoke sub-test failed)
 
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+TEST_TMP="${LM_TEST_TMPDIR:-$ROOT_DIR/.tmp_test}"
+mkdir -p "$TEST_TMP"
+export TMPDIR="$TEST_TMP"
+
 SMOKE_OK=0
 SMOKE_SKIPPED_OPTIONAL=3
 
-ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 export LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh"
-export LM_LOCKDIR=/tmp
-export LM_LOGFILE=/tmp/linux_maint.log
+export LM_LOCKDIR="${TMPDIR}"
+export LM_LOGFILE=${TMPDIR}/linux_maint.log
 export LM_EMAIL_ENABLED=false
 
 skipped_optional=0
@@ -33,10 +37,10 @@ run_required(){
 run_required "linux-maint help" bash "$ROOT_DIR/bin/linux-maint" help
 
 # Preflight should not hard-fail just because optional tools are missing
-LM_LOGFILE=/tmp/preflight_check.log LM_LOCKDIR=/tmp bash "$ROOT_DIR/monitors/preflight_check.sh" >/dev/null || true
+LM_LOGFILE=${TMPDIR}/preflight_check.log LM_LOCKDIR="${TMPDIR}" bash "$ROOT_DIR/monitors/preflight_check.sh" >/dev/null || true
 
 # Validate config formats (should succeed even if config files are absent; best-effort)
-LM_LOGFILE=/tmp/config_validate.log LM_LOCKDIR=/tmp bash "$ROOT_DIR/monitors/config_validate.sh" >/dev/null || true
+LM_LOGFILE=${TMPDIR}/config_validate.log LM_LOCKDIR="${TMPDIR}" bash "$ROOT_DIR/monitors/config_validate.sh" >/dev/null || true
 
 # lm_for_each_host_rc aggregation test
 run_required "lm_for_each_host_rc_test" bash "$ROOT_DIR/tests/lm_for_each_host_rc_test.sh"
@@ -68,6 +72,7 @@ if [[ "$SMOKE_PROFILE" != "compat" ]]; then
   # Summary noise guardrail (wrapper-level)
   run_required "summary_noise_lint" bash "$ROOT_DIR/tests/summary_noise_lint.sh"
   run_required "summary_budget_lint_fixture_test" bash "$ROOT_DIR/tests/summary_budget_lint_fixture_test.sh"
+  run_required "wrapper_fallback_paths_test" bash "$ROOT_DIR/tests/wrapper_fallback_paths_test.sh"
 
   # Prometheus textfile output (best-effort; wrapper-level)
   run_required "prom_textfile_output_test" bash "$ROOT_DIR/tests/prom_textfile_output_test.sh"

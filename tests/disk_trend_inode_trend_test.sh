@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+TMPDIR="${TMPDIR:-/tmp}"
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -69,7 +70,7 @@ chmod +x "$shim/df"
 out="$({
   PATH="$shim:$PATH" \
   LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh" \
-  LM_LOCKDIR=/tmp \
+  LM_LOCKDIR="${TMPDIR}" \
   LM_LOGFILE="$workdir/disk_trend.log" \
   bash "$ROOT_DIR/monitors/disk_trend_monitor.sh"
 } 2>/dev/null || true)"

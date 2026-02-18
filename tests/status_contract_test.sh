@@ -7,6 +7,8 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 LM="$ROOT_DIR/bin/linux-maint"
 
 # 1) Non-root installed-mode status should error once (no spam)
+# Skip if running as root.
+if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
 # Force installed mode by making wrapper point to a non-repo path
 # and setting MODE=installed is done by wrapper path compare.
 # We simulate by running the installed binary if present.
@@ -18,6 +20,7 @@ if command -v /usr/local/bin/linux-maint >/dev/null 2>&1; then
     printf "%s\n" "$err" >&2
     exit 1
   fi
+fi
 fi
 
 # 2) Repo-mode status output should include totals and problems header (when run as root)

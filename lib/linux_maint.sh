@@ -47,6 +47,33 @@ lm_warn(){ lm_log WARN "$@"; }
 lm_err(){  lm_log ERROR "$@"; }
 lm_die(){  lm_err "$@"; exit 1; }
 
+# ========= Writable dir selection (fallback chain) =========
+# lm_pick_writable_dir <label> <primary> [fallback1 ...]
+# - Ensures the chosen directory exists and is writable.
+# - Returns chosen dir on stdout; non-zero if none are writable.
+lm_dir_writable() {
+  local d="$1"
+  [ -n "$d" ] || return 1
+  mkdir -p "$d" 2>/dev/null || return 1
+  local probe="$d/.linux_maint_write_test.$$"
+  ( : > "$probe" ) 2>/dev/null || return 1
+  rm -f "$probe" 2>/dev/null || true
+  return 0
+}
+
+lm_pick_writable_dir() {
+  local label="$1"; shift
+  local d
+  for d in "$@"; do
+    [ -n "$d" ] || continue
+    if lm_dir_writable "$d"; then
+      printf '%s' "$d"
+      return 0
+    fi
+  done
+  return 1
+}
+
 # ========= Optional log redaction =========
 # If LM_REDACT_LOGS=1|true, redact common secret patterns from log lines.
 # This is best-effort and intentionally conservative.
@@ -191,7 +218,8 @@ lm_notify_send() {
 lm_ssh() {
   local host="$1"; shift
   if [ "$host" = "localhost" ] || [ "$host" = "127.0.0.1" ]; then
-    bash -lc "$*" 2>/dev/null
+    # Preserve caller PATH for localhost runs so test shims and local tools are respected.
+    bash -lc "PATH=\"$PATH\" $*" 2>/dev/null
   else
     # LM_SSH_OPTS may contain multiple ssh arguments. Split intentionally into an array.
     local -a _ssh_opts=()
@@ -410,4 +438,3 @@ lm_require_cmd(){
   lm_summary "$monitor" "$host" "UNKNOWN" reason=missing_dependency dep="$cmd"
   return 3
 }
-

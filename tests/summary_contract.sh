@@ -2,6 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TEST_TMP="${LM_TEST_TMPDIR:-$ROOT_DIR/.tmp_test}"
+mkdir -p "$TEST_TMP"
+export TMPDIR="${TMPDIR:-$TEST_TMP}"
 
 # Optional overrides for targeted tests/debugging.
 SUMMARY_CONTRACT_MONITORS_DIR="${SUMMARY_CONTRACT_MONITORS_DIR:-$ROOT_DIR/monitors}"
@@ -40,19 +43,19 @@ if [[ "${#monitors[@]}" -eq 0 ]]; then
 fi
 
 export LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh"
-export LM_LOCKDIR="/tmp"
-export LM_LOGFILE="/tmp/linux_maint_contract_test.log"
+export LM_LOCKDIR="$TMPDIR"
+export LM_LOGFILE="${TMPDIR}/linux_maint_contract_test.log"
 export LM_EMAIL_ENABLED="false"
-export LM_STATE_DIR="/tmp"
+export LM_STATE_DIR="$TMPDIR"
 export LM_SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=3"
 # Force local-only during CI contract test to avoid SSH delays/hangs.
 # Use a writable config dir with localhost so per-host monitors always execute
 # and emit at least one monitor= summary line.
-export LM_CFG_DIR="${LM_CFG_DIR:-/tmp/linux_maint_cfg_contract}"
+export LM_CFG_DIR="${LM_CFG_DIR:-${TMPDIR}/linux_maint_cfg_contract}"
 export LM_SERVERLIST="$LM_CFG_DIR/servers.txt"
 export LM_EXCLUDED="$LM_CFG_DIR/excluded.txt"
 export LM_LOCAL_ONLY="true"
-export LM_INVENTORY_OUTPUT_DIR="/tmp/linux_maint_inventory"
+export LM_INVENTORY_OUTPUT_DIR="${TMPDIR}/linux_maint_inventory"
 mkdir -p "$LM_INVENTORY_OUTPUT_DIR" "$LM_CFG_DIR" >/dev/null 2>&1 || true
 printf 'localhost\n' > "$LM_SERVERLIST"
 : > "$LM_EXCLUDED"
@@ -70,7 +73,7 @@ for m in "${monitors[@]}"; do
   # run best-effort; monitor may exit nonzero due to real system state
   set +e
   if command -v timeout >/dev/null 2>&1; then
-    LM_LOGFILE="/tmp/${m%.sh}.log" timeout "${SUMMARY_CONTRACT_MONITOR_TIMEOUT_SECS}s" bash "$path" >"$out" 2>&1
+    LM_LOGFILE="${TMPDIR}/${m%.sh}.log" timeout "${SUMMARY_CONTRACT_MONITOR_TIMEOUT_SECS}s" bash "$path" >"$out" 2>&1
     rc=$?
     if [[ "$rc" -eq 124 ]]; then
       echo "TIMEOUT: $m exceeded ${SUMMARY_CONTRACT_MONITOR_TIMEOUT_SECS}s" >&2
@@ -83,13 +86,13 @@ for m in "${monitors[@]}"; do
       continue
     fi
   else
-    LM_LOGFILE="/tmp/${m%.sh}.log" bash "$path" >"$out" 2>&1
+    LM_LOGFILE="${TMPDIR}/${m%.sh}.log" bash "$path" >"$out" 2>&1
     rc=$?
   fi
 
   if [[ "$rc" -ne 0 && ! -s "$out" ]]; then
     echo "NOTE: $m exited rc=$rc with empty output" >&2
-    echo "env: LINUX_MAINT_LIB=$LINUX_MAINT_LIB LM_LOCKDIR=$LM_LOCKDIR LM_STATE_DIR=$LM_STATE_DIR LM_LOGFILE=/tmp/${m%.sh}.log" >&2
+    echo "env: LINUX_MAINT_LIB=$LINUX_MAINT_LIB LM_LOCKDIR=$LM_LOCKDIR LM_STATE_DIR=$LM_STATE_DIR LM_LOGFILE=${TMPDIR}/${m%.sh}.log" >&2
   fi
   set -e
 

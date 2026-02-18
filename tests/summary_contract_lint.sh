@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+TEST_TMP="${LM_TEST_TMPDIR:-$REPO_ROOT/.tmp_test}"
+mkdir -p "$TEST_TMP"
+export TMPDIR="${TMPDIR:-$TEST_TMP}"
+
 # Run wrapper once (best-effort) to produce a repo log, then lint latest.
 # This test is intentionally tolerant: wrapper may return non-zero.
 
-REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_DIR="${LOG_DIR:-$REPO_ROOT/.logs}"
-export LM_LOCKDIR="${LM_LOCKDIR:-/tmp}"
+export LM_LOCKDIR="${LM_LOCKDIR:-$TMPDIR}"
 SUMMARY="$LOG_DIR/full_health_monitor_summary_latest.log"
 LOG="$LOG_DIR/full_health_monitor_latest.log"
 

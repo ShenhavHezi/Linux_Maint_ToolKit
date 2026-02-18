@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+TMPDIR="${TMPDIR:-/tmp}"
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 export LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh"
@@ -7,7 +8,7 @@ export LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh"
 # shellcheck disable=SC1090
 . "$LINUX_MAINT_LIB"
 
-export LM_LOGFILE="/tmp/linux_maint_redaction_test.log"
+export LM_LOGFILE="${TMPDIR}/linux_maint_redaction_test.log"
 rm -f "$LM_LOGFILE"
 
 # Default: no redaction

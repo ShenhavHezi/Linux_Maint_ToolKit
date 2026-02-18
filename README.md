@@ -50,7 +50,7 @@ Run it locally or from a monitoring node over SSH, get structured logs + a simpl
 ## What you get
 
 - **Standardized summary contract** per monitor (`monitor=... host=... status=... reason=...`) for automation.
-- **Hardened wrapper**: if a monitor fails without emitting a summary line, the wrapper emits `status=UNKNOWN reason=no_summary_emitted`.
+- **Hardened wrapper**: if a monitor fails without emitting a summary line, the wrapper emits `status=UNKNOWN reason=early_exit`.
 - **Timeout protection** per monitor (`MONITOR_TIMEOUT_SECS`) to avoid hanging runs.
 - **Config/baseline gating with SKIP**: missing optional files produce `status=SKIP` with a reason.
 - **Fleet counters** derived from summary lines (`SUMMARY_HOSTS ok=.. warn=.. crit=.. unknown=.. skipped=..`).

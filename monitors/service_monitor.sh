@@ -147,7 +147,7 @@ run_for_host(){
 
   # Optional: systemctl --failed check (only when enabled)
   if [[ "$CHECK_FAILED_UNITS" == "1" || "$CHECK_FAILED_UNITS" == "true" ]]; then
-    failed_units_str="$(lm_ssh "$host" bash -lc 'command -v systemctl >/dev/null 2>&1 || exit 0; systemctl --failed --no-legend --plain 2>/dev/null | awk '"'{print $1}'"' | sed '/^[[:space:]]*$/d' | wc -l' 2>/dev/null || true)"
+    failed_units_str="$(lm_ssh "$host" "command -v systemctl >/dev/null 2>&1 || exit 0; systemctl --failed --no-legend --plain 2>/dev/null | awk '{print \$1}' | sed '/^[[:space:]]*$/d' | wc -l" 2>/dev/null || true)"
     failed_units_str="${failed_units_str//[[:space:]]/}"
     if [[ -n "$failed_units_str" && "$failed_units_str" =~ ^[0-9]+$ ]]; then
       failed_units="$failed_units_str"
