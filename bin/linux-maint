@@ -171,6 +171,7 @@ Commands:
   status [--only S] [--host P] [--monitor P] [--match-mode M] [--tail N] [--since D] [--reasons N]  Show last run status + filtered summary lines
   diff [--json]       Show diff since last run (uses wrapper diff state)
   trend [--last N] [--json]  Show severity/reason trends over recent runs
+  runtimes [--last N] [--json]  Show per-monitor runtimes from wrapper logs
   validate            Validate config file formats (best-effort)
   preflight           Run preflight checks
   version             Print installed BUILD_INFO (if present)
@@ -914,6 +915,87 @@ else:
     else:
       print('none')
 PY
+    ;;
+
+  runtimes)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for runtimes
+    fi
+
+    RT_JSON=0
+    RT_LAST=1
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --json) RT_JSON=1; shift ;;
+        --last) RT_LAST="$2"; shift 2 ;;
+        -h|--help)
+          echo "Usage: linux-maint runtimes [--last N] [--json]"
+          exit 0;;
+        *) echo "Unknown runtimes flag: $1" >&2; exit 2;;
+      esac
+    done
+
+    if [[ ! "$RT_LAST" =~ ^[0-9]+$ ]] || [[ "$RT_LAST" -lt 1 ]]; then
+      echo "ERROR: invalid --last '$RT_LAST' (use positive integer)" >&2
+      exit 2
+    fi
+
+    if [[ "$MODE" == "repo" ]]; then
+      log_dir="${LOG_DIR:-$REPO_LOG_DIR}"
+    else
+      log_dir="${LOG_DIR:-/var/log/health}"
+    fi
+
+    # Gather last N wrapper logs
+    mapfile -t rt_files < <(find "$log_dir" -maxdepth 1 -type f -name 'full_health_monitor_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9].log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n "$RT_LAST" | awk '{print $2}')
+
+    if [[ "${#rt_files[@]}" -eq 0 ]]; then
+      echo "No wrapper logs found in $log_dir" >&2
+      exit 1
+    fi
+
+    if [[ "$RT_JSON" -eq 1 ]]; then
+      python3 - "$RT_LAST" "${rt_files[@]}" <<'PY'
+import json, sys, re
+
+rt_last = int(sys.argv[1])
+files = sys.argv[2:]
+rows = []
+pat = re.compile(r'RUNTIME\s+monitor=([^ ]+)\s+ms=([0-9]+)')
+
+for f in files:
+    try:
+        with open(f, 'r', encoding='utf-8', errors='ignore') as fh:
+            for line in fh:
+                m = pat.search(line)
+                if m:
+                    rows.append({"monitor": m.group(1), "ms": int(m.group(2))})
+    except FileNotFoundError:
+        continue
+
+# Sort desc by ms
+rows.sort(key=lambda r: (-r["ms"], r["monitor"]))
+
+print(json.dumps({"files": files, "rows": rows}, sort_keys=True))
+PY
+      exit 0
+    fi
+
+    echo "=== linux-maint runtimes ==="
+    echo "files=${#rt_files[@]}"
+    echo "log_dir=$log_dir"
+    awk '
+      /RUNTIME monitor=/ {
+        for (i=1; i<=NF; i++) {
+          if ($i ~ /^monitor=/) { split($i,a,"="); mon=a[2]; }
+          if ($i ~ /^ms=/) { split($i,b,"="); ms=b[2]; }
+        }
+        if (mon != "" && ms != "") {
+          print ms, mon
+        }
+        mon=""; ms=""
+      }
+    ' "${rt_files[@]}" | sort -rn | awk '{print "monitor="$2" ms="$1}'
     ;;
 
   install)

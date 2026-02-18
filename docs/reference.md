@@ -132,6 +132,13 @@ The wrapper records per-monitor runtime in milliseconds and includes:
 - `RUNTIME monitor=<name> ms=<duration>` lines in the wrapper log
 - A “Top runtimes (ms)” section in the human summary
 
+You can extract recent runtimes with:
+
+```bash
+linux-maint runtimes
+linux-maint runtimes --last 3 --json
+```
+
 ### `inode_monitor.sh`
 - `THRESHOLDS` = `"/etc/linux_maint/inode_thresholds.txt"   # CSV: mountpoint,warn%,crit% (supports '*' default)`
 - `EXCLUDE_MOUNTS` = `"/etc/linux_maint/inode_exclude.txt"  # Optional: list of mountpoints to skip`

@@ -39,6 +39,10 @@ sudo linux-maint trend --last 10
 # Trend in JSON
 sudo linux-maint trend --last 10 --json
 
+# Monitor runtimes from wrapper logs
+sudo linux-maint runtimes
+sudo linux-maint runtimes --last 3 --json
+
 # Diff in JSON (automation)
 sudo linux-maint diff --json
 
