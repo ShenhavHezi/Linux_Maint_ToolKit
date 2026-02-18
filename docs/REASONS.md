@@ -44,41 +44,33 @@ These are cross-monitor, reusable tokens. Prefer these before inventing a new on
 - `inode_high` — inode usage exceeded threshold
 - `smart_failed` — SMART indicates failure
 - `raid_degraded` — mdraid degraded
--
 ### Time
 - `ntp_not_synced`
 - `ntp_drift_high`
--
 ### Patching
 - `updates_pending`
 - `security_updates_pending`
 - `reboot_required`
--
 ### Services / processes
 - `service_inactive`
 - `service_failed`
 - `high_load`
 - `high_mem`
--
 ### Network
 - `ping_failed`
 - `tcp_failed`
 - `http_failed`
--
 ### Logs
 - `log_spike_warn` — log error rate above warn threshold
 - `log_spike_crit` — log error rate above crit threshold
 - `missing_log_source` — no usable journald/syslog/messages source available
--
 ### Security
 - `failed_ssh_logins`
 - `unexpected_user`
 - `unexpected_sudoers_change`
--
 ### TLS/certs
 - `cert_expiring`
 - `cert_invalid`
--
 ## Adding new reasons
 
 1. Add the token here.

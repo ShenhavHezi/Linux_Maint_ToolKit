@@ -20,6 +20,9 @@ sudo linux-maint status --reasons 5
 # Raw summary lines
 sudo linux-maint status --verbose
 
+# Status in JSON (automation)
+sudo linux-maint status --json
+
 # Filter by host/monitor/status
 sudo linux-maint status --host web --monitor service --only WARN
 

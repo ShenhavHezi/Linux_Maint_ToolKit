@@ -2,250 +2,90 @@
 
 This is the single backlog source of truth.
 
-## Working style
-- Bundle related roadmap items into PRs when it improves delivery and review flow.
-- Changes can be broad when needed, but must remain test-backed and clearly documented.
-- Prioritize operator clarity and safe defaults over feature count.
-- Dark-site/offline reliability remains a primary product focus.
-
-## Priority legend
-- **P0**: correctness/contract/runtime reliability
-- **P1**: operator UX and understandability
+## Priorities
+- **P0**: correctness, reliability, determinism
+- **P1**: operator UX and documentation
 - **P2**: security and hardening
-- **P3**: observability/reporting quality
-- **P4**: DX/release/packaging polish
-
-## Tags
-- `[dark-site]` offline/air-gapped operator flow
-- `[contract]` summary/output guarantees and parser safety
-- `[ops]` runbook/doctor/operator experience
-- `[security]` hardening and data handling
-- `[dx]` contributor and release workflow
+- **P3**: observability and integrations
+- **P4**: DX/release polish
 
 ---
 
-## P0 — Correctness / contract / runtime reliability
+## P0 — Correctness / reliability
 
-### P0.1 [contract] Add a strict machine-output compatibility gate for `status --json` (DONE 2026-02-17)
-**Why**: automation depends on stable keys/types; accidental output drift can break internal tooling.
-
-**Where**:
-- `bin/linux-maint`
-- `tests/status_json_compat_test.sh`
-- `docs/reference.md`
-
+### P0.1 Make smoke tests deterministic in non-root environments
+**Why**: CI and local runs should not hang or emit avoidable platform noise.
+**Scope**:
+- Suppress or guard SELinux warnings when running under unprivileged test mode.
+- Ensure tests do not attempt to write under `/var/*` unless explicitly gated.
 **Acceptance**:
-- Define versioned JSON compatibility policy (required keys + type guarantees).
-- Add explicit regression assertions for key presence/type and nullability behavior.
-- Document compatibility expectations and deprecation path.
+- `make test` finishes reliably without manual intervention.
+- No repeated noisy warnings in smoke output for non-root runs.
 
-**Verify**:
-- ✅ Implemented: added explicit JSON contract version key (`status_json_contract_version=1`) and documented stable key/type guarantees.
-- ✅ Coverage: added `tests/status_json_compat_test.sh` for required keys/types and `summary_file` nullability behavior.
+### P0.2 Add a JSON schema or explicit contract fixture for `status --json` and `doctor --json`
+**Why**: automation depends on stable output; schema validation reduces regressions.
+**Acceptance**:
+- Ship `docs/schemas/status.json` and `docs/schemas/doctor.json` (or similar).
+- Add tests that validate JSON output against the schema.
 
 ---
 
-### P0.2 [contract] Add monitor summary dedup/canonicalization tests for repeated emissions (DONE 2026-02-17)
-**Why**: some monitors can emit multiple lines per host; rollups/diffs need deterministic behavior.
+## P1 — Operator UX / documentation
 
-**Where**:
-- `run_full_health_monitor.sh`
-- `tools/summary_diff.py`
-- `tests/monitor_summary_emission_test.sh`
-
+### P1.1 Add “first run” section to README (local + installed)
+**Why**: reduce onboarding friction for new users.
 **Acceptance**:
-- Define canonical rule for repeated monitor/host lines (last-wins vs worst-status-wins).
-- Apply the same rule to text summary, JSON summary, and diff tooling.
+- README includes a short “first run” checklist and expected first-run SKIPs.
 
-**Verify**:
-- ✅ Implemented: `tools/summary_diff.py` now canonicalizes duplicate `monitor`+`host` lines via worst-status-wins with last-wins tie-break.
-- ✅ Coverage: added `tests/summary_diff_canonicalization_test.sh` and wired it into smoke.
-
----
-
-### P0.3 [dark-site][ops] Improve failure resilience when writable log/state dirs are unavailable (DONE 2026-02-18)
-**Why**: restricted hosts sometimes block `/var/log`/`/var/lib`; failures should degrade predictably.
-
-**Where**:
-- `run_full_health_monitor.sh`
-- `lib/linux_maint.sh`
-- `tests/*` (new fallback-path test)
-
+### P1.2 Add example outputs to docs (status, doctor, trend)
+**Why**: concrete examples help operators debug quickly.
 **Acceptance**:
-- Centralize fallback chain for logs/state in one helper.
-- Emit explicit warning summary when fallback paths are used.
-- Avoid partial-run silent failures.
+- `docs/reference.md` includes short sample outputs for `status --json`, `doctor --json`, and `trend --json`.
 
-**Verify**:
-- ✅ Implemented: centralized writable-dir fallback helper and wrapper warnings for log/state/summary fallback.
-- ✅ Coverage: added `tests/wrapper_fallback_paths_test.sh` to simulate unwritable paths and confirm graceful completion.
-
----
-
-## P1 — Operator UX and understandability
-
-### P1.1 [ops] Add `linux-maint explain <reason>` command linked to `docs/REASONS.md` (DONE 2026-02-17)
-**Why**: on-call users seeing `reason=` tokens need immediate remediation guidance.
-
-**Where**:
-- `bin/linux-maint`
-- `docs/REASONS.md`
-- `docs/QUICK_REFERENCE.md`
-- `tests/explain_reason_test.sh`
-
+### P1.3 Add a “Which mode should I use?” guide (repo vs installed)
+**Why**: confusion between repo and installed modes is a common support issue.
 **Acceptance**:
-- Command prints concise explanation + likely causes + next checks.
-- Clear behavior for unknown/typo reason tokens.
-
-**Verify**:
-- ✅ Implemented: `linux-maint explain reason <token>` and `linux-maint explain status <S>` are available with explicit unknown-token error behavior.
-- ✅ Coverage: expanded `tests/explain_reason_test.sh` to assert known token output, unknown token `rc=1`, and all status explanations.
-
----
-
-### P1.2 [ops] Add `linux-maint status --since <duration>` for recent-run focus (DONE 2026-02-17)
-**Why**: operators often only care about recent health regressions, not full history tail.
-
-**Where**:
-- `bin/linux-maint`
-- `tests/status_since_test.sh`
-- `README.md`, `docs/QUICK_REFERENCE.md`
-
-**Acceptance**:
-- Support duration parsing (`15m`, `2h`, `1d`, `30s`) against timestamped summary artifacts.
-- Preserve existing defaults when flag is omitted.
-
-**Verify**:
-- ✅ Implemented: `linux-maint status` now supports `--since <duration>` for both compact and `--json` modes and filters by timestamped summary files only.
-- ✅ Coverage: added `tests/status_since_test.sh` for include/exclude filtering and invalid-duration validation (`rc=2`).
-
----
-
-### P1.3 [dark-site] Publish a “first 30 minutes” runbook section for offline onboarding (DONE 2026-02-17)
-**Why**: onboarding friction remains high for new admins in constrained environments.
-
-**Where**:
-- `docs/DARK_SITE.md`
-- `README.md`
-
-**Acceptance**:
-- Step-by-step minimal setup, first run, common SKIP reasons, and immediate triage.
-- Include copy/paste-safe commands and expected outputs.
-
-**Verify**:
-- ✅ Implemented: added a day-0 “First 30 minutes runbook” with verification, init, first-run triage, and pack-logs flow.
-- ✅ Docs: runbook published in `docs/DARK_SITE.md` and linked from operator docs.
+- `docs/README.md` or `docs/QUICK_REFERENCE.md` includes a brief decision guide.
 
 ---
 
 ## P2 — Security / hardening
 
-### P2.1 [security] Add optional secret scanning lint for committed fixtures/docs (DONE 2026-02-17)
-**Why**: test fixtures and docs are common accidental secret-leak vectors.
-
-**Where**:
-- `tools/` (new scanner wrapper)
-- `.github/workflows/ci.yml`
-- `tests/` (fixture allowlist tests)
-
+### P2.1 Add least-privilege guidance for SSH mode
+**Why**: operators need a clear, safe baseline for SSH permissions.
 **Acceptance**:
-- Add lightweight scanner integration with explicit allowlist for known safe test tokens.
-- CI should fail only on high-confidence leaks.
+- Add a section in `docs/reference.md` describing recommended `sudoers` snippets for limited commands.
 
-**Verify**:
-- ✅ Implemented: added lightweight scanner `tools/secret_scan.sh` with allowlist support (`tests/secret_scan_allowlist.txt`) and CI wiring.
-- ✅ Coverage: added `tests/secret_scan_lint_test.sh` with fail/pass fixture paths and smoke integration.
+### P2.2 Add redaction rules for logs (optional)
+**Why**: prevent accidental leakage of secrets in logs/exports.
+**Acceptance**:
+- Provide a toggle to redact known sensitive patterns in summary/log output.
+- Document how to enable it.
 
 ---
 
-### P2.2 [security] Add checksum/signature verification path for offline release tarballs (DONE 2026-02-17)
-**Why**: dark-site transfer paths need integrity verification before installation.
+## P3 — Observability / integrations
 
-**Where**:
-- `tools/make_tarball.sh`
-- `install.sh`
-- `docs/README.md` / `docs/DARK_SITE.md`
-
+### P3.1 Add a small `linux-maint export --json` command
+**Why**: unify outputs for external tools (SIEM/ELK/monitoring).
 **Acceptance**:
-- Generate checksums (and optional detached signatures) with clear verify command.
-- Installer docs include verification as a required step.
+- Output includes `SUMMARY_RESULT`, `SUMMARY_HOSTS`, and `monitor=` lines in one JSON payload.
 
-**Verify**:
-- ✅ Implemented: added `tools/verify_release.sh` and `linux-maint verify-release` for checksum verification with optional detached-signature verification (`--sig`).
-- ✅ Coverage: added `tests/release_verify_test.sh` with pass path and tampered-archive failure path.
+### P3.2 Add optional node_exporter label cardinality guardrails
+**Why**: large fleets can overrun Prometheus limits.
+**Acceptance**:
+- Make max unique `host`/`monitor` label counts configurable with clear behavior when exceeded.
 
 ---
 
-## P3 — Observability / reporting quality
+## P4 — DX / release polish
 
-### P3.1 [contract] Add summary trend report utility (`linux-maint trend`) for reason/severity drift (DONE 2026-02-17)
-**Why**: teams need trend visibility, not only latest snapshot.
-
-**Where**:
-- `bin/linux-maint`
-- `tools/` (optional parser helper)
-- `tests/` (new trend fixtures)
-
+### P4.1 Improve changelog discipline
+**Why**: users need a human-readable release summary.
 **Acceptance**:
-- Show reason/severity counts over last N runs.
-- Keep output deterministic and script-friendly.
+- Add a small release note template and update `CHANGELOG.md` on release tags.
 
-**Verify**:
-- ✅ Implemented: added `linux-maint trend [--last N] [--json]` for aggregate severity and reason counts over recent summary artifacts.
-- ✅ Coverage: added `tests/trend_command_test.sh` for text/json output correctness and invalid-input validation.
-
----
-
-### P3.2 [ops] Improve Prometheus export metadata for monitor and reason dimensions (DONE 2026-02-17)
-**Why**: dashboards and alerts benefit from consistent labels and clear metric help text.
-
-**Where**:
-- `run_full_health_monitor.sh`
-- `docs/reference.md`
-- `tests/prom_textfile_output_test.sh`
-
+### P4.2 Provide a minimal containerized test harness
+**Why**: helps contributors run tests consistently.
 **Acceptance**:
-- Ensure label set is consistent and bounded.
-- Update HELP/TYPE docs and examples.
-
-**Verify**:
-- ✅ Implemented: added bounded reason-dimension metric `linux_maint_reason_count{reason=...}` and clarified Prometheus metric set in docs.
-- ✅ Coverage: extended `tests/prom_textfile_output_test.sh` to validate reason metric presence/headers and duplicate-labelset safety.
-
----
-
-## P4 — DX / release / packaging polish
-
-### P4.1 [dx] Add a lightweight local “quick-check” target for contributors (DONE 2026-02-17)
-**Why**: full smoke can be slow during iteration; contributors need a fast guardrail.
-
-**Where**:
-- `Makefile`
-- `tools/dev_check.sh`
-- `CONTRIBUTING.md`
-
-**Acceptance**:
-- Add `make quick-check` (syntax + key contract lints only).
-- Keep `make test` and `make dev-check` as full checks.
-
-**Verify**:
-- ✅ Implemented: added `make quick-check` and `tools/quick_check.sh` for fast contract/lint gate.
-- ✅ Coverage: added `tests/quick_check_make_target_test.sh` and integrated it into smoke.
-
----
-
-### P4.2 [dx] Add architecture diagram + data-flow doc for wrapper/monitors/artifacts (DONE 2026-02-17)
-**Why**: repo is mature but mental model is still hard for new contributors.
-
-**Where**:
-- `docs/INDEX.md`
-- `docs/reference.md`
-- `docs/README.md`
-
-**Acceptance**:
-- Include one concise architecture diagram and lifecycle walkthrough.
-- Cross-link from README and quick reference.
-
-**Verify**:
-- ✅ Implemented: added architecture/data-flow section to `docs/README.md` and cross-links from `docs/INDEX.md`.
-- ✅ Docs: linked detailed artifact behavior through `docs/reference.md`.
+- Add a `tools/dev_container.sh` or `containers/` directory with quick-start instructions.

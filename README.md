@@ -123,10 +123,16 @@ sudo linux-maint run --group prod --debug --dry-run
 
 ```bash
 sudo install -d -m 0755 /etc/linux_maint
-printf '%s
-' server-a server-b server-c | sudo tee /etc/linux_maint/servers.txt
+printf '%s\n' server-a server-b server-c | sudo tee /etc/linux_maint/servers.txt
 sudo /usr/local/sbin/run_full_health_monitor.sh
 ```
+
+## Which mode should I use?
+
+- **Repo mode** (`./run_full_health_monitor.sh`, `./bin/linux-maint`): best for evaluation and local development.
+- **Installed mode** (`linux-maint`, systemd timer/cron): best for production use and scheduled runs.
+
+If you’re not sure, start with repo mode, then install once you like the output.
 
 ## Common operator workflows
 
@@ -210,6 +216,7 @@ Tips:
 - `sudo linux-maint status --host web --monitor service --only WARN` to narrow noisy output quickly
 - `sudo linux-maint status --since 2h` to focus on summary artifacts generated in the last time window
 - `sudo linux-maint status --host '^web-[0-9]+$' --match-mode regex` for exact regex targeting
+- `sudo linux-maint status --json` for automation-friendly output (see `docs/reference.md`)
 
 - **Exit codes** (wrapper): `0 OK`, `1 WARN`, `2 CRIT`, `3 UNKNOWN`
 - Logs:
@@ -241,6 +248,13 @@ Notes:
 - Full contract details and artifact locations are documented in [`docs/reference.md`](docs/reference.md#output-contract-machine-parseable-summary-lines).
 - `SKIP` means the monitor intentionally did not evaluate (e.g., missing optional config/baseline).
 - See [`docs/REASONS.md`](docs/REASONS.md) for standardized `reason=` tokens.
+
+### Automation-friendly JSON outputs
+
+- `linux-maint status --json` — latest status, totals, problems, and runtime warnings.
+- `linux-maint doctor --json` — config/dep/writable checks with fix suggestions.
+- `linux-maint trend --json` — aggregated reason/severity trends.
+- `linux-maint runtimes --json` — per-monitor runtime history.
 
 ## Common knobs
 
