@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint status --json",
+  "type": "object",
+  "required": [
+    "status_json_contract_version",
+    "mode",
+    "last_status",
+    "summary_file",
+    "totals",
+    "problems",
+    "runtime_warnings"
+  ],
+  "properties": {
+    "status_json_contract_version": { "type": "integer" },
+    "mode": { "type": "string" },
+    "last_status": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "summary_file": { "type": ["string", "null"] },
+    "totals": {
+      "type": "object",
+      "required": ["CRIT", "WARN", "UNKNOWN", "SKIP", "OK"],
+      "additionalProperties": false,
+      "properties": {
+        "CRIT": { "type": "integer" },
+        "WARN": { "type": "integer" },
+        "UNKNOWN": { "type": "integer" },
+        "SKIP": { "type": "integer" },
+        "OK": { "type": "integer" }
+      }
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["status", "monitor", "host"],
+        "properties": {
+          "status": { "type": "string" },
+          "monitor": { "type": "string" },
+          "host": { "type": "string" },
+          "reason": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "runtime_warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["status", "monitor", "host"],
+        "properties": {
+          "status": { "type": "string" },
+          "monitor": { "type": "string" },
+          "host": { "type": "string" },
+          "reason": { "type": "string" },
+          "target_monitor": { "type": "string" },
+          "runtime_ms": { "type": "string" },
+          "threshold_ms": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "reason_rollup": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["reason", "count"],
+        "properties": {
+          "reason": { "type": "string" },
+          "count": { "type": "integer" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

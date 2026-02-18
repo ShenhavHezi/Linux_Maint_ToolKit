@@ -394,6 +394,9 @@ Compatibility policy:
 - Additive keys may be introduced without breaking compatibility.
 - Breaking shape/type changes require incrementing `status_json_contract_version`.
 
+Schemas:
+- `docs/schemas/status.json` — JSON schema for `linux-maint status --json`.
+
 ### `linux-maint doctor --json` keys
 
 Top-level keys:
@@ -405,6 +408,9 @@ Top-level keys:
 - `writable_locations` (array of path checks: `exists`, `writable`)
 - `fix_suggestions` (array of suggested remediation actions)
 - `next_actions` (array of recommended follow-up commands)
+
+Schema:
+- `docs/schemas/doctor.json` — JSON schema for `linux-maint doctor --json`.
 
 
 

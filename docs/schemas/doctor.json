@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint doctor --json",
+  "type": "object",
+  "required": [
+    "mode",
+    "cfg_dir",
+    "config",
+    "monitor_gates",
+    "dependencies",
+    "writable_locations",
+    "fix_suggestions",
+    "next_actions"
+  ],
+  "properties": {
+    "mode": { "type": "string" },
+    "prefix": { "type": "string" },
+    "wrapper": { "type": "string" },
+    "libexec": { "type": "string" },
+    "lib": { "type": "string" },
+    "cfg_dir": { "type": "string" },
+    "config": {
+      "type": "object",
+      "required": ["dir_exists", "files", "hosts_configured"],
+      "properties": {
+        "dir_exists": { "type": "boolean" },
+        "hosts_configured": { "type": "integer" },
+        "files": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "monitor_gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["monitor", "path", "present"],
+        "properties": {
+          "monitor": { "type": "string" },
+          "path": { "type": "string" },
+          "present": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["cmd", "present"],
+        "properties": {
+          "cmd": { "type": "string" },
+          "present": { "type": "boolean" },
+          "hint": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "writable_locations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "exists", "writable"],
+        "properties": {
+          "path": { "type": "string" },
+          "exists": { "type": "boolean" },
+          "writable": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "fix_suggestions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "next_actions": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": true
+}

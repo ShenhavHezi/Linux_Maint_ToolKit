@@ -29,7 +29,7 @@ This is the single backlog source of truth.
 - `make test` finishes reliably without manual intervention.
 - No repeated warnings in smoke output when running without sudo.
 
-### P0.2 Add JSON schema validation for automation outputs
+### P0.2 Add JSON schema validation for automation outputs (DONE 2026-02-18)
 **Why**: `status --json` and `doctor --json` are automation surfaces.
 **Scope**:
 - Add schemas under `docs/schemas/`.
@@ -37,7 +37,7 @@ This is the single backlog source of truth.
 **Acceptance**:
 - Schemas exist and tests validate output in repo mode.
 
-### P0.3 Harden wrapper summary emission
+### P0.3 Harden wrapper summary emission (DONE 2026-02-18)
 **Why**: summary artifacts are the core contract.
 **Scope**:
 - Ensure wrapper never emits duplicate or malformed `monitor=` lines.

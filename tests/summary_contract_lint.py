@@ -19,11 +19,17 @@ ALLOWED_STATUSES = {"OK", "WARN", "CRIT", "UNKNOWN", "SKIP"}
 def parse_kv(line: str):
     parts = line.strip().split()
     d = {}
+    dup_keys = []
+    bad_tokens = []
     for p in parts:
         if "=" in p:
             k, v = p.split("=", 1)
+            if k in d:
+                dup_keys.append(k)
             d[k] = v
-    return d
+        else:
+            bad_tokens.append(p)
+    return d, dup_keys, bad_tokens
 
 
 def main(path: str) -> int:
@@ -53,13 +59,27 @@ def main(path: str) -> int:
         print(f"ERROR: no monitor= lines found in {path}")
         return 2
 
-    rows = [parse_kv(l) for l in monitor_lines]
+    rows = []
+    malformed = 0
+    for l in monitor_lines:
+        row, dup_keys, bad_tokens = parse_kv(l)
+        if bad_tokens:
+            malformed += 1
+            print(f"ERROR: malformed monitor= line (non key=value tokens): {l}")
+        if dup_keys:
+            malformed += 1
+            print(f"ERROR: duplicate keys {dup_keys} in monitor= line: {l}")
+        rows.append(row)
 
     bad_status = 0
     missing_reason = 0
+    missing_required = 0
 
     for r in rows:
         st = r.get("status", "")
+        if not r.get("monitor") or not r.get("host") or not st:
+            missing_required += 1
+            print(f"ERROR: monitor= line missing required keys: {r}")
         if st not in ALLOWED_STATUSES:
             bad_status += 1
             print(f"ERROR: invalid status={st} line={r}")
@@ -87,7 +107,7 @@ def main(path: str) -> int:
     if missing_reason:
         print(f"WARN: {missing_reason} non-OK monitor= lines are missing reason=")
 
-    if bad_status or missing_monitor_lines:
+    if bad_status or missing_monitor_lines or missing_required or malformed:
         return 2
     return 0
 

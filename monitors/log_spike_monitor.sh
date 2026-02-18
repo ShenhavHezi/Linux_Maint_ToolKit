@@ -22,6 +22,7 @@ lm_require_singleton "log_spike_monitor"
 # - kernel: panic, oops, segfault, OOM
 # - generic: error, failed
 : "${LM_LOG_SPIKE_PATTERN:=panic|oops|segfault|out of memory|oom|error|failed}"
+pattern_token="$(printf '%s' "$LM_LOG_SPIKE_PATTERN" | tr -s '[:space:]' '_' )"
 
 is_int() { [[ "${1:-}" =~ ^[0-9]+$ ]]; }
 
@@ -119,9 +120,9 @@ elif [ "$errors" -ge "$LM_LOG_SPIKE_WARN" ]; then
 fi
 
 if [ "$status" = "OK" ]; then
-  lm_summary "log_spike_monitor" "localhost" "$status" source="$source" errors="$errors" window_min="$LM_LOG_SPIKE_WINDOW_MIN" pattern="$LM_LOG_SPIKE_PATTERN"
+  lm_summary "log_spike_monitor" "localhost" "$status" source="$source" errors="$errors" window_min="$LM_LOG_SPIKE_WINDOW_MIN" pattern="$pattern_token"
   exit 0
 fi
 
-lm_summary "log_spike_monitor" "localhost" "$status" reason="$reason" source="$source" errors="$errors" window_min="$LM_LOG_SPIKE_WINDOW_MIN" pattern="$LM_LOG_SPIKE_PATTERN"
+lm_summary "log_spike_monitor" "localhost" "$status" reason="$reason" source="$source" errors="$errors" window_min="$LM_LOG_SPIKE_WINDOW_MIN" pattern="$pattern_token"
 exit 0
