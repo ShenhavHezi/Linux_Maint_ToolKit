@@ -50,6 +50,8 @@ run_required "lm_time_test" bash "$ROOT_DIR/tests/lm_time_test.sh"
 run_required "lm_ssh_allowlist_test" bash "$ROOT_DIR/tests/lm_ssh_allowlist_test.sh"
 run_required "lm_log_json_test" bash "$ROOT_DIR/tests/lm_log_json_test.sh"
 run_required "timer_monitor_test" bash "$ROOT_DIR/tests/timer_monitor_test.sh"
+run_required "filesystem_readonly_monitor_test" bash "$ROOT_DIR/tests/filesystem_readonly_monitor_test.sh"
+run_required "last_run_age_monitor_test" bash "$ROOT_DIR/tests/last_run_age_monitor_test.sh"
 
 # Monitor exit-code policy (local-only)
 run_required "monitor_exit_codes_test" bash "$ROOT_DIR/tests/monitor_exit_codes_test.sh"

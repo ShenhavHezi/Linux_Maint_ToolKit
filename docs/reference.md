@@ -44,10 +44,12 @@ sudo zypper install -y smartmontools nvme-cli
 | Script | Purpose | Config required to be useful | Typical WARN/CRIT causes |
 |---|---|---|---|
 | `health_monitor.sh` | CPU/mem/load/disk/top snapshot | none | low disk, load spikes, memory pressure |
+| `filesystem_readonly_monitor.sh` | detect read-only mounts | none (optional excludes) | filesystems remounted read-only |
 | `inode_monitor.sh` | inode utilization thresholds | optional thresholds/excludes | inode exhaustion |
 | `network_monitor.sh` | ping/tcp/http checks | `network_targets.txt` | packet loss, TCP connect fail, HTTP latency/status |
 | `service_monitor.sh` | service health (systemd) | `services.txt` | inactive/failed services |
 | `timer_monitor.sh` | linux-maint timer health (systemd) | none (systemd required) | timer missing/disabled/inactive |
+| `last_run_age_monitor.sh` | wrapper last-run freshness | none (optional threshold/log dir) | missing/stale wrapper logs |
 | `ntp_drift_monitor.sh` | time sync health | none | unsynced clock, high offset |
 | `patch_monitor.sh` | pending updates/reboot hints | none | security updates pending, reboot required |
 | `storage_health_monitor.sh` | RAID/SMART/NVMe storage health | none (best-effort) | degraded RAID, SMART failures, NVMe critical warnings |
@@ -65,6 +67,8 @@ sudo zypper install -y smartmontools nvme-cli
 - `network_monitor.sh`: verify `/etc/linux_maint/network_targets.txt`, test DNS/connectivity from the runner, and check firewall rules.
 - `service_monitor.sh`: confirm the unit name in `services.txt`, check `systemctl status <unit>`, and review recent journal entries.
 - `timer_monitor.sh`: check `systemctl status linux-maint.timer` and ensure it is enabled and active.
+- `filesystem_readonly_monitor.sh`: check `dmesg`/`journalctl -k` for I/O errors, review storage health, and remount only after root cause is addressed.
+- `last_run_age_monitor.sh`: confirm the wrapper/timer runs on schedule and that `/var/log/health` is writable.
 - `patch_monitor.sh`: run your distro’s update command to confirm pending updates and check reboot flags.
 - `ntp_drift_monitor.sh`: ensure chrony/timesyncd is running and reachable; check `chronyc tracking` or `timedatectl`.
 - `config_drift_monitor.sh`: validate baseline files exist and compare the reported path with your change history.

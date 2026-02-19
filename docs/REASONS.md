@@ -40,11 +40,14 @@ These are cross-monitor, reusable tokens. Prefer these before inventing a new on
 - `timer_missing` — systemd timer unit not installed
 - `timer_disabled` — systemd timer present but disabled
 - `timer_inactive` — systemd timer enabled but not active
+- `missing_last_run_log` — expected wrapper log not found
+- `stale_run` — wrapper log too old (run likely missed)
 
 ### Storage / disk
 - `disk_full` — hard threshold exceeded
 - `disk_growth` — growth forecast exceeded
 - `inode_high` — inode usage exceeded threshold
+- `filesystem_readonly` — filesystem remounted read-only
 - `smart_failed` — SMART indicates failure
 - `raid_degraded` — mdraid degraded
 
