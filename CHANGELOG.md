@@ -8,6 +8,14 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-02-19
 
+- Fixed wrapper skip gating so skipped monitors do not execute; wrapper skips now use host=runner.
+- Hardened LM_SSH_OPTS validation in the library and added coverage.
+- Improved quick-check reliability in restricted temp dir environments.
+- Added remediation notes for common WARN/SKIP reasons and log retention guidance.
+- Added make-tarball alias target for release builds.
+
+## 2026-02-19
+
 - Added dark-site tuning helper and baseline guidance, plus docs updates.
 - Added new monitors: filesystem read-only, last-run age, and systemd timer.
 - Reduced preflight noise and improved mount exclude handling.
