@@ -16,3 +16,4 @@ This directory contains **example** configuration files. When installed, templat
 
 - Files here end with `.example`. Copy them to `/etc/linux_maint/` and remove the suffix.
 - Many monitors are **gated** by the presence of certain baselines/lists; when missing, monitors typically emit `status=SKIP` with a `reason=` token (see `docs/REASONS.md`).
+- New monitors added in 2026 are configurable via `LM_LAST_RUN_MAX_AGE_MIN`, `LM_LAST_RUN_LOG_DIR`, and `LM_FS_RO_EXCLUDE_RE` in `linux-maint.conf`.

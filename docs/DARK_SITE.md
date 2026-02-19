@@ -156,6 +156,23 @@ sudo linux-maint logs 200
 - For per-monitor configuration, see files under `/etc/linux_maint/` (created by the installer).
 - Optional profile: set `LM_DARK_SITE=true` in `/etc/linux_maint/linux-maint.conf` for conservative defaults (`LM_LOCAL_ONLY=true`, `LM_NOTIFY_ONLY_ON_CHANGE=1`, wrapper `MONITOR_TIMEOUT_SECS=300`) while still allowing explicit overrides.
 - For dark-site simplicity, you can leave `/etc/linux_maint/network_targets.txt` absent at first; the wrapper will mark `network_monitor` as `SKIP` (reason includes the missing file path) instead of forcing network checks.
+
+### Dark-site defaults for new monitors
+
+If you use the **daily** timer created by `install.sh` (`02:15`), increase the last-run age threshold to avoid false alerts:
+
+```bash
+# /etc/linux_maint/linux-maint.conf
+LM_LAST_RUN_MAX_AGE_MIN=1800   # 30 hours (daily schedule + cushion)
+LM_LAST_RUN_LOG_DIR="/var/log/health"
+```
+
+If you have intentionally read-only mounts (e.g., ISO media), add them to the exclude regex:
+
+```bash
+# /etc/linux_maint/linux-maint.conf
+LM_FS_RO_EXCLUDE_RE='^(proc|sysfs|devtmpfs|tmpfs|devpts|cgroup2?|cgroup|debugfs|tracefs|mqueue|hugetlbfs|pstore|squashfs|overlay|rpc_pipefs|autofs|fuse\..*|binfmt_misc|iso9660)$'
+```
 - Full reference: [`reference.md`](reference.md)
 
 

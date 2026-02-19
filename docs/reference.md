@@ -175,6 +175,10 @@ monitor=runtime_guard host=runner status=WARN reason=runtime_exceeded target_mon
 - `DEFAULT_CRIT` = `95`
 - `EXCLUDE_FSTYPES_RE` = `'^(tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup2?|debugfs|rpc_pipefs|autofs|devpts|mqueue|hugetlbfs|fuse\..*|binfmt_misc|pstore|nsfs)$'`
 
+### `filesystem_readonly_monitor.sh`
+- `LM_MOUNTS_FILE` = `"/proc/mounts"  # Alternate mounts file (tests/offline)`
+- `LM_FS_RO_EXCLUDE_RE` = `'^(proc|sysfs|devtmpfs|tmpfs|devpts|cgroup2?|cgroup|debugfs|tracefs|mqueue|hugetlbfs|pstore|squashfs|overlay|rpc_pipefs|autofs|fuse\..*|binfmt_misc)$'`
+
 ### `network_monitor.sh`
 - `TARGETS` = `"/etc/linux_maint/network_targets.txt"   # CSV: host,check,target,key=val,...`
 - `PING_COUNT` = `3`
@@ -195,6 +199,10 @@ monitor=runtime_guard host=runner status=WARN reason=runtime_exceeded target_mon
 - `SERVICES` = `"/etc/linux_maint/services.txt"     # One service per line (unit name). Comments (#…) and blanks allowed.`
 - `AUTO_RESTART` = `"false"                          # "true" to attempt restart on failure (requires root or sudo NOPASSWD)`
 - `EMAIL_ON_ALERT` = `"false"                        # "true" to email when any service is not active`
+
+### `last_run_age_monitor.sh`
+- `LM_LAST_RUN_MAX_AGE_MIN` = `120  # Warn if wrapper log is older than this`
+- `LM_LAST_RUN_LOG_DIR` = `"/var/log/health"  # Where wrapper logs live`
 
 ### `ports_baseline_monitor.sh`
 - `BASELINE_DIR` = `"/etc/linux_maint/baselines/ports"       # Per-host baselines live here`

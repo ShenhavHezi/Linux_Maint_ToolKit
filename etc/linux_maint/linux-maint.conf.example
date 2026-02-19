@@ -23,6 +23,9 @@
 #SUMMARY_DIR="/var/log/health"
 #MONITOR_TIMEOUT_SECS=600
 #LM_DARK_SITE=false
+#LM_LAST_RUN_MAX_AGE_MIN=120
+#LM_LAST_RUN_LOG_DIR="/var/log/health"
+#LM_FS_RO_EXCLUDE_RE='^(proc|sysfs|devtmpfs|tmpfs|devpts|cgroup2?|cgroup|debugfs|tracefs|mqueue|hugetlbfs|pstore|squashfs|overlay|rpc_pipefs|autofs|fuse\\..*|binfmt_misc)$'
 # Optional: per-monitor timeout overrides (format: monitor_name=seconds)
 #MONITOR_TIMEOUTS_FILE="/etc/linux_maint/monitor_timeouts.conf"
 
