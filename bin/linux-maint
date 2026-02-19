@@ -640,7 +640,6 @@ PY
       esac
     done
     [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && HISTORY_COLOR=0
-    [[ "$HISTORY_TABLE" -eq 1 ]] && HISTORY_COLOR=0
 
     if [[ ! "$LAST_N" =~ ^[0-9]+$ ]] || (( LAST_N <= 0 )); then
       echo "ERROR: --last must be a positive integer" >&2
