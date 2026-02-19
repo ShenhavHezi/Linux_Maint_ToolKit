@@ -39,4 +39,11 @@ printf '%s\n' "$table_out" | grep -q '^TIMESTAMP[[:space:]]+OVERALL' || {
   exit 1
 }
 
+no_color_out="$(LM_STATE_DIR="$tmp_dir" NO_COLOR=1 bash "$LM" history --last 2 --table 2>/dev/null || true)"
+printf '%s\n' "$no_color_out" | grep -q $'\033' && {
+  echo "history --table should not contain ANSI when NO_COLOR=1" >&2
+  echo "$no_color_out" >&2
+  exit 1
+}
+
 echo "history command ok"

@@ -558,6 +558,9 @@ if rows:
     else:
         for r in rows[:10]:
             print(f"{r.get('monitor')} ms={r.get('ms')}")
+    if totals:
+        print("\nreport_totals:")
+        print("  " + " ".join(f"{k}={totals.get(k,0)}" for k in ["CRIT","WARN","UNKNOWN","SKIP","OK"]))
 PY
 
     rm -f "$tmp_status" "$tmp_trend" "$tmp_runtimes" 2>/dev/null || true
@@ -614,17 +617,21 @@ PY
     LAST_N=10
     HISTORY_JSON=0
     HISTORY_TABLE=0
+    HISTORY_COLOR=1
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --last) LAST_N="$2"; shift 2;;
         --json) HISTORY_JSON=1; shift 1;;
         --table) HISTORY_TABLE=1; shift 1;;
+        --no-color) HISTORY_COLOR=0; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint history [--last N] [--json] [--table]"
+          echo "Usage: linux-maint history [--last N] [--json] [--table] [--no-color]"
           exit 0;;
         *) echo "Unknown history flag: $1" >&2; exit 2;;
       esac
     done
+    [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && HISTORY_COLOR=0
+    [[ "$HISTORY_TABLE" -eq 1 ]] && HISTORY_COLOR=0
 
     if [[ ! "$LAST_N" =~ ^[0-9]+$ ]] || (( LAST_N <= 0 )); then
       echo "ERROR: --last must be a positive integer" >&2
@@ -638,12 +645,18 @@ PY
     fi
     index_file="${LM_RUN_INDEX_FILE:-$state_dir/run_index.jsonl}"
 
-    python3 - "$index_file" "$LAST_N" "$HISTORY_JSON" "$HISTORY_TABLE" <<'PY'
+    LM_COLOR="$HISTORY_COLOR" python3 - "$index_file" "$LAST_N" "$HISTORY_JSON" "$HISTORY_TABLE" <<'PY'
 import json, os, sys
 path, last_n, json_mode, table = sys.argv[1:5]
 last_n = int(last_n)
 json_mode = json_mode == "1"
 table = table == "1"
+color = os.environ.get("LM_COLOR","1") == "1"
+
+def c(s, code):
+    if not color:
+        return s
+    return f"\033[{code}m{s}\033[0m"
 
 if not os.path.exists(path):
     print(f"No run index found: {path}")
@@ -687,6 +700,16 @@ if table:
             w[i]=max(w[i], len(v))
     print(" ".join(f"{headers[i]:<{w[i]}}" for i in range(len(headers))))
     for row in table_rows:
+        overall=row[1]
+        ov=overall
+        if overall == "CRIT":
+            ov=c(overall,"1;31")
+        elif overall == "WARN":
+            ov=c(overall,"1;33")
+        elif overall == "OK":
+            ov=c(overall,"1;32")
+        row=list(row)
+        row[1]=ov
         print(" ".join(f"{row[i]:<{w[i]}}" for i in range(len(headers))))
 else:
     for r in rows:

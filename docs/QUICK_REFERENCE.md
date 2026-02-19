@@ -36,6 +36,7 @@ sudo linux-maint check
 sudo linux-maint history --last 10
 sudo linux-maint history --json
 sudo linux-maint history --table
+sudo linux-maint history --table --no-color
 
 # One-line summary (cron/dashboards)
 sudo linux-maint summary
