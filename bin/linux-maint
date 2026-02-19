@@ -567,9 +567,6 @@ if rows:
     else:
         for r in rows[:10]:
             print(f"{r.get('monitor')} ms={r.get('ms')}")
-    if totals:
-        print("\nreport_totals:")
-        print("  " + " ".join(f"{k}={totals.get(k,0)}" for k in ["CRIT","WARN","UNKNOWN","SKIP","OK"]))
 PY
 
     rm -f "$tmp_status" "$tmp_trend" "$tmp_runtimes" 2>/dev/null || true
@@ -1280,18 +1277,27 @@ with open(path, 'r', encoding='utf-8', errors='ignore') as f:
             problems.append(f"{s} {mon} host={host}")
 
 order=['CRIT','WARN','UNKNOWN','SKIP','OK']
-parts=[]
-for k in order:
-    v=str(counts.get(k,0))
-    if k == "CRIT":
-        parts.append(f"{c(k,'1;31')}={v}")
-    elif k == "WARN":
-        parts.append(f"{c(k,'1;33')}={v}")
-    elif k == "OK":
-        parts.append(f"{c(k,'1;32')}={v}")
-    else:
-        parts.append(f"{k}={v}")
-print('totals: ' + ' '.join(parts))
+if table:
+    print("totals:")
+    maxk=max(len(k) for k in order)
+    maxv=max(len(str(counts.get(k,0))) for k in order)
+    print(f"  {'STATUS':<{maxk}} {'COUNT':<{maxv}}")
+    for k in order:
+        v=str(counts.get(k,0))
+        print(f"  {k:<{maxk}} {v:<{maxv}}")
+else:
+    parts=[]
+    for k in order:
+        v=str(counts.get(k,0))
+        if k == "CRIT":
+            parts.append(f"{c(k,'1;31')}={v}")
+        elif k == "WARN":
+            parts.append(f"{c(k,'1;33')}={v}")
+        elif k == "OK":
+            parts.append(f"{c(k,'1;32')}={v}")
+        else:
+            parts.append(f"{k}={v}")
+    print('totals: ' + ' '.join(parts))
 
 if problems:
     print("\nproblems:")
