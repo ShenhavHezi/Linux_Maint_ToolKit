@@ -67,6 +67,7 @@ run_required "runtimes_command_test" bash "$ROOT_DIR/tests/runtimes_command_test
 run_required "runtime_warn_threshold_test" bash "$ROOT_DIR/tests/runtime_warn_threshold_test.sh"
 run_required "report_command_test" bash "$ROOT_DIR/tests/report_command_test.sh"
 run_required "check_command_test" bash "$ROOT_DIR/tests/check_command_test.sh"
+run_required "history_command_test" bash "$ROOT_DIR/tests/history_command_test.sh"
 
 # Security lint: forbid eval usage
 run_required "no_eval_lint" bash "$ROOT_DIR/tests/no_eval_lint.sh"

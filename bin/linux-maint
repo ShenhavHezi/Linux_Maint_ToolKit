@@ -197,6 +197,7 @@ Common commands:
   doctor [--json]        Diagnose installation/config/state permissions
   self-check [--json]    Quick validation (config/paths/deps; safe without sudo)
   check                 Run config_validate + preflight + show expected skips
+  history [--last N]     Show recent runs (run index; faster than log scan)
 
 Analysis / reporting:
   trend [--last N] [--json]     Aggregate severity/reason trends
@@ -492,6 +493,66 @@ PY
       mkdir -p "$cfg_dir" 2>/dev/null || true
     fi
     expected_skips "$cfg_dir"
+    ;;
+
+  history)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for history
+    fi
+
+    LAST_N=10
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --last) LAST_N="$2"; shift 2;;
+        -h|--help)
+          echo "Usage: linux-maint history [--last N]"
+          exit 0;;
+        *) echo "Unknown history flag: $1" >&2; exit 2;;
+      esac
+    done
+
+    if [[ ! "$LAST_N" =~ ^[0-9]+$ ]] || (( LAST_N <= 0 )); then
+      echo "ERROR: --last must be a positive integer" >&2
+      exit 2
+    fi
+
+    if [[ "$MODE" == "repo" ]]; then
+      state_dir="${LM_STATE_DIR:-$REPO_LOG_DIR}"
+    else
+      state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
+    fi
+    index_file="${LM_RUN_INDEX_FILE:-$state_dir/run_index.jsonl}"
+
+    python3 - "$index_file" "$LAST_N" <<'PY'
+import json, os, sys
+path, last_n = sys.argv[1:3]
+last_n = int(last_n)
+
+if not os.path.exists(path):
+    print(f"No run index found: {path}")
+    sys.exit(1)
+
+rows=[]
+with open(path, "r", encoding="utf-8", errors="ignore") as f:
+    for line in f:
+        line=line.strip()
+        if not line:
+            continue
+        try:
+            rows.append(json.loads(line))
+        except Exception:
+            continue
+
+rows = rows[-last_n:]
+print(f"=== Last {len(rows)} runs (run_index) ===")
+for r in rows:
+    ts = r.get("timestamp","")
+    overall = r.get("overall","UNKNOWN")
+    exit_code = r.get("exit_code","")
+    hosts = r.get("hosts",{}) or {}
+    counts = f"CRIT={hosts.get('crit',0)} WARN={hosts.get('warn',0)} UNKNOWN={hosts.get('unknown',0)} SKIP={hosts.get('skipped',0)} OK={hosts.get('ok',0)}"
+    print(f"{ts} overall={overall} exit_code={exit_code} {counts}")
+PY
     ;;
 
   status)

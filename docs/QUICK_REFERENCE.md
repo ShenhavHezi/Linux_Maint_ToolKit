@@ -29,6 +29,9 @@ sudo linux-maint report
 # Preflight + validate + expected SKIPs
 sudo linux-maint check
 
+# Run history (fast; uses run_index.jsonl)
+sudo linux-maint history --last 10
+
 # Filter by host/monitor/status
 sudo linux-maint status --host web --monitor service --only WARN
 
