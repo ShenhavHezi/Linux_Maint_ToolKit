@@ -38,6 +38,11 @@ printf '%s\n' "$table_out" | grep -q '^STATUS[[:space:]]+MONITOR' || {
   echo "$table_out" >&2
   exit 1
 }
+printf '%s\n' "$table_out" | grep -q '^totals:' || {
+  echo "report --table missing totals table" >&2
+  echo "$table_out" >&2
+  exit 1
+}
 
 no_color_out="$(NO_COLOR=1 bash "$LM" report 2>/dev/null || true)"
 printf '%s\n' "$no_color_out" | grep -q $'\033' && {

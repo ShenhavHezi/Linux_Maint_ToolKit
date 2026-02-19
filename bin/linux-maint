@@ -478,8 +478,17 @@ if not compact:
 
 totals = status.get("totals", {})
 if totals:
-    line = "totals: " + " ".join(f"{k}={totals.get(k,0)}" for k in ["CRIT","WARN","UNKNOWN","SKIP","OK"])
-    print(line)
+    tvals=[("CRIT", totals.get("CRIT",0)), ("WARN", totals.get("WARN",0)), ("UNKNOWN", totals.get("UNKNOWN",0)), ("SKIP", totals.get("SKIP",0)), ("OK", totals.get("OK",0))]
+    maxk=max(len(k) for k,_ in tvals) if tvals else 0
+    maxv=max(len(str(v)) for _,v in tvals) if tvals else 0
+    if table:
+        print("totals:")
+        print(f"  {'STATUS':<{maxk}} {'COUNT':<{maxv}}")
+        for k,v in tvals:
+            print(f"  {k:<{maxk}} {str(v):<{maxv}}")
+    else:
+        line = "totals: " + " ".join(f"{k}={v}" for k,v in tvals)
+        print(line)
     if compact:
         raise SystemExit(0)
 
@@ -838,7 +847,8 @@ PY
     [[ "$TABLE" -eq 1 ]] && LM_COLOR=0
 
     if [[ "$SUMMARY_ONLY" -eq 1 ]]; then
-      exec "$0" summary --no-color
+      "$0" summary --no-color
+      [[ "$TABLE" -eq 1 ]] || exit 0
     fi
 
     case "$MATCH_MODE" in
