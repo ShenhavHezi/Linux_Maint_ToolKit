@@ -65,6 +65,8 @@ sudo linux-maint doctor --json
 
 # Quick self-check (safe without sudo)
 linux-maint self-check
+# Self-check in JSON
+linux-maint self-check --json
 # Verify offline tarball checksum
 linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
 

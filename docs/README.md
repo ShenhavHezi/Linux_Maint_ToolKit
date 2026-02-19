@@ -10,6 +10,7 @@ Note: this repo was previously named `linux_Maint_Scripts`. The CLI remains `lin
 - **Reason tokens** (`reason=` contract): [`REASONS.md`](REASONS.md)
 - **Offline / dark-site usage**: [`DARK_SITE.md`](DARK_SITE.md)
 - **Day-2 operations**: [`DAY2.md`](DAY2.md)
+- **Docs index (short links)**: [`INDEX.md`](INDEX.md)
 
 ## Which mode should I use?
 

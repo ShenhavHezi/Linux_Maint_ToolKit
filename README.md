@@ -167,7 +167,10 @@ sudo linux-maint diff
 ```bash
 sudo linux-maint doctor
 sudo linux-maint doctor --json
+linux-maint self-check
 sudo linux-maint deps
+sudo linux-maint export --json
+sudo linux-maint export --csv
 sudo linux-maint pack-logs --out /tmp
 ```
 
@@ -283,6 +286,8 @@ These SKIPs are expected until you populate the files. Use `linux-maint doctor` 
 - `linux-maint doctor --json` — config/dep/writable checks with fix suggestions.
 - `linux-maint trend --json` — aggregated reason/severity trends.
 - `linux-maint runtimes --json` — per-monitor runtime history.
+- `linux-maint export --json` — unified payload for external ingestion.
+- `linux-maint export --csv` — summary rows for spreadsheets/BI tools.
 
 ## Common knobs
 

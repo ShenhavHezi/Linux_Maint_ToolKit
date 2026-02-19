@@ -486,6 +486,7 @@ Example (`trend --json`):
 
 - `linux-maint export --json` *(root required)*: export a single JSON payload containing summary_result/summary_hosts plus raw `monitor=` rows (best for external ingestion).
 - `linux-maint export --csv` *(root required)*: export `monitor,host,status,reason` rows as CSV (easy to import).
+- `linux-maint self-check [--json]`: quick validation for config/paths/deps (safe in repo mode).
 
 Schema:
 - `docs/schemas/export.json` — JSON schema for `linux-maint export --json`.
@@ -508,8 +509,6 @@ Example (`export --json`):
 - `linux-maint preflight` *(root recommended)*: check dependencies/SSH/config readiness.
 
 - `linux-maint validate` *(root recommended)*: validate `/etc/linux_maint` config file formats (best-effort).
-
-- `linux-maint self-check [--json]`: quick validation for config/paths/deps (safe in repo mode).
 
 - `linux-maint version`: show installed `BUILD_INFO` (if present).
 
