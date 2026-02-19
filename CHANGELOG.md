@@ -8,6 +8,13 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-02-19
 
+- Added colorized CLI output for status/report with NO_COLOR/--no-color support.
+- Added one-line summary command for cron/dashboards.
+- Expanded help with examples and updated quick reference docs.
+- Added tests covering report/summary output and no-color behavior.
+
+## 2026-02-19
+
 - Fixed wrapper skip gating so skipped monitors do not execute; wrapper skips now use host=runner.
 - Hardened LM_SSH_OPTS validation in the library and added coverage.
 - Improved quick-check reliability in restricted temp dir environments.
