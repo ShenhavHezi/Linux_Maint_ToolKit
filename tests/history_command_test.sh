@@ -30,5 +30,6 @@ printf '%s\n' "$json_out" | grep -q '"runs"' || {
   echo "$json_out" >&2
   exit 1
 }
+printf '%s' "$json_out" | python3 "$ROOT_DIR/tools/json_schema_validate.py" "$ROOT_DIR/docs/schemas/history.json"
 
 echo "history command ok"

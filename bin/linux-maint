@@ -209,7 +209,7 @@ Common commands:
   status [flags]         Show last run status + filtered summary lines
   diff [--json]          Show diff since last run (uses wrapper diff state)
   logs [n]               Tail latest wrapper log (default n=200)
-  report [--json] [--compact]  Summarize latest run, trends, and slow monitors
+  report [--json] [--compact] [--table]  Summarize latest run, trends, and slow monitors
   doctor [--json]        Diagnose installation/config/state permissions
   self-check [--json]    Quick validation (config/paths/deps; safe without sudo)
   check                 Run config_validate + preflight + show expected skips
@@ -396,18 +396,21 @@ case "$cmd" in
     REPORT_JSON=0
     REPORT_COLOR=1
     REPORT_COMPACT=0
+    REPORT_TABLE=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) REPORT_JSON=1; shift 1;;
         --no-color) REPORT_COLOR=0; shift 1;;
         --compact) REPORT_COMPACT=1; shift 1;;
+        --table) REPORT_TABLE=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint report [--json] [--no-color] [--compact]"
+          echo "Usage: linux-maint report [--json] [--no-color] [--compact] [--table]"
           exit 0;;
         *) echo "Unknown report flag: $1" >&2; exit 2;;
       esac
     done
     [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && REPORT_COLOR=0
+    [[ "$REPORT_TABLE" -eq 1 ]] && REPORT_COLOR=0
 
     tmp_status="$(mktemp -p "$TMPDIR" linux_maint_report_status.XXXXXX.json)"
     tmp_trend="$(mktemp -p "$TMPDIR" linux_maint_report_trend.XXXXXX.json)"
@@ -417,13 +420,14 @@ case "$cmd" in
     "$0" trend --last 10 --json >"$tmp_trend" 2>/dev/null || printf '{}' >"$tmp_trend"
     "$0" runtimes --last 1 --json >"$tmp_runtimes" 2>/dev/null || printf '{}' >"$tmp_runtimes"
 
-    LM_COLOR="$REPORT_COLOR" REPORT_COMPACT="$REPORT_COMPACT" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
+    LM_COLOR="$REPORT_COLOR" REPORT_COMPACT="$REPORT_COMPACT" REPORT_TABLE="$REPORT_TABLE" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
 import json, os, sys
 
 status_path, trend_path, runtimes_path, json_mode = sys.argv[1:5]
 json_mode = json_mode == "1"
 color = os.environ.get("LM_COLOR","1") == "1"
 compact = os.environ.get("REPORT_COMPACT","0") == "1"
+table = os.environ.get("REPORT_TABLE","0") == "1"
 
 def c(s, code):
     if not color:
@@ -482,24 +486,41 @@ if totals:
 problems = status.get("problems", [])
 if problems:
     print("\nproblems (top):")
-    for p in problems[:20]:
-        s = p.get("status","UNKNOWN")
-        mon = p.get("monitor","unknown")
-        host = p.get("host","")
-        reason = p.get("reason","")
-        st = s
-        if s == "CRIT":
-            st = c(s,"1;31")
-        elif s == "WARN":
-            st = c(s,"1;33")
-        elif s == "OK":
-            st = c(s,"1;32")
-        line = f"{st} {mon}"
-        if host:
-            line += f" host={host}"
-        if reason:
-            line += f" reason={reason}"
-        print(line)
+    if table:
+        rows=[]
+        for p in problems[:20]:
+            s=p.get("status","UNKNOWN")
+            mon=p.get("monitor","unknown")
+            host=p.get("host","")
+            reason=p.get("reason","")
+            rows.append((s, mon, host, reason))
+        headers=("STATUS","MONITOR","HOST","REASON")
+        w=[len(h) for h in headers]
+        for r in rows:
+            for i,v in enumerate(r):
+                w[i]=max(w[i], len(str(v)))
+        print(f"{headers[0]:<{w[0]}} {headers[1]:<{w[1]}} {headers[2]:<{w[2]}} {headers[3]}")
+        for s,mon,host,reason in rows:
+            print(f"{s:<{w[0]}} {mon:<{w[1]}} {host:<{w[2]}} {reason}")
+    else:
+        for p in problems[:20]:
+            s = p.get("status","UNKNOWN")
+            mon = p.get("monitor","unknown")
+            host = p.get("host","")
+            reason = p.get("reason","")
+            st = s
+            if s == "CRIT":
+                st = c(s,"1;31")
+            elif s == "WARN":
+                st = c(s,"1;33")
+            elif s == "OK":
+                st = c(s,"1;32")
+            line = f"{st} {mon}"
+            if host:
+                line += f" host={host}"
+            if reason:
+                line += f" reason={reason}"
+            print(line)
     print("\nnext_steps:")
     print("  - run: linux-maint doctor")
     print("  - run: linux-maint status --verbose")
@@ -524,8 +545,19 @@ if trend:
 rows = runtimes.get("rows", [])
 if rows:
     print("\nslow monitors (last run):")
-    for r in rows[:10]:
-        print(f"{r.get('monitor')} ms={r.get('ms')}")
+    if table:
+        rows2=[(r.get("monitor",""), str(r.get("ms",""))) for r in rows[:10]]
+        headers=("MONITOR","MS")
+        w=[len(h) for h in headers]
+        for r in rows2:
+            for i,v in enumerate(r):
+                w[i]=max(w[i], len(str(v)))
+        print(f"{headers[0]:<{w[0]}} {headers[1]:<{w[1]}}")
+        for mon,ms in rows2:
+            print(f"{mon:<{w[0]}} {ms:<{w[1]}}")
+    else:
+        for r in rows[:10]:
+            print(f"{r.get('monitor')} ms={r.get('ms')}")
 PY
 
     rm -f "$tmp_status" "$tmp_trend" "$tmp_runtimes" 2>/dev/null || true
@@ -726,6 +758,7 @@ PY
     MATCH_MODE="contains"
     REASONS_N=0
     SINCE=""
+    TABLE=0
 
 
     while [[ $# -gt 0 ]]; do
@@ -736,6 +769,7 @@ PY
         --quiet) QUIET=1; shift 1;;
         --json) JSON=1; shift 1;;
         --no-color) LM_COLOR=0; shift 1;;
+        --table) TABLE=1; shift 1;;
         --host) HOST_FILTER="$2"; shift 2;;
         --monitor) MONITOR_FILTER="$2"; shift 2;;
         --match-mode) MATCH_MODE="$2"; shift 2;;
@@ -744,12 +778,13 @@ PY
         --since) SINCE="$2"; shift 2;;
         --last) LAST_N="$2"; shift 2;;
         -h|--help)
-          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--no-color] [--problems N (max 100)] [--reasons N (max 20)] [--since 15m|2h|1d|30s] [--last N]"
+          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--no-color] [--table] [--problems N (max 100)] [--reasons N (max 20)] [--since 15m|2h|1d|30s] [--last N]"
           exit 0;;
         *) echo "Unknown status flag: $1" >&2; exit 2;;
       esac
     done
     [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && LM_COLOR=0
+    [[ "$TABLE" -eq 1 ]] && LM_COLOR=0
 
     case "$MATCH_MODE" in
       contains|exact|regex) ;;
@@ -1093,12 +1128,13 @@ PY
         fi
       else
         [[ "$QUIET" -eq 0 ]] && echo "(from: $summary_file)"
-      LM_COLOR="$LM_COLOR" python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" <<'PY'
+      LM_COLOR="$LM_COLOR" python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" "$TABLE" <<'PY'
 import re, sys, os
-path, only, limit, host_filter, monitor_filter, match_mode, reasons_limit = sys.argv[1:8]
+path, only, limit, host_filter, monitor_filter, match_mode, reasons_limit, table = sys.argv[1:9]
 limit=int(limit)
 reasons_limit=int(reasons_limit)
 color = os.environ.get("LM_COLOR","1") == "1"
+table = table == "1"
 
 def c(s, code):
     if not color:
@@ -1184,10 +1220,37 @@ print('totals: ' + ' '.join(parts))
 
 if problems:
     print("\nproblems:")
-    sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3}
-    problems.sort(key=lambda s: sev_order.get(s.split(' ',1)[0], 9))
-    for l in problems[:limit]:
-        print(l)
+    if table:
+        rows=[]
+        for line in problems[:limit]:
+            parts=line.split(" ",1)
+            st=parts[0]
+            rest=parts[1] if len(parts)>1 else ""
+            mon=""
+            host=""
+            reason=""
+            if " host=" in rest:
+                mon, rest2 = rest.split(" host=",1)
+                if " reason=" in rest2:
+                    host, reason = rest2.split(" reason=",1)
+                else:
+                    host = rest2
+            else:
+                mon = rest
+            rows.append((st, mon, host, reason))
+        headers=("STATUS","MONITOR","HOST","REASON")
+        w=[len(h) for h in headers]
+        for r in rows:
+            for i,v in enumerate(r):
+                w[i]=max(w[i], len(str(v)))
+        print(f"{headers[0]:<{w[0]}} {headers[1]:<{w[1]}} {headers[2]:<{w[2]}} {headers[3]}")
+        for st,mon,host,reason in rows:
+            print(f"{st:<{w[0]}} {mon:<{w[1]}} {host:<{w[2]}} {reason}")
+    else:
+        sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3}
+        problems.sort(key=lambda s: sev_order.get(s.split(' ',1)[0], 9))
+        for l in problems[:limit]:
+            print(l)
     print("\ntip: run 'linux-maint doctor' for fix suggestions")
 else:
     print('\nproblems: none (all OK)')

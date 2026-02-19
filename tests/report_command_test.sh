@@ -23,11 +23,19 @@ printf '%s\n' "$json_out" | grep -q '"status"' || {
   echo "$json_out" >&2
   exit 1
 }
+printf '%s' "$json_out" | python3 "$ROOT_DIR/tools/json_schema_validate.py" "$ROOT_DIR/docs/schemas/report.json"
 
-compact_out="$(bash "$LM" report --compact 2>/dev/null || true)"
+compact_out="$(bash "$LM" report --compact --no-color 2>/dev/null || true)"
 printf '%s\n' "$compact_out" | grep -q '^totals:' || {
   echo "report --compact missing totals line" >&2
   echo "$compact_out" >&2
+  exit 1
+}
+
+table_out="$(bash "$LM" report --table 2>/dev/null || true)"
+printf '%s\n' "$table_out" | grep -q '^STATUS[[:space:]]+MONITOR' || {
+  echo "report --table missing header" >&2
+  echo "$table_out" >&2
   exit 1
 }
 

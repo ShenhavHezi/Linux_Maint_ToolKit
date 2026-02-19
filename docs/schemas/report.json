@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "required": ["status", "trend", "runtimes"],
+  "properties": {
+    "status": { "type": "object" },
+    "trend": { "type": "object" },
+    "runtimes": { "type": "object" }
+  }
+}

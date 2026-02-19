@@ -27,6 +27,7 @@ sudo linux-maint status --json
 sudo linux-maint report
 sudo linux-maint report --json
 sudo linux-maint report --compact
+sudo linux-maint report --table
 
 # Preflight + validate + expected SKIPs
 sudo linux-maint check
@@ -37,6 +38,13 @@ sudo linux-maint history --json
 
 # One-line summary (cron/dashboards)
 sudo linux-maint summary
+
+# Table format for problems
+sudo linux-maint status --table
+
+# JSON schemas (validation)
+docs/schemas/report.json
+docs/schemas/history.json
 
 # Filter by host/monitor/status
 sudo linux-maint status --host web --monitor service --only WARN
