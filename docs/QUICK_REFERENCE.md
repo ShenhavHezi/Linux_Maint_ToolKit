@@ -46,6 +46,10 @@ sudo linux-maint status --summary
 sudo linux-maint status --table
 sudo linux-maint status --compact
 
+# Compact diagnostics
+sudo linux-maint doctor --compact
+sudo linux-maint self-check --compact
+
 # JSON schemas (validation)
 docs/schemas/report.json
 docs/schemas/history.json

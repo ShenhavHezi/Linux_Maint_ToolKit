@@ -40,3 +40,19 @@ printf '%s\n' "$compact_out" | grep -q '=== Mode ===' && {
 }
 
 echo "status compact ok"
+
+doctor_compact_out="$(bash "$LM" doctor --compact 2>/dev/null || true)"
+printf '%s\n' "$doctor_compact_out" | grep -q '^== Files ==' && {
+  echo "doctor --compact should hide Files section" >&2
+  echo "$doctor_compact_out" >&2
+  exit 1
+}
+
+self_compact_out="$(bash "$LM" self-check --compact 2>/dev/null || true)"
+printf '%s\n' "$self_compact_out" | grep -q '^== Paths' && {
+  echo "self-check --compact should hide Paths section" >&2
+  echo "$self_compact_out" >&2
+  exit 1
+}
+
+echo "compact doctor/self-check ok"

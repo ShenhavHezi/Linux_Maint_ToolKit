@@ -295,6 +295,8 @@ These SKIPs are expected until you populate the files. Use `linux-maint doctor` 
 - `linux-maint status --summary` — one-line latest summary (alias of `summary`).
 - `linux-maint status --table` — table-formatted problems list.
 - `linux-maint status --compact` — hide install metadata; show last run + summary only.
+- `linux-maint doctor --compact` — hide file/systemd details; show key checks only.
+- `linux-maint self-check --compact` — show config checks only.
 - `linux-maint doctor --json` — config/dep/writable checks with fix suggestions.
 - `linux-maint trend --json` — aggregated reason/severity trends.
 - `linux-maint runtimes --json` — per-monitor runtime history.

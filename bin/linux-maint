@@ -2146,11 +2146,17 @@ PY
     fi
 
     DOCTOR_JSON=0
-    case "${1:-}" in
-      --json) DOCTOR_JSON=1; shift ;;
-      "") ;;
-      *) echo "Unknown doctor flag: $1" >&2; exit 2 ;;
-    esac
+    DOCTOR_COMPACT=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --json) DOCTOR_JSON=1; shift 1;;
+        --compact) DOCTOR_COMPACT=1; shift 1;;
+        -h|--help)
+          echo "Usage: linux-maint doctor [--json] [--compact]"
+          exit 0;;
+        *) echo "Unknown doctor flag: $1" >&2; exit 2;;
+      esac
+    done
 
     CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
 
@@ -2317,14 +2323,16 @@ PYJSON
     echo "lib=${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
     echo "cfg_dir=$CFG_DIR"
 
-    echo "== Files =="
-    for path in "$wrapper" "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; do
-      if [[ -e "$path" ]]; then ls -la "$path"; else echo "MISSING: $path"; fi
-    done
-    if [[ "$MODE" == "installed" ]]; then
-      [[ -d "$LIBEXEC" ]] && ls -ld "$LIBEXEC" || echo "MISSING: $LIBEXEC"
-    else
-      [[ -d "$REPO_MONITORS" ]] && ls -ld "$REPO_MONITORS" || echo "MISSING: $REPO_MONITORS"
+    if [[ "$DOCTOR_COMPACT" -eq 0 ]]; then
+      echo "== Files =="
+      for path in "$wrapper" "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; do
+        if [[ -e "$path" ]]; then ls -la "$path"; else echo "MISSING: $path"; fi
+      done
+      if [[ "$MODE" == "installed" ]]; then
+        [[ -d "$LIBEXEC" ]] && ls -ld "$LIBEXEC" || echo "MISSING: $LIBEXEC"
+      else
+        [[ -d "$REPO_MONITORS" ]] && ls -ld "$REPO_MONITORS" || echo "MISSING: $REPO_MONITORS"
+      fi
     fi
 
     echo "== Config presence =="
@@ -2389,21 +2397,23 @@ PYJSON
     need_cmd ssh "openssh-clients"
     need_cmd systemctl "systemd"
 
-    echo "== systemd (best-effort) =="
-    if command -v systemctl >/dev/null 2>&1; then
-      for unit in linux-maint.timer linux-maint.service; do
-        if systemctl list-unit-files --no-legend "$unit" 2>/dev/null | grep -q "^$unit"; then
-          echo "UNIT: $unit"
-          systemctl is-enabled "$unit" 2>/dev/null || true
-          systemctl is-active "$unit" 2>/dev/null || true
-        else
-          echo "INFO: unit not installed: $unit"
-        fi
-      done
-      echo "-- timers (linux-maint) --"
-      systemctl list-timers --all --no-pager 2>/dev/null | grep -E "linux-maint\.timer|NEXT|^$" || true
-    else
-      echo "INFO: systemctl not found"
+    if [[ "$DOCTOR_COMPACT" -eq 0 ]]; then
+      echo "== systemd (best-effort) =="
+      if command -v systemctl >/dev/null 2>&1; then
+        for unit in linux-maint.timer linux-maint.service; do
+          if systemctl list-unit-files --no-legend "$unit" 2>/dev/null | grep -q "^$unit"; then
+            echo "UNIT: $unit"
+            systemctl is-enabled "$unit" 2>/dev/null || true
+            systemctl is-active "$unit" 2>/dev/null || true
+          else
+            echo "INFO: unit not installed: $unit"
+          fi
+        done
+        echo "-- timers (linux-maint) --"
+        systemctl list-timers --all --no-pager 2>/dev/null | grep -E "linux-maint\.timer|NEXT|^$" || true
+      else
+        echo "INFO: systemctl not found"
+      fi
     fi
 
     echo "== Can write state/logs? =="
@@ -2433,21 +2443,29 @@ PYJSON
       done
     fi
 
-    echo "== Next recommended actions =="
-    echo "- linux-maint verify-install"
-    echo "- sudo linux-maint init      # if config is missing"
-    echo "- sudo linux-maint preflight"
-    echo "- sudo linux-maint run"
-    echo "- linux-maint pack-logs --out .  # create bundle for export"
+    if [[ "$DOCTOR_COMPACT" -eq 0 ]]; then
+      echo "== Next recommended actions =="
+      echo "- linux-maint verify-install"
+      echo "- sudo linux-maint init      # if config is missing"
+      echo "- sudo linux-maint preflight"
+      echo "- sudo linux-maint run"
+      echo "- linux-maint pack-logs --out .  # create bundle for export"
+    fi
     ;;
 
   self-check)
     SC_JSON=0
-    case "${1:-}" in
-      --json) SC_JSON=1; shift ;;
-      "") ;;
-      *) echo "Unknown self-check flag: $1" >&2; exit 2 ;;
-    esac
+    SC_COMPACT=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --json) SC_JSON=1; shift 1;;
+        --compact) SC_COMPACT=1; shift 1;;
+        -h|--help)
+          echo "Usage: linux-maint self-check [--json] [--compact]"
+          exit 0;;
+        *) echo "Unknown self-check flag: $1" >&2; exit 2;;
+      esac
+    done
 
     CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
     if [[ "$MODE" == "repo" ]]; then
@@ -2512,18 +2530,20 @@ PY
     for f in "$CFG_DIR/servers.txt" "$CFG_DIR/excluded.txt" "$CFG_DIR/services.txt"; do
       [[ -e "$f" ]] && echo "OK: $f" || echo "WARN: missing $f"
     done
-    echo "== Paths (writable) =="
-    for d in "$LOG_DIR_SC" "$STATE_DIR_SC" "$LOCK_DIR_SC"; do
-      if [[ -d "$d" ]]; then
-        [[ -w "$d" ]] && echo "OK: writable $d" || echo "WARN: not writable $d"
-      else
-        echo "WARN: missing dir $d"
-      fi
-    done
-    echo "== Dependencies =="
-    for cmd in bash awk sed grep df find timeout ssh; do
-      command -v "$cmd" >/dev/null 2>&1 && echo "OK: $cmd" || echo "WARN: missing $cmd"
-    done
+    if [[ "$SC_COMPACT" -eq 0 ]]; then
+      echo "== Paths (writable) =="
+      for d in "$LOG_DIR_SC" "$STATE_DIR_SC" "$LOCK_DIR_SC"; do
+        if [[ -d "$d" ]]; then
+          [[ -w "$d" ]] && echo "OK: writable $d" || echo "WARN: not writable $d"
+        else
+          echo "WARN: missing dir $d"
+        fi
+      done
+      echo "== Dependencies =="
+      for cmd in bash awk sed grep df find timeout ssh; do
+        command -v "$cmd" >/dev/null 2>&1 && echo "OK: $cmd" || echo "WARN: missing $cmd"
+      done
+    fi
     ;;
 
   deps)
