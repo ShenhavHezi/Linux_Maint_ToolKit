@@ -23,4 +23,11 @@ printf '%s\n' "$out_table" | grep -q '^STATUS[[:space:]]+MONITOR' || {
   exit 1
 }
 
+color_out="$(bash "$LM" status --summary --table 2>/dev/null || true)"
+printf '%s\n' "$color_out" | grep -q $'\033' || {
+  echo "status --table should contain ANSI when color enabled" >&2
+  echo "$color_out" >&2
+  exit 1
+}
+
 echo "status summary ok"

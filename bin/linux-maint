@@ -719,7 +719,13 @@ if table:
             ov=c(overall,"1;32")
         row=list(row)
         row[1]=ov
-        print(" ".join(f"{row[i]:<{w[i]}}" for i in range(len(headers))))
+        # Colorize count columns (crit/warn/unknown/skip/ok)
+        row[3]=c(row[3],"1;31") if row[3] != "0" else row[3]
+        row[4]=c(row[4],"1;33") if row[4] != "0" else row[4]
+        row[5]=c(row[5],"1;35") if row[5] != "0" else row[5]
+        row[6]=c(row[6],"1;36") if row[6] != "0" else row[6]
+        row[7]=c(row[7],"1;32") if row[7] != "0" else row[7]
+        print(" ".join(f\"{row[i]:<{w[i]}}\" for i in range(len(headers))))
 else:
     for r in rows:
         ts = r.get("timestamp","")
@@ -1310,7 +1316,18 @@ if problems:
                 w[i]=max(w[i], len(str(v)))
         print(f"{headers[0]:<{w[0]}} {headers[1]:<{w[1]}} {headers[2]:<{w[2]}} {headers[3]}")
         for st,mon,host,reason in rows:
-            print(f"{st:<{w[0]}} {mon:<{w[1]}} {host:<{w[2]}} {reason}")
+            s=st
+            if st=="CRIT":
+                s=c(st,'1;31')
+            elif st=="WARN":
+                s=c(st,'1;33')
+            elif st=="OK":
+                s=c(st,'1;32')
+            elif st=="UNKNOWN":
+                s=c(st,'1;35')
+            elif st=="SKIP":
+                s=c(st,'1;36')
+            print(f"{s:<{w[0]}} {mon:<{w[1]}} {host:<{w[2]}} {reason}")
     else:
         sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3}
         problems.sort(key=lambda s: sev_order.get(s.split(' ',1)[0], 9))
