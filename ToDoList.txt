@@ -19,6 +19,28 @@ This is the single backlog source of truth.
 
 ## P0 — Correctness / reliability
 
+### P0.3 Fix wrapper skip gating to actually skip monitors (DONE 2026-02-19)
+**Why**: current skip logic emits SKIP but still runs the monitor, causing contradictory results.
+**Scope**:
+- In `run_full_health_monitor.sh`, ensure `skip_monitor` exits the monitor execution path.
+- Replace deprecated `host=all` with `host=runner` for wrapper-level skips.
+**Acceptance**:
+- Tests verify skipped monitors do not execute and only emit a single SKIP line.
+
+### P0.4 Fix `linux-maint diff` debug output ordering (DONE 2026-02-19)
+**Why**: debug output currently prints `diff_cur` before it is assigned.
+**Scope**:
+- Assign `CUR_SUMMARY` before printing debug lines in `bin/linux-maint`.
+**Acceptance**:
+- Debug output shows correct paths.
+
+### P0.5 Make `summary_contract` temp dir robust in restricted environments (DONE 2026-02-19)
+**Why**: CI/sandbox runs can fail writing to repo-local temp dirs.
+**Scope**:
+- If `LM_TEST_TMPDIR` is not writable, fall back to a user-writable tmp (e.g. `/tmp`).
+**Acceptance**:
+- `tools/quick_check.sh` passes in restricted environments.
+
 ### P0.1 Add wrapper self-check mode (DONE 2026-02-18)
 **Why**: quickly validate environment and config before real runs.
 **Scope**:
@@ -38,6 +60,13 @@ This is the single backlog source of truth.
 
 ## P1 — Operator UX / documentation
 
+### P1.3 Add remediation notes for top WARN/SKIP reasons
+**Why**: reduce operator guesswork when common warnings appear.
+**Scope**:
+- Add brief guidance for `log_spike_warn`, `missing_optional_cmd` (NTP), and `summary_*_failed`.
+**Acceptance**:
+- Docs include a concise table with reason → action.
+
 ### P1.1 Add a “common fixes” section to README (DONE 2026-02-18)
 **Why**: reduce time-to-resolution for frequent warnings.
 **Scope**:
@@ -55,6 +84,13 @@ This is the single backlog source of truth.
 ---
 
 ## P2 — Security / hardening
+
+### P2.3 Harden localhost execution in `lm_ssh`
+**Why**: current `bash -lc "… $*"` can re-parse arguments and risks unintended shell expansion.
+**Scope**:
+- Use a safer exec path for localhost (e.g., pass argv directly or escape safely).
+**Acceptance**:
+- Tests demonstrate arguments are preserved and no shell injection occurs.
 
 ### P2.1 Add SSH command allowlist for remote runs (DONE 2026-02-18)
 **Why**: reduce blast radius for remote execution.
@@ -74,6 +110,13 @@ This is the single backlog source of truth.
 
 ## P3 — Observability / integrations
 
+### P3.3 Add log retention/rotation guidance and defaults
+**Why**: `/var/log/health` can grow unbounded on long-running systems.
+**Scope**:
+- Provide a sample logrotate config and mention in docs.
+**Acceptance**:
+- Docs show recommended retention and location.
+
 ### P3.1 Add structured JSON log output mode (DONE 2026-02-18)
 **Why**: simplify ingestion into SIEM/ELK.
 **Scope**:
@@ -91,6 +134,13 @@ This is the single backlog source of truth.
 ---
 
 ## P4 — DX / release polish
+
+### P4.3 Add Makefile target for release tarball
+**Why**: avoid confusion around `make make-tarball`.
+**Scope**:
+- Add a `make-tarball` target that calls `tools/make_tarball.sh`.
+**Acceptance**:
+- `make make-tarball` works with a clean tree.
 
 ### P4.1 Add a “breaking changes” checklist (DONE 2026-02-18)
 **Why**: enforce contract stability.

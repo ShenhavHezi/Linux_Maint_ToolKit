@@ -291,10 +291,10 @@ case "$cmd" in
     fi
     PREV_SUMMARY="$DIFF_STATE_DIR/last_summary_monitor_lines.log"
 
+    CUR_SUMMARY="$SUMMARY_LATEST"
     echo "diff_state_dir=$DIFF_STATE_DIR"
     echo "diff_prev=$PREV_SUMMARY"
     echo "diff_cur=$CUR_SUMMARY"
-    CUR_SUMMARY="$SUMMARY_LATEST"
 
     if [[ ! -f "$CUR_SUMMARY" ]]; then
       echo "No current summary file: $CUR_SUMMARY" >&2

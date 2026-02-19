@@ -2,8 +2,27 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEST_TMP="${LM_TEST_TMPDIR:-$ROOT_DIR/.tmp_test}"
-mkdir -p "$TEST_TMP"
+REQ_TEST_TMP="${LM_TEST_TMPDIR:-$ROOT_DIR/.tmp_test}"
+
+pick_writable_dir() {
+  local d probe
+  for d in "$@"; do
+    [ -n "$d" ] || continue
+    mkdir -p "$d" 2>/dev/null || continue
+    probe="$d/.linux_maint_write_test.$$"
+    ( : > "$probe" ) 2>/dev/null || continue
+    rm -f "$probe" 2>/dev/null || true
+    printf '%s' "$d"
+    return 0
+  done
+  return 1
+}
+
+TEST_TMP="$(pick_writable_dir "$REQ_TEST_TMP" "${TMPDIR:-}" "/tmp")"
+if [[ -z "${TEST_TMP:-}" ]]; then
+  echo "FAIL: no writable temp dir found for summary_contract" >&2
+  exit 1
+fi
 export TMPDIR="${TMPDIR:-$TEST_TMP}"
 
 # Optional overrides for targeted tests/debugging.
