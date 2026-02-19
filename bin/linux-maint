@@ -213,7 +213,7 @@ Common commands:
   doctor [--json]        Diagnose installation/config/state permissions
   self-check [--json]    Quick validation (config/paths/deps; safe without sudo)
   check                 Run config_validate + preflight + show expected skips
-  history [--last N] [--json]  Show recent runs (run index; faster than log scan)
+  history [--last N] [--json] [--table]  Show recent runs (run index; faster than log scan)
   summary [--no-color]  One-line latest summary (for cron/dashboards)
 
 Analysis / reporting:
@@ -613,12 +613,14 @@ PY
 
     LAST_N=10
     HISTORY_JSON=0
+    HISTORY_TABLE=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --last) LAST_N="$2"; shift 2;;
         --json) HISTORY_JSON=1; shift 1;;
+        --table) HISTORY_TABLE=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint history [--last N] [--json]"
+          echo "Usage: linux-maint history [--last N] [--json] [--table]"
           exit 0;;
         *) echo "Unknown history flag: $1" >&2; exit 2;;
       esac
@@ -636,11 +638,12 @@ PY
     fi
     index_file="${LM_RUN_INDEX_FILE:-$state_dir/run_index.jsonl}"
 
-    python3 - "$index_file" "$LAST_N" "$HISTORY_JSON" <<'PY'
+    python3 - "$index_file" "$LAST_N" "$HISTORY_JSON" "$HISTORY_TABLE" <<'PY'
 import json, os, sys
-path, last_n, json_mode = sys.argv[1:4]
+path, last_n, json_mode, table = sys.argv[1:5]
 last_n = int(last_n)
 json_mode = json_mode == "1"
+table = table == "1"
 
 if not os.path.exists(path):
     print(f"No run index found: {path}")
@@ -663,13 +666,36 @@ if json_mode:
     raise SystemExit(0)
 
 print(f"=== Last {len(rows)} runs (run_index) ===")
-for r in rows:
-    ts = r.get("timestamp","")
-    overall = r.get("overall","UNKNOWN")
-    exit_code = r.get("exit_code","")
-    hosts = r.get("hosts",{}) or {}
-    counts = f"CRIT={hosts.get('crit',0)} WARN={hosts.get('warn',0)} UNKNOWN={hosts.get('unknown',0)} SKIP={hosts.get('skipped',0)} OK={hosts.get('ok',0)}"
-    print(f"{ts} overall={overall} exit_code={exit_code} {counts}")
+if table:
+    headers=("TIMESTAMP","OVERALL","EXIT_CODE","CRIT","WARN","UNKNOWN","SKIP","OK")
+    table_rows=[]
+    for r in rows:
+        hosts = r.get("hosts",{}) or {}
+        table_rows.append((
+            r.get("timestamp",""),
+            r.get("overall","UNKNOWN"),
+            str(r.get("exit_code","")),
+            str(hosts.get("crit",0)),
+            str(hosts.get("warn",0)),
+            str(hosts.get("unknown",0)),
+            str(hosts.get("skipped",0)),
+            str(hosts.get("ok",0)),
+        ))
+    w=[len(h) for h in headers]
+    for row in table_rows:
+        for i,v in enumerate(row):
+            w[i]=max(w[i], len(v))
+    print(" ".join(f"{headers[i]:<{w[i]}}" for i in range(len(headers))))
+    for row in table_rows:
+        print(" ".join(f"{row[i]:<{w[i]}}" for i in range(len(headers))))
+else:
+    for r in rows:
+        ts = r.get("timestamp","")
+        overall = r.get("overall","UNKNOWN")
+        exit_code = r.get("exit_code","")
+        hosts = r.get("hosts",{}) or {}
+        counts = f"CRIT={hosts.get('crit',0)} WARN={hosts.get('warn',0)} UNKNOWN={hosts.get('unknown',0)} SKIP={hosts.get('skipped',0)} OK={hosts.get('ok',0)}"
+        print(f"{ts} overall={overall} exit_code={exit_code} {counts}")
 PY
     ;;
 

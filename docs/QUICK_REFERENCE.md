@@ -35,6 +35,7 @@ sudo linux-maint check
 # Run history (fast; uses run_index.jsonl)
 sudo linux-maint history --last 10
 sudo linux-maint history --json
+sudo linux-maint history --table
 
 # One-line summary (cron/dashboards)
 sudo linux-maint summary
