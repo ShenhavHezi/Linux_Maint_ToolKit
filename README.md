@@ -288,7 +288,7 @@ These SKIPs are expected until you populate the files. Use `linux-maint doctor` 
 ### Automation-friendly JSON outputs
 
 - `linux-maint status --json` — latest status, totals, problems, and runtime warnings.
-- `linux-maint report [--json]` — concise report combining status, trends, and slow monitors.
+- `linux-maint report [--json] [--compact]` — concise report combining status, trends, and slow monitors.
 - `linux-maint check` — run config_validate + preflight and show expected SKIPs.
 - `linux-maint history --last N [--json]` — recent run list from run index (fast, no log scan).
 - `linux-maint summary [--no-color]` — one-line latest summary (cron/dashboards).

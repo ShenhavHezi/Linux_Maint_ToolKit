@@ -26,6 +26,7 @@ sudo linux-maint status --json
 # Unified report (status + trends + runtimes)
 sudo linux-maint report
 sudo linux-maint report --json
+sudo linux-maint report --compact
 
 # Preflight + validate + expected SKIPs
 sudo linux-maint check

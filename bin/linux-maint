@@ -209,7 +209,7 @@ Common commands:
   status [flags]         Show last run status + filtered summary lines
   diff [--json]          Show diff since last run (uses wrapper diff state)
   logs [n]               Tail latest wrapper log (default n=200)
-  report [--json]        Summarize latest run, trends, and slow monitors
+  report [--json] [--compact]  Summarize latest run, trends, and slow monitors
   doctor [--json]        Diagnose installation/config/state permissions
   self-check [--json]    Quick validation (config/paths/deps; safe without sudo)
   check                 Run config_validate + preflight + show expected skips
@@ -395,12 +395,14 @@ case "$cmd" in
 
     REPORT_JSON=0
     REPORT_COLOR=1
+    REPORT_COMPACT=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) REPORT_JSON=1; shift 1;;
         --no-color) REPORT_COLOR=0; shift 1;;
+        --compact) REPORT_COMPACT=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint report [--json] [--no-color]"
+          echo "Usage: linux-maint report [--json] [--no-color] [--compact]"
           exit 0;;
         *) echo "Unknown report flag: $1" >&2; exit 2;;
       esac
@@ -415,12 +417,13 @@ case "$cmd" in
     "$0" trend --last 10 --json >"$tmp_trend" 2>/dev/null || printf '{}' >"$tmp_trend"
     "$0" runtimes --last 1 --json >"$tmp_runtimes" 2>/dev/null || printf '{}' >"$tmp_runtimes"
 
-    LM_COLOR="$REPORT_COLOR" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
+    LM_COLOR="$REPORT_COLOR" REPORT_COMPACT="$REPORT_COMPACT" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
 import json, os, sys
 
 status_path, trend_path, runtimes_path, json_mode = sys.argv[1:5]
 json_mode = json_mode == "1"
 color = os.environ.get("LM_COLOR","1") == "1"
+compact = os.environ.get("REPORT_COMPACT","0") == "1"
 
 def c(s, code):
     if not color:
@@ -447,7 +450,8 @@ if json_mode:
     print(json.dumps(out, indent=2, sort_keys=True))
     raise SystemExit(0)
 
-print(c("=== linux-maint report ===","1;36"))
+if not compact:
+    print(c("=== linux-maint report ===","1;36"))
 mode = status.get("mode", "unknown")
 last = status.get("last_status", {})
 overall = last.get("overall", "UNKNOWN")
@@ -462,14 +466,18 @@ elif overall == "WARN":
 elif overall == "OK":
     ov = c(overall,"1;32")
 print(f"mode={mode} overall={ov} exit_code={exit_code}")
-if logfile:
-    print(f"logfile={logfile}")
-if summary:
-    print(f"summary_file={summary}")
+if not compact:
+    if logfile:
+        print(f"logfile={logfile}")
+    if summary:
+        print(f"summary_file={summary}")
 
 totals = status.get("totals", {})
 if totals:
-    print("totals: " + " ".join(f"{k}={totals.get(k,0)}" for k in ["CRIT","WARN","UNKNOWN","SKIP","OK"]))
+    line = "totals: " + " ".join(f"{k}={totals.get(k,0)}" for k in ["CRIT","WARN","UNKNOWN","SKIP","OK"])
+    print(line)
+    if compact:
+        raise SystemExit(0)
 
 problems = status.get("problems", [])
 if problems:
