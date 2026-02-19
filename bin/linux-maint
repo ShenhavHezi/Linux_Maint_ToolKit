@@ -410,7 +410,6 @@ case "$cmd" in
       esac
     done
     [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && REPORT_COLOR=0
-    [[ "$REPORT_TABLE" -eq 1 ]] && REPORT_COLOR=0
 
     tmp_status="$(mktemp -p "$TMPDIR" linux_maint_report_status.XXXXXX.json)"
     tmp_trend="$(mktemp -p "$TMPDIR" linux_maint_report_trend.XXXXXX.json)"
@@ -503,6 +502,8 @@ if problems:
             host=p.get("host","")
             reason=p.get("reason","")
             rows.append((s, mon, host, reason))
+        sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3}
+        rows.sort(key=lambda r: sev_order.get(r[0], 9))
         headers=("STATUS","MONITOR","HOST","REASON")
         w=[len(h) for h in headers]
         for r in rows:
@@ -510,7 +511,18 @@ if problems:
                 w[i]=max(w[i], len(str(v)))
         print(f"{headers[0]:<{w[0]}} {headers[1]:<{w[1]}} {headers[2]:<{w[2]}} {headers[3]}")
         for s,mon,host,reason in rows:
-            print(f"{s:<{w[0]}} {mon:<{w[1]}} {host:<{w[2]}} {reason}")
+            s_pad=f"{s:<{w[0]}}"
+            if s=="CRIT":
+                s_pad=c(s_pad,'1;31')
+            elif s=="WARN":
+                s_pad=c(s_pad,'1;33')
+            elif s=="OK":
+                s_pad=c(s_pad,'1;32')
+            elif s=="UNKNOWN":
+                s_pad=c(s_pad,'1;35')
+            elif s=="SKIP":
+                s_pad=c(s_pad,'1;36')
+            print(f"{s_pad} {mon:<{w[1]}} {host:<{w[2]}} {reason}")
     else:
         for p in problems[:20]:
             s = p.get("status","UNKNOWN")
@@ -853,7 +865,6 @@ PY
       esac
     done
     [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && LM_COLOR=0
-    [[ "$TABLE" -eq 1 ]] && LM_COLOR=0
 
     if [[ "$SUMMARY_ONLY" -eq 1 ]]; then
       "$0" summary --no-color
