@@ -31,3 +31,12 @@ printf '%s\n' "$color_out" | grep -q $'\033' || {
 }
 
 echo "status summary ok"
+
+compact_out="$(bash "$LM" status --compact 2>/dev/null || true)"
+printf '%s\n' "$compact_out" | grep -q '=== Mode ===' && {
+  echo "status --compact should hide mode header" >&2
+  echo "$compact_out" >&2
+  exit 1
+}
+
+echo "status compact ok"

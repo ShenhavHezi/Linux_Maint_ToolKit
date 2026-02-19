@@ -44,6 +44,7 @@ sudo linux-maint status --summary
 
 # Table format for problems
 sudo linux-maint status --table
+sudo linux-maint status --compact
 
 # JSON schemas (validation)
 docs/schemas/report.json

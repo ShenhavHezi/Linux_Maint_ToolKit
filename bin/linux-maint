@@ -825,6 +825,7 @@ PY
     SINCE=""
     TABLE=0
     SUMMARY_ONLY=0
+    SHOW_META=1
 
 
     while [[ $# -gt 0 ]]; do
@@ -837,6 +838,7 @@ PY
         --no-color) LM_COLOR=0; shift 1;;
         --table) TABLE=1; shift 1;;
         --summary) SUMMARY_ONLY=1; shift 1;;
+        --compact) SHOW_META=0; shift 1;;
         --host) HOST_FILTER="$2"; shift 2;;
         --monitor) MONITOR_FILTER="$2"; shift 2;;
         --match-mode) MATCH_MODE="$2"; shift 2;;
@@ -845,7 +847,7 @@ PY
         --since) SINCE="$2"; shift 2;;
         --last) LAST_N="$2"; shift 2;;
         -h|--help)
-          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--no-color] [--table] [--summary] [--problems N (max 100)] [--reasons N (max 20)] [--since 15m|2h|1d|30s] [--last N]"
+          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--no-color] [--table] [--summary] [--compact] [--problems N (max 100)] [--reasons N (max 20)] [--since 15m|2h|1d|30s] [--last N]"
           exit 0;;
         *) echo "Unknown status flag: $1" >&2; exit 2;;
       esac
@@ -1060,7 +1062,7 @@ print(json.dumps(out, indent=2, sort_keys=True))
 PY
       exit 0
     fi
-    if [[ "$QUIET" -eq 0 ]]; then
+    if [[ "$QUIET" -eq 0 && "$SHOW_META" -eq 1 ]]; then
 
     if [[ "$MODE" == "repo" ]]; then
       echo "=== Mode ==="
@@ -1319,6 +1321,8 @@ if problems:
             else:
                 mon = rest
             rows.append((st, mon, host, reason))
+        sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3}
+        rows.sort(key=lambda r: sev_order.get(r[0], 9))
         headers=("STATUS","MONITOR","HOST","REASON")
         w=[len(h) for h in headers]
         for r in rows:
