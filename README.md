@@ -36,6 +36,7 @@ Note: this project was previously named `linux_Maint_Scripts` on GitHub. The CLI
 - Full reference (config/monitors/output): [`docs/reference.md`](docs/reference.md)
 - Offline / air-gapped: [`docs/DARK_SITE.md`](docs/DARK_SITE.md)
 - Reason tokens: [`docs/REASONS.md`](docs/REASONS.md)
+- Day-2 operations: [`docs/DAY2.md`](docs/DAY2.md)
 
 
 ## Repo map (where to look)

@@ -64,7 +64,7 @@ sudo linux-maint doctor
 # Diagnostics (JSON for automation)
 sudo linux-maint doctor --json
 
-# Quick self-check
+# Quick self-check (safe without sudo)
 linux-maint self-check
 
 

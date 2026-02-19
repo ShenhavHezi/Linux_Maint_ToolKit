@@ -1,6 +1,7 @@
 # Dark-site / air-gapped deployment guide
 
 This project supports offline installation by generating a self-contained tarball.
+It was previously named `linux_Maint_Scripts`; the CLI remains `linux-maint`.
 
 ## 1) Build the tarball (connected workstation)
 

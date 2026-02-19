@@ -6,3 +6,5 @@ Quick links:
 - [`docs/README.md`](README.md)
 - [`docs/README.md#architecture-and-data-flow`](README.md#architecture-and-data-flow)
 - [`docs/reference.md`](reference.md)
+- [`docs/DAY2.md`](DAY2.md)
+- [`docs/RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md)

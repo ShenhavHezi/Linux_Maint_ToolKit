@@ -530,6 +530,7 @@ Example (`export --json`):
 - `LM_REDACT_LOGS=1` also redacts log content inside `linux-maint pack-logs` bundles.
 - `LM_TEST_TIME_EPOCH=<unix_epoch>` — test-only override to freeze wrapper timestamps and filenames for deterministic output.
 - `LM_SUMMARY_ALLOWLIST=key1,key2,...` — optional allowlist of summary keys to keep; extra keys are dropped with a warning.
+- `LM_SUMMARY_STRICT=1` — enforce required summary fields and valid statuses at emission time (tests/CI).
 - `LM_SSH_ALLOWLIST=pattern1,pattern2` — optional regex allowlist for commands sent via SSH; non-matching commands are blocked.
 - `LM_LOG_FORMAT=json` — emit JSON logs from `lm_log` (one JSON object per line).
 
