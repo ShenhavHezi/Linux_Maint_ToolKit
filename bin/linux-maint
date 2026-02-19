@@ -706,25 +706,30 @@ if table:
     for row in table_rows:
         for i,v in enumerate(row):
             w[i]=max(w[i], len(v))
-    print(" ".join(f"{headers[i]:<{w[i]}}" for i in range(len(headers))))
-    for row in table_rows:
-        overall=row[1]
-        ov=overall
-        if overall == "CRIT":
-            ov=c(overall,"1;31")
-        elif overall == "WARN":
-            ov=c(overall,"1;33")
-        elif overall == "OK":
-            ov=c(overall,"1;32")
-        row=list(row)
-        row[1]=ov
-        # Colorize count columns (crit/warn/unknown/skip/ok)
-        row[3]=c(row[3],"1;31") if row[3] != "0" else row[3]
-        row[4]=c(row[4],"1;33") if row[4] != "0" else row[4]
-        row[5]=c(row[5],"1;35") if row[5] != "0" else row[5]
-        row[6]=c(row[6],"1;36") if row[6] != "0" else row[6]
-        row[7]=c(row[7],"1;32") if row[7] != "0" else row[7]
-        print(" ".join(f"{row[i]:<{w[i]}}" for i in range(len(headers))))
+        def pad(s, width):
+            return f"{s:<{width}}"
+        print(" ".join(pad(headers[i], w[i]) for i in range(len(headers))))
+        for row in table_rows:
+            cells=[pad(row[i], w[i]) for i in range(len(headers))]
+            overall=row[1]
+            if overall == "CRIT":
+                cells[1]=c(cells[1],"1;31")
+            elif overall == "WARN":
+                cells[1]=c(cells[1],"1;33")
+            elif overall == "OK":
+                cells[1]=c(cells[1],"1;32")
+            # Colorize count columns (crit/warn/unknown/skip/ok)
+            if row[3] != "0":
+                cells[3]=c(cells[3],"1;31")
+            if row[4] != "0":
+                cells[4]=c(cells[4],"1;33")
+            if row[5] != "0":
+                cells[5]=c(cells[5],"1;35")
+            if row[6] != "0":
+                cells[6]=c(cells[6],"1;36")
+            if row[7] != "0":
+                cells[7]=c(cells[7],"1;32")
+            print(" ".join(cells))
 else:
     for r in rows:
         ts = r.get("timestamp","")
@@ -1315,18 +1320,18 @@ if problems:
                 w[i]=max(w[i], len(str(v)))
         print(f"{headers[0]:<{w[0]}} {headers[1]:<{w[1]}} {headers[2]:<{w[2]}} {headers[3]}")
         for st,mon,host,reason in rows:
-            s=st
+            s_pad=f"{st:<{w[0]}}"
             if st=="CRIT":
-                s=c(st,'1;31')
+                s_pad=c(s_pad,'1;31')
             elif st=="WARN":
-                s=c(st,'1;33')
+                s_pad=c(s_pad,'1;33')
             elif st=="OK":
-                s=c(st,'1;32')
+                s_pad=c(s_pad,'1;32')
             elif st=="UNKNOWN":
-                s=c(st,'1;35')
+                s_pad=c(s_pad,'1;35')
             elif st=="SKIP":
-                s=c(st,'1;36')
-            print(f"{s:<{w[0]}} {mon:<{w[1]}} {host:<{w[2]}} {reason}")
+                s_pad=c(s_pad,'1;36')
+            print(f"{s_pad} {mon:<{w[1]}} {host:<{w[2]}} {reason}")
     else:
         sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3}
         problems.sort(key=lambda s: sev_order.get(s.split(' ',1)[0], 9))
