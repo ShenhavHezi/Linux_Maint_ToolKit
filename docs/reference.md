@@ -118,6 +118,7 @@ Dark-site wrapper profile:
   - `LM_LOCAL_ONLY=true`
   - `LM_NOTIFY_ONLY_ON_CHANGE=1`
   - `MONITOR_TIMEOUT_SECS=300` (instead of the regular wrapper default `600`)
+  - Run `sudo linux-maint tune dark-site` to write these defaults into `linux-maint.conf` without overwriting existing values.
 
 
 Most defaults below are taken directly from the scripts (current repository version).

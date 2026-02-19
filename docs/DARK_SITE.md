@@ -155,6 +155,7 @@ sudo linux-maint logs 200
 - Installed mode is intended to run as root (or via sudo) because it uses `/var/log` and `/var/lock`.
 - For per-monitor configuration, see files under `/etc/linux_maint/` (created by the installer).
 - Optional profile: set `LM_DARK_SITE=true` in `/etc/linux_maint/linux-maint.conf` for conservative defaults (`LM_LOCAL_ONLY=true`, `LM_NOTIFY_ONLY_ON_CHANGE=1`, wrapper `MONITOR_TIMEOUT_SECS=300`) while still allowing explicit overrides.
+- Shortcut: `sudo linux-maint tune dark-site` writes the recommended dark-site defaults into `linux-maint.conf` without overwriting existing values.
 - For dark-site simplicity, you can leave `/etc/linux_maint/network_targets.txt` absent at first; the wrapper will mark `network_monitor` as `SKIP` (reason includes the missing file path) instead of forcing network checks.
 
 ### Dark-site defaults for new monitors
@@ -174,6 +175,16 @@ If you have intentionally read-only mounts (e.g., ISO media), add them to the ex
 LM_FS_RO_EXCLUDE_RE='^(proc|sysfs|devtmpfs|tmpfs|devpts|cgroup2?|cgroup|debugfs|tracefs|mqueue|hugetlbfs|pstore|squashfs|overlay|rpc_pipefs|autofs|fuse\..*|binfmt_misc|iso9660)$'
 ```
 - Full reference: [`reference.md`](reference.md)
+
+### Read-only mounts baseline (allowlist)
+
+Identify intentionally read-only mounts:
+
+```bash
+findmnt -rno TARGET,FSTYPE,OPTIONS | awk '$3 ~ /(^|,)ro(,|$)/ {print}'
+```
+
+If any are expected (ISO media, recovery images, container mounts), add the relevant filesystem types to `LM_FS_RO_EXCLUDE_RE` in `linux-maint.conf`.
 
 
 ## Verify integrity (recommended)
