@@ -244,6 +244,8 @@ The wrapper writes both a full log and summary artifacts you can parse/ship to m
 See the full contract and artifact details in [`docs/reference.md`](docs/reference.md#output-contract-machine-parseable-summary-lines).
 - The wrapper also emits fleet-accurate counters derived from `monitor=` lines: `SUMMARY_HOSTS ok=.. warn=.. crit=.. unknown=.. skipped=..`.
 
+Log retention: use `./install.sh --with-logrotate` or create a logrotate entry for `/var/log/health` to prevent unbounded growth.
+
 ### Summary contract (for automation)
 
 Each monitor emits lines like:
@@ -275,10 +277,13 @@ These SKIPs are expected until you populate the files. Use `linux-maint doctor` 
 
 - `ssh_unreachable`: confirm host is reachable, SSH keys are valid, and firewall allows port 22.
 - `missing_dependency`: install the missing tool listed in the summary (e.g., `curl`, `smartctl`).
+- `missing_optional_cmd`: install the optional tool (e.g., `chronyc`/`ntpq`) or accept the SKIP.
 - `config_missing`: run `sudo linux-maint init` and populate the missing file.
 - `baseline_missing`: allow baseline auto-init or create baseline files under `/etc/linux_maint/baselines/`.
 - `service_failed`: check `systemctl status <unit>` and recent journal logs.
 - `security_updates_pending`: run your distro update command and re-check.
+- `log_spike_warn`: review recent logs for the monitor's target and tune thresholds/ignore lists if expected.
+- `summary_write_failed` / `summary_checksum_failed`: confirm `/var/log/health` is writable and has free space.
 
 ### Automation-friendly JSON outputs
 

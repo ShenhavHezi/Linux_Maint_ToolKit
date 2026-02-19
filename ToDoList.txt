@@ -60,7 +60,7 @@ This is the single backlog source of truth.
 
 ## P1 — Operator UX / documentation
 
-### P1.3 Add remediation notes for top WARN/SKIP reasons
+### P1.3 Add remediation notes for top WARN/SKIP reasons (DONE 2026-02-19)
 **Why**: reduce operator guesswork when common warnings appear.
 **Scope**:
 - Add brief guidance for `log_spike_warn`, `missing_optional_cmd` (NTP), and `summary_*_failed`.
@@ -85,7 +85,7 @@ This is the single backlog source of truth.
 
 ## P2 — Security / hardening
 
-### P2.3 Harden localhost execution in `lm_ssh`
+### P2.3 Harden localhost execution in `lm_ssh` (DONE 2026-02-19)
 **Why**: current `bash -lc "… $*"` can re-parse arguments and risks unintended shell expansion.
 **Scope**:
 - Use a safer exec path for localhost (e.g., pass argv directly or escape safely).
@@ -110,7 +110,7 @@ This is the single backlog source of truth.
 
 ## P3 — Observability / integrations
 
-### P3.3 Add log retention/rotation guidance and defaults
+### P3.3 Add log retention/rotation guidance and defaults (DONE 2026-02-19)
 **Why**: `/var/log/health` can grow unbounded on long-running systems.
 **Scope**:
 - Provide a sample logrotate config and mention in docs.
@@ -135,7 +135,7 @@ This is the single backlog source of truth.
 
 ## P4 — DX / release polish
 
-### P4.3 Add Makefile target for release tarball
+### P4.3 Add Makefile target for release tarball (DONE 2026-02-19)
 **Why**: avoid confusion around `make make-tarball`.
 **Scope**:
 - Add a `make-tarball` target that calls `tools/make_tarball.sh`.

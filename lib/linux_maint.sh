@@ -308,7 +308,13 @@ lm_ssh() {
   fi
   if [ "$host" = "localhost" ] || [ "$host" = "127.0.0.1" ]; then
     # Preserve caller PATH for localhost runs so test shims and local tools are respected.
-    bash -lc "PATH=\"$PATH\" $*" 2>/dev/null
+    if [[ "$#" -ge 2 && "$1" == "bash" && "$2" == "-lc" ]]; then
+      PATH="$PATH" "$@" 2>/dev/null
+    elif [[ "$#" -eq 1 ]]; then
+      PATH="$PATH" bash -lc "$1" 2>/dev/null
+    else
+      PATH="$PATH" "$@" 2>/dev/null
+    fi
   else
     # LM_SSH_OPTS may contain multiple ssh arguments. Split intentionally into an array.
     local -a _ssh_opts=()
