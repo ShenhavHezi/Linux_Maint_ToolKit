@@ -29,6 +29,26 @@ set -o pipefail
 : "${LM_MAX_PARALLEL:=0}"          # 0 = sequential
 : "${LM_PREFIX:=}"                 # optional log prefix (script can set)
 
+# ========= SSH opts validation =========
+# Reject obviously dangerous shell metacharacters in LM_SSH_OPTS.
+lm_validate_ssh_opts() {
+  local s="${LM_SSH_OPTS:-}"
+  [[ -z "$s" ]] && return 0
+  if printf '%s' "$s" | grep -Eq '[;&|`<>]|\$\(|\$\{'; then
+    echo "ERROR: unsafe characters detected in LM_SSH_OPTS" >&2
+    echo "LM_SSH_OPTS=$s" >&2
+    return 2
+  fi
+  case "$s" in
+    *$'\n'*|*$'\r'*)
+      echo "ERROR: unsafe characters detected in LM_SSH_OPTS" >&2
+      echo "LM_SSH_OPTS=$s" >&2
+      return 2
+      ;;
+  esac
+  return 0
+}
+
 # ========= Pretty timestamps =========
 lm_ts() { date '+%Y-%m-%d %H:%M:%S'; }
 
@@ -299,6 +319,9 @@ lm_notify_send() {
 # lm_ssh HOST CMD...
 lm_ssh() {
   local host="$1"; shift
+  if ! lm_validate_ssh_opts; then
+    return 2
+  fi
   if [[ -n "${LM_SSH_ALLOWLIST:-}" ]]; then
     local cmdline="$*"
     if ! lm_ssh_allowed_cmd "$cmdline"; then
