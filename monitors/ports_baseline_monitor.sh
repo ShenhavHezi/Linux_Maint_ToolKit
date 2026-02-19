@@ -144,16 +144,16 @@ is_allowed() {
 
 compare_and_report() {
   local host="$1" cur_file="$2" base_file="$3"
-  local new_file removed_file
+  local new_file="" removed_file="" new_filtered=""
+  trap 'rm -f "${new_file:-}" "${removed_file:-}" "${new_filtered:-}" 2>/dev/null || true' RETURN
   new_file="$(lm_mktemp ports_baseline.new.XXXXXX)"
-  trap 'rm -f "$new_file" "$removed_file" "$new_filtered" 2>/dev/null || true' RETURN
   removed_file="$(lm_mktemp ports_baseline.removed.XXXXXX)"
 
   comm -13 "$base_file" "$cur_file" > "$new_file"
   comm -23 "$base_file" "$cur_file" > "$removed_file"
 
   # Filter NEW entries through allowlist
-  local new_filtered; new_filtered="$(lm_mktemp ports_baseline.new_filtered.XXXXXX)"
+  new_filtered="$(lm_mktemp ports_baseline.new_filtered.XXXXXX)"
   if [ -s "$new_file" ]; then
     while IFS= read -r e; do
       is_allowed "$e" && continue
@@ -191,7 +191,6 @@ Note: allowlist from $ALLOWLIST_FILE applied to NEW entries."
     mail_if_enabled "$MAIL_SUBJECT_PREFIX $subj" "$body"
   fi
 
-  rm -f "$new_file" "$removed_file" "$new_filtered"
   return 0
 }
 
