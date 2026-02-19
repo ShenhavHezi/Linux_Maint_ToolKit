@@ -725,7 +725,7 @@ if table:
         row[5]=c(row[5],"1;35") if row[5] != "0" else row[5]
         row[6]=c(row[6],"1;36") if row[6] != "0" else row[6]
         row[7]=c(row[7],"1;32") if row[7] != "0" else row[7]
-        print(" ".join(f\"{row[i]:<{w[i]}}\" for i in range(len(headers))))
+        print(" ".join(f"{row[i]:<{w[i]}}" for i in range(len(headers))))
 else:
     for r in rows:
         ts = r.get("timestamp","")
