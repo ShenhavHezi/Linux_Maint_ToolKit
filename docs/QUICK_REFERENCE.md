@@ -34,6 +34,9 @@ sudo linux-maint check
 sudo linux-maint history --last 10
 sudo linux-maint history --json
 
+# One-line summary (cron/dashboards)
+sudo linux-maint summary
+
 # Filter by host/monitor/status
 sudo linux-maint status --host web --monitor service --only WARN
 

@@ -24,4 +24,11 @@ printf '%s\n' "$json_out" | grep -q '"status"' || {
   exit 1
 }
 
+no_color_out="$(NO_COLOR=1 bash "$LM" report 2>/dev/null || true)"
+printf '%s\n' "$no_color_out" | grep -q $'\033' && {
+  echo "report should not contain ANSI when NO_COLOR=1" >&2
+  echo "$no_color_out" >&2
+  exit 1
+}
+
 echo "report command ok"

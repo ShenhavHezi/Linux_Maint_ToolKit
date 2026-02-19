@@ -6,6 +6,22 @@ set -euo pipefail
 # Prefer a writable temp dir when creating tmp files.
 TMPDIR="${TMPDIR:-/tmp}"
 
+# Color handling (opt-out via NO_COLOR/LM_NO_COLOR or --no-color)
+LM_COLOR="${LM_COLOR:-1}"
+color_enabled() {
+  [[ "$LM_COLOR" -eq 1 ]] && [[ -t 1 ]] && [[ -z "${NO_COLOR:-}" ]] && [[ -z "${LM_NO_COLOR:-}" ]]
+}
+if color_enabled; then
+  C_RESET=$'\033[0m'
+  C_BOLD=$'\033[1m'
+  C_RED=$'\033[31m'
+  C_YELLOW=$'\033[33m'
+  C_GREEN=$'\033[32m'
+  C_CYAN=$'\033[36m'
+else
+  C_RESET=""; C_BOLD=""; C_RED=""; C_YELLOW=""; C_GREEN=""; C_CYAN=""
+fi
+
 # If running from a git checkout, prefer repo paths automatically.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
@@ -193,11 +209,12 @@ Common commands:
   status [flags]         Show last run status + filtered summary lines
   diff [--json]          Show diff since last run (uses wrapper diff state)
   logs [n]               Tail latest wrapper log (default n=200)
-  report [--json]       Summarize latest run, trends, and slow monitors
+  report [--json]        Summarize latest run, trends, and slow monitors
   doctor [--json]        Diagnose installation/config/state permissions
   self-check [--json]    Quick validation (config/paths/deps; safe without sudo)
   check                 Run config_validate + preflight + show expected skips
   history [--last N] [--json]  Show recent runs (run index; faster than log scan)
+  summary [--no-color]  One-line latest summary (for cron/dashboards)
 
 Analysis / reporting:
   trend [--last N] [--json]     Aggregate severity/reason trends
@@ -230,6 +247,13 @@ Environment:
   LINUX_MAINT_LIB=...           override library path (useful in repo mode)
   LM_LOCKDIR=/tmp               override lock dir (useful when not root)
   LM_LOGFILE=/tmp/linux_maint.log override default log file
+  NO_COLOR=1                    disable colored output
+
+Examples:
+  linux-maint run --local-only
+  linux-maint status --only WARN
+  linux-maint report
+  linux-maint summary
 EOF2
 }
 
@@ -370,15 +394,18 @@ case "$cmd" in
     fi
 
     REPORT_JSON=0
+    REPORT_COLOR=1
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) REPORT_JSON=1; shift 1;;
+        --no-color) REPORT_COLOR=0; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint report [--json]"
+          echo "Usage: linux-maint report [--json] [--no-color]"
           exit 0;;
         *) echo "Unknown report flag: $1" >&2; exit 2;;
       esac
     done
+    [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && REPORT_COLOR=0
 
     tmp_status="$(mktemp -p "$TMPDIR" linux_maint_report_status.XXXXXX.json)"
     tmp_trend="$(mktemp -p "$TMPDIR" linux_maint_report_trend.XXXXXX.json)"
@@ -388,11 +415,17 @@ case "$cmd" in
     "$0" trend --last 10 --json >"$tmp_trend" 2>/dev/null || printf '{}' >"$tmp_trend"
     "$0" runtimes --last 1 --json >"$tmp_runtimes" 2>/dev/null || printf '{}' >"$tmp_runtimes"
 
-    python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
-import json, sys
+    LM_COLOR="$REPORT_COLOR" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
+import json, os, sys
 
 status_path, trend_path, runtimes_path, json_mode = sys.argv[1:5]
 json_mode = json_mode == "1"
+color = os.environ.get("LM_COLOR","1") == "1"
+
+def c(s, code):
+    if not color:
+        return s
+    return f"\033[{code}m{s}\033[0m"
 
 def read_json(p):
     try:
@@ -414,14 +447,21 @@ if json_mode:
     print(json.dumps(out, indent=2, sort_keys=True))
     raise SystemExit(0)
 
-print("=== linux-maint report ===")
+print(c("=== linux-maint report ===","1;36"))
 mode = status.get("mode", "unknown")
 last = status.get("last_status", {})
 overall = last.get("overall", "UNKNOWN")
 exit_code = last.get("exit_code", "3")
 logfile = last.get("logfile", "")
 summary = status.get("summary_file", "")
-print(f"mode={mode} overall={overall} exit_code={exit_code}")
+ov = overall
+if overall == "CRIT":
+    ov = c(overall,"1;31")
+elif overall == "WARN":
+    ov = c(overall,"1;33")
+elif overall == "OK":
+    ov = c(overall,"1;32")
+print(f"mode={mode} overall={ov} exit_code={exit_code}")
 if logfile:
     print(f"logfile={logfile}")
 if summary:
@@ -439,7 +479,14 @@ if problems:
         mon = p.get("monitor","unknown")
         host = p.get("host","")
         reason = p.get("reason","")
-        line = f"{s} {mon}"
+        st = s
+        if s == "CRIT":
+            st = c(s,"1;31")
+        elif s == "WARN":
+            st = c(s,"1;33")
+        elif s == "OK":
+            st = c(s,"1;32")
+        line = f"{st} {mon}"
         if host:
             line += f" host={host}"
         if reason:
@@ -583,6 +630,74 @@ for r in rows:
 PY
     ;;
 
+  summary)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for summary
+    fi
+
+    SUMMARY_COLOR=1
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --no-color) SUMMARY_COLOR=0; shift 1;;
+        -h|--help)
+          echo "Usage: linux-maint summary [--no-color]"
+          exit 0;;
+        *) echo "Unknown summary flag: $1" >&2; exit 2;;
+      esac
+    done
+    [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && SUMMARY_COLOR=0
+
+    tmp_status="$(mktemp -p "$TMPDIR" linux_maint_summary_status.XXXXXX.json)"
+    "$0" status --json --problems 0 >"$tmp_status" 2>/dev/null || printf '{}' >"$tmp_status"
+
+    LM_COLOR="$SUMMARY_COLOR" python3 - "$tmp_status" <<'PY'
+import json, os, sys
+
+path = sys.argv[1]
+color = os.environ.get("LM_COLOR","1") == "1"
+
+def c(s, code):
+    if not color:
+        return s
+    return f"\033[{code}m{s}\033[0m"
+
+try:
+    with open(path, "r", encoding="utf-8") as f:
+        status = json.load(f)
+except Exception:
+    status = {}
+
+last = status.get("last_status", {})
+overall = last.get("overall", "UNKNOWN")
+exit_code = last.get("exit_code", "3")
+summary_file = status.get("summary_file","")
+totals = status.get("totals", {})
+
+ov = overall
+if overall == "CRIT":
+    ov = c(overall,"1;31")
+elif overall == "WARN":
+    ov = c(overall,"1;33")
+elif overall == "OK":
+    ov = c(overall,"1;32")
+
+parts = [
+    f"overall={ov}",
+    f"exit_code={exit_code}",
+    f"CRIT={totals.get('CRIT',0)}",
+    f"WARN={totals.get('WARN',0)}",
+    f"UNKNOWN={totals.get('UNKNOWN',0)}",
+    f"SKIP={totals.get('SKIP',0)}",
+    f"OK={totals.get('OK',0)}",
+]
+if summary_file:
+    parts.append(f"summary={summary_file}")
+
+print(" ".join(parts))
+PY
+    rm -f "$tmp_status" 2>/dev/null || true
+    ;;
+
   status)
     if [[ "$MODE" == "installed" ]]; then
       need_root_for status
@@ -609,6 +724,7 @@ PY
         --verbose) VERBOSE=1; shift 1;;
         --quiet) QUIET=1; shift 1;;
         --json) JSON=1; shift 1;;
+        --no-color) LM_COLOR=0; shift 1;;
         --host) HOST_FILTER="$2"; shift 2;;
         --monitor) MONITOR_FILTER="$2"; shift 2;;
         --match-mode) MATCH_MODE="$2"; shift 2;;
@@ -617,11 +733,12 @@ PY
         --since) SINCE="$2"; shift 2;;
         --last) LAST_N="$2"; shift 2;;
         -h|--help)
-          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--problems N (max 100)] [--reasons N (max 20)] [--since 15m|2h|1d|30s] [--last N]"
+          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--no-color] [--problems N (max 100)] [--reasons N (max 20)] [--since 15m|2h|1d|30s] [--last N]"
           exit 0;;
         *) echo "Unknown status flag: $1" >&2; exit 2;;
       esac
     done
+    [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && LM_COLOR=0
 
     case "$MATCH_MODE" in
       contains|exact|regex) ;;
@@ -965,11 +1082,17 @@ PY
         fi
       else
         [[ "$QUIET" -eq 0 ]] && echo "(from: $summary_file)"
-        python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" <<'PY'
-import re, sys
+      LM_COLOR="$LM_COLOR" python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" <<'PY'
+import re, sys, os
 path, only, limit, host_filter, monitor_filter, match_mode, reasons_limit = sys.argv[1:8]
 limit=int(limit)
 reasons_limit=int(reasons_limit)
+color = os.environ.get("LM_COLOR","1") == "1"
+
+def c(s, code):
+    if not color:
+        return s
+    return f"\033[{code}m{s}\033[0m"
 
 # Example line:
 # monitor=config_validate host=localhost status=WARN node=localhost warn=1 crit=0 reason=...
@@ -1015,13 +1138,38 @@ with open(path, 'r', encoding='utf-8', errors='ignore') as f:
         reason=get_kv(line,'reason')
         # Format D: "STATUS monitor reason=..." (reason only if exists)
         if reason:
-            problems.append(f"{st} {mon} host={host} reason={reason}")
+            s=st
+            if st=="CRIT":
+                s=c(st,'1;31')
+            elif st=="WARN":
+                s=c(st,'1;33')
+            elif st=="OK":
+                s=c(st,'1;32')
+            problems.append(f"{s} {mon} host={host} reason={reason}")
             reason_counts[reason]=reason_counts.get(reason,0)+1
         else:
-            problems.append(f"{st} {mon} host={host}")
+            s=st
+            if st=="CRIT":
+                s=c(st,'1;31')
+            elif st=="WARN":
+                s=c(st,'1;33')
+            elif st=="OK":
+                s=c(st,'1;32')
+            problems.append(f"{s} {mon} host={host}")
 
 order=['CRIT','WARN','UNKNOWN','SKIP','OK']
-print('totals: ' + ' '.join(f"{k}={counts.get(k,0)}" for k in order))
+parts=[]
+for k in order:
+    v=str(counts.get(k,0))
+    if k == "CRIT":
+        parts.append(f"{c(k,'1;31')}={v}")
+    elif k == "WARN":
+        parts.append(f"{c(k,'1;33')}={v}")
+    elif k == "OK":
+        parts.append(f"{c(k,'1;32')}={v}")
+    else:
+        parts.append(f"{k}={v}")
+print('totals: ' + ' '.join(parts))
 
 if problems:
     print("\nproblems:")
