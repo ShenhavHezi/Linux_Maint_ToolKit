@@ -42,6 +42,7 @@ SCRIPTS_DIR="${SCRIPTS_DIR:-$SCRIPTS_DIR_DEFAULT}"
 if [[ -f "$REPO_DIR/lib/linux_maint.sh" ]]; then
   export LINUX_MAINT_LIB="$REPO_DIR/lib/linux_maint.sh"
 fi
+export LINUX_MAINT_LIB="${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
 export LM_LOCKDIR="${LM_LOCKDIR:-/tmp}"
 
 # Load optional notification config (wrapper-level). Default OFF.
@@ -63,9 +64,19 @@ else
 fi
 
 # Load installed configuration files (best-effort).
+CONF_LIB=""
 if [ -f "$REPO_DIR/lib/linux_maint_conf.sh" ]; then
+  CONF_LIB="$REPO_DIR/lib/linux_maint_conf.sh"
+elif [[ "$LINUX_MAINT_LIB" == */linux_maint.sh ]]; then
+  maybe_conf="${LINUX_MAINT_LIB%/linux_maint.sh}/linux_maint_conf.sh"
+  [ -f "$maybe_conf" ] && CONF_LIB="$maybe_conf"
+elif [ -f "/usr/local/lib/linux_maint_conf.sh" ]; then
+  CONF_LIB="/usr/local/lib/linux_maint_conf.sh"
+fi
+
+if [ -n "$CONF_LIB" ] && [ -f "$CONF_LIB" ]; then
   # shellcheck disable=SC1090
-  . "$REPO_DIR/lib/linux_maint_conf.sh" || true
+  . "$CONF_LIB" || true
   if command -v lm_load_config >/dev/null 2>&1; then lm_load_config || true; fi
 fi
 

@@ -93,14 +93,8 @@ install_files(){
   # tools used by the CLI (installed-mode)
   install -D -m 0755 tools/summary_diff.py "$libexec/summary_diff.py"
 
-  # Explicit monitors list (exclude wrapper + lib)
-  install -D -m 0755 \
-    monitors/backup_check.sh monitors/cert_monitor.sh monitors/config_drift_monitor.sh monitors/health_monitor.sh \
-    monitors/inode_monitor.sh monitors/inventory_export.sh monitors/network_monitor.sh monitors/nfs_mount_monitor.sh \
-    monitors/ntp_drift_monitor.sh monitors/patch_monitor.sh monitors/storage_health_monitor.sh monitors/kernel_events_monitor.sh \
-    monitors/preflight_check.sh monitors/disk_trend_monitor.sh monitors/config_validate.sh \
-    monitors/ports_baseline_monitor.sh monitors/service_monitor.sh monitors/user_monitor.sh \
-    "$libexec/"
+  # Install all monitor scripts (keeps packaging in sync with repo changes).
+  install -D -m 0755 monitors/*.sh "$libexec/"
 
   # Hardening
   chown -R root:root "$libexec"

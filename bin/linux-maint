@@ -1364,7 +1364,7 @@ for i, line in enumerate(lines):
             continue
         if re.match(r"\\s*#?\\s*%s\\s*=" % re.escape(key), line):
             if line.lstrip().startswith("#"):
-                lines[i] = f"{key}={val}\\n"
+                lines[i] = f"{key}={val}\n"
                 replaced[key] = True
                 actions.append(f"set: {key}={val} (was commented)")
             else:
@@ -1375,7 +1375,7 @@ for i, line in enumerate(lines):
 for key, val in settings:
     if found[key] or replaced[key]:
         continue
-    lines.append(f"{key}={val}\\n")
+    lines.append(f"{key}={val}\n")
     actions.append(f"add: {key}={val}")
 
 fd, tmp_path = tempfile.mkstemp(prefix="linux_maint_conf.", dir=os.path.dirname(conf_path))

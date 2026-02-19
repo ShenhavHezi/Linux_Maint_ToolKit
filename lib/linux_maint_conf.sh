@@ -10,7 +10,9 @@ lm_load_main_conf(){
   local f="/etc/linux_maint/linux-maint.conf"
   [ -f "$f" ] || return 0
   # shellcheck disable=SC1090
+  set -a
   . "$f"
+  set +a
 }
 
 lm_load_conf_d(){
@@ -20,7 +22,9 @@ lm_load_conf_d(){
   shopt -s nullglob
   for f in "$d"/*.conf; do
     # shellcheck disable=SC1090
+    set -a
     . "$f"
+    set +a
   done
 }
 
