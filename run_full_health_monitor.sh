@@ -275,6 +275,7 @@ declare -a scripts=(
   "disk_trend_monitor.sh"
   "network_monitor.sh"
   "service_monitor.sh"
+  "timer_monitor.sh"
   "ntp_drift_monitor.sh"
   "patch_monitor.sh"
   "storage_health_monitor.sh"

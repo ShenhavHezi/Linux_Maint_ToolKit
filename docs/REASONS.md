@@ -37,6 +37,9 @@ These are cross-monitor, reusable tokens. Prefer these before inventing a new on
 - `config_missing` — required config file missing
 - `config_invalid` — config present but invalid/unparseable
 - `unsupported` — environment unsupported (distro/tooling)
+- `timer_missing` — systemd timer unit not installed
+- `timer_disabled` — systemd timer present but disabled
+- `timer_inactive` — systemd timer enabled but not active
 
 ### Storage / disk
 - `disk_full` — hard threshold exceeded

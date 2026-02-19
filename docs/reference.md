@@ -47,6 +47,7 @@ sudo zypper install -y smartmontools nvme-cli
 | `inode_monitor.sh` | inode utilization thresholds | optional thresholds/excludes | inode exhaustion |
 | `network_monitor.sh` | ping/tcp/http checks | `network_targets.txt` | packet loss, TCP connect fail, HTTP latency/status |
 | `service_monitor.sh` | service health (systemd) | `services.txt` | inactive/failed services |
+| `timer_monitor.sh` | linux-maint timer health (systemd) | none (systemd required) | timer missing/disabled/inactive |
 | `ntp_drift_monitor.sh` | time sync health | none | unsynced clock, high offset |
 | `patch_monitor.sh` | pending updates/reboot hints | none | security updates pending, reboot required |
 | `storage_health_monitor.sh` | RAID/SMART/NVMe storage health | none (best-effort) | degraded RAID, SMART failures, NVMe critical warnings |
@@ -63,6 +64,7 @@ sudo zypper install -y smartmontools nvme-cli
 
 - `network_monitor.sh`: verify `/etc/linux_maint/network_targets.txt`, test DNS/connectivity from the runner, and check firewall rules.
 - `service_monitor.sh`: confirm the unit name in `services.txt`, check `systemctl status <unit>`, and review recent journal entries.
+- `timer_monitor.sh`: check `systemctl status linux-maint.timer` and ensure it is enabled and active.
 - `patch_monitor.sh`: run your distro’s update command to confirm pending updates and check reboot flags.
 - `ntp_drift_monitor.sh`: ensure chrony/timesyncd is running and reachable; check `chronyc tracking` or `timedatectl`.
 - `config_drift_monitor.sh`: validate baseline files exist and compare the reported path with your change history.
