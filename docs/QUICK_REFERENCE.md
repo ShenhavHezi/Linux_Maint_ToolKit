@@ -25,12 +25,14 @@ sudo linux-maint status --json
 
 # Unified report (status + trends + runtimes)
 sudo linux-maint report
+sudo linux-maint report --json
 
 # Preflight + validate + expected SKIPs
 sudo linux-maint check
 
 # Run history (fast; uses run_index.jsonl)
 sudo linux-maint history --last 10
+sudo linux-maint history --json
 
 # Filter by host/monitor/status
 sudo linux-maint status --host web --monitor service --only WARN

@@ -24,4 +24,11 @@ printf '%s\n' "$out" | grep -q 'overall=WARN' || {
   exit 1
 }
 
+json_out="$(LM_STATE_DIR="$tmp_dir" bash "$LM" history --last 2 --json 2>/dev/null || true)"
+printf '%s\n' "$json_out" | grep -q '"runs"' || {
+  echo "history --json missing runs key" >&2
+  echo "$json_out" >&2
+  exit 1
+}
+
 echo "history command ok"

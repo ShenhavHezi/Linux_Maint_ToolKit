@@ -193,11 +193,11 @@ Common commands:
   status [flags]         Show last run status + filtered summary lines
   diff [--json]          Show diff since last run (uses wrapper diff state)
   logs [n]               Tail latest wrapper log (default n=200)
-  report                Summarize latest run, trends, and slow monitors
+  report [--json]       Summarize latest run, trends, and slow monitors
   doctor [--json]        Diagnose installation/config/state permissions
   self-check [--json]    Quick validation (config/paths/deps; safe without sudo)
   check                 Run config_validate + preflight + show expected skips
-  history [--last N]     Show recent runs (run index; faster than log scan)
+  history [--last N] [--json]  Show recent runs (run index; faster than log scan)
 
 Analysis / reporting:
   trend [--last N] [--json]     Aggregate severity/reason trends
@@ -369,6 +369,17 @@ case "$cmd" in
       need_root_for report
     fi
 
+    REPORT_JSON=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --json) REPORT_JSON=1; shift 1;;
+        -h|--help)
+          echo "Usage: linux-maint report [--json]"
+          exit 0;;
+        *) echo "Unknown report flag: $1" >&2; exit 2;;
+      esac
+    done
+
     tmp_status="$(mktemp -p "$TMPDIR" linux_maint_report_status.XXXXXX.json)"
     tmp_trend="$(mktemp -p "$TMPDIR" linux_maint_report_trend.XXXXXX.json)"
     tmp_runtimes="$(mktemp -p "$TMPDIR" linux_maint_report_runtimes.XXXXXX.json)"
@@ -377,10 +388,11 @@ case "$cmd" in
     "$0" trend --last 10 --json >"$tmp_trend" 2>/dev/null || printf '{}' >"$tmp_trend"
     "$0" runtimes --last 1 --json >"$tmp_runtimes" 2>/dev/null || printf '{}' >"$tmp_runtimes"
 
-    python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" <<'PY'
+    python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
 import json, sys
 
-status_path, trend_path, runtimes_path = sys.argv[1:4]
+status_path, trend_path, runtimes_path, json_mode = sys.argv[1:5]
+json_mode = json_mode == "1"
 
 def read_json(p):
     try:
@@ -392,6 +404,15 @@ def read_json(p):
 status = read_json(status_path)
 trend = read_json(trend_path)
 runtimes = read_json(runtimes_path)
+
+if json_mode:
+    out = {
+        "status": status,
+        "trend": trend,
+        "runtimes": runtimes,
+    }
+    print(json.dumps(out, indent=2, sort_keys=True))
+    raise SystemExit(0)
 
 print("=== linux-maint report ===")
 mode = status.get("mode", "unknown")
@@ -501,11 +522,13 @@ PY
     fi
 
     LAST_N=10
+    HISTORY_JSON=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --last) LAST_N="$2"; shift 2;;
+        --json) HISTORY_JSON=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint history [--last N]"
+          echo "Usage: linux-maint history [--last N] [--json]"
           exit 0;;
         *) echo "Unknown history flag: $1" >&2; exit 2;;
       esac
@@ -523,10 +546,11 @@ PY
     fi
     index_file="${LM_RUN_INDEX_FILE:-$state_dir/run_index.jsonl}"
 
-    python3 - "$index_file" "$LAST_N" <<'PY'
+    python3 - "$index_file" "$LAST_N" "$HISTORY_JSON" <<'PY'
 import json, os, sys
-path, last_n = sys.argv[1:3]
+path, last_n, json_mode = sys.argv[1:4]
 last_n = int(last_n)
+json_mode = json_mode == "1"
 
 if not os.path.exists(path):
     print(f"No run index found: {path}")
@@ -544,6 +568,10 @@ with open(path, "r", encoding="utf-8", errors="ignore") as f:
             continue
 
 rows = rows[-last_n:]
+if json_mode:
+    print(json.dumps({"runs": rows}, indent=2, sort_keys=True))
+    raise SystemExit(0)
+
 print(f"=== Last {len(rows)} runs (run_index) ===")
 for r in rows:
     ts = r.get("timestamp","")

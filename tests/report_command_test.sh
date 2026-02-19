@@ -17,4 +17,11 @@ printf '%s\n' "$out" | grep -q '^mode=' || {
   exit 1
 }
 
+json_out="$(bash "$LM" report --json 2>/dev/null || true)"
+printf '%s\n' "$json_out" | grep -q '"status"' || {
+  echo "report --json missing status key" >&2
+  echo "$json_out" >&2
+  exit 1
+}
+
 echo "report command ok"
