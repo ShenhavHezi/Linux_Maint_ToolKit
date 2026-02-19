@@ -1,4 +1,4 @@
-# Linux-maint Reference (Detailed)
+# Linux Maintenance Toolkit Reference
 
 This document contains the detailed reference sections moved out of the main README.
 

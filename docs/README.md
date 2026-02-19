@@ -1,5 +1,6 @@
 # Documentation index
 
+This is the hub for all operator and contributor documentation.
 Note: this repo was previously named `linux_Maint_Scripts`. The CLI remains `linux-maint`.
 
 ## Operator docs (start here)

@@ -1,6 +1,6 @@
 # linux-maint — Operator Quick Reference
 
-This page is meant for day-to-day operational use.
+This page is meant for day-to-day operational use. In installed mode, most commands require `sudo`.
 
 ## Common commands
 
@@ -35,7 +35,6 @@ sudo linux-maint status --since 2h
 # Diff since last run
 sudo linux-maint diff
 
-
 # Trend over recent summary runs
 sudo linux-maint trend --last 10
 
@@ -66,8 +65,6 @@ sudo linux-maint doctor --json
 
 # Quick self-check (safe without sudo)
 linux-maint self-check
-
-
 # Verify offline tarball checksum
 linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
 
