@@ -27,6 +27,20 @@ lm_require_singleton "preflight_check"
 REQ_CMDS=(awk sed grep df ssh)
 # Optional commands that improve coverage
 OPT_CMDS=(openssl ss netstat journalctl smartctl nvme mail timeout)
+# Allow override via space-separated list (e.g. "openssl ss journalctl")
+if [[ -n "${LM_PREFLIGHT_OPT_CMDS:-}" ]]; then
+  # shellcheck disable=SC2206
+  OPT_CMDS=(${LM_PREFLIGHT_OPT_CMDS})
+fi
+# If email is disabled, don't warn about missing mail.
+if [[ "${LM_EMAIL_ENABLED:-false}" != "true" && "${LM_NOTIFY:-0}" != "1" ]]; then
+  tmp_opt=()
+  for c in "${OPT_CMDS[@]}"; do
+    [[ "$c" == "mail" ]] && continue
+    tmp_opt+=("$c")
+  done
+  OPT_CMDS=("${tmp_opt[@]}")
+fi
 
 ensure_dirs(){ mkdir -p "$(dirname "$LM_LOGFILE")" /var/lib/linux_maint 2>/dev/null || true; }
 

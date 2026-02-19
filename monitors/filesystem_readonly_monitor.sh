@@ -9,7 +9,8 @@ LM_LOGFILE="${LM_LOGFILE:-/var/log/filesystem_readonly_monitor.log}"
 lm_require_singleton "filesystem_readonly_monitor"
 
 MOUNTS_FILE="${LM_MOUNTS_FILE:-/proc/mounts}"
-EXCLUDE_FSTYPES_RE="${LM_FS_RO_EXCLUDE_RE:-^(proc|sysfs|devtmpfs|tmpfs|devpts|cgroup2?|cgroup|debugfs|tracefs|mqueue|hugetlbfs|pstore|squashfs|overlay|rpc_pipefs|autofs|fuse\\..*|binfmt_misc)$}"
+EXCLUDE_FSTYPES_RE="${LM_FS_RO_EXCLUDE_RE:-^(proc|sysfs|devtmpfs|tmpfs|devpts|cgroup2?|cgroup|debugfs|tracefs|mqueue|hugetlbfs|pstore|squashfs|overlay|rpc_pipefs|autofs|fuse\\..*|binfmt_misc|securityfs|efivarfs|configfs|bpf|fusectl)$}"
+EXCLUDE_MOUNTS_RE="${LM_FS_RO_EXCLUDE_MOUNTS_RE:-}"
 
 if [[ ! -r "$MOUNTS_FILE" ]]; then
   lm_summary "filesystem_readonly_monitor" "localhost" "UNKNOWN" reason=permission_denied path="$MOUNTS_FILE"
@@ -21,6 +22,9 @@ while IFS= read -r line; do
   set -- $line
   dev="$1"; mnt="$2"; fstype="$3"; opts="$4"
   if [[ "$fstype" =~ $EXCLUDE_FSTYPES_RE ]]; then
+    continue
+  fi
+  if [[ -n "$EXCLUDE_MOUNTS_RE" && "$mnt" =~ $EXCLUDE_MOUNTS_RE ]]; then
     continue
   fi
   if echo "$opts" | grep -q '\bro\b'; then

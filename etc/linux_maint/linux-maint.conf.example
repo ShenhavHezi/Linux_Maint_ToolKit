@@ -26,6 +26,7 @@
 #LM_LAST_RUN_MAX_AGE_MIN=120
 #LM_LAST_RUN_LOG_DIR="/var/log/health"
 #LM_FS_RO_EXCLUDE_RE='^(proc|sysfs|devtmpfs|tmpfs|devpts|cgroup2?|cgroup|debugfs|tracefs|mqueue|hugetlbfs|pstore|squashfs|overlay|rpc_pipefs|autofs|fuse\\..*|binfmt_misc)$'
+#LM_FS_RO_EXCLUDE_MOUNTS_RE='^/(boot|boot/efi|usr|etc)$'
 # Optional: per-monitor timeout overrides (format: monitor_name=seconds)
 #MONITOR_TIMEOUTS_FILE="/etc/linux_maint/monitor_timeouts.conf"
 
@@ -36,3 +37,4 @@
 #LM_NOTIFY_SUBJECT_PREFIX="[linux_maint]"
 #LM_NOTIFY_STATE_DIR="/var/lib/linux_maint"
 #LM_NOTIFY_WEBHOOK_URL=""
+#LM_PREFLIGHT_OPT_CMDS="openssl ss netstat journalctl smartctl nvme timeout"

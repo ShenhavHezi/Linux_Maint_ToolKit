@@ -178,7 +178,8 @@ monitor=runtime_guard host=runner status=WARN reason=runtime_exceeded target_mon
 
 ### `filesystem_readonly_monitor.sh`
 - `LM_MOUNTS_FILE` = `"/proc/mounts"  # Alternate mounts file (tests/offline)`
-- `LM_FS_RO_EXCLUDE_RE` = `'^(proc|sysfs|devtmpfs|tmpfs|devpts|cgroup2?|cgroup|debugfs|tracefs|mqueue|hugetlbfs|pstore|squashfs|overlay|rpc_pipefs|autofs|fuse\..*|binfmt_misc)$'`
+- `LM_FS_RO_EXCLUDE_RE` = `'^(proc|sysfs|devtmpfs|tmpfs|devpts|cgroup2?|cgroup|debugfs|tracefs|mqueue|hugetlbfs|pstore|squashfs|overlay|rpc_pipefs|autofs|fuse\..*|binfmt_misc|securityfs|efivarfs|configfs|bpf|fusectl)$'`
+- `LM_FS_RO_EXCLUDE_MOUNTS_RE` = `'^/(boot|boot/efi|usr|etc)$'  # Optional mountpoint excludes`
 
 ### `network_monitor.sh`
 - `TARGETS` = `"/etc/linux_maint/network_targets.txt"   # CSV: host,check,target,key=val,...`
@@ -257,6 +258,8 @@ monitor=runtime_guard host=runner status=WARN reason=runtime_exceeded target_mon
 ### `preflight_check.sh`
 - `REQ_CMDS` = `(bash awk sed grep df ssh)`
 - `OPT_CMDS` = `(openssl ss netstat journalctl smartctl nvme mail timeout)`
+- `LM_PREFLIGHT_OPT_CMDS` = `"openssl ss netstat journalctl smartctl nvme timeout"  # Optional override (space-separated)`
+- If `LM_EMAIL_ENABLED=false` and `LM_NOTIFY=0`, `mail` is ignored in optional checks.
 
 ### `disk_trend_monitor.sh`
 - `STATE_BASE` = `""` (optional override; state path precedence is: explicit `STATE_BASE` → `${LM_STATE_DIR}/linux_maint/disk_trend` when `LM_STATE_DIR` is set → `/var/lib/linux_maint/disk_trend`)

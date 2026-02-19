@@ -173,6 +173,7 @@ If you have intentionally read-only mounts (e.g., ISO media), add them to the ex
 ```bash
 # /etc/linux_maint/linux-maint.conf
 LM_FS_RO_EXCLUDE_RE='^(proc|sysfs|devtmpfs|tmpfs|devpts|cgroup2?|cgroup|debugfs|tracefs|mqueue|hugetlbfs|pstore|squashfs|overlay|rpc_pipefs|autofs|fuse\..*|binfmt_misc|iso9660)$'
+LM_FS_RO_EXCLUDE_MOUNTS_RE='^/(boot|boot/efi|usr|etc)$'
 ```
 - Full reference: [`reference.md`](reference.md)
 
