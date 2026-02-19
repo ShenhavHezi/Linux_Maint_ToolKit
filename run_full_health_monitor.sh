@@ -857,11 +857,10 @@ chmod 0644 "$STATUS_FILE"
 # ---- run index (best-effort) ----
 RUN_INDEX_FILE="${LM_RUN_INDEX_FILE:-$LM_STATE_DIR/run_index.jsonl}"
 RUN_INDEX_KEEP="${LM_RUN_INDEX_KEEP:-200}"
-# shellcheck disable=SC2031
-python3 - "$RUN_INDEX_FILE" "$RUN_INDEX_KEEP" "$SUMMARY_FILE" "$SUMMARY_JSON_FILE" "$logfile" "$overall" "$worst" "$ts_epoch" "$hosts_ok" "$hosts_warn" "$hosts_crit" "$hosts_unknown" "$hosts_skip" <<'PY' || true
+python3 - "$RUN_INDEX_FILE" "$RUN_INDEX_KEEP" "$SUMMARY_FILE" "$SUMMARY_JSON_FILE" "$logfile" "$overall" "$worst" "$ts_epoch" <<'PY' || true
 import json, os, sys, time
 
-path, keep_s, summary_file, summary_json, logfile, overall, exit_code, ts_epoch, hosts_ok, hosts_warn, hosts_crit, hosts_unknown, hosts_skip = sys.argv[1:13]
+path, keep_s, summary_file, summary_json, logfile, overall, exit_code, ts_epoch = sys.argv[1:9]
 try:
     keep = int(keep_s)
 except Exception:
@@ -892,6 +891,37 @@ top_reasons = [
     for r, c in sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
 ]
 
+def read_status_counts(summary_path):
+    counts = {"ok":0,"warn":0,"crit":0,"unknown":0,"skipped":0}
+    try:
+        with open(summary_path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                if not line.startswith("monitor="):
+                    continue
+                parts = line.strip().split()
+                status = None
+                for p in parts:
+                    if p.startswith("status="):
+                        status = p.split("=",1)[1]
+                        break
+                if not status:
+                    continue
+                if status == "OK":
+                    counts["ok"] += 1
+                elif status == "WARN":
+                    counts["warn"] += 1
+                elif status == "CRIT":
+                    counts["crit"] += 1
+                elif status == "UNKNOWN":
+                    counts["unknown"] += 1
+                elif status == "SKIP":
+                    counts["skipped"] += 1
+    except FileNotFoundError:
+        pass
+    return counts
+
+host_counts = read_status_counts(summary_file)
+
 entry = {
     "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(int(ts_epoch))) if ts_epoch.isdigit() else "",
     "timestamp_epoch": int(ts_epoch) if ts_epoch.isdigit() else None,
@@ -900,13 +930,7 @@ entry = {
     "logfile": logfile,
     "summary_file": summary_file if summary_file else None,
     "summary_json": summary_json if summary_json else None,
-    "hosts": {
-        "ok": int(hosts_ok),
-        "warn": int(hosts_warn),
-        "crit": int(hosts_crit),
-        "unknown": int(hosts_unknown),
-        "skipped": int(hosts_skip),
-    },
+    "hosts": host_counts,
     "top_reasons": top_reasons,
 }
 
