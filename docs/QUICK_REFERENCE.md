@@ -39,6 +39,7 @@ sudo linux-maint history --table
 
 # One-line summary (cron/dashboards)
 sudo linux-maint summary
+sudo linux-maint status --summary
 
 # Table format for problems
 sudo linux-maint status --table
