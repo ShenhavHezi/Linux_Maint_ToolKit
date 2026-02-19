@@ -166,30 +166,38 @@ usage(){
   cat <<EOF2
 Usage: linux-maint <command> [args]
 
-Commands:
-  run [flags]         Run the full package (wrapper)
-  status [--only S] [--host P] [--monitor P] [--match-mode M] [--tail N] [--since D] [--reasons N]  Show last run status + filtered summary lines
-  diff [--json]       Show diff since last run (uses wrapper diff state)
-  trend [--last N] [--json]  Show severity/reason trends over recent runs
-  runtimes [--last N] [--json]  Show per-monitor runtimes from wrapper logs
-  export --json|--csv Export a single payload (summary_result/hosts + rows)
-  validate            Validate config file formats (best-effort)
-  preflight           Run preflight checks
-  version             Print installed BUILD_INFO (if present)
-  install [args]      Run ./install.sh (pass-through)
-  uninstall [args]    Run ./install.sh --uninstall (pass-through)
-  make-tarball        Build offline release tarball (tools/make_tarball.sh)
-  verify-release      Verify release tarball integrity (tools/verify_release.sh)
-  logs [n]            Tail latest wrapper log (default n=200)
-  init [--minimal]    Install /etc/linux_maint templates (from repo checkout)
-  doctor [--json]     Diagnose installation/config/state permissions
-  self-check [--json] Quick preflight validation (config/paths/deps)
-  deps                Print required/optional dependency manifest by monitor (offline-friendly)
-  verify-install      Verify installation layout, permissions, and systemd wiring (best-effort)
+Common commands:
+  run [flags]            Run the full wrapper
+  status [flags]         Show last run status + filtered summary lines
+  diff [--json]          Show diff since last run (uses wrapper diff state)
+  logs [n]               Tail latest wrapper log (default n=200)
+  doctor [--json]        Diagnose installation/config/state permissions
+  self-check [--json]    Quick validation (config/paths/deps; safe without sudo)
+
+Analysis / reporting:
+  trend [--last N] [--json]     Aggregate severity/reason trends
+  runtimes [--last N] [--json]  Show per-monitor runtimes
+  export --json|--csv           Export a single payload (summary_result/hosts + rows)
+
+Setup / maintenance:
+  init [--minimal]       Install /etc/linux_maint templates (from repo checkout)
+  preflight              Run preflight checks
+  validate               Validate config file formats (best-effort)
+  deps                   Print required/optional dependency manifest by monitor
+  verify-install         Verify installation layout and systemd wiring (best-effort)
   pack-logs [--out DIR]  Create a support bundle tar.gz (logs, config redacted, meta)
+
+Release / packaging:
+  version                Print installed BUILD_INFO (if present)
+  make-tarball            Build offline release tarball (tools/make_tarball.sh)
+  verify-release          Verify release tarball integrity (tools/verify_release.sh)
+  install [args]          Run ./install.sh (pass-through)
+  uninstall [args]        Run ./install.sh --uninstall (pass-through)
+
+Help:
   explain reason <token>  Explain a reason= token (from docs/REASONS.md)
   explain status <S>      Explain a status value (OK/WARN/CRIT/UNKNOWN/SKIP)
-  help                Show this help
+  help                    Show this help
 
 Environment:
   PREFIX=/usr/local             installation prefix override
