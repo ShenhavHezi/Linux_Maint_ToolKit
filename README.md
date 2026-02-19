@@ -27,16 +27,19 @@ Note: this project was previously named `linux_Maint_Scripts` on GitHub. The CLI
 - [Common knobs](#common-knobs)
 
 ## Docs / references
-- Changelog: [`CHANGELOG.md`](CHANGELOG.md)
-- Security policy: [`SECURITY.md`](SECURITY.md)
+- Changelog: [`CHANGELOG.md`](CHANGELOG.md) — release notes and summaries.
+- Security policy: [`SECURITY.md`](SECURITY.md) — vulnerability reporting guidance.
 - License: [`LICENSE`](LICENSE)
 
-- Start here: [`docs/README.md`](docs/README.md)
-- Operator cheat-sheet: [`docs/QUICK_REFERENCE.md`](docs/QUICK_REFERENCE.md)
-- Full reference (config/monitors/output): [`docs/reference.md`](docs/reference.md)
-- Offline / air-gapped: [`docs/DARK_SITE.md`](docs/DARK_SITE.md)
-- Reason tokens: [`docs/REASONS.md`](docs/REASONS.md)
-- Day-2 operations: [`docs/DAY2.md`](docs/DAY2.md)
+- Docs index: [`docs/README.md`](docs/README.md) — start here for navigation.
+- Quick reference: [`docs/QUICK_REFERENCE.md`](docs/QUICK_REFERENCE.md) — day‑to‑day commands.
+- Full reference: [`docs/reference.md`](docs/reference.md) — configuration, monitors, outputs, and contracts.
+- Reason tokens: [`docs/REASONS.md`](docs/REASONS.md) — canonical `reason=` vocabulary.
+- Offline / dark‑site: [`docs/DARK_SITE.md`](docs/DARK_SITE.md) — air‑gapped deployment guide.
+- Day‑2 ops: [`docs/DAY2.md`](docs/DAY2.md) — patching, baselines, trends, runtime tuning.
+- Release checklist: [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) — publishing steps and gates.
+- Release template: [`docs/RELEASE_TEMPLATE.md`](docs/RELEASE_TEMPLATE.md) — release notes template.
+- Docs index (short): [`docs/INDEX.md`](docs/INDEX.md) — quick link list.
 
 
 ## Repo map (where to look)
