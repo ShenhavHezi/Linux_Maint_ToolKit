@@ -492,6 +492,9 @@ if problems:
         if reason:
             line += f" reason={reason}"
         print(line)
+    print("\nnext_steps:")
+    print("  - run: linux-maint doctor")
+    print("  - run: linux-maint status --verbose")
 
 reason_rollup = status.get("reason_rollup", [])
 if reason_rollup:
@@ -1177,6 +1180,7 @@ if problems:
     problems.sort(key=lambda s: sev_order.get(s.split(' ',1)[0], 9))
     for l in problems[:limit]:
         print(l)
+    print("\ntip: run 'linux-maint doctor' for fix suggestions")
 else:
     print('\nproblems: none (all OK)')
 
