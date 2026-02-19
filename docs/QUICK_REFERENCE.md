@@ -23,6 +23,12 @@ sudo linux-maint status --verbose
 # Status in JSON (automation)
 sudo linux-maint status --json
 
+# Unified report (status + trends + runtimes)
+sudo linux-maint report
+
+# Preflight + validate + expected SKIPs
+sudo linux-maint check
+
 # Filter by host/monitor/status
 sudo linux-maint status --host web --monitor service --only WARN
 

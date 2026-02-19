@@ -702,6 +702,12 @@ It also writes a machine-parseable summary (only `monitor=` lines) to:
 
 This file is intended for automation/CI ingestion and is what `linux-maint status` will prefer when present.
 
+The wrapper also appends a compact run index entry (JSONL) to:
+
+- `/var/lib/linux_maint/run_index.jsonl` *(default; overridden by `LM_RUN_INDEX_FILE`)*
+
+You can control retention with `LM_RUN_INDEX_KEEP` (default 200).
+
 Optional: Prometheus export (textfile collector format)
 
 - Default path: `/var/lib/node_exporter/textfile_collector/linux_maint.prom`

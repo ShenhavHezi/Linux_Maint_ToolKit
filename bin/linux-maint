@@ -96,6 +96,28 @@ validate_ssh_opts(){
 }
 
 
+expected_skips(){
+  local cfg="${1:-/etc/linux_maint}"
+  echo "Expected SKIPs (missing optional config):"
+  local any=0
+  if [[ ! -s "$cfg/network_targets.txt" ]]; then echo "- network_monitor (missing:$cfg/network_targets.txt)"; any=1; fi
+  if [[ ! -s "$cfg/certs.txt" ]]; then echo "- cert_monitor (missing:$cfg/certs.txt)"; any=1; fi
+  if [[ ! -s "$cfg/ports_baseline.txt" ]]; then echo "- ports_baseline_monitor (missing:$cfg/ports_baseline.txt)"; any=1; fi
+  if [[ ! -s "$cfg/config_paths.txt" ]]; then echo "- config_drift_monitor (missing:$cfg/config_paths.txt)"; any=1; fi
+  if [[ ! -s "$cfg/baseline_users.txt" || ! -s "$cfg/baseline_sudoers.txt" ]]; then
+    local miss=()
+    [[ ! -s "$cfg/baseline_users.txt" ]] && miss+=("$cfg/baseline_users.txt")
+    [[ ! -s "$cfg/baseline_sudoers.txt" ]] && miss+=("$cfg/baseline_sudoers.txt")
+    local IFS=,
+    echo "- user_monitor (missing:${miss[*]})"
+    any=1
+  fi
+  if [[ ! -s "$cfg/backup_targets.csv" ]]; then echo "- backup_check (missing:$cfg/backup_targets.csv)"; any=1; fi
+  if [[ "$any" -eq 0 ]]; then
+    echo "- none (all optional config present)"
+  fi
+}
+
 
 # ---- run() flags parsing (CLI-first, env-compatible) ----
 # Maps:
@@ -171,8 +193,10 @@ Common commands:
   status [flags]         Show last run status + filtered summary lines
   diff [--json]          Show diff since last run (uses wrapper diff state)
   logs [n]               Tail latest wrapper log (default n=200)
+  report                Summarize latest run, trends, and slow monitors
   doctor [--json]        Diagnose installation/config/state permissions
   self-check [--json]    Quick validation (config/paths/deps; safe without sudo)
+  check                 Run config_validate + preflight + show expected skips
 
 Analysis / reporting:
   trend [--last N] [--json]     Aggregate severity/reason trends
@@ -339,6 +363,94 @@ case "$cmd" in
         fi
     ;;
 
+  report)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for report
+    fi
+
+    tmp_status="$(mktemp -p "$TMPDIR" linux_maint_report_status.XXXXXX.json)"
+    tmp_trend="$(mktemp -p "$TMPDIR" linux_maint_report_trend.XXXXXX.json)"
+    tmp_runtimes="$(mktemp -p "$TMPDIR" linux_maint_report_runtimes.XXXXXX.json)"
+
+    "$0" status --json --problems 20 --reasons 10 >"$tmp_status" 2>/dev/null || printf '{}' >"$tmp_status"
+    "$0" trend --last 10 --json >"$tmp_trend" 2>/dev/null || printf '{}' >"$tmp_trend"
+    "$0" runtimes --last 1 --json >"$tmp_runtimes" 2>/dev/null || printf '{}' >"$tmp_runtimes"
+
+    python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" <<'PY'
+import json, sys
+
+status_path, trend_path, runtimes_path = sys.argv[1:4]
+
+def read_json(p):
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+status = read_json(status_path)
+trend = read_json(trend_path)
+runtimes = read_json(runtimes_path)
+
+print("=== linux-maint report ===")
+mode = status.get("mode", "unknown")
+last = status.get("last_status", {})
+overall = last.get("overall", "UNKNOWN")
+exit_code = last.get("exit_code", "3")
+logfile = last.get("logfile", "")
+summary = status.get("summary_file", "")
+print(f"mode={mode} overall={overall} exit_code={exit_code}")
+if logfile:
+    print(f"logfile={logfile}")
+if summary:
+    print(f"summary_file={summary}")
+
+totals = status.get("totals", {})
+if totals:
+    print("totals: " + " ".join(f"{k}={totals.get(k,0)}" for k in ["CRIT","WARN","UNKNOWN","SKIP","OK"]))
+
+problems = status.get("problems", [])
+if problems:
+    print("\nproblems (top):")
+    for p in problems[:20]:
+        s = p.get("status","UNKNOWN")
+        mon = p.get("monitor","unknown")
+        host = p.get("host","")
+        reason = p.get("reason","")
+        line = f"{s} {mon}"
+        if host:
+            line += f" host={host}"
+        if reason:
+            line += f" reason={reason}"
+        print(line)
+
+reason_rollup = status.get("reason_rollup", [])
+if reason_rollup:
+    print("\nreasons (latest):")
+    for r in reason_rollup[:10]:
+        print(f"{r.get('reason')}={r.get('count')}")
+
+if trend:
+    t_totals = trend.get("totals", {})
+    if t_totals:
+        print("\ntrend (last runs):")
+        print("totals: " + " ".join(f"{k}={t_totals.get(k,0)}" for k in ["CRIT","WARN","UNKNOWN","SKIP","OK"]))
+    t_reasons = trend.get("reasons", [])
+    if t_reasons:
+        print("top_reasons:")
+        for r in t_reasons[:10]:
+            print(f"{r.get('reason')}={r.get('count')}")
+
+rows = runtimes.get("rows", [])
+if rows:
+    print("\nslow monitors (last run):")
+    for r in rows[:10]:
+        print(f"{r.get('monitor')} ms={r.get('ms')}")
+PY
+
+    rm -f "$tmp_status" "$tmp_trend" "$tmp_runtimes" 2>/dev/null || true
+    ;;
+
   version)
     if [[ -f "$SHARE/BUILD_INFO" ]]; then
       cat "$SHARE/BUILD_INFO"
@@ -360,6 +472,26 @@ case "$cmd" in
       need_root_for validate
     fi
     exec bash "$validate"
+    ;;
+
+  check)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for check
+    fi
+
+    echo "=== config_validate ==="
+    bash "$validate" || true
+    echo ""
+    echo "=== preflight ==="
+    bash "$preflight" || true
+    echo ""
+
+    cfg_dir="/etc/linux_maint"
+    if [[ "$MODE" == "repo" ]]; then
+      cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+      mkdir -p "$cfg_dir" 2>/dev/null || true
+    fi
+    expected_skips "$cfg_dir"
     ;;
 
   status)

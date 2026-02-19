@@ -854,6 +854,79 @@ fi
 } > "$STATUS_FILE"
 chmod 0644 "$STATUS_FILE"
 
+# ---- run index (best-effort) ----
+RUN_INDEX_FILE="${LM_RUN_INDEX_FILE:-$LM_STATE_DIR/run_index.jsonl}"
+RUN_INDEX_KEEP="${LM_RUN_INDEX_KEEP:-200}"
+# shellcheck disable=SC2031
+python3 - "$RUN_INDEX_FILE" "$RUN_INDEX_KEEP" "$SUMMARY_FILE" "$SUMMARY_JSON_FILE" "$logfile" "$overall" "$worst" "$ts_epoch" "$hosts_ok" "$hosts_warn" "$hosts_crit" "$hosts_unknown" "$hosts_skip" <<'PY' || true
+import json, os, sys, time
+
+path, keep_s, summary_file, summary_json, logfile, overall, exit_code, ts_epoch, hosts_ok, hosts_warn, hosts_crit, hosts_unknown, hosts_skip = sys.argv[1:13]
+try:
+    keep = int(keep_s)
+except Exception:
+    keep = 200
+
+def read_reason_counts(summary_path):
+    counts = {}
+    try:
+        with open(summary_path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                if not line.startswith("monitor="):
+                    continue
+                parts = line.strip().split()
+                reason = None
+                for p in parts:
+                    if p.startswith("reason="):
+                        reason = p.split("=", 1)[1]
+                        break
+                if reason:
+                    counts[reason] = counts.get(reason, 0) + 1
+    except FileNotFoundError:
+        pass
+    return counts
+
+reasons = read_reason_counts(summary_file)
+top_reasons = [
+    {"reason": r, "count": c}
+    for r, c in sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
+]
+
+entry = {
+    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(int(ts_epoch))) if ts_epoch.isdigit() else "",
+    "timestamp_epoch": int(ts_epoch) if ts_epoch.isdigit() else None,
+    "overall": overall,
+    "exit_code": int(exit_code) if str(exit_code).isdigit() else 3,
+    "logfile": logfile,
+    "summary_file": summary_file if summary_file else None,
+    "summary_json": summary_json if summary_json else None,
+    "hosts": {
+        "ok": int(hosts_ok),
+        "warn": int(hosts_warn),
+        "crit": int(hosts_crit),
+        "unknown": int(hosts_unknown),
+        "skipped": int(hosts_skip),
+    },
+    "top_reasons": top_reasons,
+}
+
+os.makedirs(os.path.dirname(path), exist_ok=True)
+with open(path, "a", encoding="utf-8") as f:
+    f.write(json.dumps(entry, sort_keys=True))
+    f.write("\n")
+
+if keep > 0:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        if len(lines) > keep:
+            lines = lines[-keep:]
+            with open(path, "w", encoding="utf-8") as f:
+                f.writelines(lines)
+    except Exception:
+        pass
+PY
+
 rm -f "$tmp_report" "$runtime_file" 2>/dev/null || true
 
 exit "$worst"
