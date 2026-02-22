@@ -92,6 +92,7 @@ install_files(){
 
   # tools used by the CLI (installed-mode)
   install -D -m 0755 tools/summary_diff.py "$libexec/summary_diff.py"
+  install -D -m 0755 tools/pack_logs.sh "$libexec/pack_logs.sh"
 
   # Install all monitor scripts (keeps packaging in sync with repo changes).
   install -D -m 0755 monitors/*.sh "$libexec/"

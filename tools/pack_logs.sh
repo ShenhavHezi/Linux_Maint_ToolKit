@@ -54,6 +54,12 @@ copy_log() {
   cp -a "$src" "$dest_dir/" 2>/dev/null || true
 }
 
+list_latest() {
+  local pattern="$1" max="$2"
+  find "$(dirname -- "$pattern")" -maxdepth 1 -type f -name "$(basename -- "$pattern")" \
+    -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n "$max" | awk '{print $2}'
+}
+
 mkdir -p "$OUTDIR"
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
@@ -79,26 +85,26 @@ done
 # Also include last N full logs if available (default 3)
 MAX_LOGS="${MAX_LOGS:-3}"
 if [[ -d "$LOG_DIR" ]]; then
-  # shellcheck disable=SC2012
-  ls -1t "$LOG_DIR"/full_health_monitor_*.log 2>/dev/null | head -n "$MAX_LOGS" | while IFS= read -r p; do
+  while IFS= read -r p; do
+    [[ -n "$p" ]] || continue
     copy_log "$p" "$bundle_root/logs"
-  done
-  # shellcheck disable=SC2012
-  ls -1t "$LOG_DIR"/full_health_monitor_summary_*.log 2>/dev/null | head -n "$MAX_LOGS" | while IFS= read -r p; do
+  done < <(list_latest "${LOG_DIR}/full_health_monitor_*.log" "$MAX_LOGS")
+  while IFS= read -r p; do
+    [[ -n "$p" ]] || continue
     copy_log "$p" "$bundle_root/logs"
-  done
-  # shellcheck disable=SC2012
-  ls -1t "$LOG_DIR"/full_health_monitor_summary_*.json 2>/dev/null | head -n "$MAX_LOGS" | while IFS= read -r p; do
+  done < <(list_latest "${LOG_DIR}/full_health_monitor_summary_*.log" "$MAX_LOGS")
+  while IFS= read -r p; do
+    [[ -n "$p" ]] || continue
     copy_log "$p" "$bundle_root/logs"
-  done
+  done < <(list_latest "${LOG_DIR}/full_health_monitor_summary_*.json" "$MAX_LOGS")
 fi
 
 # --- Config (redacted) ---
-if [[ -d "$CFG_DIR" ]]; then
+if [[ -d "$CFG_DIR" && -r "$CFG_DIR" ]]; then
   mkdir -p "$bundle_root/config"
   # Copy while preserving relative layout.
   # Redact only text-like files.
-  find "$CFG_DIR" -type f 2>/dev/null | while IFS= read -r f; do
+  ( find "$CFG_DIR" -type f 2>/dev/null || true ) | while IFS= read -r f; do
     rel="${f#"$CFG_DIR"/}"
     dest_dir="$bundle_root/config/$(dirname -- "$rel")"
     mkdir -p "$dest_dir"
@@ -136,10 +142,10 @@ if [[ -f "${REPO_ROOT:-}/VERSION" ]]; then
 fi
 
 # --- State dir (optional, small files only) ---
-if [[ -d "$STATE_DIR" ]]; then
+if [[ -d "$STATE_DIR" && -r "$STATE_DIR" ]]; then
   mkdir -p "$bundle_root/state"
   # only include small state files (<256KB)
-  find "$STATE_DIR" -maxdepth 2 -type f -size -256k 2>/dev/null | while IFS= read -r f; do
+  ( find "$STATE_DIR" -maxdepth 2 -type f -size -256k 2>/dev/null || true ) | while IFS= read -r f; do
     copy_log "$f" "$bundle_root/state"
   done
 fi

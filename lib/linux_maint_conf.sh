@@ -9,6 +9,10 @@
 lm_load_main_conf(){
   local f="/etc/linux_maint/linux-maint.conf"
   [ -f "$f" ] || return 0
+  if [ ! -r "$f" ]; then
+    echo "WARN: cannot read config $f (try sudo)" >&2
+    return 0
+  fi
   # shellcheck disable=SC1090
   set -a
   . "$f"
@@ -21,6 +25,10 @@ lm_load_conf_d(){
   local f
   shopt -s nullglob
   for f in "$d"/*.conf; do
+    if [ ! -r "$f" ]; then
+      echo "WARN: cannot read config $f (try sudo)" >&2
+      continue
+    fi
     # shellcheck disable=SC1090
     set -a
     . "$f"

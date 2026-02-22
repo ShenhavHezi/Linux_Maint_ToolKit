@@ -316,12 +316,26 @@ case "$cmd" in
       exit 0
     fi
 
-    # In installed mode, try sudo -n first. In repo mode, just run.
+    # Run wrapper (installed or repo mode) and print a short footer when interactive.
     if [[ "$wrapper" == "$SBIN"/* ]]; then
-      exec sudo -n "$wrapper" 2>/dev/null || exec "$wrapper"
+      "$wrapper"
     else
-      exec bash "$wrapper"
+      bash "$wrapper"
     fi
+    rc=$?
+    if [[ -t 1 ]]; then
+      echo ""
+      echo "Run complete (exit_code=$rc)"
+      if [[ "$MODE" == "repo" ]]; then
+        echo "Summary: $REPO_SUMMARY_LATEST"
+        echo "Log: $REPO_LATEST_LOG"
+      else
+        echo "Summary: $INST_SUMMARY_LATEST"
+        echo "Log: /var/log/health/full_health_monitor_latest.log"
+      fi
+      echo "Tip: linux-maint report"
+    fi
+    exit $rc
     ;;
 
 
@@ -342,8 +356,6 @@ case "$cmd" in
 
     CUR_SUMMARY="$SUMMARY_LATEST"
     echo "diff_state_dir=$DIFF_STATE_DIR"
-    echo "diff_prev=$PREV_SUMMARY"
-    echo "diff_cur=$CUR_SUMMARY"
 
     if [[ ! -f "$CUR_SUMMARY" ]]; then
       echo "No current summary file: $CUR_SUMMARY" >&2
@@ -410,6 +422,7 @@ case "$cmd" in
       esac
     done
     [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && REPORT_COLOR=0
+    color_enabled || REPORT_COLOR=0
 
     tmp_status="$(mktemp -p "$TMPDIR" linux_maint_report_status.XXXXXX.json)"
     tmp_trend="$(mktemp -p "$TMPDIR" linux_maint_report_trend.XXXXXX.json)"
@@ -433,6 +446,20 @@ def c(s, code):
         return s
     return f"\033[{code}m{s}\033[0m"
 
+def color_status(st, text=None):
+    label = text if text is not None else st
+    if st == "CRIT":
+        return c(label, "1;31")
+    if st == "WARN":
+        return c(label, "1;33")
+    if st == "OK":
+        return c(label, "1;32")
+    if st == "UNKNOWN":
+        return c(label, "1;35")
+    if st == "SKIP":
+        return c(label, "1;36")
+    return label
+
 def read_json(p):
     try:
         with open(p, "r", encoding="utf-8") as f:
@@ -453,28 +480,16 @@ if json_mode:
     print(json.dumps(out, indent=2, sort_keys=True))
     raise SystemExit(0)
 
-if not compact:
-    banner = f"health={overall} exit_code={exit_code}"
-    if overall == "CRIT":
-        banner = c(banner,"1;31")
-    elif overall == "WARN":
-        banner = c(banner,"1;33")
-    elif overall == "OK":
-        banner = c(banner,"1;32")
-    print(c("=== linux-maint report ===","1;36") + " " + banner)
 mode = status.get("mode", "unknown")
 last = status.get("last_status", {})
 overall = last.get("overall", "UNKNOWN")
 exit_code = last.get("exit_code", "3")
 logfile = last.get("logfile", "")
 summary = status.get("summary_file", "")
-ov = overall
-if overall == "CRIT":
-    ov = c(overall,"1;31")
-elif overall == "WARN":
-    ov = c(overall,"1;33")
-elif overall == "OK":
-    ov = c(overall,"1;32")
+ov = color_status(overall)
+if not compact:
+    banner = f"health={color_status(overall)} exit_code={exit_code}"
+    print(c("=== linux-maint report ===","1;36") + " " + banner)
 print(f"mode={mode} overall={ov} exit_code={exit_code}")
 if not compact:
     if logfile:
@@ -491,9 +506,20 @@ if totals:
         print("totals:")
         print(f"  {'STATUS':<{maxk}} {'COUNT':<{maxv}}")
         for k,v in tvals:
-            print(f"  {k:<{maxk}} {str(v):<{maxv}}")
+            label = f"{k:<{maxk}}"
+            count = f"{str(v):<{maxv}}"
+            label = color_status(k, label)
+            if v != 0:
+                count = color_status(k, count)
+            print(f"  {label} {count}")
     else:
-        line = "totals: " + " ".join(f"{k}={v}" for k,v in tvals)
+        parts = []
+        for k, v in tvals:
+            kv = f"{k}={v}"
+            if v != 0:
+                kv = color_status(k, kv)
+            parts.append(kv)
+        line = "totals: " + " ".join(parts)
         print(line)
     if compact:
         raise SystemExit(0)
@@ -536,13 +562,7 @@ if problems:
             mon = p.get("monitor","unknown")
             host = p.get("host","")
             reason = p.get("reason","")
-            st = s
-            if s == "CRIT":
-                st = c(s,"1;31")
-            elif s == "WARN":
-                st = c(s,"1;33")
-            elif s == "OK":
-                st = c(s,"1;32")
+            st = color_status(s)
             line = f"{st} {mon}"
             if host:
                 line += f" host={host}"
@@ -660,6 +680,7 @@ PY
       esac
     done
     [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && HISTORY_COLOR=0
+    color_enabled || HISTORY_COLOR=0
 
     if [[ ! "$LAST_N" =~ ^[0-9]+$ ]] || (( LAST_N <= 0 )); then
       echo "ERROR: --last must be a positive integer" >&2
@@ -687,12 +708,26 @@ def c(s, code):
         return s
     return f"\033[{code}m{s}\033[0m"
 
-    if not os.path.exists(path):
-        print(f"No run index found: {path}")
-        print("Hints:")
-        print("- Run: sudo linux-maint run")
-        print("- Or set LM_RUN_INDEX_FILE when invoking the wrapper")
-        sys.exit(1)
+def color_status(st, text=None):
+    label = text if text is not None else st
+    if st == "CRIT":
+        return c(label, "1;31")
+    if st == "WARN":
+        return c(label, "1;33")
+    if st == "OK":
+        return c(label, "1;32")
+    if st == "UNKNOWN":
+        return c(label, "1;35")
+    if st == "SKIP":
+        return c(label, "1;36")
+    return label
+
+if not os.path.exists(path):
+    print(f"No run index found: {path}")
+    print("Hints:")
+    print("- Run: sudo linux-maint run")
+    print("- Or set LM_RUN_INDEX_FILE when invoking the wrapper")
+    sys.exit(1)
 
 rows=[]
 with open(path, "r", encoding="utf-8", errors="ignore") as f:
@@ -714,9 +749,17 @@ if compact:
     if rows:
         r = rows[-1]
         hosts = r.get("hosts",{}) or {}
-        print(f"last_run={r.get('timestamp','')} overall={r.get('overall','UNKNOWN')} CRIT={hosts.get('crit',0)} WARN={hosts.get('warn',0)} UNKNOWN={hosts.get('unknown',0)} SKIP={hosts.get('skipped',0)} OK={hosts.get('ok',0)}")
+        overall = r.get("overall","UNKNOWN")
+        ov = color_status(overall)
+        print(f"last_run={r.get('timestamp','')} overall={ov} CRIT={hosts.get('crit',0)} WARN={hosts.get('warn',0)} UNKNOWN={hosts.get('unknown',0)} SKIP={hosts.get('skipped',0)} OK={hosts.get('ok',0)}")
     else:
         print("no runs")
+    raise SystemExit(0)
+
+if not rows:
+    print("=== Last 0 runs (run_index) ===")
+    print("No runs recorded yet.")
+    print("Hint: run sudo linux-maint run")
     raise SystemExit(0)
 
 print(f"=== Last {len(rows)} runs (run_index) ===")
@@ -739,30 +782,25 @@ if table:
     for row in table_rows:
         for i,v in enumerate(row):
             w[i]=max(w[i], len(v))
-        def pad(s, width):
-            return f"{s:<{width}}"
-        print(" ".join(pad(headers[i], w[i]) for i in range(len(headers))))
-        for row in table_rows:
-            cells=[pad(row[i], w[i]) for i in range(len(headers))]
-            overall=row[1]
-            if overall == "CRIT":
-                cells[1]=c(cells[1],"1;31")
-            elif overall == "WARN":
-                cells[1]=c(cells[1],"1;33")
-            elif overall == "OK":
-                cells[1]=c(cells[1],"1;32")
-            # Colorize count columns (crit/warn/unknown/skip/ok)
-            if row[3] != "0":
-                cells[3]=c(cells[3],"1;31")
-            if row[4] != "0":
-                cells[4]=c(cells[4],"1;33")
-            if row[5] != "0":
-                cells[5]=c(cells[5],"1;35")
-            if row[6] != "0":
-                cells[6]=c(cells[6],"1;36")
-            if row[7] != "0":
-                cells[7]=c(cells[7],"1;32")
-            print(" ".join(cells))
+    def pad(s, width):
+        return f"{s:<{width}}"
+    print(" ".join(pad(headers[i], w[i]) for i in range(len(headers))))
+    for row in table_rows:
+        cells=[pad(row[i], w[i]) for i in range(len(headers))]
+        overall=row[1]
+        cells[1]=color_status(overall, cells[1])
+        # Colorize count columns (crit/warn/unknown/skip/ok)
+        if row[3] != "0":
+            cells[3]=c(cells[3],"1;31")
+        if row[4] != "0":
+            cells[4]=c(cells[4],"1;33")
+        if row[5] != "0":
+            cells[5]=c(cells[5],"1;35")
+        if row[6] != "0":
+            cells[6]=c(cells[6],"1;36")
+        if row[7] != "0":
+            cells[7]=c(cells[7],"1;32")
+        print(" ".join(cells))
 else:
     for r in rows:
         ts = r.get("timestamp","")
@@ -770,7 +808,7 @@ else:
         exit_code = r.get("exit_code","")
         hosts = r.get("hosts",{}) or {}
         counts = f"CRIT={hosts.get('crit',0)} WARN={hosts.get('warn',0)} UNKNOWN={hosts.get('unknown',0)} SKIP={hosts.get('skipped',0)} OK={hosts.get('ok',0)}"
-        print(f"{ts} overall={overall} exit_code={exit_code} {counts}")
+        print(f"{ts} overall={color_status(overall)} exit_code={exit_code} {counts}")
 PY
     ;;
 
@@ -790,6 +828,7 @@ PY
       esac
     done
     [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && SUMMARY_COLOR=0
+    color_enabled || SUMMARY_COLOR=0
 
     tmp_status="$(mktemp -p "$TMPDIR" linux_maint_summary_status.XXXXXX.json)"
     "$0" status --json --problems 0 >"$tmp_status" 2>/dev/null || printf '{}' >"$tmp_status"
@@ -889,6 +928,7 @@ PY
       esac
     done
     [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && LM_COLOR=0
+    color_enabled || LM_COLOR=0
 
     if [[ "$SUMMARY_ONLY" -eq 1 ]]; then
       "$0" summary --no-color
@@ -1313,26 +1353,28 @@ with open(path, 'r', encoding='utf-8', errors='ignore') as f:
             continue
         mon=monitor or 'unknown_monitor'
         reason=get_kv(line,'reason')
-        # Format D: "STATUS monitor reason=..." (reason only if exists)
+        problems.append({
+            "status": st,
+            "monitor": mon,
+            "host": host,
+            "reason": reason or "",
+        })
         if reason:
-            s=st
-            if st=="CRIT":
-                s=c(st,'1;31')
-            elif st=="WARN":
-                s=c(st,'1;33')
-            elif st=="OK":
-                s=c(st,'1;32')
-            problems.append(f"{s} {mon} host={host} reason={reason}")
             reason_counts[reason]=reason_counts.get(reason,0)+1
-        else:
-            s=st
-            if st=="CRIT":
-                s=c(st,'1;31')
-            elif st=="WARN":
-                s=c(st,'1;33')
-            elif st=="OK":
-                s=c(st,'1;32')
-            problems.append(f"{s} {mon} host={host}")
+
+def color_status(st, text=None):
+    label = text if text is not None else st
+    if st=="CRIT":
+        return c(label,'1;31')
+    if st=="WARN":
+        return c(label,'1;33')
+    if st=="OK":
+        return c(label,'1;32')
+    if st=="UNKNOWN":
+        return c(label,'1;35')
+    if st=="SKIP":
+        return c(label,'1;36')
+    return label
 
 order=['CRIT','WARN','UNKNOWN','SKIP','OK']
 if table:
@@ -1342,44 +1384,28 @@ if table:
     print(f"  {'STATUS':<{maxk}} {'COUNT':<{maxv}}")
     for k in order:
         v=str(counts.get(k,0))
-        print(f"  {k:<{maxk}} {v:<{maxv}}")
+        label = color_status(k, f"{k:<{maxk}}")
+        count = f"{v:<{maxv}}"
+        if v != "0":
+            count = color_status(k, count)
+        print(f"  {label} {count}")
 else:
     parts=[]
     for k in order:
         v=str(counts.get(k,0))
-        if k == "CRIT":
-            parts.append(f"{c(k,'1;31')}={v}")
-        elif k == "WARN":
-            parts.append(f"{c(k,'1;33')}={v}")
-        elif k == "OK":
-            parts.append(f"{c(k,'1;32')}={v}")
-        else:
-            parts.append(f"{k}={v}")
+        kv=f"{k}={v}"
+        if v != "0":
+            kv=color_status(k, kv)
+        parts.append(kv)
     print('totals: ' + ' '.join(parts))
 
 if problems:
+    sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3}
+    problems.sort(key=lambda r: sev_order.get(r["status"], 9))
     show_n=min(limit, len(problems))
     print(f"\nproblems (top {show_n}):")
     if table:
-        rows=[]
-        for line in problems[:limit]:
-            parts=line.split(" ",1)
-            st=parts[0]
-            rest=parts[1] if len(parts)>1 else ""
-            mon=""
-            host=""
-            reason=""
-            if " host=" in rest:
-                mon, rest2 = rest.split(" host=",1)
-                if " reason=" in rest2:
-                    host, reason = rest2.split(" reason=",1)
-                else:
-                    host = rest2
-            else:
-                mon = rest
-            rows.append((st, mon, host, reason))
-        sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3}
-        rows.sort(key=lambda r: sev_order.get(r[0], 9))
+        rows=[(p["status"], p["monitor"], p["host"], p["reason"]) for p in problems[:limit]]
         headers=("STATUS","MONITOR","HOST","REASON")
         w=[len(h) for h in headers]
         for r in rows:
@@ -1387,23 +1413,15 @@ if problems:
                 w[i]=max(w[i], len(str(v)))
         print(f"{headers[0]:<{w[0]}} {headers[1]:<{w[1]}} {headers[2]:<{w[2]}} {headers[3]}")
         for st,mon,host,reason in rows:
-            s_pad=f"{st:<{w[0]}}"
-            if st=="CRIT":
-                s_pad=c(s_pad,'1;31')
-            elif st=="WARN":
-                s_pad=c(s_pad,'1;33')
-            elif st=="OK":
-                s_pad=c(s_pad,'1;32')
-            elif st=="UNKNOWN":
-                s_pad=c(s_pad,'1;35')
-            elif st=="SKIP":
-                s_pad=c(s_pad,'1;36')
+            s_pad=color_status(st, f"{st:<{w[0]}}")
             print(f"{s_pad} {mon:<{w[1]}} {host:<{w[2]}} {reason}")
     else:
-        sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3}
-        problems.sort(key=lambda s: sev_order.get(s.split(' ',1)[0], 9))
-        for l in problems[:limit]:
-            print(l)
+        for p in problems[:limit]:
+            st=color_status(p["status"])
+            line=f"{st} {p['monitor']} host={p['host']}"
+            if p["reason"]:
+                line += f" reason={p['reason']}"
+            print(line)
     print("\ntip: run 'linux-maint doctor' for fix suggestions")
 else:
     print('\nproblems: none (all OK)')
@@ -1470,12 +1488,36 @@ PY
       log_dir="/var/log/health"
     fi
 
-    python3 - "$log_dir" "$LAST_N" "$JSON" <<'PY'
+    TREND_COLOR=0
+    color_enabled && TREND_COLOR=1
+    LM_COLOR="$TREND_COLOR" python3 - "$log_dir" "$LAST_N" "$JSON" <<'PY'
 import glob, json, os, re, sys
 
 log_dir, last_n, json_mode = sys.argv[1:4]
 last_n=int(last_n)
 json_mode = json_mode == '1'
+color = os.environ.get("LM_COLOR","1") == "1"
+
+def c(s, code):
+    if not color:
+        return s
+    return f"\033[{code}m{s}\033[0m"
+
+def color_kv(k, v):
+    text = f"{k}={v}"
+    if not color or int(v) == 0:
+        return text
+    if k == "CRIT":
+        return c(text, "1;31")
+    if k == "WARN":
+        return c(text, "1;33")
+    if k == "UNKNOWN":
+        return c(text, "1;35")
+    if k == "SKIP":
+        return c(text, "1;36")
+    if k == "OK":
+        return c(text, "1;32")
+    return text
 
 pat = os.path.join(log_dir, 'full_health_monitor_summary_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9].log')
 files=sorted(glob.glob(pat), reverse=True)[:last_n]
@@ -1520,11 +1562,11 @@ if json_mode:
     print(json.dumps(out, indent=2, sort_keys=True))
 else:
     print(f'trend_runs={len(runs)} source_dir={log_dir}')
-    print('totals: ' + ' '.join(f"{k}={overall.get(k,0)}" for k in order))
+    print('totals: ' + ' '.join(color_kv(k, overall.get(k,0)) for k in order))
     print('')
     print('runs:')
     for r in runs:
-      print(f"- {os.path.basename(r['file'])}: " + ' '.join(f"{k}={r['totals'].get(k,0)}" for k in order))
+      print(f"- {os.path.basename(r['file'])}: " + ' '.join(color_kv(k, r['totals'].get(k,0)) for k in order))
     print('')
     print('reasons:')
     if rollup:
@@ -2095,8 +2137,18 @@ PY
     # Use best-effort state dir (where notify/summary diff stores state)
     _state_dir="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-/var/lib/linux_maint}}"
 
+    if [[ "$MODE" == "repo" ]]; then
+      pack_logs_bin="$REPO_ROOT/tools/pack_logs.sh"
+    else
+      pack_logs_bin="$LIBEXEC/pack_logs.sh"
+    fi
+    if [[ ! -x "$pack_logs_bin" ]]; then
+      echo "ERROR: pack-logs helper not found: $pack_logs_bin" >&2
+      echo "Hint: reinstall or run from a git checkout." >&2
+      exit 1
+    fi
     OUTDIR="$OUT" LOG_DIR="$_logdir" CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}" STATE_DIR="$_state_dir" REPO_ROOT="$_repo_root" \
-      ./tools/pack_logs.sh
+      "$pack_logs_bin"
     ;;
   verify-install)
     echo "=== linux-maint verify-install ==="
@@ -2110,9 +2162,9 @@ PY
     check_file() {
       local label="$1" path="$2"
       if [[ -e "$path" ]]; then
-        echo "OK: $label: $path"
+        echo "${C_GREEN}OK${C_RESET}: $label: $path"
       else
-        echo "MISSING: $label: $path" >&2
+        echo "${C_RED}MISSING${C_RESET}: $label: $path" >&2
         fail=1
       fi
     }
@@ -2120,12 +2172,12 @@ PY
     check_exec() {
       local label="$1" path="$2"
       if [[ -x "$path" ]]; then
-        echo "OK: $label: $path"
+        echo "${C_GREEN}OK${C_RESET}: $label: $path"
       elif [[ -e "$path" ]]; then
-        echo "NOT EXECUTABLE: $label: $path" >&2
+        echo "${C_RED}NOT EXECUTABLE${C_RESET}: $label: $path" >&2
         fail=1
       else
-        echo "MISSING: $label: $path" >&2
+        echo "${C_RED}MISSING${C_RESET}: $label: $path" >&2
         fail=1
       fi
     }
@@ -2135,12 +2187,12 @@ PY
       if [[ -d "$path" ]]; then
         if ( : > "$path/.linux_maint_write_test" ) 2>/dev/null; then
           rm -f "$path/.linux_maint_write_test" 2>/dev/null || true
-          echo "OK: writable $label: $path"
+          echo "${C_GREEN}OK${C_RESET}: writable $label: $path"
         else
-          echo "WARN: not writable $label: $path" >&2
+          echo "${C_YELLOW}WARN${C_RESET}: not writable $label: $path" >&2
         fi
       else
-        echo "WARN: missing dir $label: $path" >&2
+        echo "${C_YELLOW}WARN${C_RESET}: missing dir $label: $path" >&2
       fi
     }
 
@@ -2196,7 +2248,12 @@ PY
       exit 1
     fi
 
-    echo "verify-install ok"
+    if [[ "$fail" -eq 0 ]]; then
+      echo "${C_GREEN}verify-install ok${C_RESET}"
+    else
+      echo "${C_RED}verify-install failed${C_RESET}" >&2
+      exit 1
+    fi
     ;;
   doctor)
     if [[ "$MODE" == "installed" ]]; then
@@ -2613,9 +2670,9 @@ def writable(path: str) -> bool:
     return os.access(path, os.W_OK)
 
 paths = [
-    {"path": log_dir, "exists": pathlib.Path(log_dir).is_dir(), "writable": writable(log_dir)},
-    {"path": state_dir, "exists": pathlib.Path(state_dir).is_dir(), "writable": writable(state_dir)},
-    {"path": lock_dir, "exists": pathlib.Path(lock_dir).is_dir(), "writable": writable(lock_dir)},
+    {"purpose": "logs", "path": log_dir, "exists": pathlib.Path(log_dir).is_dir(), "writable": writable(log_dir)},
+    {"purpose": "state", "path": state_dir, "exists": pathlib.Path(state_dir).is_dir(), "writable": writable(state_dir)},
+    {"purpose": "lock", "path": lock_dir, "exists": pathlib.Path(lock_dir).is_dir(), "writable": writable(lock_dir)},
 ]
 
 deps_list = ["bash","awk","sed","grep","df","find","timeout","ssh"]
@@ -2653,12 +2710,21 @@ PY
     if [[ "$SC_COMPACT" -eq 0 ]]; then
       echo ""
       echo "=== Paths (writable) ==="
-      printf "%-24s %s\n" "PATH" "STATUS"
-      for d in "$LOG_DIR_SC" "$STATE_DIR_SC" "$LOCK_DIR_SC"; do
+      printf "%-10s %-44s %s\n" "PURPOSE" "PATH" "STATUS"
+      for purpose in logs state lock; do
+        case "$purpose" in
+          logs) d="$LOG_DIR_SC" ;;
+          state) d="$STATE_DIR_SC" ;;
+          lock) d="$LOCK_DIR_SC" ;;
+        esac
         if [[ -d "$d" ]]; then
-          [[ -w "$d" ]] && printf "%-24s %s\n" "$d" "${C_GREEN}OK${C_RESET}" || printf "%-24s %s\n" "$d" "${C_RED}NOT_WRITABLE${C_RESET}"
+          if [[ -w "$d" ]]; then
+            printf "%-10s %-44s %s\n" "$purpose" "$d" "${C_GREEN}OK${C_RESET}"
+          else
+            printf "%-10s %-44s %s\n" "$purpose" "$d" "${C_RED}NOT_WRITABLE${C_RESET}"
+          fi
         else
-          printf "%-24s %s\n" "$d" "${C_RED}MISSING${C_RESET}"
+          printf "%-10s %-44s %s\n" "$purpose" "$d" "${C_RED}MISSING${C_RESET}"
         fi
       done
       echo ""
