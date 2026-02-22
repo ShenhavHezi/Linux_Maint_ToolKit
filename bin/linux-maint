@@ -269,8 +269,9 @@ ${C_CYAN}Common commands${C_RESET}:
   status [flags]         Show last run status and summary
   report [flags]         Unified report (status + trend + runtimes)
   doctor [flags]         Diagnose installation/config/state
-  summary               One-line summary (cron/dashboards)
-  metrics --json        Snapshot status+trend+runtimes in one JSON payload
+  self-check [flags]     Quick validation (safe without sudo)
+  summary                One-line summary (cron/dashboards)
+  metrics --json         Snapshot status+trend+runtimes in one JSON payload
 
 ${C_CYAN}Analysis / reporting${C_RESET}:
   trend [flags]         Aggregate severity/reason trends
@@ -286,16 +287,18 @@ ${C_CYAN}Setup / maintenance${C_RESET}:
   baseline <...> [flags] Capture or preview baselines
   preflight              Run preflight checks
   validate               Validate config file formats (best-effort)
+  config [flags]         Show effective config (merged from /etc/linux_maint)
+  check                  Run config_validate + preflight + show expected skips
   deps                   Print required/optional dependency manifest by monitor
   verify-install         Verify installation layout and systemd wiring (best-effort)
   pack-logs [flags]      Create a support bundle tar.gz (logs, config redacted, meta)
 
 ${C_CYAN}Release / packaging${C_RESET}:
   version                Print installed BUILD_INFO (if present)
-  make-tarball            Build offline release tarball (tools/make_tarball.sh)
-  verify-release          Verify release tarball integrity (tools/verify_release.sh)
-  install [args]          Run ./install.sh (pass-through)
-  uninstall [args]        Run ./install.sh --uninstall (pass-through)
+  make-tarball           Build offline release tarball (tools/make_tarball.sh)
+  verify-release         Verify release tarball integrity (tools/verify_release.sh)
+  install [args]         Run ./install.sh (pass-through)
+  uninstall [args]       Run ./install.sh --uninstall (pass-through)
 
 ${C_CYAN}Help${C_RESET}:
   help [command]          Show help for a command (shortcut for usage)
@@ -318,6 +321,7 @@ ${C_CYAN}Examples${C_RESET}:
   linux-maint summary
 
 ${C_CYAN}Tips${C_RESET}:
+  linux-maint help <command>
   linux-maint <command> --help
   See docs/README.md for full docs and flag details
   NO_COLOR=1 linux-maint report
