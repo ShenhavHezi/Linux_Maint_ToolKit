@@ -8,6 +8,17 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-02-22
 
+- Release v0.1.5
+- Added CLI flags for progress control (`--progress|--no-progress`) on run/pack-logs/baseline.
+- Added `linux-maint help <command>` and refined help/menu UX.
+- Locked color precedence (`NO_COLOR` overrides `LM_FORCE_COLOR`) with tests.
+- Added pack-logs redaction flags plus bundle metadata (`meta/bundle_meta.txt`).
+- Expanded secret scan patterns for common token formats.
+- Added JSON schema + contract versions for report/config; enhanced runtimes JSON with unit/source.
+- Added release automation (`tools/release.sh`, `make release`).
+
+## 2026-02-22
+
 - Added progress bars for runs and support bundles; per-host progress for baseline updates.
 - Polished CLI UX with colored section headers, clearer hints, and a quick-start menu.
 - Added `LM_FORCE_COLOR` to force ANSI output even without a TTY.
