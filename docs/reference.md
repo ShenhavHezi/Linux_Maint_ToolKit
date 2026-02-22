@@ -156,6 +156,8 @@ linux-maint runtimes
 linux-maint runtimes --last 3 --json
 ```
 
+JSON output includes `unit=ms` and a `source_file` path for each row.
+
 ### Runtime warn thresholds
 
 You can optionally warn on slow monitors by creating a runtime warn file:
@@ -433,6 +435,38 @@ Compatibility policy:
 
 Schemas:
 - `docs/schemas/status.json` — JSON schema for `linux-maint status --json`.
+
+### `linux-maint report --json` compatibility contract
+
+Top-level keys:
+- `report_json_contract_version` (integer, current value: `1`)
+- `status` (object; same payload as `linux-maint status --json`)
+- `trend` (object; same payload as `linux-maint trend --json`)
+- `runtimes` (object; same payload as `linux-maint runtimes --json`)
+
+Compatibility policy:
+- Existing keys/types above are treated as stable for contract version `1`.
+- Additive keys may be introduced without breaking compatibility.
+- Breaking shape/type changes require incrementing `report_json_contract_version`.
+
+Schema:
+- `docs/schemas/report.json` — JSON schema for `linux-maint report --json`.
+
+### `linux-maint config --json` compatibility contract
+
+Top-level keys:
+- `config_json_contract_version` (integer, current value: `1`)
+- `cfg_dir` (string path to the config root)
+- `sources` (array of config file paths used to build the effective config)
+- `values` (object; effective config key/value pairs as strings)
+
+Compatibility policy:
+- Existing keys/types above are treated as stable for contract version `1`.
+- Additive keys may be introduced without breaking compatibility.
+- Breaking shape/type changes require incrementing `config_json_contract_version`.
+
+Schema:
+- `docs/schemas/config.json` — JSON schema for `linux-maint config --json`.
 
 Example (`status --json`):
 
@@ -1121,3 +1155,4 @@ CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).
 - `linux-maint help <command>`: show concise usage for a specific command (no root required).
 
 - `linux-maint pack-logs [--out DIR]`: create a support bundle (progress can be toggled with `--progress|--no-progress`).
+  - `--redact|--no-redact`: override `LM_REDACT_LOGS` for this bundle only.

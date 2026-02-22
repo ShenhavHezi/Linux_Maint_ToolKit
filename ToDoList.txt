@@ -38,17 +38,17 @@ Priorities:
 
 ## P2 — Security / hardening
 
-- Add `pack-logs --redact/--no-redact` flags (override `LM_REDACT_LOGS`).
-  - Print a short note in the bundle metadata about whether redaction was applied.
+- Add `pack-logs --redact/--no-redact` flags (override `LM_REDACT_LOGS`). (DONE 2026-02-22)
+  - Print a short note in the bundle metadata about whether redaction was applied. (DONE 2026-02-22)
 
-- Expand secret scan rules to include new common token patterns discovered in user environments.
+- Expand secret scan rules to include new common token patterns discovered in user environments. (DONE 2026-02-22)
 
 ## P3 — Observability / integrations
 
-- Add JSON schemas for `report --json` and `config --json` to `docs/schemas/`.
-  - Include schema versioning rules and contract notes.
+- Add JSON schemas for `report --json` and `config --json` to `docs/schemas/`. (DONE 2026-02-22)
+  - Include schema versioning rules and contract notes. (DONE 2026-02-22)
 
-- Add a `--json` output mode to `runtimes` that includes units and source file.
+- Add a `--json` output mode to `runtimes` that includes units and source file. (DONE 2026-02-22)
 
 ## P4 — DX / release polish
 

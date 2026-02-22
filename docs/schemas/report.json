@@ -1,7 +1,8 @@
 {
   "type": "object",
-  "required": ["status", "trend", "runtimes"],
+  "required": ["report_json_contract_version", "status", "trend", "runtimes"],
   "properties": {
+    "report_json_contract_version": { "type": "integer", "minimum": 1 },
     "status": { "type": "object" },
     "trend": { "type": "object" },
     "runtimes": { "type": "object" }

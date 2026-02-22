@@ -276,7 +276,7 @@ ${C_CYAN}Setup / maintenance${C_RESET}:
   validate               Validate config file formats (best-effort)
   deps                   Print required/optional dependency manifest by monitor
   verify-install         Verify installation layout and systemd wiring (best-effort)
-  pack-logs [--out DIR]  Create a support bundle tar.gz (logs, config redacted, meta)
+  pack-logs [--out DIR] [--redact|--no-redact] [--progress|--no-progress]  Create a support bundle tar.gz (logs, config redacted, meta)
 
 ${C_CYAN}Release / packaging${C_RESET}:
   version                Print installed BUILD_INFO (if present)
@@ -358,7 +358,7 @@ command_usage(){
     verify-install)
       echo "Usage: linux-maint verify-install";;
     pack-logs)
-      echo "Usage: linux-maint pack-logs [--out DIR] [--progress|--no-progress]";;
+      echo "Usage: linux-maint pack-logs [--out DIR] [--redact|--no-redact] [--progress|--no-progress]";;
     version)
       echo "Usage: linux-maint version";;
     make-tarball)
@@ -622,6 +622,7 @@ runtimes = read_json(runtimes_path)
 
 if json_mode:
     out = {
+        "report_json_contract_version": 1,
         "status": status,
         "trend": trend,
         "runtimes": runtimes,
@@ -958,6 +959,7 @@ values = {k: env.get(k, "") for k in keys}
 
 if json_mode:
     out = {
+        "config_json_contract_version": 1,
         "cfg_dir": cfg_dir,
         "sources": files,
         "values": values,
@@ -2071,14 +2073,14 @@ for f in files:
             for line in fh:
                 m = pat.search(line)
                 if m:
-                    rows.append({"monitor": m.group(1), "ms": int(m.group(2))})
+                    rows.append({"monitor": m.group(1), "ms": int(m.group(2)), "unit": "ms", "source_file": f})
     except FileNotFoundError:
         continue
 
 # Sort desc by ms
 rows.sort(key=lambda r: (-r["ms"], r["monitor"]))
 
-print(json.dumps({"files": files, "rows": rows}, sort_keys=True))
+print(json.dumps({"files": files, "unit": "ms", "rows": rows}, sort_keys=True))
 PY
       exit 0
     fi
@@ -2659,13 +2661,17 @@ PY
     OUT=""
     PACK_PROGRESS_SET=0
     PACK_PROGRESS=0
+    PACK_REDACT_SET=0
+    PACK_REDACT=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --out) OUT="${2:-}"; shift 2;;
         --progress) PACK_PROGRESS=1; PACK_PROGRESS_SET=1; shift 1;;
         --no-progress) PACK_PROGRESS=0; PACK_PROGRESS_SET=1; shift 1;;
+        --redact) PACK_REDACT=1; PACK_REDACT_SET=1; shift 1;;
+        --no-redact) PACK_REDACT=0; PACK_REDACT_SET=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint pack-logs [--out DIR] [--progress|--no-progress]"
+          echo "Usage: linux-maint pack-logs [--out DIR] [--redact|--no-redact] [--progress|--no-progress]"
           exit 0;;
         *) echo "Unknown pack-logs flag: $1" >&2; exit 2;;
       esac
@@ -2709,6 +2715,14 @@ PY
         export LM_PROGRESS=1
       else
         export LM_PROGRESS=0
+      fi
+    fi
+
+    if [[ "$PACK_REDACT_SET" -eq 1 ]]; then
+      if [[ "$PACK_REDACT" -eq 1 ]]; then
+        export LM_REDACT_LOGS=1
+      else
+        export LM_REDACT_LOGS=0
       fi
     fi
 

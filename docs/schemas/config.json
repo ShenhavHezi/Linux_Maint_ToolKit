@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "required": ["config_json_contract_version", "cfg_dir", "sources", "values"],
+  "properties": {
+    "config_json_contract_version": { "type": "integer", "minimum": 1 },
+    "cfg_dir": { "type": "string" },
+    "sources": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "values": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}

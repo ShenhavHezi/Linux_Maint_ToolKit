@@ -125,6 +125,10 @@ sudo linux-maint baseline sudoers --update
 # Progress controls (force disable)
 LM_PROGRESS=0 sudo linux-maint run
 LM_PROGRESS=0 sudo linux-maint pack-logs --out /tmp
+
+# Pack logs redaction control
+sudo linux-maint pack-logs --out /tmp --redact
+sudo linux-maint pack-logs --out /tmp --no-redact
 ```
 
 ## Fleet runs (monitoring node)

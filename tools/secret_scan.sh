@@ -31,10 +31,15 @@ done
 # High-confidence patterns to reduce false positives.
 patterns=(
   'AKIA[0-9A-Z]{16}'
+  'ASIA[0-9A-Z]{16}'
   '-----BEGIN (RSA|EC|OPENSSH|DSA|PGP)? ?PRIVATE KEY-----'
   'ghp_[A-Za-z0-9]{36}'
+  'gh[oprsu]_[A-Za-z0-9]{36}'
   'github_pat_[A-Za-z0-9_]{20,}'
-  'xox[baprs]-[A-Za-z0-9-]{20,}'
+  'xox[abprsc]-[A-Za-z0-9-]{20,}'
+  'AIza[0-9A-Za-z\-_]{35}'
+  'sk_live_[0-9A-Za-z]{20,}'
+  'rk_live_[0-9A-Za-z]{20,}'
 )
 
 raw_matches="$(mktemp -p "$TMPDIR" lm_secret_scan_raw.XXXXXX)"

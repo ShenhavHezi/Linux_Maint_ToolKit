@@ -39,12 +39,18 @@ tar_list="$workdir/tar.list"
 tar -tzf "$bundle_path" > "$tar_list"
 grep -q '^\./logs/full_health_monitor_summary_latest\.log$' "$tar_list"
 grep -q '^\./config/servers\.txt$' "$tar_list"
+grep -q '^\./meta/bundle_meta\.txt$' "$tar_list"
 
 extracted_cfg="$workdir/extracted_servers.txt"
 tar -xOf "$bundle_path" ./config/servers.txt > "$extracted_cfg"
 
 extracted_log="$workdir/extracted_log.txt"
 tar -xOf "$bundle_path" ./logs/full_health_monitor_latest.log > "$extracted_log"
+
+# Metadata should report redaction enabled
+meta_file="$workdir/bundle_meta.txt"
+tar -xOf "$bundle_path" ./meta/bundle_meta.txt > "$meta_file"
+grep -q '^redaction=enabled$' "$meta_file"
 
 # Sensitive values must be redacted
 grep -qi 'password=REDACTED' "$extracted_cfg"

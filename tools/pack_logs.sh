@@ -148,6 +148,17 @@ trap 'rm -rf "$workdir"' EXIT
 bundle_root="$workdir/bundle"
 mkdir -p "$bundle_root"
 
+# Bundle metadata
+mkdir -p "$bundle_root/meta"
+redact_state="disabled"
+if redact_enabled; then
+  redact_state="enabled"
+fi
+{
+  echo "created_utc=$TS"
+  echo "redaction=$redact_state"
+} > "$bundle_root/meta/bundle_meta.txt"
+
 # --- Logs ---
 mkdir -p "$bundle_root/logs"
 
