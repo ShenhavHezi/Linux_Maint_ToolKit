@@ -80,6 +80,61 @@ parse_params(){
   done
 }
 
+has_unsafe_chars(){
+  local s="$1"
+  [[ -z "$s" ]] && return 0
+  if [[ "$s" =~ [[:space:]] ]]; then
+    return 0
+  fi
+  case "$s" in
+    *"'"*|*'`'*|*'$'*|*';'*|*'&'*|*'|'*|*'<'*|*'>'*|*'\\'*)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+ensure_uint(){
+  local v="$1" def="$2" min="${3:-0}"
+  if [[ ! "$v" =~ ^[0-9]+$ ]]; then
+    echo "$def"
+    return 0
+  fi
+  if (( v < min )); then
+    echo "$def"
+    return 0
+  fi
+  echo "$v"
+}
+
+validate_ping_target(){
+  local t="$1"
+  has_unsafe_chars "$t" && return 1
+  [[ "$t" =~ ^[A-Za-z0-9._:%-]+$ ]]
+}
+
+validate_host(){
+  local h="$1"
+  has_unsafe_chars "$h" && return 1
+  [[ "$h" =~ ^[A-Za-z0-9._:%-]+$ ]]
+}
+
+validate_hostport(){
+  local hp="$1"
+  local host="${hp%%:*}" port="${hp##*:}"
+  [[ -z "$host" || -z "$port" || "$host" == "$hp" ]] && return 1
+  validate_host "$host" || return 1
+  [[ "$port" =~ ^[0-9]+$ ]] || return 1
+  (( port >= 1 && port <= 65535 )) || return 1
+  return 0
+}
+
+validate_url(){
+  local u="$1"
+  has_unsafe_chars "$u" && return 1
+  [[ "$u" =~ ^https?://[A-Za-z0-9._:%-]+(:[0-9]+)?(/[^[:space:]]*)?$ ]]
+}
+
 # ========================
 # Remote probes
 # ========================
@@ -92,6 +147,13 @@ run_ping(){
   local lc="${P[loss_crit]:-$PING_LOSS_CRIT}"
   local rw="${P[rtt_warn_ms]:-$PING_RTT_WARN_MS}"
   local rc="${P[rtt_crit_ms]:-$PING_RTT_CRIT_MS}"
+
+  cnt="$(ensure_uint "$cnt" "$PING_COUNT" 1)"
+  to="$(ensure_uint "$to" "$PING_TIMEOUT" 1)"
+  lw="$(ensure_uint "$lw" "$PING_LOSS_WARN" 0)"
+  lc="$(ensure_uint "$lc" "$PING_LOSS_CRIT" 0)"
+  rw="$(ensure_uint "$rw" "$PING_RTT_WARN_MS" 0)"
+  rc="$(ensure_uint "$rc" "$PING_RTT_CRIT_MS" 0)"
 
   local out
   out="$(lm_ssh "$onhost" "ping -c $cnt -w $to '$target' 2>/dev/null || ping -n -c $cnt -w $to '$target' 2>/dev/null")"
@@ -127,6 +189,9 @@ run_tcp(){
   local to="${P[timeout]:-$TCP_TIMEOUT}"
   local lw="${P[latency_warn_ms]:-$TCP_LAT_WARN_MS}"
   local lc="${P[latency_crit_ms]:-$TCP_LAT_CRIT_MS}"
+  to="$(ensure_uint "$to" "$TCP_TIMEOUT" 1)"
+  lw="$(ensure_uint "$lw" "$TCP_LAT_WARN_MS" 0)"
+  lc="$(ensure_uint "$lc" "$TCP_LAT_CRIT_MS" 0)"
   local host="${hostport%%:*}" port="${hostport##*:}"
 
   local out
@@ -171,6 +236,9 @@ run_http(){
   local lw="${P[latency_warn_ms]:-$HTTP_LAT_WARN_MS}"
   local lc="${P[latency_crit_ms]:-$HTTP_LAT_CRIT_MS}"
   local exp="${P[expect]:-$HTTP_EXPECT}"
+  to="$(ensure_uint "$to" "$HTTP_TIMEOUT" 1)"
+  lw="$(ensure_uint "$lw" "$HTTP_LAT_WARN_MS" 0)"
+  lc="$(ensure_uint "$lc" "$HTTP_LAT_CRIT_MS" 0)"
 
   local line; line="$(lm_ssh "$onhost" "curl -sS -o /dev/null -w '%{http_code} %{time_total}' --max-time $to '$url'")"
   local code time_s ms="?"
@@ -219,9 +287,30 @@ run_for_host(){
     checked=$((checked+1))
     IFS=',' read -r -a kv <<<"${rest}"
     case "$check" in
-      ping) run_ping "$host" "$target" "${kv[@]}" ;;
-      tcp)  run_tcp  "$host" "$target" "${kv[@]}" ;;
-      http|https) run_http "$host" "$target" "${kv[@]}" ;;
+      ping)
+        if ! validate_ping_target "$target"; then
+          lm_err "[$host] invalid ping target '$target' (unsafe characters)"
+          append_alert "$host|ping|$target|invalid_target"
+          continue
+        fi
+        run_ping "$host" "$target" "${kv[@]}"
+        ;;
+      tcp)
+        if ! validate_hostport "$target"; then
+          lm_err "[$host] invalid tcp target '$target' (expected host:port)"
+          append_alert "$host|tcp|$target|invalid_target"
+          continue
+        fi
+        run_tcp "$host" "$target" "${kv[@]}"
+        ;;
+      http|https)
+        if ! validate_url "$target"; then
+          lm_err "[$host] invalid http target '$target' (expected http/https URL)"
+          append_alert "$host|http|$target|invalid_target"
+          continue
+        fi
+        run_http "$host" "$target" "${kv[@]}"
+        ;;
       *) lm_warn "[$host] unknown check '$check' for target '$target'";;
     esac
   done < <(lm_csv_rows_for_host "$TARGETS" "$host" 3)

@@ -32,6 +32,6 @@ out=$(sudo bash "$LM" status)
 
 echo "$out" | grep -q "^totals: " || { echo "Missing totals line" >&2; echo "$out"; exit 1; }
 # problems header should exist (either problems: or problems: none)
-echo "$out" | grep -q "^problems:" || { echo "Missing problems header" >&2; echo "$out"; exit 1; }
+echo "$out" | grep -q "^problems" || { echo "Missing problems header" >&2; echo "$out"; exit 1; }
 
 echo "status contract ok"

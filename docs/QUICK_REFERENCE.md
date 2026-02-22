@@ -11,6 +11,9 @@ sudo linux-maint run
 # Quick health view (compact)
 sudo linux-maint status
 
+# Show expected SKIPs based on missing optional config
+sudo linux-maint status --expected-skips
+
 # Show more problems (max 100)
 sudo linux-maint status --problems 100
 
@@ -82,6 +85,10 @@ sudo linux-maint export --json
 
 # Export summary rows as CSV
 sudo linux-maint export --csv
+
+# Prometheus textfile output (written by wrapper)
+# Default: /var/lib/node_exporter/textfile_collector/linux_maint.prom
+# Also includes linux_maint_last_run_age_seconds
 
 # Diff in JSON (automation)
 sudo linux-maint diff --json

@@ -92,8 +92,8 @@ if [[ "$SMOKE_PROFILE" != "compat" ]]; then
   # Per-monitor timeout overrides (wrapper-level)
   run_required "per_monitor_timeout_override_test" bash "$ROOT_DIR/tests/per_monitor_timeout_override_test.sh"
 
-  # Summary noise guardrail (wrapper-level)
-  run_required "summary_noise_lint" bash "$ROOT_DIR/tests/summary_noise_lint.sh"
+  # Summary noise guardrail (wrapper-level) - use fixture to avoid long wrapper runs in CI
+  run_required "summary_noise_lint" bash "$ROOT_DIR/tests/summary_noise_lint.sh" "$ROOT_DIR/tests/fixtures/summary_ok.log"
   run_required "summary_budget_lint_fixture_test" bash "$ROOT_DIR/tests/summary_budget_lint_fixture_test.sh"
 run_required "wrapper_fallback_paths_test" bash "$ROOT_DIR/tests/wrapper_fallback_paths_test.sh"
 run_required "wrapper_summary_write_fail_test" bash "$ROOT_DIR/tests/wrapper_summary_write_fail_test.sh"

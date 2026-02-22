@@ -412,6 +412,7 @@ Status flags (installed mode):
 - `--monitor PATTERN` — show only entries where `monitor` contains `PATTERN`
 - `--match-mode contains|exact|regex` — how `--host`/`--monitor` are matched (default: `contains`)
 - `--since <int><s|m|h|d>` — include only timestamped summary artifacts from the recent time window (e.g., `30s`, `15m`, `2h`, `1d`)
+- `--expected-skips` — print a short list of expected SKIPs based on missing optional config (not compatible with `--json`)
 
 
 ### `linux-maint status --json` compatibility contract
@@ -763,6 +764,7 @@ Optional: Prometheus export (textfile collector format)
 - `linux_maint_summary_hosts_count{status=...}` — host-level counters derived from `monitor=` lines
 - `linux_maint_monitor_status_count{status=...}` — deduped monitor result counters by status
 - `linux_maint_monitor_status{monitor="...",host="..."}` — per monitor/host status gauge (OK=0, WARN=1, CRIT=2, UNKNOWN/SKIP=3)
+- `linux_maint_last_run_age_seconds` — seconds since the wrapper run timestamp (near 0 on fresh runs)
 - `linux_maint_reason_count{reason="..."}` — top non-OK reason token counts (deduped by monitor+host, bounded by `LM_PROM_MAX_REASON_LABELS`, default 20)
 - `linux_maint_monitor_runtime_ms{monitor="..."}` — per-monitor runtime in milliseconds (wrapper)
 - `linux_maint_runtime_warn_count` — count of monitors exceeding runtime warn thresholds
@@ -810,6 +812,10 @@ localhost,tcp,1.1.1.1:443,timeout=3
 localhost,http,https://example.com,timeout=5,expect=200-399
 EOF
 ```
+
+Notes:
+- Targets must not contain spaces or shell metacharacters (quotes, backticks, `$`, `;`, `|`, `&`, `<`, `>`).
+- Invalid rows are skipped and reported as `invalid_target` in alerts.
 
 ### Enable `cert_monitor.sh`
 

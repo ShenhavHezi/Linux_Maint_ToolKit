@@ -1,60 +1,142 @@
-# Linux_Maint_ToolKit — Roadmap (reviewed 2026-02-22)
+# Linux_Maint_ToolKit — Product Backlog (2026-02-22)
 
-This is the active backlog. Items are ordered by priority.
+This backlog is curated for operator trust, automation safety, and long‑term maintainability.
+Each item includes a clear outcome and a short acceptance note to keep scope crisp.
 
-Priorities:
-- P0: correctness, reliability, determinism
-- P1: operator UX and documentation
-- P2: security and hardening
-- P3: observability and integrations
+Priority legend:
+- P0: correctness / safety
+- P1: operator UX / docs
+- P2: security / hardening
+- P3: observability / integrations
 - P4: DX / release polish
 
 ---
 
-## P0 — Correctness / reliability
+## Completed (2026-02-22)
 
-- Add explicit CLI flags `--progress` and `--no-progress` for `run`, `pack-logs`, and `baseline --update`. (DONE 2026-02-22)
-  - Ensure CLI flags override `LM_PROGRESS`. (DONE 2026-02-22)
-  - Add a test that confirms progress is suppressed when stderr is not a TTY. (DONE 2026-02-22)
+1. Smoke test summary lint fixture
+   Outcome: avoid long wrapper runs during CI smoke tests.
+   Acceptance: smoke test passes a static summary fixture to `summary_noise_lint`.
 
-- Define and lock color precedence (NO_COLOR vs LM_FORCE_COLOR). (DONE 2026-02-22)
-  - Document the final behavior. (DONE 2026-02-22)
-  - Add tests for both forced color and NO_COLOR override. (DONE 2026-02-22)
+2. `status --expected-skips` (operator UX)
+   Outcome: show expected SKIP reasons from missing optional config files.
+   Acceptance: flag documented and available in CLI.
 
-- Add a guard test to ensure progress output never contaminates JSON outputs. (DONE 2026-02-22)
-  - (progress should stay on stderr only) (DONE 2026-02-22)
+3. Quickstart banner in README
+   Outcome: copy/paste commands visible at top for first-time users.
+   Acceptance: banner sits above Table of Contents.
+
+4. CLI UX sweep for help/usage consistency
+   Outcome: aligned `linux-maint help status` with new flags.
+   Acceptance: help text includes `--expected-skips`.
+
+5. Docs quick‑ref refresh
+   Outcome: quick reference includes latest flags.
+   Acceptance: `status --expected-skips` documented.
+
+6. Security hardening sweep (targets + baselines)
+   Outcome: prevent remote command injection via network targets and baseline path traversal.
+   Acceptance: input validation and hostname sanitization in monitors; docs updated.
+
+7. Prometheus: last run age metric
+   Outcome: expose `linux_maint_last_run_age_seconds` for monitoring freshness.
+   Acceptance: metric present in textfile output and documented.
+
+## P0 — Correctness / safety
+
+1. JSON contracts for `trend --json` and `runtimes --json`
+   Outcome: stable schemas and contract versions, enforced by tests.
+   Acceptance: new schema files + test validation in CI.
+
+2. Strict run validation mode
+   Outcome: `linux-maint run --strict` fails if any monitor emits malformed summary lines.
+   Acceptance: wrapper rejects invalid lines; docs describe strict mode.
+
+3. Deterministic test mode
+   Outcome: stable timestamps + disabled notify/email for CI runs.
+   Acceptance: a single env flag freezes timestamps and disables outbound actions.
+
+4. Structured fix output for `doctor --fix`
+   Outcome: `doctor --fix --json` returns structured actions (id/action/status).
+   Acceptance: JSON schema and tests added.
+
+---
 
 ## P1 — Operator UX / documentation
 
-- Update docs for new CLI features and env vars: (DONE 2026-02-22)
-  - `LM_PROGRESS`, `LM_PROGRESS_WIDTH`, `LM_HOST_PROGRESS`, `LM_FORCE_COLOR` (DONE 2026-02-22)
-  - `linux-maint config --lint`, `baseline`, `doctor --fix` (DONE 2026-02-22)
-  - add examples to `docs/QUICK_REFERENCE.md` and `docs/reference.md` (DONE 2026-02-22)
+1. `linux-maint explain monitor <name>`
+   Outcome: quick monitor description, dependencies, and common reasons.
+   Acceptance: output is concise and includes required/optional deps.
 
-- Add a short "output conventions" section to `docs/reference.md`. (DONE 2026-02-22)
-  - Explain headings, color usage, and how to disable/force color. (DONE 2026-02-22)
+2. Fleet summary grouping
+   Outcome: `status --group-by <host|monitor|reason>` for large fleets.
+   Acceptance: grouped output with totals, consistent ordering.
 
-- Add a `linux-maint help <command>` alias to surface per-command help consistently. (DONE 2026-02-22)
+3. One‑screen report
+   Outcome: `report --short` with only totals, top problems, and next steps.
+   Acceptance: fits within ~25 lines for readability.
+
+4. First‑run expectations banner
+   Outcome: status/report explicitly call out expected SKIPs when baselines are missing.
+   Acceptance: banner appears only when relevant.
+
+5. Quick‑start banner in README
+   Outcome: top 5 commands visible in first screen of README.
+   Acceptance: concise, copy‑paste friendly block.
+
+---
 
 ## P2 — Security / hardening
 
-- Add `pack-logs --redact/--no-redact` flags (override `LM_REDACT_LOGS`). (DONE 2026-02-22)
-  - Print a short note in the bundle metadata about whether redaction was applied. (DONE 2026-02-22)
+1. SSH known_hosts mode switch
+   Outcome: `LM_SSH_KNOWN_HOSTS_MODE=strict|accept-new` (default accept‑new).
+   Acceptance: strict mode errors on unknown hosts; documented.
 
-- Expand secret scan rules to include new common token patterns discovered in user environments. (DONE 2026-02-22)
+2. Export allowlist
+   Outcome: `linux-maint export --json` supports `LM_EXPORT_ALLOWLIST`.
+   Acceptance: only allowlisted fields emitted when set.
+
+3. Bundle file hashes
+   Outcome: `pack-logs --hash` writes SHA256 for each bundle file into metadata.
+   Acceptance: hash list included in bundle meta.
+
+
+---
 
 ## P3 — Observability / integrations
 
-- Add JSON schemas for `report --json` and `config --json` to `docs/schemas/`. (DONE 2026-02-22)
-  - Include schema versioning rules and contract notes. (DONE 2026-02-22)
+1. Metrics snapshot command
+   Outcome: `linux-maint metrics --json` returns status + trend + runtimes in one payload.
+   Acceptance: stable schema and tests.
 
-- Add a `--json` output mode to `runtimes` that includes units and source file. (DONE 2026-02-22)
+2. Prometheus: last run age
+   Outcome: expose `linux_maint_last_run_age_seconds`.
+   Acceptance: value derived from wrapper timestamp.
+
+3. Lightweight Prometheus summary
+   Outcome: `status --prom` returns minimal textfile‑style metrics.
+   Acceptance: includes overall status and per‑status counts.
+
+4. Agent: structured alert hints
+   Outcome: add `next_step=` hints for common reasons in summary output.
+   Acceptance: documented and tested for 3 monitors.
+
+---
 
 ## P4 — DX / release polish
 
-- Add `tools/release.sh` to automate: (DONE 2026-02-22)
-  - version bump (`VERSION`) (DONE 2026-02-22)
-  - changelog entry using `docs/RELEASE_TEMPLATE.md` (DONE 2026-02-22)
-  - tag + optional `gh release create` (DONE 2026-02-22)
+1. Release verification tool
+   Outcome: `tools/release_check.sh` validates docs, schemas, and release notes.
+   Acceptance: fails fast with actionable messages.
 
-- Add `make release` to run lint/tests and call `tools/release.sh`. (DONE 2026-02-22)
+2. Make target: verify release
+   Outcome: `make verify-release` wraps `linux-maint verify-release`.
+   Acceptance: simple, documented target.
+
+3. Release note drafting workflow
+   Outcome: GH Action drafts release notes from CHANGELOG Unreleased.
+   Acceptance: draft created on tag push.
+
+4. Agent: CI runtime trim
+   Outcome: reduce full test runtime while preserving coverage.
+   Acceptance: CI time reduced by 30% without losing tests.

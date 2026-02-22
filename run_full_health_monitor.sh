@@ -663,8 +663,10 @@ rm -f "$tmp_summary" 2>/dev/null || true
 
 # Also write JSON + Prometheus outputs (best-effort)
 # shellcheck disable=SC2031
-SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" LM_HOSTS_OK="${hosts_ok:-0}" LM_HOSTS_WARN="${hosts_warn:-0}" LM_HOSTS_CRIT="${hosts_crit:-0}" LM_HOSTS_UNKNOWN="${hosts_unknown:-0}" LM_HOSTS_SKIPPED="${hosts_skip:-0}" LM_OVERALL="$overall" LM_EXIT_CODE="$worst" LM_STATUS_FILE="$STATUS_FILE" LM_RUNTIME_FILE="$runtime_file" LM_RUNTIME_WARN_COUNT="$runtime_warn_count" python3 - <<'PY' || true
+SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" LM_HOSTS_OK="${hosts_ok:-0}" LM_HOSTS_WARN="${hosts_warn:-0}" LM_HOSTS_CRIT="${hosts_crit:-0}" LM_HOSTS_UNKNOWN="${hosts_unknown:-0}" LM_HOSTS_SKIPPED="${hosts_skip:-0}" LM_OVERALL="$overall" LM_EXIT_CODE="$worst" LM_STATUS_FILE="$STATUS_FILE" LM_RUNTIME_FILE="$runtime_file" LM_RUNTIME_WARN_COUNT="$runtime_warn_count" LM_RUN_EPOCH="$ts_epoch" python3 - <<'PY' || true
 import json, os
+import time
+from datetime import datetime
 summary_file=os.environ.get("SUMMARY_FILE")
 json_file=os.environ.get("SUMMARY_JSON_FILE")
 json_latest=os.environ.get("SUMMARY_JSON_LATEST_FILE")
@@ -679,6 +681,7 @@ overall=os.environ.get("LM_OVERALL","UNKNOWN")
 exit_code=int(os.environ.get("LM_EXIT_CODE","3"))
 runtime_file=os.environ.get("LM_RUNTIME_FILE")
 runtime_warn_count=int(os.environ.get("LM_RUNTIME_WARN_COUNT","0"))
+run_epoch=os.environ.get("LM_RUN_EPOCH","")
 
 def parse_kv(line):
     parts=line.strip().split()
@@ -777,12 +780,31 @@ if prom_file and rows:
                 reason=r.get("reason")
                 if reason:
                     reason_counts[reason]=reason_counts.get(reason,0)+1
+        def last_run_age_seconds():
+            # Prefer current run epoch if provided (close to 0), fallback to status file timestamp.
+            try:
+                if run_epoch and str(run_epoch).isdigit():
+                    return max(0, int(time.time() - int(run_epoch)))
+            except Exception:
+                pass
+            ts = meta.get("timestamp")
+            if not ts:
+                return -1
+            try:
+                dt = datetime.fromisoformat(ts)
+                return max(0, int(time.time() - dt.timestamp()))
+            except Exception:
+                return -1
+
         with open(prom_file,"w",encoding="utf-8") as f:
             f.write("# HELP linux_maint_monitor_status Monitor status as exit-code scale (OK=0,WARN=1,CRIT=2,UNKNOWN/SKIP=3)\n")
             f.write("# TYPE linux_maint_monitor_status gauge\n")
             f.write("\n# HELP linux_maint_overall_status Overall run status as exit-code scale (OK=0,WARN=1,CRIT=2,UNKNOWN=3)\n")
             f.write("# TYPE linux_maint_overall_status gauge\n")
             f.write(f"linux_maint_overall_status {exit_code}\n")
+            f.write("\n# HELP linux_maint_last_run_age_seconds Seconds since the last wrapper run timestamp\n")
+            f.write("# TYPE linux_maint_last_run_age_seconds gauge\n")
+            f.write(f"linux_maint_last_run_age_seconds {last_run_age_seconds()}\n")
             f.write("\n# HELP linux_maint_summary_hosts_count Fleet counters derived from monitor= lines\n")
             f.write("# TYPE linux_maint_summary_hosts_count gauge\n")
             f.write(f"linux_maint_summary_hosts_count{{status=\"ok\"}} {hosts_ok}\n")

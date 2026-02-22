@@ -5,6 +5,16 @@ Run it locally or from a monitoring node over SSH, get structured logs + a simpl
 
 Note: this project was previously named `linux_Maint_Scripts` on GitHub. The CLI remains `linux-maint`.
 
+## Quickstart (copy/paste)
+
+```bash
+git clone https://github.com/ShenhavHezi/Linux_Maint_ToolKit.git
+cd Linux_Maint_ToolKit
+sudo ./run_full_health_monitor.sh
+sudo ./bin/linux-maint status
+sudo ./bin/linux-maint status --expected-skips
+```
+
 ## Table of Contents
 
 - [Docs / references](#docs-references)

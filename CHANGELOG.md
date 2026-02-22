@@ -4,7 +4,12 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## Unreleased
 
-- (add changes here)
+- Added `linux-maint status --expected-skips` to show expected SKIPs for missing optional config.
+- Smoke tests now use a summary fixture for summary noise lint (avoid long wrapper runs in CI).
+- Added a quickstart banner to README for faster onboarding.
+- Hardened `network_monitor` to validate targets/params and block unsafe inputs.
+- Sanitized `user_monitor` baseline filenames to prevent host path traversal.
+- Added Prometheus metric `linux_maint_last_run_age_seconds` (time since wrapper run).
 
 ## 2026-02-22
 

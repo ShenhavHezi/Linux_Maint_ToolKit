@@ -30,6 +30,7 @@ fi
 
 req_metrics=(
   "linux_maint_overall_status"
+  "linux_maint_last_run_age_seconds"
   "linux_maint_summary_hosts_count"
   "linux_maint_monitor_status_count"
   "linux_maint_monitor_status"

@@ -17,10 +17,10 @@ printf '%s\n' sshd > "$cfg/services.txt"
 
 out="$(LM_CFG_DIR="$cfg" "$ROOT_DIR/bin/linux-maint" doctor)"
 
-echo "$out" | grep -q '^== Monitor gates (what may SKIP) ==' 
-echo "$out" | grep -q '^== Dependencies (best-effort) ==' 
-echo "$out" | grep -q '^== Fix suggestions =='
-echo "$out" | grep -q '^== Next recommended actions ==' 
-echo "$out" | grep -q "^SKIP gate: network_monitor -> missing/empty "
+echo "$out" | grep -Eq '^==+ Monitor gates \(what may SKIP\) ==+' 
+echo "$out" | grep -Eq '^==+ Dependencies \(best-effort\) ==+' 
+echo "$out" | grep -Eq '^==+ Fix suggestions ==+'
+echo "$out" | grep -Eq '^==+ Next recommended actions ==+' 
+echo "$out" | grep -Eq '^network_monitor[[:space:]]+MISSING[[:space:]]+'
 
 echo "ok: doctor offline hints"

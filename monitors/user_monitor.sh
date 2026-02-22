@@ -67,6 +67,15 @@ append_alert(){ echo "$1" >> "$ALERTS_FILE"; }
 
 mail_if_enabled(){ [ "$EMAIL_ON_ALERT" = "true" ] || return 0; lm_mail "$1" "$2"; }
 
+sanitize_host_for_path(){
+  local h="$1"
+  local safe="${h//[^A-Za-z0-9._-]/_}"
+  if [[ "$safe" != "$h" ]]; then
+    lm_warn "[$h] sanitized host for baseline files: $safe"
+  fi
+  echo "$safe"
+}
+
 # --- Remote collectors ---
 collect_users_cmd='
 min_uid="$1"
@@ -97,6 +106,8 @@ run_for_host(){
   lm_info "===== Starting checks on $host ====="
 
   local anomalies=0
+  local host_safe
+  host_safe="$(sanitize_host_for_path "$host")"
 
   if ! lm_reachable "$host"; then
     lm_err "[$host] SSH unreachable"
@@ -109,7 +120,7 @@ run_for_host(){
 
   # ---------- Users ----------
   local users_current users_base users_base_file
-  users_base_file="$USERS_BASELINE_DIR/${host}.users"
+  users_base_file="$USERS_BASELINE_DIR/${host_safe}.users"
   users_current="$(lm_ssh "$host" bash -lc "$collect_users_cmd" _ "$USER_MIN_UID")"
 
   if [ -z "$users_current" ]; then
@@ -149,7 +160,7 @@ run_for_host(){
 
   # ---------- Sudoers ----------
   local sudo_hash sudo_base sudo_base_file
-  sudo_base_file="$SUDO_BASELINE_DIR/${host}.sudoers"
+  sudo_base_file="$SUDO_BASELINE_DIR/${host_safe}.sudoers"
   sudo_hash="$(lm_ssh "$host" bash -lc "$sudoers_hash_cmd")"
 
   if [ "$BASELINE_SHOW" = "1" ]; then

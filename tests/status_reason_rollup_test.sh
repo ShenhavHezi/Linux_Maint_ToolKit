@@ -57,7 +57,7 @@ monitor=health_monitor host=localhost status=OK
 S
 
 out="$(bash "$LM" status --quiet --reasons 3)"
-echo "$out" | grep -q '^reason_rollup:$'
+echo "$out" | grep -q '^reasons (top 3):$'
 echo "$out" | grep -q '^missing_targets_file=3$'
 echo "$out" | grep -q '^http_down=2$'
 echo "$out" | grep -q '^failed_units=2$'
@@ -66,7 +66,7 @@ json_out="$(bash "$LM" status --json --reasons 2)"
 printf '%s' "$json_out" | python3 -c 'import json,sys; o=json.load(sys.stdin); rr=o.get("reason_rollup"); assert isinstance(rr,list); assert len(rr)==2; assert rr[0]=={"reason":"missing_targets_file","count":3}; assert rr[1]["count"]==2; assert rr[1]["reason"] in {"http_down","failed_units"}'
 
 without_rollup="$(bash "$LM" status --quiet)"
-if echo "$without_rollup" | grep -q '^reason_rollup:$'; then
+if echo "$without_rollup" | grep -q '^reasons (top '; then
   echo "unexpected reason_rollup section without --reasons" >&2
   exit 1
 fi

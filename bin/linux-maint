@@ -322,7 +322,7 @@ command_usage(){
     run)
       echo "Usage: linux-maint run [--group G] [--hosts h1,h2] [--exclude h3,h4] [--parallel N] [--local-only] [--ssh-opts '...'] [--limit N] [--shuffle] [--progress|--no-progress] [--debug|--print-env] [--dry-run]";;
     status)
-      echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--no-color] [--table] [--summary] [--compact] [--problems N (max 100)] [--reasons N (max 20)] [--since 15m|2h|1d|30s] [--last N]";;
+      echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--no-color] [--table] [--summary] [--expected-skips] [--compact] [--problems N (max 100)] [--reasons N (max 20)] [--since 15m|2h|1d|30s] [--last N]";;
     report)
       echo "Usage: linux-maint report [--json] [--no-color] [--compact] [--table] [--no-trend] [--no-slow] [--no-reasons] [--no-problems]";;
     config)
@@ -1300,6 +1300,7 @@ PY
     TABLE=0
     SUMMARY_ONLY=0
     SHOW_META=1
+    EXPECTED_SKIPS=0
 
 
     while [[ $# -gt 0 ]]; do
@@ -1312,6 +1313,7 @@ PY
         --no-color) LM_COLOR=0; shift 1;;
         --table) TABLE=1; shift 1;;
         --summary) SUMMARY_ONLY=1; shift 1;;
+        --expected-skips) EXPECTED_SKIPS=1; shift 1;;
         --compact) SHOW_META=0; shift 1;;
         --host) HOST_FILTER="$2"; shift 2;;
         --monitor) MONITOR_FILTER="$2"; shift 2;;
@@ -1321,7 +1323,7 @@ PY
         --since) SINCE="$2"; shift 2;;
         --last) LAST_N="$2"; shift 2;;
         -h|--help)
-          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--no-color] [--table] [--summary] [--compact] [--problems N (max 100)] [--reasons N (max 20)] [--since 15m|2h|1d|30s] [--last N]"
+          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--no-color] [--table] [--summary] [--expected-skips] [--compact] [--problems N (max 100)] [--reasons N (max 20)] [--since 15m|2h|1d|30s] [--last N]"
           exit 0;;
         *) echo "Unknown status flag: $1" >&2; exit 2;;
       esac
@@ -1329,9 +1331,24 @@ PY
     [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && LM_COLOR=0
     color_enabled || LM_COLOR=0
 
+    if [[ "$JSON" -eq 1 && "$EXPECTED_SKIPS" -eq 1 ]]; then
+      echo "ERROR: --expected-skips is not compatible with --json" >&2
+      exit 2
+    fi
+
     if [[ "$SUMMARY_ONLY" -eq 1 ]]; then
       "$0" summary --no-color
       [[ "$TABLE" -eq 1 ]] || exit 0
+      echo ""
+    fi
+
+    if [[ "$EXPECTED_SKIPS" -eq 1 ]]; then
+      cfg_dir="/etc/linux_maint"
+      if [[ "$MODE" == "repo" ]]; then
+        cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+        mkdir -p "$cfg_dir" 2>/dev/null || true
+      fi
+      expected_skips "$cfg_dir"
       echo ""
     fi
 
