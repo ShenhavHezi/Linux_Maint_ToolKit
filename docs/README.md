@@ -12,7 +12,9 @@ Start here to navigate operator and contributor documentation.
 - Dark-site / offline usage: `docs/DARK_SITE.md`
 - Reason tokens: `docs/REASONS.md`
 - Day-2 ops: `docs/DAY2.md`
+- Operations quickstart: `docs/OPERATIONS.md`
 - Artifacts and logs: `docs/ARTIFACTS.md`
+- Short index (quick links): `docs/INDEX.md`
 
 ## Contributor docs
 
@@ -20,8 +22,9 @@ Start here to navigate operator and contributor documentation.
 - Development notes: `docs/development.md`
 - Release checklist: `docs/RELEASE_CHECKLIST.md`
 - Release template: `docs/RELEASE_TEMPLATE.md`
-- Release notes archive: `docs/release_notes_v*.md`
+- Release notes (latest): `docs/release_notes_v0.1.7.md`, `docs/release_notes_v0.1.6.md`
 - Security policy: `SECURITY.md`
+- Security best practices report: `docs/security_best_practices_report.md`
 
 ## Architecture
 

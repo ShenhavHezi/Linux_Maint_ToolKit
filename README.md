@@ -11,6 +11,7 @@ Note: this project was previously named `linux_Maint_Scripts` on GitHub. The CLI
 - [Features](#features)
 - [Quickstart](#quickstart)
 - [Configuration](#configuration)
+- [Dark-site / offline](#dark-site--offline)
 - [Documentation](#documentation)
 - [Testing](#testing)
 - [Contributing](#contributing)
@@ -47,9 +48,15 @@ Start here:
 ## Documentation
 
 - Docs index: `docs/README.md`
+- Quick reference: `docs/QUICK_REFERENCE.md`
 - Full reference (monitors, outputs, contracts): `docs/reference.md`
 - Installation: `docs/installation.md`
 - Troubleshooting: `docs/troubleshooting.md`
+
+## Dark-site / offline
+
+Designed for air-gapped environments: no runtime network dependency and conservative defaults.
+See `docs/DARK_SITE.md` for offline install steps and bootstrap checklist.
 
 ## Testing
 

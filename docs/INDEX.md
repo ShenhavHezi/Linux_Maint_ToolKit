@@ -4,7 +4,7 @@ The documentation index lives in [`docs/README.md`](README.md).
 
 Quick links:
 - [`docs/README.md`](README.md)
-- [`docs/README.md#architecture-and-data-flow`](README.md#architecture-and-data-flow)
+- [`docs/README.md#architecture`](README.md#architecture)
 - [`docs/QUICK_REFERENCE.md`](QUICK_REFERENCE.md)
 - [`docs/reference.md`](reference.md)
 - [`docs/REASONS.md`](REASONS.md)
@@ -15,5 +15,5 @@ Quick links:
 - [`docs/RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md)
 - [`docs/RELEASE_TEMPLATE.md`](RELEASE_TEMPLATE.md)
 - [`docs/security_best_practices_report.md`](security_best_practices_report.md)
-- [`docs/release_notes_v0.1.5.md`](release_notes_v0.1.5.md)
+- [`docs/release_notes_v0.1.7.md`](release_notes_v0.1.7.md)
 - [`docs/release_notes_v0.1.6.md`](release_notes_v0.1.6.md)
