@@ -1207,7 +1207,7 @@ CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).
 
 - `linux-maint doctor --fix` *(root required)*: attempt safe dependency fixes (use `--dry-run` to preview).
 
-- `linux-maint help <command>`: show concise usage for a specific command (no root required).
+- `linux-maint help <command>`: show concise usage for a specific command (no root required). For full flag details, see this reference.
 
 - `linux-maint pack-logs [--out DIR]`: create a support bundle (progress can be toggled with `--progress|--no-progress`).
   - `--redact|--no-redact`: override `LM_REDACT_LOGS` for this bundle only.

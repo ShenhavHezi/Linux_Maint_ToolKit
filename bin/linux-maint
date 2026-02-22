@@ -245,7 +245,7 @@ parse_run_args(){
       --strict)
         LM_STRICT=1; export LM_STRICT; shift 1;;
       -h|--help)
-        echo "Usage: linux-maint run [--group G] [--hosts h1,h2] [--exclude h3,h4] [--parallel N] [--local-only] [--ssh-opts '...'] [--limit N] [--shuffle] [--progress|--no-progress] [--debug|--print-env] [--dry-run] [--strict]"
+        command_usage run
         exit 0;;
       *)
         echo "Unknown run flag: $1" >&2
@@ -266,32 +266,29 @@ ${C_CYAN}Quick start${C_RESET}:
 
 ${C_CYAN}Common commands${C_RESET}:
   run [flags]            Run the full wrapper
-  status [flags]         Show last run status + filtered summary lines
-  report [--json] [--compact] [--short] [--table] [--no-trend] [--no-slow] [--no-reasons] [--no-problems]  Summarize latest run, trends, and slow monitors
-  metrics --json          Snapshot status+trend+runtimes in one JSON payload
-  logs [n]               Tail latest wrapper log (default n=200)
-  history [--last N] [--json] [--table]  Show recent runs (run index; faster than log scan)
-  diff [--json]          Show diff since last run (uses wrapper diff state)
-  config [--json] [--sources] [--lint]  Show effective config (merged from /etc/linux_maint)
-  doctor [--json]        Diagnose installation/config/state permissions
-  self-check [--json]    Quick validation (config/paths/deps; safe without sudo)
-  check                 Run config_validate + preflight + show expected skips
-  summary [--no-color]  One-line latest summary (for cron/dashboards)
+  status [flags]         Show last run status and summary
+  report [flags]         Unified report (status + trend + runtimes)
+  doctor [flags]         Diagnose installation/config/state
+  summary               One-line summary (cron/dashboards)
+  metrics --json        Snapshot status+trend+runtimes in one JSON payload
 
 ${C_CYAN}Analysis / reporting${C_RESET}:
-  trend [--last N] [--json]     Aggregate severity/reason trends
-  runtimes [--last N] [--json]  Show per-monitor runtimes
-  export --json|--csv           Export a single payload (summary_result/hosts + rows)
+  trend [flags]         Aggregate severity/reason trends
+  runtimes [flags]      Show per-monitor runtimes
+  export --json|--csv   Export a single payload (summary_result/hosts + rows)
+  history [flags]       Show recent runs (run index; faster than log scan)
+  logs [n]              Tail latest wrapper log (default n=200)
+  diff [--json]         Show diff since last run (uses wrapper diff state)
 
 ${C_CYAN}Setup / maintenance${C_RESET}:
-  init [--minimal] [--force]  Install /etc/linux_maint templates (from repo checkout)
+  init [flags]           Install /etc/linux_maint templates (from repo checkout)
   tune dark-site         Apply recommended dark-site defaults to linux-maint.conf
-  baseline <ports|configs|users|sudoers> [--update] [--local-only] [--diff] [--show]  Capture or preview baselines
+  baseline <...> [flags] Capture or preview baselines
   preflight              Run preflight checks
   validate               Validate config file formats (best-effort)
   deps                   Print required/optional dependency manifest by monitor
   verify-install         Verify installation layout and systemd wiring (best-effort)
-  pack-logs [--out DIR] [--redact|--no-redact] [--progress|--no-progress] [--hash]  Create a support bundle tar.gz (logs, config redacted, meta)
+  pack-logs [flags]      Create a support bundle tar.gz (logs, config redacted, meta)
 
 ${C_CYAN}Release / packaging${C_RESET}:
   version                Print installed BUILD_INFO (if present)
@@ -308,15 +305,11 @@ ${C_CYAN}Help${C_RESET}:
   help                    Show this help
 
 ${C_CYAN}Environment${C_RESET}:
-  PREFIX=/usr/local             installation prefix override
-  LINUX_MAINT_LIB=...           override library path (useful in repo mode)
-  LM_LOCKDIR=/tmp               override lock dir (useful when not root)
-  LM_LOGFILE=/tmp/linux_maint.log override default log file
-  LM_PROGRESS=0                 disable progress bar during run
-  LM_PROGRESS_WIDTH=24          progress bar width (characters)
-  LM_HOST_PROGRESS=1            show per-host progress (used by baseline --update)
-  LM_FORCE_COLOR=1              force color even when not a TTY
-  NO_COLOR=1                    disable colored output
+  LM_PROGRESS=0         disable progress bar during run
+  LM_FORCE_COLOR=1      force color even when not a TTY
+  NO_COLOR=1            disable colored output
+  LM_LOCAL_ONLY=true    force local-only mode (CI/testing)
+  LM_DARK_SITE=true     enable conservative offline defaults
 
 ${C_CYAN}Examples${C_RESET}:
   linux-maint run --local-only
@@ -326,6 +319,7 @@ ${C_CYAN}Examples${C_RESET}:
 
 ${C_CYAN}Tips${C_RESET}:
   linux-maint <command> --help
+  See docs/README.md for full docs and flag details
   NO_COLOR=1 linux-maint report
 EOF
 }
@@ -336,11 +330,57 @@ command_usage(){
     ""|help|-h|--help)
       usage; return 0;;
     run)
-      echo "Usage: linux-maint run [--group G] [--hosts h1,h2] [--exclude h3,h4] [--parallel N] [--local-only] [--ssh-opts '...'] [--limit N] [--shuffle] [--progress|--no-progress] [--debug|--print-env] [--dry-run]";;
+      cat <<EOF
+Usage: linux-maint run [flags]
+
+Key flags:
+  --group G            use /etc/linux_maint/groups.d/G
+  --hosts a,b          ad-hoc host list
+  --exclude a,b        exclude hosts
+  --parallel N         max parallel SSH
+  --local-only         run checks locally only
+  --ssh-opts "..."     override SSH options
+  --dry-run            print plan only (no execution)
+  --strict             fail if any monitor emits malformed summary lines
+  --progress|--no-progress  progress bar control
+EOF
+      ;;
     status)
-      echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--prom] [--no-color] [--table] [--summary] [--expected-skips] [--compact] [--problems N (max 100)] [--reasons N (max 20)] [--group-by host|monitor|reason] [--since 15m|2h|1d|30s] [--last N]";;
+      cat <<'EOF'
+Usage: linux-maint status [flags]
+
+Filters:
+  --only OK|WARN|CRIT|UNKNOWN|SKIP
+  --host PATTERN            filter by host
+  --monitor PATTERN         filter by monitor
+  --match-mode contains|exact|regex
+  --since 15m|2h|1d|30s     recent artifacts only
+
+Output:
+  --summary                one-line summary
+  --json                   machine JSON
+  --prom                   Prometheus textfile format
+  --table                  table output
+  --group-by host|monitor|reason
+  --problems N             cap problem list (max 100)
+  --reasons N              top reasons rollup (max 20)
+EOF
+      ;;
     report)
-      echo "Usage: linux-maint report [--json] [--no-color] [--compact] [--short] [--table] [--no-trend] [--no-slow] [--no-reasons] [--no-problems]";;
+      cat <<'EOF'
+Usage: linux-maint report [flags]
+
+Output:
+  --short        one-screen summary
+  --compact      minimal output
+  --table        table formatting
+  --json         machine JSON
+  --no-trend     suppress trend section
+  --no-slow      suppress slow monitors
+  --no-reasons   suppress reason rollup
+  --no-problems  suppress problem list
+EOF
+      ;;
     metrics)
       echo "Usage: linux-maint metrics --json";;
     config)
@@ -352,7 +392,15 @@ command_usage(){
     check)
       echo "Usage: linux-maint check";;
     history)
-      echo "Usage: linux-maint history [--last N] [--json] [--table] [--no-color] [--compact]";;
+      cat <<'EOF'
+Usage: linux-maint history [flags]
+
+  --last N      number of runs (default 10)
+  --json        machine JSON
+  --table       table output
+  --compact     one-line latest run
+EOF
+      ;;
     summary)
       echo "Usage: linux-maint summary [--no-color]";;
     trend)
@@ -366,7 +414,16 @@ command_usage(){
     tune)
       echo "Usage: linux-maint tune dark-site";;
     baseline)
-      echo "Usage: linux-maint baseline <ports|configs|users|sudoers> [--update] [--local-only] [--diff] [--show] [--progress|--no-progress]";;
+      cat <<'EOF'
+Usage: linux-maint baseline <ports|configs|users|sudoers> [flags]
+
+  --update      write baseline
+  --diff        show changes vs baseline
+  --show        print baseline contents
+  --local-only  no SSH
+  --progress|--no-progress
+EOF
+      ;;
     preflight)
       echo "Usage: linux-maint preflight";;
     validate)
@@ -376,7 +433,15 @@ command_usage(){
     verify-install)
       echo "Usage: linux-maint verify-install";;
     pack-logs)
-      echo "Usage: linux-maint pack-logs [--out DIR] [--redact|--no-redact] [--progress|--no-progress] [--hash]";;
+      cat <<'EOF'
+Usage: linux-maint pack-logs [flags]
+
+  --out DIR            output directory
+  --redact|--no-redact redact sensitive data
+  --progress|--no-progress
+  --hash               include SHA256 manifest
+EOF
+      ;;
     version)
       echo "Usage: linux-maint version";;
     make-tarball)
@@ -573,7 +638,7 @@ case "$cmd" in
         --no-reasons) REPORT_NO_REASONS=1; shift 1;;
         --no-problems) REPORT_NO_PROBLEMS=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint report [--json] [--no-color] [--compact] [--short] [--table] [--no-trend] [--no-slow] [--no-reasons] [--no-problems]"
+          command_usage report
           exit 0;;
         *) echo "Unknown report flag: $1" >&2; exit 2;;
       esac
@@ -884,7 +949,7 @@ PY
       case "$1" in
         --json) METRICS_JSON=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint metrics --json"
+          command_usage metrics
           exit 0;;
         *) echo "Unknown metrics flag: $1" >&2; exit 2;;
       esac
@@ -942,7 +1007,7 @@ PY
         --sources) CFG_SOURCES=1; shift 1;;
         --lint) CFG_LINT=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint config [--json] [--sources] [--lint]"
+          command_usage config
           exit 0;;
         *) echo "Unknown config flag: $1" >&2; exit 2;;
       esac
@@ -1170,7 +1235,7 @@ PY
         --no-color) HISTORY_COLOR=0; shift 1;;
         --compact) HISTORY_COMPACT=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint history [--last N] [--json] [--table] [--no-color] [--compact]"
+          command_usage history
           exit 0;;
         *) echo "Unknown history flag: $1" >&2; exit 2;;
       esac
@@ -1455,7 +1520,7 @@ PY
         --since) SINCE="$2"; shift 2;;
         --last) LAST_N="$2"; shift 2;;
         -h|--help)
-          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--prom] [--no-color] [--table] [--summary] [--expected-skips] [--compact] [--problems N (max 100)] [--reasons N (max 20)] [--group-by host|monitor|reason] [--since 15m|2h|1d|30s] [--last N]"
+          command_usage status
           exit 0;;
         *) echo "Unknown status flag: $1" >&2; exit 2;;
       esac
@@ -2218,7 +2283,7 @@ PY
         --last) LAST_N="$2"; shift 2 ;;
         --json) JSON=1; shift 1 ;;
         -h|--help)
-          echo "Usage: linux-maint trend [--last N] [--json]"
+          command_usage trend
           exit 0 ;;
         *) echo "Unknown trend flag: $1" >&2; exit 2 ;;
       esac
@@ -2336,7 +2401,7 @@ PY
         --json) RT_JSON=1; shift ;;
         --last) RT_LAST="$2"; shift 2 ;;
         -h|--help)
-          echo "Usage: linux-maint runtimes [--last N] [--json]"
+          command_usage runtimes
           exit 0;;
         *) echo "Unknown runtimes flag: $1" >&2; exit 2;;
       esac
@@ -2842,14 +2907,14 @@ PY
         --progress) BASELINE_PROGRESS=1; BASELINE_PROGRESS_SET=1; shift 1;;
         --no-progress) BASELINE_PROGRESS=0; BASELINE_PROGRESS_SET=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint baseline <ports|configs|users|sudoers> [--update] [--local-only] [--diff] [--show] [--progress|--no-progress]"
+          command_usage baseline
           exit 0;;
         *) echo "Unknown baseline flag: $1" >&2; exit 2;;
       esac
     done
 
     if [[ -z "$target" ]]; then
-      echo "Usage: linux-maint baseline <ports|configs|users|sudoers> [--update] [--local-only] [--diff] [--show] [--progress|--no-progress]" >&2
+      command_usage baseline >&2
       exit 2
     fi
 
@@ -3164,7 +3229,7 @@ EOF_DEPS
         --no-redact) PACK_REDACT=0; PACK_REDACT_SET=1; shift 1;;
         --hash) PACK_HASH=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint pack-logs [--out DIR] [--redact|--no-redact] [--progress|--no-progress] [--hash]"
+          command_usage pack-logs
           exit 0;;
         *) echo "Unknown pack-logs flag: $1" >&2; exit 2;;
       esac
@@ -3353,7 +3418,7 @@ EOF_DEPS
         --yes) DOCTOR_YES=1; shift 1;;
         --dry-run) DOCTOR_DRY_RUN=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint doctor [--json] [--compact] [--fix] [--fix-deps] [--fix-deps-optional] [--yes] [--dry-run]"
+          command_usage doctor
           exit 0;;
         *) echo "Unknown doctor flag: $1" >&2; exit 2;;
       esac
@@ -3905,7 +3970,7 @@ PYJSON
         --json) SC_JSON=1; shift 1;;
         --compact) SC_COMPACT=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint self-check [--json] [--compact]"
+          command_usage self-check
           exit 0;;
         *) echo "Unknown self-check flag: $1" >&2; exit 2;;
       esac
