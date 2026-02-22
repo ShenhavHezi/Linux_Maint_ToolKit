@@ -2365,8 +2365,13 @@ PYJSON
     fix_suggestions=()
     add_fix(){ fix_suggestions+=("$1"); }
     if [[ -d "$CFG_DIR" ]]; then
+      printf "%-44s %s\n" "FILE" "STATUS"
       for f in "$CFG_DIR/servers.txt" "$CFG_DIR/excluded.txt" "$CFG_DIR/services.txt" "$CFG_DIR/emails.txt"; do
-        [[ -e "$f" ]] && echo "OK: $f" || echo "MISSING: $f"
+        if [[ -e "$f" ]]; then
+          printf "%-44s %s\n" "$f" "OK"
+        else
+          printf "%-44s %s\n" "$f" "MISSING"
+        fi
       done
 
       if [[ ! -s "$CFG_DIR/servers.txt" ]]; then
@@ -2392,21 +2397,57 @@ PYJSON
     fi
 
     echo "== Monitor gates (what may SKIP) =="
-    [[ -s "$CFG_DIR/certs.txt" ]] || { echo "SKIP gate: cert_monitor -> missing/empty $CFG_DIR/certs.txt"; add_fix "Add cert paths to $CFG_DIR/certs.txt"; }
-    [[ -s "$CFG_DIR/network_targets.txt" ]] || { echo "SKIP gate: network_monitor -> missing/empty $CFG_DIR/network_targets.txt"; add_fix "Add network targets to $CFG_DIR/network_targets.txt"; }
-    [[ -s "$CFG_DIR/ports_baseline.txt" ]] || { echo "SKIP gate: ports_baseline_monitor -> missing/empty $CFG_DIR/ports_baseline.txt"; add_fix "Add baseline allowlist to $CFG_DIR/ports_baseline.txt"; }
-    [[ -s "$CFG_DIR/config_paths.txt" ]] || { echo "SKIP gate: config_drift_monitor -> missing/empty $CFG_DIR/config_paths.txt"; add_fix "Add config paths to $CFG_DIR/config_paths.txt"; }
-    [[ -s "$CFG_DIR/baseline_users.txt" ]] || { echo "SKIP gate: user_monitor -> missing/empty $CFG_DIR/baseline_users.txt"; add_fix "Generate baseline users list at $CFG_DIR/baseline_users.txt"; }
-    [[ -s "$CFG_DIR/baseline_sudoers.txt" ]] || { echo "SKIP gate: user_monitor -> missing/empty $CFG_DIR/baseline_sudoers.txt"; add_fix "Generate baseline sudoers list at $CFG_DIR/baseline_sudoers.txt"; }
-    [[ -s "$CFG_DIR/backup_targets.csv" ]] || { echo "SKIP gate: backup_check -> missing/empty $CFG_DIR/backup_targets.csv"; add_fix "Add backup targets to $CFG_DIR/backup_targets.csv"; }
+    printf "%-22s %-10s %s\n" "MONITOR" "STATUS" "PATH"
+    if [[ -s "$CFG_DIR/certs.txt" ]]; then
+      printf "%-22s %-10s %s\n" "cert_monitor" "OK" "$CFG_DIR/certs.txt"
+    else
+      printf "%-22s %-10s %s\n" "cert_monitor" "MISSING" "$CFG_DIR/certs.txt"
+      add_fix "Add cert paths to $CFG_DIR/certs.txt"
+    fi
+    if [[ -s "$CFG_DIR/network_targets.txt" ]]; then
+      printf "%-22s %-10s %s\n" "network_monitor" "OK" "$CFG_DIR/network_targets.txt"
+    else
+      printf "%-22s %-10s %s\n" "network_monitor" "MISSING" "$CFG_DIR/network_targets.txt"
+      add_fix "Add network targets to $CFG_DIR/network_targets.txt"
+    fi
+    if [[ -s "$CFG_DIR/ports_baseline.txt" ]]; then
+      printf "%-22s %-10s %s\n" "ports_baseline_monitor" "OK" "$CFG_DIR/ports_baseline.txt"
+    else
+      printf "%-22s %-10s %s\n" "ports_baseline_monitor" "MISSING" "$CFG_DIR/ports_baseline.txt"
+      add_fix "Add baseline allowlist to $CFG_DIR/ports_baseline.txt"
+    fi
+    if [[ -s "$CFG_DIR/config_paths.txt" ]]; then
+      printf "%-22s %-10s %s\n" "config_drift_monitor" "OK" "$CFG_DIR/config_paths.txt"
+    else
+      printf "%-22s %-10s %s\n" "config_drift_monitor" "MISSING" "$CFG_DIR/config_paths.txt"
+      add_fix "Add config paths to $CFG_DIR/config_paths.txt"
+    fi
+    if [[ -s "$CFG_DIR/baseline_users.txt" ]]; then
+      printf "%-22s %-10s %s\n" "user_monitor(users)" "OK" "$CFG_DIR/baseline_users.txt"
+    else
+      printf "%-22s %-10s %s\n" "user_monitor(users)" "MISSING" "$CFG_DIR/baseline_users.txt"
+      add_fix "Generate baseline users list at $CFG_DIR/baseline_users.txt"
+    fi
+    if [[ -s "$CFG_DIR/baseline_sudoers.txt" ]]; then
+      printf "%-22s %-10s %s\n" "user_monitor(sudoers)" "OK" "$CFG_DIR/baseline_sudoers.txt"
+    else
+      printf "%-22s %-10s %s\n" "user_monitor(sudoers)" "MISSING" "$CFG_DIR/baseline_sudoers.txt"
+      add_fix "Generate baseline sudoers list at $CFG_DIR/baseline_sudoers.txt"
+    fi
+    if [[ -s "$CFG_DIR/backup_targets.csv" ]]; then
+      printf "%-22s %-10s %s\n" "backup_check" "OK" "$CFG_DIR/backup_targets.csv"
+    else
+      printf "%-22s %-10s %s\n" "backup_check" "MISSING" "$CFG_DIR/backup_targets.csv"
+      add_fix "Add backup targets to $CFG_DIR/backup_targets.csv"
+    fi
 
     echo "== Dependencies (best-effort) =="
     need_cmd() {
       local cmd="$1" pkg_hint="$2"
       if command -v "$cmd" >/dev/null 2>&1; then
-        echo "OK: $cmd"
+        printf "%-18s %s\n" "$cmd" "OK"
       else
-        echo "WARN: missing command: $cmd" >&2
+        printf "%-18s %s\n" "$cmd" "MISSING"
         [[ -n "$pkg_hint" ]] && echo "  hint: install package: $pkg_hint" >&2
         [[ -n "$pkg_hint" ]] && add_fix "Install missing dependency: $pkg_hint"
       fi
@@ -2443,19 +2484,20 @@ PYJSON
     fi
 
     echo "== Can write state/logs? =="
+    printf "%-24s %s\n" "PATH" "STATUS"
     for d in /var/log/health /var/log/inventory /var/lib/linux_maint /var/lock; do
       if [[ -d "$d" ]]; then
         if touch "$d/.lm_write_test" 2>/dev/null; then
           rm -f "$d/.lm_write_test" 2>/dev/null || true
-          echo "OK: writable $d"
+          printf "%-24s %s\n" "$d" "OK"
         else
-          echo "WARN: not writable $d"
+          printf "%-24s %s\n" "$d" "NOT_WRITABLE"
         fi
         if ! touch "$d/.lm_write_test" 2>/dev/null; then
           add_fix "Ensure $d is writable (example: sudo install -d -m 0755 $d)"
         fi
       else
-        echo "WARN: missing dir $d" >&2
+        printf "%-24s %s\n" "$d" "MISSING"
         add_fix "Create missing dir: sudo install -d -m 0755 $d"
       fi
     done
@@ -2556,21 +2598,27 @@ PY
       echo "note=compact"
     fi
     echo "== Config files =="
+    printf "%-44s %s\n" "FILE" "STATUS"
     for f in "$CFG_DIR/servers.txt" "$CFG_DIR/excluded.txt" "$CFG_DIR/services.txt"; do
-      [[ -e "$f" ]] && echo "OK: $f" || echo "WARN: missing $f"
+      if [[ -e "$f" ]]; then
+        printf "%-44s %s\n" "$f" "OK"
+      else
+        printf "%-44s %s\n" "$f" "MISSING"
+      fi
     done
     if [[ "$SC_COMPACT" -eq 0 ]]; then
       echo "== Paths (writable) =="
+      printf "%-24s %s\n" "PATH" "STATUS"
       for d in "$LOG_DIR_SC" "$STATE_DIR_SC" "$LOCK_DIR_SC"; do
         if [[ -d "$d" ]]; then
-          [[ -w "$d" ]] && echo "OK: writable $d" || echo "WARN: not writable $d"
+          [[ -w "$d" ]] && printf "%-24s %s\n" "$d" "OK" || printf "%-24s %s\n" "$d" "NOT_WRITABLE"
         else
-          echo "WARN: missing dir $d"
+          printf "%-24s %s\n" "$d" "MISSING"
         fi
       done
       echo "== Dependencies =="
       for cmd in bash awk sed grep df find timeout ssh; do
-        command -v "$cmd" >/dev/null 2>&1 && echo "OK: $cmd" || echo "WARN: missing $cmd"
+        command -v "$cmd" >/dev/null 2>&1 && printf "%-18s %s\n" "$cmd" "OK" || printf "%-18s %s\n" "$cmd" "MISSING"
       done
     fi
     ;;
