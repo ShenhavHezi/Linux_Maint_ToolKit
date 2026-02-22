@@ -1,5 +1,6 @@
 Name:           linux-maint
-Version:        0.1.0
+%global version 0.1.0
+Version:        %{version}
 Release:        1.%{?commit}%{?dist}
 Summary:        Linux maintenance/monitoring toolkit (wrapper + monitors + CLI)
 

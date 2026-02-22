@@ -19,6 +19,7 @@ fi
 
 ro_mounts=()
 while IFS= read -r line; do
+  # shellcheck disable=SC2086
   set -- $line
   dev="$1"; mnt="$2"; fstype="$3"; opts="$4"
   if [[ "$fstype" =~ $EXCLUDE_FSTYPES_RE ]]; then

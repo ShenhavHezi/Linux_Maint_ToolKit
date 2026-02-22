@@ -87,6 +87,7 @@ has_unsafe_chars(){
     return 0
   fi
   case "$s" in
+    # shellcheck disable=SC1003
     *"'"*|*'`'*|*'$'*|*';'*|*'&'*|*'|'*|*'<'*|*'>'*|*'\\'*)
       return 0
       ;;
