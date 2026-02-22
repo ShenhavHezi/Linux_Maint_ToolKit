@@ -8,6 +8,13 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-02-22
 
+- Release v0.1.8
+- Added runtime threshold highlighting in `linux-maint runtimes` (human output).
+- Added colorized non-zero counts in `linux-maint history` (text/compact) and `linux-maint status --last`.
+- Cleaned stray artifacts in docs/reference.
+
+## 2026-02-22
+
 - Release v0.1.7
 - Added strict run validation (`linux-maint run --strict`) and deterministic test mode (`LM_TEST_MODE=1`).
 - Added structured `fix_actions` to `doctor --fix --json`.

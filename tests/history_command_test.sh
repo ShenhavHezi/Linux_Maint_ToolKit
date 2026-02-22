@@ -53,6 +53,13 @@ printf '%s\n' "$color_out" | grep -q $'\033' || {
   exit 1
 }
 
+color_text_out="$(LM_STATE_DIR="$tmp_dir" NO_COLOR= LM_FORCE_COLOR=1 bash "$LM" history --last 2 2>/dev/null || true)"
+printf '%s\n' "$color_text_out" | grep -q $'\033\[1;33mWARN=1\033\[0m' || {
+  echo "history text output should colorize non-zero counts when forced" >&2
+  echo "$color_text_out" >&2
+  exit 1
+}
+
 compact_out="$(LM_STATE_DIR="$tmp_dir" bash "$LM" history --compact 2>/dev/null || true)"
 printf '%s\n' "$compact_out" | grep -q '^last_run=' || {
   echo "history --compact missing output" >&2

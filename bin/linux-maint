@@ -560,6 +560,9 @@ case "$cmd" in
     # Uses the same state file as the wrapper: last_summary_monitor_lines.log
     JSON=0
     if [[ "${1:-}" == "--json" ]]; then JSON=1; shift; fi
+    DIFF_COLOR=1
+    [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && DIFF_COLOR=0
+    color_enabled || DIFF_COLOR=0
 
     if [[ "$MODE" == "repo" ]]; then
       DIFF_STATE_DIR="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-$REPO_LOG_DIR}}"
@@ -599,7 +602,7 @@ case "$cmd" in
     if [[ "$JSON" -eq 1 ]]; then
       exec python3 "$diff_tool" "$PREV_SUMMARY" "$CUR_SUMMARY" --json
     else
-      exec python3 "$diff_tool" "$PREV_SUMMARY" "$CUR_SUMMARY"
+      LM_COLOR="$DIFF_COLOR" exec python3 "$diff_tool" "$PREV_SUMMARY" "$CUR_SUMMARY"
     fi
     ;;
   logs)
@@ -1206,11 +1209,34 @@ PY
       need_root_for check
     fi
 
+    print_check_status() {
+      local label="$1" rc="$2" status color
+      case "$rc" in
+        0) status="OK"; color="$C_GREEN" ;;
+        1) status="WARN"; color="$C_YELLOW" ;;
+        2) status="CRIT"; color="$C_RED" ;;
+        *) status="UNKNOWN"; color="$C_RED" ;;
+      esac
+      if color_enabled; then
+        printf '%s: %s%s%s\n' "$label" "$color" "$status" "$C_RESET"
+      else
+        printf '%s: %s\n' "$label" "$status"
+      fi
+    }
+
     section "config_validate"
-    bash "$validate" || true
+    set +e
+    bash "$validate"
+    cv_rc=$?
+    set -e
+    print_check_status "config_validate" "$cv_rc"
     echo ""
     section "preflight"
-    bash "$preflight" || true
+    set +e
+    bash "$preflight"
+    pf_rc=$?
+    set -e
+    print_check_status "preflight" "$pf_rc"
     echo ""
 
     cfg_dir="/etc/linux_maint"
@@ -1307,6 +1333,28 @@ def color_status(st, text=None):
         return c(label, "1;36")
     return label
 
+def color_count(label, value):
+    text = f"{label}={value}"
+    if not color:
+        return text
+    try:
+        v = int(value)
+    except Exception:
+        v = 0
+    if v == 0:
+        return text
+    if label == "CRIT":
+        return c(text, "1;31")
+    if label == "WARN":
+        return c(text, "1;33")
+    if label == "OK":
+        return c(text, "1;32")
+    if label == "UNKNOWN":
+        return c(text, "1;35")
+    if label == "SKIP":
+        return c(text, "1;36")
+    return text
+
 if not os.path.exists(path):
     print(c(f"No run index found: {path}", "1;31"))
     print(c("Hints:", "1;33"))
@@ -1336,7 +1384,14 @@ if compact:
         hosts = r.get("hosts",{}) or {}
         overall = r.get("overall","UNKNOWN")
         ov = color_status(overall)
-        print(f"last_run={r.get('timestamp','')} overall={ov} CRIT={hosts.get('crit',0)} WARN={hosts.get('warn',0)} UNKNOWN={hosts.get('unknown',0)} SKIP={hosts.get('skipped',0)} OK={hosts.get('ok',0)}")
+        counts = [
+            color_count("CRIT", hosts.get("crit",0)),
+            color_count("WARN", hosts.get("warn",0)),
+            color_count("UNKNOWN", hosts.get("unknown",0)),
+            color_count("SKIP", hosts.get("skipped",0)),
+            color_count("OK", hosts.get("ok",0)),
+        ]
+        print(f"last_run={r.get('timestamp','')} overall={ov} " + " ".join(counts))
     else:
         print("no runs")
     raise SystemExit(0)
@@ -1394,7 +1449,13 @@ else:
         overall = r.get("overall","UNKNOWN")
         exit_code = r.get("exit_code","")
         hosts = r.get("hosts",{}) or {}
-        counts = f"CRIT={hosts.get('crit',0)} WARN={hosts.get('warn',0)} UNKNOWN={hosts.get('unknown',0)} SKIP={hosts.get('skipped',0)} OK={hosts.get('ok',0)}"
+        counts = " ".join([
+            color_count("CRIT", hosts.get("crit",0)),
+            color_count("WARN", hosts.get("warn",0)),
+            color_count("UNKNOWN", hosts.get("unknown",0)),
+            color_count("SKIP", hosts.get("skipped",0)),
+            color_count("OK", hosts.get("ok",0)),
+        ])
         print(f"{ts} overall={color_status(overall)} exit_code={exit_code} {counts}")
 PY
     ;;
@@ -1673,10 +1734,34 @@ PY
         log_dir="/var/log/health"
       fi
       echo "=== Last ${LAST_N} runs ==="
+      color_total() {
+        local kv="$1" key val
+        key="${kv%%=*}"
+        val="${kv#*=}"
+        if [[ "$LM_COLOR" -ne 1 || -z "$val" || "$val" == "0" ]]; then
+          printf '%s' "$kv"
+          return
+        fi
+        case "$key" in
+          CRIT) printf '%s' "${C_RED}${kv}${C_RESET}" ;;
+          WARN) printf '%s' "${C_YELLOW}${kv}${C_RESET}" ;;
+          UNKNOWN) printf '%s' "${C_YELLOW}${kv}${C_RESET}" ;;
+          SKIP) printf '%s' "${C_CYAN}${kv}${C_RESET}" ;;
+          OK) printf '%s' "${C_GREEN}${kv}${C_RESET}" ;;
+          *) printf '%s' "$kv" ;;
+        esac
+      }
       # shellcheck disable=SC2012
       ls -1t "$log_dir"/full_health_monitor_summary_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9].log 2>/dev/null | head -n "$LAST_N" | while read -r f; do
         ts="$(basename "$f" | sed -E "s/^full_health_monitor_summary_([0-9-]+)_(\\d+)[.]log$/\1T\2/")"
         totals="$(awk '/^monitor=/{for(i=1;i<=NF;i++) if($i ~ /^status=/){split($i,a,"="); s=a[2]; c[s]++}} END{printf("CRIT=%d WARN=%d UNKNOWN=%d SKIP=%d OK=%d",c["CRIT"]+0,c["WARN"]+0,c["UNKNOWN"]+0,c["SKIP"]+0,c["OK"]+0)}' "$f" 2>/dev/null)"
+        if [[ "$LM_COLOR" -eq 1 ]]; then
+          colored_totals=()
+          for kv in $totals; do
+            colored_totals+=("$(color_total "$kv")")
+          done
+          totals="${colored_totals[*]}"
+        fi
         echo "$ts $totals file=$f"
       done
       exit 0
@@ -2400,6 +2485,7 @@ PY
 
     RT_JSON=0
     RT_LAST=1
+    RT_COLOR=1
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) RT_JSON=1; shift ;;
@@ -2410,6 +2496,8 @@ PY
         *) echo "Unknown runtimes flag: $1" >&2; exit 2;;
       esac
     done
+    [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && RT_COLOR=0
+    color_enabled || RT_COLOR=0
 
     if [[ ! "$RT_LAST" =~ ^[0-9]+$ ]] || [[ "$RT_LAST" -lt 1 ]]; then
       echo "ERROR: invalid --last '$RT_LAST' (use positive integer)" >&2
@@ -2457,6 +2545,9 @@ PY
       exit 0
     fi
 
+    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+    MONITOR_RUNTIME_WARN_FILE="${MONITOR_RUNTIME_WARN_FILE:-$CFG_DIR/monitor_runtime_warn.conf}"
+
     echo "=== linux-maint runtimes ==="
     echo "files=${#rt_files[@]}"
     echo "log_dir=$log_dir"
@@ -2471,7 +2562,29 @@ PY
         }
         mon=""; ms=""
       }
-    ' "${rt_files[@]}" | sort -rn | awk '{print "monitor="$2" ms="$1}'
+    ' "${rt_files[@]}" | sort -rn | awk -v color="$RT_COLOR" -v warn_file="$MONITOR_RUNTIME_WARN_FILE" -v yel="$C_YELLOW" -v reset="$C_RESET" '
+      BEGIN {
+        if (warn_file != "" && (getline line < warn_file) > 0) {
+          do {
+            gsub(/\r/, "", line)
+            if (line ~ /^[[:space:]]*#/ || line ~ /^[[:space:]]*$/) continue
+            split(line, a, "=")
+            if (a[1] != "" && a[2] ~ /^[0-9]+$/ && a[2] > 0) {
+              warn_ms[a[1]] = a[2] * 1000
+            }
+          } while ((getline line < warn_file) > 0)
+          close(warn_file)
+        }
+      }
+      {
+        ms=$1; mon=$2
+        line="monitor="mon" ms="ms
+        if (color == 1 && (mon in warn_ms) && ms >= warn_ms[mon]) {
+          line = yel line reset
+        }
+        print line
+      }
+    '
     ;;
 
   export)

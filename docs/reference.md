@@ -156,6 +156,8 @@ linux-maint runtimes
 linux-maint runtimes --last 3 --json
 ```
 
+When `MONITOR_RUNTIME_WARN_FILE` is present, `linux-maint runtimes` highlights monitors that exceed their thresholds (colorized when color is enabled).
+
 JSON output includes `unit=ms` and a `source_file` path for each row.
 Schema:
 - `docs/schemas/runtimes.json` — JSON schema for `linux-maint runtimes --json`.
@@ -366,6 +368,7 @@ These artifacts are designed to be consumed by automation/CI or log shipping too
 - Color is enabled only when output is a TTY and `NO_COLOR` is not set.
 - You can force color for non-TTY contexts with `LM_FORCE_COLOR=1`.
 - `NO_COLOR=1` (or `LM_NO_COLOR=1`) always disables color, even if force color is set.
+- Non-JSON outputs may colorize non-zero status counts (for example in `status --last` and `history`).
 - Progress bars (when enabled) render on stderr only and never affect JSON output.
 - Human-facing diagnostics should go to stderr so stdout remains machine-clean.
 
@@ -414,6 +417,7 @@ After installation, use the `linux-maint` CLI as the primary interface.
 - `linux-maint explain monitor <name>`: show monitor purpose, deps, and common `reason=` tokens.
 
 - `linux-maint status` *(root required)*: show last run metadata plus a compact, severity-sorted problems summary by default. Use `--verbose` for raw summary lines.
+- `linux-maint check` *(root required)*: run config validation + preflight and show a short OK/WARN/CRIT summary.
 
 Status flags (installed mode):
 
@@ -1174,28 +1178,17 @@ sudo install -D -m 0755 monitors/*.sh /usr/local/libexec/linux_maint/
 After upgrading:
 - Review `git diff` for config file name changes.
 - Re-run the wrapper once and check: `/var/log/health/full_health_monitor_latest.log`.
-echo "##active_line2##"
 
-echo "##active_line3##"
 ### Diff state file (`linux-maint diff`)
-echo "##active_line4##"
-
-echo "##active_line5##"
 `linux-maint diff` compares the latest summary against a persisted copy from the previous run.
 `linux-maint diff` first canonicalizes repeated `monitor`+`host` rows using **worst-status-wins** semantics (`UNKNOWN` > `CRIT` > `WARN` > `OK/SKIP`), with last-wins tie-break when severity is equal.
-echo "##active_line6##"
+Text output is colorized when color is enabled; set `NO_COLOR=1` to disable.
 
-echo "##active_line7##"
 The wrapper persists the previous summary monitor-lines file at (best-effort):
-echo "##active_line8##"
 
-echo "##active_line9##"
 - `${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-/var/lib/linux_maint}}/last_summary_monitor_lines.log`
-echo "##active_line10##"
 
-echo "##active_line11##"
 By default, installed mode should use `/var/lib/linux_maint/last_summary_monitor_lines.log`.
-echo "##active_line12##"
 
 CERTS_SCAN_DIR (optional): if set, cert_monitor scans this directory for cert files (offline expiry check).
 CERTS_SCAN_IGNORE_FILE: file with ignore patterns (substring match) to skip paths (default /etc/linux_maint/certs_scan_ignore.txt).

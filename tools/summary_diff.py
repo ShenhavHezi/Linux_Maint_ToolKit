@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, json
+import sys, json, os
 from pathlib import Path
 
 def parse_line(line: str):
@@ -50,6 +50,27 @@ def main(prev_path, cur_path, fmt='text'):
     prev_map=load_summary_map(Path(prev_path))
     cur_map=load_summary_map(Path(cur_path))
 
+    color = os.environ.get("LM_COLOR", "0") == "1"
+
+    def c(s, code):
+        if not color:
+            return s
+        return f"\033[{code}m{s}\033[0m"
+
+    def color_status(st, text=None):
+        label = text if text is not None else st
+        if st == "CRIT":
+            return c(label, "1;31")
+        if st == "WARN":
+            return c(label, "1;33")
+        if st == "OK":
+            return c(label, "1;32")
+        if st == "UNKNOWN":
+            return c(label, "1;35")
+        if st == "SKIP":
+            return c(label, "1;36")
+        return label
+
     new_fail=[]
     recovered=[]
     changed=[]
@@ -99,23 +120,32 @@ def main(prev_path, cur_path, fmt='text'):
         extra=''
         if reason:
             extra=f" reason={reason}"
-        return f"{st}{extra}"
+        return f"{color_status(st)}{extra}"
 
     print(f"diff_prev={prev_path}")
     print(f"diff_cur={cur_path}")
     print("")
 
-    print(f"NEW_FAILURES {len(new_fail)}")
+    new_label = f"NEW_FAILURES {len(new_fail)}"
+    if len(new_fail) > 0:
+        new_label = c(new_label, "1;31")
+    print(new_label)
     for k,p,c in new_fail[:80]:
         print(f"- {k[1]} {k[0]}: {brief(p)} -> {brief(c)}")
 
     print("")
-    print(f"RECOVERED {len(recovered)}")
+    rec_label = f"RECOVERED {len(recovered)}"
+    if len(recovered) > 0:
+        rec_label = c(rec_label, "1;32")
+    print(rec_label)
     for k,p,c in recovered[:80]:
         print(f"- {k[1]} {k[0]}: {brief(p)} -> {brief(c)}")
 
     print("")
-    print(f"STILL_BAD {len(still_bad)}")
+    still_label = f"STILL_BAD {len(still_bad)}"
+    if len(still_bad) > 0:
+        still_label = c(still_label, "1;33")
+    print(still_label)
     for k,c in still_bad[:120]:
         print(f"- {k[1]} {k[0]}: {brief(c)}")
 
