@@ -269,7 +269,7 @@ ${C_CYAN}Analysis / reporting${C_RESET}:
   export --json|--csv           Export a single payload (summary_result/hosts + rows)
 
 ${C_CYAN}Setup / maintenance${C_RESET}:
-  init [--minimal]       Install /etc/linux_maint templates (from repo checkout)
+  init [--minimal] [--force]  Install /etc/linux_maint templates (from repo checkout)
   tune dark-site         Apply recommended dark-site defaults to linux-maint.conf
   baseline <ports|configs|users|sudoers> [--update] [--local-only] [--diff] [--show]  Capture or preview baselines
   preflight              Run preflight checks
@@ -344,7 +344,7 @@ command_usage(){
     export)
       echo "Usage: linux-maint export --json|--csv";;
     init)
-      echo "Usage: linux-maint init [--minimal]";;
+      echo "Usage: linux-maint init [--minimal] [--force]";;
     tune)
       echo "Usage: linux-maint tune dark-site";;
     baseline)
@@ -2336,11 +2336,14 @@ PY
     fi
 
     INIT_MINIMAL=0
-    case "${1:-}" in
-      --minimal) INIT_MINIMAL=1; shift ;;
-      "") ;;
-      *) echo "Unknown init flag: $1" >&2; exit 2 ;;
-    esac
+    INIT_FORCE=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --minimal) INIT_MINIMAL=1; shift ;;
+        --force) INIT_FORCE=1; shift ;;
+        *) echo "Unknown init flag: $1" >&2; exit 2 ;;
+      esac
+    done
 
     CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
     # Prefer repo templates in repo mode; in installed mode use PREFIX share templates.
@@ -2378,16 +2381,26 @@ PY
       [[ -f "$f" ]] || continue
       base="$(basename "$f" .example)"
       dest="$CFG_DIR/$base"
-      if [[ -e "$dest" ]]; then
+      existed=0
+      [[ -e "$dest" ]] && existed=1
+      if [[ "$existed" -eq 1 && "$INIT_FORCE" -eq 0 ]]; then
         echo "keep:   $dest (exists)"
-      else
-        if [[ "${LM_INIT_USE_CP:-0}" == "1" ]]; then
-          # Some environments emit noisy SELinux warnings when using install(1).
+        continue
+      fi
+      if [[ "${LM_INIT_USE_CP:-0}" == "1" ]]; then
+        # Some environments emit noisy SELinux warnings when using install(1).
+        if [[ "$INIT_FORCE" -eq 1 ]]; then
           sudo cp -f "$f" "$dest"
-          sudo chmod 0644 "$dest"
         else
-          sudo install -m 0644 "$f" "$dest"
+          sudo cp "$f" "$dest"
         fi
+        sudo chmod 0644 "$dest"
+      else
+        sudo install -m 0644 "$f" "$dest"
+      fi
+      if [[ "$existed" -eq 1 && "$INIT_FORCE" -eq 1 ]]; then
+        echo "overwrite: $dest"
+      else
         echo "create: $dest"
       fi
     done

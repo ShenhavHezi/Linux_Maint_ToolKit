@@ -16,7 +16,7 @@ set -euo pipefail
 : "${LM_LOCKDIR:=/tmp}"
 : "${LM_LOG_DIR:=.logs}"
 
-. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" >&2; exit 1; }
 LM_PREFIX="[cert_monitor] "
 LM_LOGFILE="${LM_LOGFILE:-/var/log/cert_monitor.log}"
 : "${LM_EMAIL_ENABLED:=true}"

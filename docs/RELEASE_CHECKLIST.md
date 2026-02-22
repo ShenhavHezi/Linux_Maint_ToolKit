@@ -3,6 +3,7 @@
 ## Prep
 - [ ] Decide version and update `VERSION` if needed.
 - [ ] Update `CHANGELOG.md` using `docs/RELEASE_TEMPLATE.md`.
+- [ ] Place release notes under `docs/` (archive), not `dist/`.
 - [ ] Run `make lint` and `make test`.
 
 ## Breaking changes audit

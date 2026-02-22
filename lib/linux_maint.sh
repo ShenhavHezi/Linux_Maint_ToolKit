@@ -678,6 +678,16 @@ lm_summary() {
         ;;
     esac
   fi
+  if [[ -z "${_LM_SUMMARY_SEEN_INIT:-}" ]]; then
+    declare -gA _LM_SUMMARY_SEEN=()
+    _LM_SUMMARY_SEEN_INIT=1
+  fi
+  local summary_key="${monitor}|${target_host}"
+  if [[ -n "${_LM_SUMMARY_SEEN[$summary_key]+x}" ]]; then
+    echo "WARN: lm_summary duplicate monitor/host suppressed monitor=${monitor} host=${target_host}" >&2
+    return 0
+  fi
+  _LM_SUMMARY_SEEN[$summary_key]=1
   # shellcheck disable=SC2086
   local line
   local args=("$@")

@@ -4,7 +4,7 @@ set -euo pipefail
 # Log spike monitor (kernel/service errors rate)
 # Best-effort sources: journald (journalctl) or syslog/messages file.
 
-. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" >&2; exit 1; }
 LM_PREFIX="[log_spike_monitor] "
 LM_LOGFILE="${LM_LOGFILE:-/var/log/log_spike_monitor.log}"
 

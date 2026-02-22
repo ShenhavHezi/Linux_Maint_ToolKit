@@ -5,7 +5,7 @@
 # Version: 2.0 (refactored to use linux_maint.sh)
 
 # ===== Shared helpers =====
-. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" >&2; exit 1; }
 LM_PREFIX="[config_drift] "
 LM_LOGFILE="${LM_LOGFILE:-/var/log/config_drift_monitor.log}"
 : "${LM_MAX_PARALLEL:=0}"     # 0=sequential; set >0 to run hosts in parallel

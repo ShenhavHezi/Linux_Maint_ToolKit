@@ -11,6 +11,25 @@ trap 'rm -rf "$workdir"' EXIT
 shim="$workdir/shim"
 mkdir -p "$shim"
 
+# Provide optional deps so the monitor doesn't emit SKIP for missing local tools.
+cat > "$shim/ntpq" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+chmod +x "$shim/ntpq"
+
+cat > "$shim/chronyc" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+chmod +x "$shim/chronyc"
+
+cat > "$shim/timedatectl" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+chmod +x "$shim/timedatectl"
+
 # Shim ssh to execute a controlled set of remote commands locally.
 cat > "$shim/ssh" <<'SH'
 #!/usr/bin/env bash

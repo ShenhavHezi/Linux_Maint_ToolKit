@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Timer monitor: ensure linux-maint timer is installed/enabled/active (systemd)
-. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" >&2; exit 1; }
 LM_PREFIX="[timer_monitor] "
 LM_LOGFILE="${LM_LOGFILE:-/var/log/timer_monitor.log}"
 

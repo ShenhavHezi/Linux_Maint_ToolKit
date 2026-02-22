@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Ensure the wrapper has run recently (based on latest log mtime).
-. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" >&2; exit 1; }
 LM_PREFIX="[last_run_age_monitor] "
 LM_LOGFILE="${LM_LOGFILE:-/var/log/last_run_age_monitor.log}"
 

@@ -309,6 +309,8 @@ Notes:
 - `status` is the logical result (see below).
 - `node` is the machine that executed the monitor (runner).
 - Additional keys are monitor-specific metrics (counts, thresholds, paths, etc.).
+- Each monitor must emit **exactly one** summary line per target host per run.
+- Summary lines are the only content allowed on stdout for monitor scripts; any progress or detail output must go to stderr.
 
 ### Status values (semantic meaning)
 
@@ -362,6 +364,7 @@ These artifacts are designed to be consumed by automation/CI or log shipping too
 - You can force color for non-TTY contexts with `LM_FORCE_COLOR=1`.
 - `NO_COLOR=1` (or `LM_NO_COLOR=1`) always disables color, even if force color is set.
 - Progress bars (when enabled) render on stderr only and never affect JSON output.
+- Human-facing diagnostics should go to stderr so stdout remains machine-clean.
 
 ## Exit codes (for automation)
 
@@ -399,6 +402,10 @@ After installation, use the `linux-maint` CLI as the primary interface.
 
 - `linux-maint run` *(root required)*: run the full wrapper (`run_full_health_monitor.sh`).
   - `--progress|--no-progress`: enable/disable the run progress bar (overrides `LM_PROGRESS`).
+
+- `linux-maint init [--minimal] [--force]` *(root required)*: install `/etc/linux_maint` templates from the repo checkout.
+  - By default, existing files are not overwritten.
+  - `--force` overwrites existing files.
 
 - `linux-maint status` *(root required)*: show last run metadata plus a compact, severity-sorted problems summary by default. Use `--verbose` for raw summary lines.
 

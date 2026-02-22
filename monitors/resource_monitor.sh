@@ -4,7 +4,7 @@ set -euo pipefail
 # Resource monitor: CPU/load, memory, swap pressure (local runner only)
 # Emits summary with reasons: high_load, high_mem, swap_thrash
 
-. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" >&2; exit 1; }
 LM_PREFIX="[resource_monitor] "
 LM_LOGFILE="${LM_LOGFILE:-/var/log/resource_monitor.log}"
 

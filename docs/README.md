@@ -10,6 +10,8 @@ Note: this repo was previously named `linux_Maint_Scripts`. The CLI remains `lin
 - **Reason tokens** (`reason=` contract): [`REASONS.md`](REASONS.md)
 - **Offline / dark-site usage**: [`DARK_SITE.md`](DARK_SITE.md)
 - **Day-2 operations**: [`DAY2.md`](DAY2.md)
+- **Operations quickstart (first 10 minutes)**: [`OPERATIONS.md`](OPERATIONS.md)
+- **Artifacts and logs**: [`ARTIFACTS.md`](ARTIFACTS.md)
 - **Docs index (short links)**: [`INDEX.md`](INDEX.md)
 
 ## Which mode should I use?
@@ -23,6 +25,8 @@ If you’re not sure, start in repo mode and install once you like the results.
 
 - Contribution workflow and contracts: [`../CONTRIBUTING.md`](../CONTRIBUTING.md)
 - Release checklist: [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md)
+- Security best practices report: [`security_best_practices_report.md`](security_best_practices_report.md)
+- Release notes (archive): [`release_notes_v0.1.5.md`](release_notes_v0.1.5.md), [`release_notes_v0.1.6.md`](release_notes_v0.1.6.md)
 
 ## Dev container (optional)
 

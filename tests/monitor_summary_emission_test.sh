@@ -31,8 +31,17 @@ for m in "$ROOT_DIR"/monitors/*.sh; do
   LM_CFG_DIR="$LM_CFG_DIR" \
   bash "$m" >"$out_file" 2>/dev/null || true
 
-  if ! grep -q '^monitor=' "$out_file"; then
-    echo "FAIL: $name emitted no monitor= summary line" >&2
+  summary_count="$(grep -c '^monitor=' "$out_file" || true)"
+  if [ "$summary_count" -ne 1 ]; then
+    echo "FAIL: $name emitted $summary_count monitor= summary lines (expected exactly 1)" >&2
+    echo "--- output (first 50 lines) ---" >&2
+    head -n 50 "$out_file" >&2 || true
+    echo "--- end output ---" >&2
+    fail=1
+  fi
+
+  if grep -qv '^monitor=' "$out_file"; then
+    echo "FAIL: $name emitted non-summary stdout lines (stdout must be monitor= only)" >&2
     echo "--- output (first 50 lines) ---" >&2
     head -n 50 "$out_file" >&2 || true
     echo "--- end output ---" >&2

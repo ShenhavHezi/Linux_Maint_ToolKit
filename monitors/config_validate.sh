@@ -11,7 +11,7 @@ set -euo pipefail
 : "${LM_LOG_DIR:=.logs}"
 
 
-. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; exit 1; }
+. "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing ${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" >&2; exit 1; }
 LM_PREFIX="[config_validate] "
 LM_LOGFILE="${LM_LOGFILE:-/var/log/config_validate.log}"
 

@@ -1,9 +1,16 @@
-# Linux_Maint_ToolKit — Product Backlog (2026-02-22)
+# Linux_Maint_ToolKit — Roadmap & Backlog (2026-02-22)
 
-This backlog is curated for operator trust, automation safety, and long‑term maintainability.
-Each item includes a clear outcome and a short acceptance note to keep scope crisp.
+## Project brief
+Linux_Maint_ToolKit is a lightweight, offline‑friendly Linux maintenance and health toolkit.
+It runs locally or via SSH, emits machine‑parseable summary lines, and keeps outputs stable for automation.
+Primary audiences: operators, sysadmins, and SREs working in constrained or air‑gapped environments.
 
-Priority legend:
+## Principles
+- Bash‑only runtime; no new runtime dependencies.
+- Machine outputs are clean and parse‑safe (stdout contract preserved).
+- Minimal, reversible changes; strong tests + docs for any behavior change.
+
+## Priority legend
 - P0: correctness / safety
 - P1: operator UX / docs
 - P2: security / hardening
@@ -12,81 +19,63 @@ Priority legend:
 
 ---
 
-## Completed (2026-02-22)
+## Recently completed (2026-02-22)
 
-1. Smoke test summary lint fixture
-   Outcome: avoid long wrapper runs during CI smoke tests.
-   Acceptance: smoke test passes a static summary fixture to `summary_noise_lint`.
+1. Summary output hardening
+   Outcome: one summary line per monitor/host; stdout kept machine‑clean.
+   Acceptance: duplicate summaries suppressed; tests enforce no stdout noise.
 
-2. `status --expected-skips` (operator UX)
-   Outcome: show expected SKIP reasons from missing optional config files.
-   Acceptance: flag documented and available in CLI.
+2. Init safety (`linux-maint init --force`)
+   Outcome: init never overwrites existing config unless `--force` is passed.
+   Acceptance: tests verify non‑overwrite and forced overwrite behavior.
 
-3. Quickstart banner in README
-   Outcome: copy/paste commands visible at top for first-time users.
-   Acceptance: banner sits above Table of Contents.
+3. Operator docs expansion
+   Outcome: first‑10‑minutes runbook and artifact/log reference added.
+   Acceptance: new docs linked from doc indexes and README.
 
-4. CLI UX sweep for help/usage consistency
-   Outcome: aligned `linux-maint help status` with new flags.
-   Acceptance: help text includes `--expected-skips`.
+---
 
-5. Docs quick‑ref refresh
-   Outcome: quick reference includes latest flags.
-   Acceptance: `status --expected-skips` documented.
-
-6. Security hardening sweep (targets + baselines)
-   Outcome: prevent remote command injection via network targets and baseline path traversal.
-   Acceptance: input validation and hostname sanitization in monitors; docs updated.
-
-7. Prometheus: last run age metric
-   Outcome: expose `linux_maint_last_run_age_seconds` for monitoring freshness.
-   Acceptance: metric present in textfile output and documented.
-
-## P0 — Correctness / safety
+## P0 — Correctness / safety (next)
 
 1. JSON contracts for `trend --json` and `runtimes --json`
-   Outcome: stable schemas and contract versions, enforced by tests.
-   Acceptance: new schema files + test validation in CI.
+   Outcome: stable schemas and versioning for both payloads.
+   Acceptance: JSON schema files + tests validate output shape.
 
 2. Strict run validation mode
    Outcome: `linux-maint run --strict` fails if any monitor emits malformed summary lines.
    Acceptance: wrapper rejects invalid lines; docs describe strict mode.
 
 3. Deterministic test mode
-   Outcome: stable timestamps + disabled notify/email for CI runs.
-   Acceptance: a single env flag freezes timestamps and disables outbound actions.
+   Outcome: stable timestamps and disabled outbound actions for CI.
+   Acceptance: single env flag freezes timestamps and blocks notify/email.
 
 4. Structured fix output for `doctor --fix`
    Outcome: `doctor --fix --json` returns structured actions (id/action/status).
-   Acceptance: JSON schema and tests added.
+   Acceptance: JSON schema + tests added; human output unchanged.
 
 ---
 
-## P1 — Operator UX / documentation
+## P1 — Operator UX / docs (next)
 
 1. `linux-maint explain monitor <name>`
-   Outcome: quick monitor description, dependencies, and common reasons.
-   Acceptance: output is concise and includes required/optional deps.
+   Outcome: concise description, required/optional deps, common reasons.
+   Acceptance: output fits on one screen and references `docs/REASONS.md`.
 
 2. Fleet summary grouping
    Outcome: `status --group-by <host|monitor|reason>` for large fleets.
-   Acceptance: grouped output with totals, consistent ordering.
+   Acceptance: grouped output with totals and stable ordering.
 
 3. One‑screen report
-   Outcome: `report --short` with only totals, top problems, and next steps.
-   Acceptance: fits within ~25 lines for readability.
+   Outcome: `report --short` with totals, top problems, next steps.
+   Acceptance: fits in ~25 lines; no loss of machine outputs.
 
 4. First‑run expectations banner
-   Outcome: status/report explicitly call out expected SKIPs when baselines are missing.
+   Outcome: status/report call out expected SKIPs when baselines/config are missing.
    Acceptance: banner appears only when relevant.
-
-5. Quick‑start banner in README
-   Outcome: top 5 commands visible in first screen of README.
-   Acceptance: concise, copy‑paste friendly block.
 
 ---
 
-## P2 — Security / hardening
+## P2 — Security / hardening (soon)
 
 1. SSH known_hosts mode switch
    Outcome: `LM_SSH_KNOWN_HOSTS_MODE=strict|accept-new` (default accept‑new).
@@ -94,36 +83,31 @@ Priority legend:
 
 2. Export allowlist
    Outcome: `linux-maint export --json` supports `LM_EXPORT_ALLOWLIST`.
-   Acceptance: only allowlisted fields emitted when set.
+   Acceptance: only allowlisted fields emitted when set; tests added.
 
 3. Bundle file hashes
-   Outcome: `pack-logs --hash` writes SHA256 for each bundle file into metadata.
-   Acceptance: hash list included in bundle meta.
-
+   Outcome: `pack-logs --hash` writes SHA256 per bundle file into metadata.
+   Acceptance: hash list included and documented.
 
 ---
 
-## P3 — Observability / integrations
+## P3 — Observability / integrations (later)
 
 1. Metrics snapshot command
-   Outcome: `linux-maint metrics --json` returns status + trend + runtimes in one payload.
+   Outcome: `linux-maint metrics --json` returns status + trend + runtimes.
    Acceptance: stable schema and tests.
 
-2. Prometheus: last run age
-   Outcome: expose `linux_maint_last_run_age_seconds`.
-   Acceptance: value derived from wrapper timestamp.
-
-3. Lightweight Prometheus summary
+2. Lightweight Prometheus summary
    Outcome: `status --prom` returns minimal textfile‑style metrics.
-   Acceptance: includes overall status and per‑status counts.
+   Acceptance: includes overall status + per‑status counts.
 
-4. Agent: structured alert hints
+3. Agent hints
    Outcome: add `next_step=` hints for common reasons in summary output.
-   Acceptance: documented and tested for 3 monitors.
+   Acceptance: documented and tested for at least 3 monitors.
 
 ---
 
-## P4 — DX / release polish
+## P4 — DX / release polish (later)
 
 1. Release verification tool
    Outcome: `tools/release_check.sh` validates docs, schemas, and release notes.
@@ -136,7 +120,3 @@ Priority legend:
 3. Release note drafting workflow
    Outcome: GH Action drafts release notes from CHANGELOG Unreleased.
    Acceptance: draft created on tag push.
-
-4. Agent: CI runtime trim
-   Outcome: reduce full test runtime while preserving coverage.
-   Acceptance: CI time reduced by 30% without losing tests.

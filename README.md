@@ -50,6 +50,8 @@ sudo ./bin/linux-maint status --expected-skips
 - Release checklist: [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) — publishing steps and gates.
 - Release template: [`docs/RELEASE_TEMPLATE.md`](docs/RELEASE_TEMPLATE.md) — release notes template.
 - Docs index (short): [`docs/INDEX.md`](docs/INDEX.md) — quick link list.
+- Security best practices report: [`docs/security_best_practices_report.md`](docs/security_best_practices_report.md) — security guidance snapshot.
+- Release notes (archived): [`docs/release_notes_v0.1.5.md`](docs/release_notes_v0.1.5.md), [`docs/release_notes_v0.1.6.md`](docs/release_notes_v0.1.6.md).
 
 
 ## Repo map (where to look)

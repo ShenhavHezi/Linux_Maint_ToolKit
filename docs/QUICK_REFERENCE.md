@@ -35,6 +35,11 @@ sudo linux-maint report --table
 # Preflight + validate + expected SKIPs
 sudo linux-maint check
 
+# Initialize config templates (won't overwrite unless --force)
+sudo linux-maint init
+sudo linux-maint init --minimal
+sudo linux-maint init --force
+
 # Run history (fast; uses run_index.jsonl)
 sudo linux-maint history --last 10
 sudo linux-maint history --json

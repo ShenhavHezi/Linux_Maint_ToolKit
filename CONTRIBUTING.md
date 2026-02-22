@@ -4,6 +4,8 @@ Thanks for contributing!
 
 This repo is a working Linux maintenance toolkit. Please keep changes small, safe, and compatible.
 
+Read `AGENTS.MD` first for the project rules and required local test commands.
+
 ## Development workflow
 
 ### Lint
