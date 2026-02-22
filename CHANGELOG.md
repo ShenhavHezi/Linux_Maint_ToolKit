@@ -4,6 +4,11 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## Unreleased
 
+- (add changes here)
+
+## 2026-02-22
+
+- Release v0.1.6
 - Added `linux-maint status --expected-skips` to show expected SKIPs for missing optional config.
 - Smoke tests now use a summary fixture for summary noise lint (avoid long wrapper runs in CI).
 - Added a quickstart banner to README for faster onboarding.
