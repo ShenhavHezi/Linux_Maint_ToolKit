@@ -857,6 +857,15 @@ chmod 0644 "$STATUS_FILE"
 # ---- run index (best-effort) ----
 RUN_INDEX_FILE="${LM_RUN_INDEX_FILE:-$LM_STATE_DIR/run_index.jsonl}"
 RUN_INDEX_KEEP="${LM_RUN_INDEX_KEEP:-200}"
+# If the run index previously lived in a legacy location, seed it once.
+if [[ ! -f "$RUN_INDEX_FILE" ]]; then
+  for _old in /var/tmp/run_index.jsonl /var/tmp/linux_maint/run_index.jsonl /tmp/linux_maint/run_index.jsonl; do
+    if [[ -f "$_old" ]]; then
+      cp -f "$_old" "$RUN_INDEX_FILE" 2>/dev/null || true
+      break
+    fi
+  done
+fi
 python3 - "$RUN_INDEX_FILE" "$RUN_INDEX_KEEP" "$SUMMARY_FILE" "$SUMMARY_JSON_FILE" "$logfile" "$overall" "$worst" "$ts_epoch" <<'PY' || true
 import json, os, sys, time
 

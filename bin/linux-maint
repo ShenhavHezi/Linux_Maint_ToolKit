@@ -694,7 +694,18 @@ PY
     fi
     index_file="${LM_RUN_INDEX_FILE:-$state_dir/run_index.jsonl}"
 
-    LM_COLOR="$HISTORY_COLOR" python3 - "$index_file" "$LAST_N" "$HISTORY_JSON" "$HISTORY_TABLE" "$HISTORY_COMPACT" <<'PY'
+    HISTORY_NOTE=""
+    if [[ ! -f "$index_file" ]]; then
+      for alt in /var/tmp/run_index.jsonl /var/tmp/linux_maint/run_index.jsonl /tmp/linux_maint/run_index.jsonl; do
+        if [[ -f "$alt" ]]; then
+          index_file="$alt"
+          HISTORY_NOTE="note: using run_index from $alt"
+          break
+        fi
+      done
+    fi
+
+    LM_COLOR="$HISTORY_COLOR" HISTORY_NOTE="$HISTORY_NOTE" python3 - "$index_file" "$LAST_N" "$HISTORY_JSON" "$HISTORY_TABLE" "$HISTORY_COMPACT" <<'PY'
 import json, os, sys
 path, last_n, json_mode, table, compact = sys.argv[1:6]
 last_n = int(last_n)
@@ -702,6 +713,7 @@ json_mode = json_mode == "1"
 table = table == "1"
 compact = compact == "1"
 color = os.environ.get("LM_COLOR","1") == "1"
+note = os.environ.get("HISTORY_NOTE","")
 
 def c(s, code):
     if not color:
@@ -763,6 +775,8 @@ if not rows:
     raise SystemExit(0)
 
 print(f"=== Last {len(rows)} runs (run_index) ===")
+if note:
+    print(note)
 if table:
     headers=("TIMESTAMP","OVERALL","EXIT_CODE","CRIT","WARN","UNKNOWN","SKIP","OK")
     table_rows=[]
@@ -844,6 +858,20 @@ def c(s, code):
         return s
     return f"\033[{code}m{s}\033[0m"
 
+def color_status(st, text=None):
+    label = text if text is not None else st
+    if st == "CRIT":
+        return c(label,"1;31")
+    if st == "WARN":
+        return c(label,"1;33")
+    if st == "OK":
+        return c(label,"1;32")
+    if st == "UNKNOWN":
+        return c(label,"1;35")
+    if st == "SKIP":
+        return c(label,"1;36")
+    return label
+
 try:
     with open(path, "r", encoding="utf-8") as f:
         status = json.load(f)
@@ -856,23 +884,18 @@ exit_code = last.get("exit_code", "3")
 summary_file = status.get("summary_file","")
 totals = status.get("totals", {})
 
-ov = overall
-if overall == "CRIT":
-    ov = c(overall,"1;31")
-elif overall == "WARN":
-    ov = c(overall,"1;33")
-elif overall == "OK":
-    ov = c(overall,"1;32")
+ov = color_status(overall)
 
 parts = [
     f"overall={ov}",
     f"exit_code={exit_code}",
-    f"CRIT={totals.get('CRIT',0)}",
-    f"WARN={totals.get('WARN',0)}",
-    f"UNKNOWN={totals.get('UNKNOWN',0)}",
-    f"SKIP={totals.get('SKIP',0)}",
-    f"OK={totals.get('OK',0)}",
 ]
+for k in ["CRIT","WARN","UNKNOWN","SKIP","OK"]:
+    v = totals.get(k,0)
+    kv = f"{k}={v}"
+    if v != 0:
+        kv = color_status(k, kv)
+    parts.append(kv)
 if summary_file:
     parts.append(f"summary={summary_file}")
 

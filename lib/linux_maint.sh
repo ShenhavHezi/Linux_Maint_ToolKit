@@ -21,7 +21,13 @@ set -o pipefail
 : "${LM_HOSTS_DIR:=/etc/linux_maint/hosts.d}"   # optional host groups directory
 : "${LM_GROUP:=}"                          # optional group name (maps to $LM_HOSTS_DIR/<group>.txt)
 : "${LM_LOCKDIR:=/var/lock}"
-: "${LM_STATE_DIR:=/var/tmp}"
+if [[ -z "${LM_STATE_DIR:-}" ]]; then
+  if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+    LM_STATE_DIR="/var/lib/linux_maint"
+  else
+    LM_STATE_DIR="/var/tmp/linux_maint"
+  fi
+fi
 
 : "${LM_SSH_OPTS:=-o BatchMode=yes -o ConnectTimeout=7 -o ServerAliveInterval=10 -o ServerAliveCountMax=2 -o ForwardAgent=no -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/var/lib/linux_maint/known_hosts -o GlobalKnownHostsFile=/dev/null}"
 
