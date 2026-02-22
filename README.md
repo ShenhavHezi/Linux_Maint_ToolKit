@@ -76,6 +76,10 @@ For JSON payloads and full contracts, see `docs/reference.md`.
 - Installation: `docs/installation.md`
 - Troubleshooting: `docs/troubleshooting.md`
 
+Pinned docs:
+- Start here: `docs/README.md`
+- Operator quick commands: `docs/QUICK_REFERENCE.md`
+
 ## Dark-site / offline
 
 Designed for air-gapped environments: no runtime network dependency and conservative defaults.
