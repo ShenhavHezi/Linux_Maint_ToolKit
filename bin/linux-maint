@@ -2396,6 +2396,7 @@ PYJSON
       fi
     fi
 
+    echo ""
     echo "== Config presence =="
     fix_suggestions=()
     add_fix(){ fix_suggestions+=("$1"); }
@@ -2431,6 +2432,7 @@ PYJSON
       add_fix "Initialize config templates: sudo linux-maint init"
     fi
 
+    echo ""
     echo "== Monitor gates (what may SKIP) =="
     printf "%-22s %-10s %s\n" "MONITOR" "STATUS" "PATH"
     if [[ -s "$CFG_DIR/certs.txt" ]]; then
@@ -2476,6 +2478,7 @@ PYJSON
       add_fix "Add backup targets to $CFG_DIR/backup_targets.csv"
     fi
 
+    echo ""
     echo "== Dependencies (best-effort) =="
     need_cmd() {
       local cmd="$1" pkg_hint="$2"
@@ -2500,6 +2503,7 @@ PYJSON
     need_cmd systemctl "systemd"
 
     if [[ "$DOCTOR_COMPACT" -eq 0 ]]; then
+      echo ""
       echo "== systemd (best-effort) =="
       if command -v systemctl >/dev/null 2>&1; then
         for unit in linux-maint.timer linux-maint.service; do
@@ -2518,6 +2522,7 @@ PYJSON
       fi
     fi
 
+    echo ""
     echo "== Can write state/logs? =="
     printf "%-24s %s\n" "PATH" "STATUS"
     for d in /var/log/health /var/log/inventory /var/lib/linux_maint /var/lock; do
@@ -2537,6 +2542,7 @@ PYJSON
       fi
     done
 
+    echo ""
     echo "== Fix suggestions =="
     if [[ "${#fix_suggestions[@]}" -eq 0 ]]; then
       echo "- none"
@@ -2547,6 +2553,7 @@ PYJSON
     fi
 
     if [[ "$DOCTOR_COMPACT" -eq 0 ]]; then
+      echo ""
       echo "== Next recommended actions =="
       echo "- linux-maint verify-install"
       echo "- sudo linux-maint init      # if config is missing"
@@ -2643,6 +2650,7 @@ PY
       fi
     done
     if [[ "$SC_COMPACT" -eq 0 ]]; then
+      echo ""
       echo "== Paths (writable) =="
       printf "%-24s %s\n" "PATH" "STATUS"
       for d in "$LOG_DIR_SC" "$STATE_DIR_SC" "$LOCK_DIR_SC"; do
@@ -2652,6 +2660,7 @@ PY
           printf "%-24s %s\n" "$d" "${C_RED}MISSING${C_RESET}"
         fi
       done
+      echo ""
       echo "== Dependencies =="
       for cmd in bash awk sed grep df find timeout ssh; do
         command -v "$cmd" >/dev/null 2>&1 && printf "%-18s %s\n" "$cmd" "${C_GREEN}OK${C_RESET}" || printf "%-18s %s\n" "$cmd" "${C_RED}MISSING${C_RESET}"
