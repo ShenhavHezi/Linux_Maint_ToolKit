@@ -315,10 +315,10 @@ ${C_CYAN}Environment${C_RESET}:
   LM_DARK_SITE=true     enable conservative offline defaults
 
 ${C_CYAN}Examples${C_RESET}:
-  linux-maint run --local-only
-  linux-maint status --only WARN
-  linux-maint report
-  linux-maint summary
+  linux-maint run --group prod --parallel 10 --dry-run
+  linux-maint status --only WARN --reasons 5
+  linux-maint report --short
+  linux-maint pack-logs --out /tmp --redact
 
 ${C_CYAN}Tips${C_RESET}:
   linux-maint help <command>
