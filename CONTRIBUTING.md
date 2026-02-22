@@ -35,6 +35,12 @@ Optional high-confidence secret lint:
 ./tools/secret_scan.sh
 ```
 
+Pre-release safety check (recommended):
+
+```bash
+bash tests/secret_scan_lint_test.sh
+```
+
 For a fast pre-push gate (contract/lint focused):
 
 ```bash
