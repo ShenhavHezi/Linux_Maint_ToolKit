@@ -82,12 +82,21 @@ parse_params(){
 
 has_unsafe_chars(){
   local s="$1"
-  local sq=$'\''
+  local sq bt dl sc amp pipe lt gt bs
+  sq=$'\''
+  bt=$'`'
+  dl='$'
+  sc=';'
+  amp='&'
+  pipe='|'
+  lt='<'
+  gt='>'
+  bs='\\'
   [[ -z "$s" ]] && return 0
   if [[ "$s" =~ [[:space:]] ]]; then
     return 0
   fi
-  if [[ "$s" == *"$sq"* || "$s" == *'`'* || "$s" == *'$'* || "$s" == *';'* || "$s" == *'&'* || "$s" == *'|'* || "$s" == *'<'* || "$s" == *'>'* || "$s" == *'\\'* ]]; then
+  if [[ "$s" == *"$sq"* || "$s" == *"$bt"* || "$s" == *"$dl"* || "$s" == *"$sc"* || "$s" == *"$amp"* || "$s" == *"$pipe"* || "$s" == *"$lt"* || "$s" == *"$gt"* || "$s" == *"$bs"* ]]; then
     return 0
   fi
   return 1
