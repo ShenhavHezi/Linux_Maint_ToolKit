@@ -428,12 +428,40 @@ runtime_warned=0
 runtime_warn_count=0
 runtime_file="$TMPDIR/linux_maint_runtime.$$"
 
+progress_enabled=0
+if [[ -t 2 ]]; then
+  progress_enabled=1
+fi
+case "${LM_PROGRESS:-1}" in
+  0|false|no|off) progress_enabled=0 ;;
+esac
+progress_width="${LM_PROGRESS_WIDTH:-24}"
+progress_render() {
+  local idx="$1" total="$2" name="$3"
+  [[ "$progress_enabled" -eq 1 ]] || return 0
+  [[ "$total" -gt 0 ]] || return 0
+  local filled=$(( idx * progress_width / total ))
+  local rest=$(( progress_width - filled ))
+  local bar
+  bar="$(printf '%*s' "$filled" '' | tr ' ' '#')"
+  bar="${bar}$(printf '%*s' "$rest" '' | tr ' ' '-')"
+  printf '\r[%s] %d/%d %s' "$bar" "$idx" "$total" "$name" >&2
+}
+progress_done() {
+  [[ "$progress_enabled" -eq 1 ]] || return 0
+  printf '\n' >&2
+}
+
 now_ms(){
   date +%s%3N 2>/dev/null || echo $(( $(date +%s) * 1000 ))
 }
 
+total_scripts=${#scripts[@]}
+idx=0
 for s in "${scripts[@]}"; do
   set +e
+  idx=$((idx+1))
+  progress_render "$idx" "$total_scripts" "${s%.sh}"
   start_ms="$(now_ms)"
   before_lines=$(grep -a -c "^monitor=" "$tmp_report" 2>/dev/null || true)
   before_lines=${before_lines:-0}
@@ -459,6 +487,7 @@ for s in "${scripts[@]}"; do
   esac
   [ "$rc" -gt "$worst" ] && worst="$rc"
 done
+progress_done
 
 # Persist runtime data for downstream outputs (prometheus).
 : > "$runtime_file" 2>/dev/null || true

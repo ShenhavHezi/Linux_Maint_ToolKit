@@ -33,7 +33,7 @@ printf '%s\n' "$compact_out" | grep -q '^totals:' || {
 }
 
 table_out="$(bash "$LM" report --table 2>/dev/null || true)"
-printf '%s\n' "$table_out" | grep -q '^STATUS[[:space:]]+MONITOR' || {
+printf '%s\n' "$table_out" | grep -Eq '^STATUS[[:space:]]+MONITOR' || {
   echo "report --table missing header" >&2
   echo "$table_out" >&2
   exit 1
@@ -51,7 +51,7 @@ printf '%s\n' "$no_color_out" | grep -q $'\033' && {
   exit 1
 }
 
-color_out="$(bash "$LM" report --table 2>/dev/null || true)"
+color_out="$(NO_COLOR= LM_FORCE_COLOR=1 bash "$LM" report --table 2>/dev/null || true)"
 printf '%s\n' "$color_out" | grep -q $'\033' || {
   echo "report --table should contain ANSI when color enabled" >&2
   echo "$color_out" >&2

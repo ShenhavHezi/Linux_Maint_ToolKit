@@ -6,6 +6,14 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 - (add changes here)
 
+## 2026-02-22
+
+- Added progress bars for runs and support bundles; per-host progress for baseline updates.
+- Polished CLI UX with colored section headers, clearer hints, and a quick-start menu.
+- Added `LM_FORCE_COLOR` to force ANSI output even without a TTY.
+- Expanded config/history/report output formatting for better readability.
+- Updated tests to handle forced color and tightened header matching.
+
 ## 2026-02-19
 
 - Added colorized CLI output for status/report with NO_COLOR/--no-color support.

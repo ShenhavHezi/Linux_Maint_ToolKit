@@ -16,6 +16,38 @@ LOG_DIR="${LOG_DIR:-/var/log/health}"
 CFG_DIR="${CFG_DIR:-/etc/linux_maint}"
 STATE_DIR="${STATE_DIR:-/var/lib/linux_maint}"
 
+# Progress (stderr, best-effort)
+progress_enabled=0
+if [[ -t 2 ]]; then
+  progress_enabled=1
+fi
+case "${LM_PROGRESS:-1}" in
+  0|false|no|off) progress_enabled=0 ;;
+esac
+progress_width="${LM_PROGRESS_WIDTH:-24}"
+progress_total=0
+progress_idx=0
+progress_render() {
+  local idx="$1" total="$2" label="$3"
+  [[ "$progress_enabled" -eq 1 ]] || return 0
+  [[ "$total" -gt 0 ]] || return 0
+  local filled=$(( idx * progress_width / total ))
+  local rest=$(( progress_width - filled ))
+  local bar
+  bar="$(printf '%*s' "$filled" '' | tr ' ' '#')"
+  bar="${bar}$(printf '%*s' "$rest" '' | tr ' ' '-')"
+  printf '\r[%s] %d/%d %s' "$bar" "$idx" "$total" "$label" >&2
+}
+progress_step() {
+  [[ "$progress_enabled" -eq 1 ]] || return 0
+  progress_idx=$((progress_idx+1))
+  progress_render "$progress_idx" "$progress_total" "${1:-}"
+}
+progress_done() {
+  [[ "$progress_enabled" -eq 1 ]] || return 0
+  printf '\n' >&2
+}
+
 # Redaction is intentionally simple and conservative.
 # We only redact common key patterns in *.conf and *.txt.
 redact_file() {
@@ -60,6 +92,55 @@ list_latest() {
     -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n "$max" | awk '{print $2}'
 }
 
+# Collect candidate files (for progress sizing)
+log_files=()
+for f in \
+  "$LOG_DIR/full_health_monitor_latest.log" \
+  "$LOG_DIR/full_health_monitor_summary_latest.log" \
+  "$LOG_DIR/full_health_monitor_summary_latest.json" \
+  "$LOG_DIR/last_status_full" \
+  ; do
+  if [[ -e "$f" ]]; then
+    log_files+=("$f")
+  fi
+done
+
+MAX_LOGS="${MAX_LOGS:-3}"
+if [[ -d "$LOG_DIR" ]]; then
+  mapfile -t _list < <(list_latest "${LOG_DIR}/full_health_monitor_*.log" "$MAX_LOGS")
+  log_files+=("${_list[@]}")
+  mapfile -t _list < <(list_latest "${LOG_DIR}/full_health_monitor_summary_*.log" "$MAX_LOGS")
+  log_files+=("${_list[@]}")
+  mapfile -t _list < <(list_latest "${LOG_DIR}/full_health_monitor_summary_*.json" "$MAX_LOGS")
+  log_files+=("${_list[@]}")
+fi
+
+cfg_files=()
+if [[ -d "$CFG_DIR" && -r "$CFG_DIR" ]]; then
+  mapfile -t cfg_files < <(find "$CFG_DIR" -type f 2>/dev/null || true)
+fi
+
+meta_files=()
+for f in \
+  "/usr/local/share/Linux_Maint_ToolKit/BUILD_INFO" \
+  "/usr/local/share/Linux_Maint_ToolKit/VERSION" \
+  "/usr/local/share/linux-maint/BUILD_INFO" \
+  "/usr/local/share/linux-maint/VERSION" \
+  "${REPO_ROOT:-}/BUILD_INFO" \
+  "${REPO_ROOT:-}/VERSION" \
+  ; do
+  if [[ -f "$f" ]]; then
+    meta_files+=("$f")
+  fi
+done
+
+state_files=()
+if [[ -d "$STATE_DIR" && -r "$STATE_DIR" ]]; then
+  mapfile -t state_files < <(find "$STATE_DIR" -maxdepth 2 -type f -size -256k 2>/dev/null || true)
+fi
+
+progress_total=$(( ${#log_files[@]} + ${#cfg_files[@]} + ${#meta_files[@]} + ${#state_files[@]} + 1 ))
+
 mkdir -p "$OUTDIR"
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
@@ -70,41 +151,18 @@ mkdir -p "$bundle_root"
 # --- Logs ---
 mkdir -p "$bundle_root/logs"
 
-# Prefer latest symlinks if present
-for f in \
-  "$LOG_DIR/full_health_monitor_latest.log" \
-  "$LOG_DIR/full_health_monitor_summary_latest.log" \
-  "$LOG_DIR/full_health_monitor_summary_latest.json" \
-  "$LOG_DIR/last_status_full" \
-  ; do
-  if [[ -e "$f" ]]; then
-    copy_log "$f" "$bundle_root/logs"
-  fi
+for f in "${log_files[@]}"; do
+  [[ -n "$f" ]] || continue
+  copy_log "$f" "$bundle_root/logs"
+  progress_step "log:$(basename -- "$f")"
 done
 
-# Also include last N full logs if available (default 3)
-MAX_LOGS="${MAX_LOGS:-3}"
-if [[ -d "$LOG_DIR" ]]; then
-  while IFS= read -r p; do
-    [[ -n "$p" ]] || continue
-    copy_log "$p" "$bundle_root/logs"
-  done < <(list_latest "${LOG_DIR}/full_health_monitor_*.log" "$MAX_LOGS")
-  while IFS= read -r p; do
-    [[ -n "$p" ]] || continue
-    copy_log "$p" "$bundle_root/logs"
-  done < <(list_latest "${LOG_DIR}/full_health_monitor_summary_*.log" "$MAX_LOGS")
-  while IFS= read -r p; do
-    [[ -n "$p" ]] || continue
-    copy_log "$p" "$bundle_root/logs"
-  done < <(list_latest "${LOG_DIR}/full_health_monitor_summary_*.json" "$MAX_LOGS")
-fi
-
 # --- Config (redacted) ---
-if [[ -d "$CFG_DIR" && -r "$CFG_DIR" ]]; then
+if [[ "${#cfg_files[@]}" -gt 0 ]]; then
   mkdir -p "$bundle_root/config"
   # Copy while preserving relative layout.
   # Redact only text-like files.
-  ( find "$CFG_DIR" -type f 2>/dev/null || true ) | while IFS= read -r f; do
+  for f in "${cfg_files[@]}"; do
     rel="${f#"$CFG_DIR"/}"
     dest_dir="$bundle_root/config/$(dirname -- "$rel")"
     mkdir -p "$dest_dir"
@@ -117,36 +175,23 @@ if [[ -d "$CFG_DIR" && -r "$CFG_DIR" ]]; then
         cp -a "$f" "$dest_dir/" 2>/dev/null || true
         ;;
     esac
+    progress_step "config:$(basename -- "$rel")"
   done
 fi
 
 # --- Build info ---
 mkdir -p "$bundle_root/meta"
-for f in \
-  "/usr/local/share/Linux_Maint_ToolKit/BUILD_INFO" \
-  "/usr/local/share/Linux_Maint_ToolKit/VERSION" \
-  "/usr/local/share/linux-maint/BUILD_INFO" \
-  "/usr/local/share/linux-maint/VERSION" \
-  ; do
-  if [[ -f "$f" ]]; then
-    cp -a "$f" "$bundle_root/meta/" 2>/dev/null || true
-  fi
+for f in "${meta_files[@]}"; do
+  cp -a "$f" "$bundle_root/meta/" 2>/dev/null || true
+  progress_step "meta:$(basename -- "$f")"
 done
 
-# In repo mode, prefer repo-local files if present
-if [[ -f "${REPO_ROOT:-}/BUILD_INFO" ]]; then
-  cp -a "${REPO_ROOT}/BUILD_INFO" "$bundle_root/meta/" 2>/dev/null || true
-fi
-if [[ -f "${REPO_ROOT:-}/VERSION" ]]; then
-  cp -a "${REPO_ROOT}/VERSION" "$bundle_root/meta/" 2>/dev/null || true
-fi
-
 # --- State dir (optional, small files only) ---
-if [[ -d "$STATE_DIR" && -r "$STATE_DIR" ]]; then
+if [[ "${#state_files[@]}" -gt 0 ]]; then
   mkdir -p "$bundle_root/state"
-  # only include small state files (<256KB)
-  ( find "$STATE_DIR" -maxdepth 2 -type f -size -256k 2>/dev/null || true ) | while IFS= read -r f; do
+  for f in "${state_files[@]}"; do
     copy_log "$f" "$bundle_root/state"
+    progress_step "state:$(basename -- "$f")"
   done
 fi
 
@@ -154,5 +199,7 @@ out_name="${NAME_PREFIX}-${TS}.tar.gz"
 out_path="$OUTDIR/$out_name"
 
 tar -C "$bundle_root" -czf "$out_path" .
+progress_step "compress"
+progress_done
 
 echo "$out_path"

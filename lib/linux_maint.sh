@@ -82,6 +82,48 @@ lm_warn(){ lm_log WARN "$@"; }
 lm_err(){  lm_log ERROR "$@"; }
 lm_die(){  lm_err "$@"; exit 1; }
 
+# ========= Progress (TTY stderr, best-effort) =========
+lm_progress_enabled() {
+  [[ -t 2 ]] || return 1
+  case "${LM_PROGRESS:-1}" in
+    0|false|no|off) return 1 ;;
+  esac
+  return 0
+}
+
+lm_progress_begin() {
+  _LM_P_ENABLED=0
+  if lm_progress_enabled; then
+    _LM_P_ENABLED=1
+  fi
+  _LM_P_TOTAL="${1:-0}"
+  _LM_P_IDX=0
+  _LM_P_WIDTH="${LM_PROGRESS_WIDTH:-24}"
+}
+
+lm_progress_render() {
+  [[ "${_LM_P_ENABLED:-0}" -eq 1 ]] || return 0
+  local idx="$1" total="$2" label="${3:-}"
+  [[ "$total" -gt 0 ]] || return 0
+  local filled=$(( idx * _LM_P_WIDTH / total ))
+  local rest=$(( _LM_P_WIDTH - filled ))
+  local bar
+  bar="$(printf '%*s' "$filled" '' | tr ' ' '#')"
+  bar="${bar}$(printf '%*s' "$rest" '' | tr ' ' '-')"
+  printf '\r[%s] %d/%d %s' "$bar" "$idx" "$total" "$label" >&2
+}
+
+lm_progress_step() {
+  [[ "${_LM_P_ENABLED:-0}" -eq 1 ]] || return 0
+  _LM_P_IDX=$((_LM_P_IDX+1))
+  lm_progress_render "$_LM_P_IDX" "$_LM_P_TOTAL" "${1:-}"
+}
+
+lm_progress_done() {
+  [[ "${_LM_P_ENABLED:-0}" -eq 1 ]] || return 0
+  printf '\n' >&2
+}
+
 lm_json_escape() {
   local s="$1"
   s="${s//\\/\\\\}"
@@ -440,28 +482,68 @@ lm_for_each_host() {
   local fn="$1"
   local -a PIDS=()
   local running=0
+  local use_progress=0
 
-  while read -r HOST; do
-    [ -z "$HOST" ] && continue
-    lm_is_excluded "$HOST" && { lm_info "Skipping $HOST (excluded)"; continue; }
+  if [[ "${LM_HOST_PROGRESS:-0}" -eq 1 ]] && lm_progress_enabled; then
+    use_progress=1
+  fi
 
-    if [ "${LM_MAX_PARALLEL:-0}" -gt 0 ]; then
-      # background with simple pool
-      "$fn" "$HOST" &
-      PIDS+=($!)
-      running=$((running+1))
-      if [ "$running" -ge "$LM_MAX_PARALLEL" ]; then
-        wait -n
-        running=$((running-1))
+  if [ "$use_progress" -eq 1 ]; then
+    local -a HOSTS=()
+    local total=0
+    mapfile -t HOSTS < <(lm_hosts)
+    for HOST in "${HOSTS[@]}"; do
+      [ -z "$HOST" ] && continue
+      lm_is_excluded "$HOST" && continue
+      total=$((total+1))
+    done
+    lm_progress_begin "$total"
+
+    for HOST in "${HOSTS[@]}"; do
+      [ -z "$HOST" ] && continue
+      if lm_is_excluded "$HOST"; then
+        lm_info "Skipping $HOST (excluded)"
+        continue
       fi
-    else
-      "$fn" "$HOST"
-    fi
-  done < <(lm_hosts)
+      lm_progress_step "$HOST"
+      if [ "${LM_MAX_PARALLEL:-0}" -gt 0 ]; then
+        "$fn" "$HOST" &
+        PIDS+=($!)
+        running=$((running+1))
+        if [ "$running" -ge "$LM_MAX_PARALLEL" ]; then
+          wait -n
+          running=$((running-1))
+        fi
+      else
+        "$fn" "$HOST"
+      fi
+    done
+  else
+    while read -r HOST; do
+      [ -z "$HOST" ] && continue
+      lm_is_excluded "$HOST" && { lm_info "Skipping $HOST (excluded)"; continue; }
+
+      if [ "${LM_MAX_PARALLEL:-0}" -gt 0 ]; then
+        # background with simple pool
+        "$fn" "$HOST" &
+        PIDS+=($!)
+        running=$((running+1))
+        if [ "$running" -ge "$LM_MAX_PARALLEL" ]; then
+          wait -n
+          running=$((running-1))
+        fi
+      else
+        "$fn" "$HOST"
+      fi
+    done < <(lm_hosts)
+  fi
 
   # wait remaining
   if [ "${#PIDS[@]}" -gt 0 ]; then
     wait "${PIDS[@]}" 2>/dev/null || true
+  fi
+  if [ "$use_progress" -eq 1 ]; then
+    lm_progress_done
   fi
 }
 
@@ -478,6 +560,7 @@ lm_for_each_host_rc() {
   local -a PIDS=()
   local running=0
   local worst=0
+  local use_progress=0
 
   wait_one_oldest(){
     local pid rc
@@ -492,30 +575,72 @@ lm_for_each_host_rc() {
     fi
   }
 
-  while read -r HOST; do
-    [ -z "$HOST" ] && continue
-    lm_is_excluded "$HOST" && { lm_info "Skipping $HOST (excluded)"; continue; }
+  if [[ "${LM_HOST_PROGRESS:-0}" -eq 1 ]] && lm_progress_enabled; then
+    use_progress=1
+  fi
 
-    if [ "${LM_MAX_PARALLEL:-0}" -gt 0 ]; then
-      "$fn" "$HOST" &
-      PIDS+=($!)
-      running=$((running+1))
+  if [ "$use_progress" -eq 1 ]; then
+    local -a HOSTS=()
+    local total=0
+    mapfile -t HOSTS < <(lm_hosts)
+    for HOST in "${HOSTS[@]}"; do
+      [ -z "$HOST" ] && continue
+      lm_is_excluded "$HOST" && continue
+      total=$((total+1))
+    done
+    lm_progress_begin "$total"
 
-      # throttle
-      while [ "$running" -ge "$LM_MAX_PARALLEL" ]; do
-        wait_one_oldest
-      done
-    else
-      "$fn" "$HOST"
-      rc=$?
-      [ "$rc" -gt "$worst" ] && worst="$rc"
-    fi
-  done < <(lm_hosts)
+    for HOST in "${HOSTS[@]}"; do
+      [ -z "$HOST" ] && continue
+      if lm_is_excluded "$HOST"; then
+        lm_info "Skipping $HOST (excluded)"
+        continue
+      fi
+      lm_progress_step "$HOST"
+      if [ "${LM_MAX_PARALLEL:-0}" -gt 0 ]; then
+        "$fn" "$HOST" &
+        PIDS+=($!)
+        running=$((running+1))
+
+        # throttle
+        while [ "$running" -ge "$LM_MAX_PARALLEL" ]; do
+          wait_one_oldest
+        done
+      else
+        "$fn" "$HOST"
+        rc=$?
+        [ "$rc" -gt "$worst" ] && worst="$rc"
+      fi
+    done
+  else
+    while read -r HOST; do
+      [ -z "$HOST" ] && continue
+      lm_is_excluded "$HOST" && { lm_info "Skipping $HOST (excluded)"; continue; }
+
+      if [ "${LM_MAX_PARALLEL:-0}" -gt 0 ]; then
+        "$fn" "$HOST" &
+        PIDS+=($!)
+        running=$((running+1))
+
+        # throttle
+        while [ "$running" -ge "$LM_MAX_PARALLEL" ]; do
+          wait_one_oldest
+        done
+      else
+        "$fn" "$HOST"
+        rc=$?
+        [ "$rc" -gt "$worst" ] && worst="$rc"
+      fi
+    done < <(lm_hosts)
+  fi
 
   # wait remaining
   while [ "$running" -gt 0 ]; do
     wait_one_oldest
   done
+  if [ "$use_progress" -eq 1 ]; then
+    lm_progress_done
+  fi
 
   return "$worst"
 }

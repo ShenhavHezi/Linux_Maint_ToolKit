@@ -25,9 +25,9 @@ printf '%s\n' "$out" | grep -q '^LM_FOO[[:space:]]' || {
 }
 
 json_out="$(LM_CFG_DIR="$cfg" bash "$LM" config --json 2>/dev/null || true)"
-printf '%s' "$json_out" | python3 - <<'PY'
-import json, sys
-data = json.load(sys.stdin)
+JSON_OUT="$json_out" python3 - <<'PY'
+import json, os
+data = json.loads(os.environ.get("JSON_OUT", ""))
 assert data.get("values", {}).get("LM_FOO") == "bar"
 assert data.get("values", {}).get("LM_NUM") == "123"
 PY

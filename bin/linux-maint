@@ -9,6 +9,9 @@ TMPDIR="${TMPDIR:-/tmp}"
 # Color handling (opt-out via NO_COLOR/LM_NO_COLOR or --no-color)
 LM_COLOR="${LM_COLOR:-1}"
 color_enabled() {
+  case "${LM_FORCE_COLOR:-${FORCE_COLOR:-}}" in
+    1|true|TRUE|yes|YES|on|ON) return 0 ;;
+  esac
   [[ "$LM_COLOR" -eq 1 ]] && [[ -t 1 ]] && [[ -z "${NO_COLOR:-}" ]] && [[ -z "${LM_NO_COLOR:-}" ]]
 }
 if color_enabled; then
@@ -21,6 +24,33 @@ if color_enabled; then
 else
   C_RESET=""; C_BOLD=""; C_RED=""; C_YELLOW=""; C_GREEN=""; C_CYAN=""
 fi
+
+section() {
+  local text="$1"
+  if color_enabled; then
+    echo "=== ${C_CYAN}${text}${C_RESET} ==="
+  else
+    echo "=== ${text} ==="
+  fi
+}
+
+hint_line() {
+  local text="$1"
+  if color_enabled; then
+    echo "${C_YELLOW}Hint:${C_RESET} $text"
+  else
+    echo "Hint: $text"
+  fi
+}
+
+tip_line() {
+  local text="$1"
+  if color_enabled; then
+    echo "${C_YELLOW}Tip:${C_RESET} $text"
+  else
+    echo "Tip: $text"
+  fi
+}
 
 # If running from a git checkout, prefer repo paths automatically.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -62,26 +92,30 @@ INST_SUMMARY_LATEST="/var/log/health/full_health_monitor_summary_latest.log"
 need_root_for(){
   local cmd="$1"
   if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-    echo "ERROR: linux-maint $cmd requires root (installed mode)." >&2
+    if color_enabled; then
+      echo "${C_RED}ERROR:${C_RESET} linux-maint $cmd requires root (installed mode)." >&2
+    else
+      echo "ERROR: linux-maint $cmd requires root (installed mode)." >&2
+    fi
     case "$cmd" in
       run)
-        echo "Hint: sudo linux-maint run" >&2
+        hint_line "sudo linux-maint run" >&2
         echo "      (or run the wrapper directly: sudo /usr/local/sbin/run_full_health_monitor.sh)" >&2
         ;;
       status)
-        echo "Hint: sudo linux-maint status" >&2
+        hint_line "sudo linux-maint status" >&2
         ;;
       logs)
-        echo "Hint: sudo linux-maint logs 200" >&2
+        hint_line "sudo linux-maint logs 200" >&2
         ;;
       preflight)
-        echo "Hint: sudo linux-maint preflight" >&2
+        hint_line "sudo linux-maint preflight" >&2
         ;;
       validate)
-        echo "Hint: sudo linux-maint validate" >&2
+        hint_line "sudo linux-maint validate" >&2
         ;;
       *)
-        echo "Hint: sudo linux-maint $cmd" >&2
+        hint_line "sudo linux-maint $cmd" >&2
         ;;
     esac
     exit 1
@@ -201,28 +235,33 @@ parse_run_args(){
 
 
 usage(){
-  cat <<EOF2
+  cat <<EOF
 Usage: linux-maint <command> [args]
 
-Common commands:
+${C_CYAN}Quick start${C_RESET}:
+  sudo linux-maint run
+  sudo linux-maint report
+  sudo linux-maint doctor
+
+${C_CYAN}Common commands${C_RESET}:
   run [flags]            Run the full wrapper
   status [flags]         Show last run status + filtered summary lines
-  diff [--json]          Show diff since last run (uses wrapper diff state)
-  logs [n]               Tail latest wrapper log (default n=200)
   report [--json] [--compact] [--table] [--no-trend] [--no-slow] [--no-reasons] [--no-problems]  Summarize latest run, trends, and slow monitors
+  logs [n]               Tail latest wrapper log (default n=200)
+  history [--last N] [--json] [--table]  Show recent runs (run index; faster than log scan)
+  diff [--json]          Show diff since last run (uses wrapper diff state)
   config [--json] [--sources] [--lint]  Show effective config (merged from /etc/linux_maint)
   doctor [--json]        Diagnose installation/config/state permissions
   self-check [--json]    Quick validation (config/paths/deps; safe without sudo)
   check                 Run config_validate + preflight + show expected skips
-  history [--last N] [--json] [--table]  Show recent runs (run index; faster than log scan)
   summary [--no-color]  One-line latest summary (for cron/dashboards)
 
-Analysis / reporting:
+${C_CYAN}Analysis / reporting${C_RESET}:
   trend [--last N] [--json]     Aggregate severity/reason trends
   runtimes [--last N] [--json]  Show per-monitor runtimes
   export --json|--csv           Export a single payload (summary_result/hosts + rows)
 
-Setup / maintenance:
+${C_CYAN}Setup / maintenance${C_RESET}:
   init [--minimal]       Install /etc/linux_maint templates (from repo checkout)
   tune dark-site         Apply recommended dark-site defaults to linux-maint.conf
   baseline <ports|configs|users|sudoers> [--update] [--local-only] [--diff] [--show]  Capture or preview baselines
@@ -232,31 +271,39 @@ Setup / maintenance:
   verify-install         Verify installation layout and systemd wiring (best-effort)
   pack-logs [--out DIR]  Create a support bundle tar.gz (logs, config redacted, meta)
 
-Release / packaging:
+${C_CYAN}Release / packaging${C_RESET}:
   version                Print installed BUILD_INFO (if present)
   make-tarball            Build offline release tarball (tools/make_tarball.sh)
   verify-release          Verify release tarball integrity (tools/verify_release.sh)
   install [args]          Run ./install.sh (pass-through)
   uninstall [args]        Run ./install.sh --uninstall (pass-through)
 
-Help:
+${C_CYAN}Help${C_RESET}:
   explain reason <token>  Explain a reason= token (from docs/REASONS.md)
   explain status <S>      Explain a status value (OK/WARN/CRIT/UNKNOWN/SKIP)
   help                    Show this help
 
-Environment:
+${C_CYAN}Environment${C_RESET}:
   PREFIX=/usr/local             installation prefix override
   LINUX_MAINT_LIB=...           override library path (useful in repo mode)
   LM_LOCKDIR=/tmp               override lock dir (useful when not root)
   LM_LOGFILE=/tmp/linux_maint.log override default log file
+  LM_PROGRESS=0                 disable progress bar during run
+  LM_PROGRESS_WIDTH=24          progress bar width (characters)
+  LM_HOST_PROGRESS=1            show per-host progress (used by baseline --update)
+  LM_FORCE_COLOR=1              force color even when not a TTY
   NO_COLOR=1                    disable colored output
 
-Examples:
+${C_CYAN}Examples${C_RESET}:
   linux-maint run --local-only
   linux-maint status --only WARN
   linux-maint report
   linux-maint summary
-EOF2
+
+${C_CYAN}Tips${C_RESET}:
+  linux-maint <command> --help
+  NO_COLOR=1 linux-maint report
+EOF
 }
 
 cmd="${1:-help}"; shift || true
@@ -378,7 +425,7 @@ case "$cmd" in
     if [[ ! -x "$diff_tool" ]]; then
       # In installed mode, tools/ may not exist; try a system python module not available; fallback to error.
       echo "Diff tool not found/executable: $diff_tool" >&2
-      echo "Hint: reinstall linux-maint to include summary_diff.py" >&2
+      hint_line "reinstall linux-maint to include summary_diff.py" >&2
       exit 1
     fi
 
@@ -460,6 +507,14 @@ def c(s, code):
         return s
     return f"\033[{code}m{s}\033[0m"
 
+def header(text):
+    if not color:
+        return text
+    if text.startswith("=== ") and text.endswith(" ==="):
+        inner = text[4:-4]
+        return f"=== {c(inner, '1;36')} ==="
+    return c(text, "1;36")
+
 def color_status(st, text=None):
     label = text if text is not None else st
     if st == "CRIT":
@@ -503,7 +558,7 @@ summary = status.get("summary_file", "")
 ov = color_status(overall)
 if not compact:
     banner = f"health={color_status(overall)} exit_code={exit_code}"
-    print(c("=== linux-maint report ===","1;36") + " " + banner)
+    print(header("=== linux-maint report ===") + " " + banner)
 print(f"mode={mode} overall={ov} exit_code={exit_code}")
 if not compact:
     if logfile:
@@ -696,19 +751,40 @@ PY
     fi
 
     if [[ "${#conf_files[@]}" -eq 0 ]]; then
-      echo "No config files found in $CFG_DIR"
-      echo "Hint: sudo linux-maint init"
+      if color_enabled; then
+        echo "${C_RED}No config files found in ${CFG_DIR}${C_RESET}"
+      else
+        echo "No config files found in $CFG_DIR"
+      fi
+      hint_line "sudo linux-maint init"
       exit 1
     fi
 
-    CFG_DIR="$CFG_DIR" CFG_SOURCES="$CFG_SOURCES" CFG_JSON="$CFG_JSON" CFG_LINT="$CFG_LINT" python3 - "${conf_files[@]}" <<'PY'
+    CFG_COLOR=1
+    [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && CFG_COLOR=0
+    color_enabled || CFG_COLOR=0
+    CFG_DIR="$CFG_DIR" CFG_SOURCES="$CFG_SOURCES" CFG_JSON="$CFG_JSON" CFG_LINT="$CFG_LINT" CFG_COLOR="$CFG_COLOR" python3 - "${conf_files[@]}" <<'PY'
 import json, os, re, shlex, subprocess, sys
 
 cfg_dir = os.environ.get("CFG_DIR", "/etc/linux_maint")
 show_sources = os.environ.get("CFG_SOURCES", "0") == "1"
 json_mode = os.environ.get("CFG_JSON", "0") == "1"
 lint_mode = os.environ.get("CFG_LINT", "0") == "1"
+color = os.environ.get("CFG_COLOR", "0") == "1"
 files = sys.argv[1:]
+
+def c(s, code):
+    if not color:
+        return s
+    return f"\033[{code}m{s}\033[0m"
+
+def header(text):
+    if not color:
+        return text
+    if text.startswith("=== ") and text.endswith(" ==="):
+        inner = text[4:-4]
+        return f"=== {c(inner, '1;36')} ==="
+    return c(text, "1;36")
 
 def extract_keys(paths):
     keys = []
@@ -756,21 +832,21 @@ def lint(paths):
 
 if lint_mode:
     invalid, duplicates = lint(files)
-    print("=== linux-maint config lint ===")
+    print(header("=== linux-maint config lint ==="))
     print(f"cfg_dir={cfg_dir}")
     if invalid:
-        print("\ninvalid lines:")
+        print(c("\ninvalid lines:", "1;33"))
         for p, i, line in invalid[:50]:
             print(f"- {p}:{i}: {line}")
     else:
-        print("\ninvalid lines: none")
+        print(c("\ninvalid lines: none", "1;32"))
     if duplicates:
-        print("\nduplicate keys:")
+        print(c("\nduplicate keys:", "1;33"))
         for k, locs in sorted(duplicates.items()):
             loc_str = ", ".join(f"{p}:{i}" for p, i in locs[:6])
             print(f"- {k}: {loc_str}")
     else:
-        print("\nduplicate keys: none")
+        print(c("\nduplicate keys: none", "1;32"))
     if invalid:
         sys.exit(1)
     sys.exit(0)
@@ -795,7 +871,7 @@ else:
         print(json.dumps({"error": msg, "cfg_dir": cfg_dir, "sources": files}, indent=2, sort_keys=True))
     else:
         print(f"ERROR: {msg}")
-        print("Hint: run 'sudo linux-maint config'")
+        print(c("Hint: run 'sudo linux-maint config'", "1;33"))
     sys.exit(1)
 
 values = {k: env.get(k, "") for k in keys}
@@ -809,10 +885,10 @@ if json_mode:
     print(json.dumps(out, indent=2, sort_keys=True))
     sys.exit(0)
 
-print("=== linux-maint config (effective) ===")
+print(header("=== linux-maint config (effective) ==="))
 print(f"cfg_dir={cfg_dir}")
 if show_sources:
-    print("sources:")
+    print(c("sources:", "1;36"))
     for p in files:
         print(f"- {p}")
 print("")
@@ -851,10 +927,10 @@ PY
       need_root_for check
     fi
 
-    echo "=== config_validate ==="
+    section "config_validate"
     bash "$validate" || true
     echo ""
-    echo "=== preflight ==="
+    section "preflight"
     bash "$preflight" || true
     echo ""
 
@@ -930,6 +1006,14 @@ def c(s, code):
         return s
     return f"\033[{code}m{s}\033[0m"
 
+def header(text):
+    if not color:
+        return text
+    if text.startswith("=== ") and text.endswith(" ==="):
+        inner = text[4:-4]
+        return f"=== {c(inner, '1;36')} ==="
+    return c(text, "1;36")
+
 def color_status(st, text=None):
     label = text if text is not None else st
     if st == "CRIT":
@@ -945,10 +1029,10 @@ def color_status(st, text=None):
     return label
 
 if not os.path.exists(path):
-    print(f"No run index found: {path}")
-    print("Hints:")
-    print("- Run: sudo linux-maint run")
-    print("- Or set LM_RUN_INDEX_FILE when invoking the wrapper")
+    print(c(f"No run index found: {path}", "1;31"))
+    print(c("Hints:", "1;33"))
+    print(c("- Run: sudo linux-maint run", "1;33"))
+    print(c("- Or set LM_RUN_INDEX_FILE when invoking the wrapper", "1;33"))
     sys.exit(1)
 
 rows=[]
@@ -979,12 +1063,12 @@ if compact:
     raise SystemExit(0)
 
 if not rows:
-    print("=== Last 0 runs (run_index) ===")
+    print(header("=== Last 0 runs (run_index) ==="))
     print("No runs recorded yet.")
-    print("Hint: run sudo linux-maint run")
+    print(c("Hint: run sudo linux-maint run", "1;33"))
     raise SystemExit(0)
 
-print(f"=== Last {len(rows)} runs (run_index) ===")
+print(header(f"=== Last {len(rows)} runs (run_index) ==="))
 if note:
     print(note)
 if table:
@@ -1388,18 +1472,22 @@ PY
           WARN) banner="${C_YELLOW}${banner}${C_RESET}" ;;
           OK)   banner="${C_GREEN}${banner}${C_RESET}" ;;
         esac
-        echo "=== linux-maint status === $banner"
+        if color_enabled; then
+          echo "=== ${C_CYAN}linux-maint status${C_RESET} === $banner"
+        else
+          echo "=== linux-maint status === $banner"
+        fi
       else
-        echo "=== linux-maint status ==="
+        section "linux-maint status"
       fi
 
     if [[ "$MODE" == "repo" ]]; then
-      echo "=== Mode ==="
+      section "Mode"
       echo "repo"
-      echo "repo_root: $REPO_ROOT"
-      echo "linux_maint_lib: ${LINUX_MAINT_LIB:-}"
-      echo "logs: $REPO_LOG_DIR"
-      echo ""; echo "=== Last run status ==="
+      echo "repo_root: ${C_BOLD}${REPO_ROOT}${C_RESET}"
+      echo "linux_maint_lib: ${C_BOLD}${LINUX_MAINT_LIB:-}${C_RESET}"
+      echo "logs: ${C_BOLD}${REPO_LOG_DIR}${C_RESET}"
+      echo ""; section "Last run status"
       if [[ -f "$REPO_STATUS_FILE" ]]; then
         cat "$REPO_STATUS_FILE"
       else
@@ -1407,15 +1495,15 @@ PY
       fi
     else
       status_file="/var/log/health/last_status_full"
-      echo "=== Mode ==="
-      echo "installed"
-      echo "prefix: $PREFIX"
-      echo ""; echo "=== Installed paths ==="
-      echo "wrapper: $SBIN/run_full_health_monitor.sh"
-      echo "libexec: $LIBEXEC"
-      echo "build_info: $SHARE/BUILD_INFO"
+      section "Mode"
+      echo "${C_BOLD}installed${C_RESET}"
+      echo "prefix: ${C_BOLD}${PREFIX}${C_RESET}"
+      echo ""; section "Installed paths"
+      echo "wrapper: ${C_BOLD}$SBIN/run_full_health_monitor.sh${C_RESET}"
+      echo "libexec: ${C_BOLD}$LIBEXEC${C_RESET}"
+      echo "build_info: ${C_BOLD}$SHARE/BUILD_INFO${C_RESET}"
       [[ -f "$SHARE/BUILD_INFO" ]] && { echo ""; cat "$SHARE/BUILD_INFO"; }
-      echo ""; echo "=== Last run status ==="
+      echo ""; section "Last run status"
       if [[ -f "$status_file" ]]; then
         cat "$status_file"
       else
@@ -1429,7 +1517,7 @@ PY
     VERBOSE=${VERBOSE:-0}
 
     if [[ "$QUIET" -eq 0 ]]; then
-      echo ""; echo "=== Summary (compact) ==="
+      echo ""; section "Summary (compact)"
     fi
     summary_file=""
     if [[ "$MODE" == "repo" ]]; then
@@ -1611,7 +1699,7 @@ def color_status(st, text=None):
 
 order=['CRIT','WARN','UNKNOWN','SKIP','OK']
 if table:
-    print("totals:")
+    print(c("totals:", "1;36"))
     maxk=max(len(k) for k in order)
     maxv=max(len(str(counts.get(k,0))) for k in order)
     print(f"  {'STATUS':<{maxk}} {'COUNT':<{maxv}}")
@@ -1636,7 +1724,7 @@ if problems:
     sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3}
     problems.sort(key=lambda r: sev_order.get(r["status"], 9))
     show_n=min(limit, len(problems))
-    print(f"\nproblems (top {show_n}):")
+    print(c(f"\nproblems (top {show_n}):", "1;36"))
     if table:
         rows=[(p["status"], p["monitor"], p["host"], p["reason"]) for p in problems[:limit]]
         headers=("STATUS","MONITOR","HOST","REASON")
@@ -1655,12 +1743,12 @@ if problems:
             if p["reason"]:
                 line += f" reason={p['reason']}"
             print(line)
-    print("\ntip: run 'linux-maint doctor' for fix suggestions")
+    print(c("\ntip: run 'linux-maint doctor' for fix suggestions", "1;33"))
 else:
-    print('\nproblems: none (all OK)')
+    print(c('\nproblems: none (all OK)', "1;32"))
 
 if reasons_limit > 0:
-    print(f"\nreasons (top {reasons_limit}):")
+    print(c(f"\nreasons (top {reasons_limit}):", "1;36"))
     if reason_counts:
         rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
         for reason, count in rollup[:reasons_limit]:
@@ -1704,11 +1792,19 @@ PY
       fi
     else
       echo "No summary file: $summary_file"
-      echo "Likely causes:"
+      if color_enabled; then
+        echo "${C_CYAN}Likely causes:${C_RESET}"
+      else
+        echo "Likely causes:"
+      fi
       echo "- The wrapper has not been run yet"
       echo "- LOG_DIR/SUMMARY_DIR points elsewhere"
       echo "- Permission issue writing to /var/log/health (try sudo)"
-      echo "Next steps:"
+      if color_enabled; then
+        echo "${C_CYAN}Next steps:${C_RESET}"
+      else
+        echo "Next steps:"
+      fi
       echo "- Run: sudo linux-maint run"
       echo "- Check logs: sudo linux-maint logs 200"
       echo "- Diagnose: sudo linux-maint doctor"
@@ -1719,7 +1815,7 @@ PY
         grep -E " status=(WARN|CRIT|UNKNOWN)|SKIP:|SUMMARY_RESULT|FINAL_STATUS_SUMMARY|^\\[.*\\] monitor=" "$log" | tail -n 120 || true
       else
         echo "No log found at: $log"
-        echo "Hint: run linux-maint run to generate logs"
+        hint_line "run linux-maint run to generate logs"
       fi
     fi
     ;;
@@ -2374,6 +2470,7 @@ PY
     export LM_BASELINE_ONLY=1
     if [[ "$BASELINE_UPDATE" -eq 1 ]]; then
       export BASELINE_UPDATE="true"
+      export LM_HOST_PROGRESS=1
     fi
     if [[ "$BASELINE_LOCAL" -eq 1 ]]; then
       export LM_LOCAL_ONLY="true"
@@ -2500,14 +2597,14 @@ PY
     fi
     if [[ ! -x "$pack_logs_bin" ]]; then
       echo "ERROR: pack-logs helper not found: $pack_logs_bin" >&2
-      echo "Hint: reinstall or run from a git checkout." >&2
+      hint_line "reinstall or run from a git checkout." >&2
       exit 1
     fi
     OUTDIR="$OUT" LOG_DIR="$_logdir" CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}" STATE_DIR="$_state_dir" REPO_ROOT="$_repo_root" \
       "$pack_logs_bin"
     ;;
   verify-install)
-    echo "=== linux-maint verify-install ==="
+    section "linux-maint verify-install"
     echo "mode=$MODE"
     echo "prefix=$PREFIX"
     echo "wrapper=$wrapper"
@@ -2890,7 +2987,7 @@ PYJSON
       exit 0
     fi
 
-    echo "=== linux-maint doctor ==="
+    section "linux-maint doctor"
     echo "mode=$MODE"
     echo "prefix=$PREFIX"
     if [[ "$DOCTOR_COMPACT" -eq 1 ]]; then
@@ -2904,7 +3001,7 @@ PYJSON
 
     if [[ "$DOCTOR_FIX" -eq 1 ]]; then
       echo ""
-      echo "=== Fixes applied ==="
+      section "Fixes applied"
       if [[ "${#fix_actions[@]}" -eq 0 ]]; then
         echo "none"
       else
@@ -2927,7 +3024,7 @@ PYJSON
     fi
 
     echo ""
-    echo "=== Config presence ==="
+    section "Config presence"
     fix_suggestions=()
     add_fix(){ fix_suggestions+=("$1"); }
     if [[ -d "$CFG_DIR" ]]; then
@@ -2963,7 +3060,7 @@ PYJSON
     fi
 
     echo ""
-    echo "=== Monitor gates (what may SKIP) ==="
+    section "Monitor gates (what may SKIP)"
     printf "%-22s %-10s %s\n" "MONITOR" "STATUS" "PATH"
     if [[ -s "$CFG_DIR/certs.txt" ]]; then
       printf "%-22s %-10s %s\n" "cert_monitor" "${C_GREEN}OK${C_RESET}" "$CFG_DIR/certs.txt"
@@ -3009,7 +3106,7 @@ PYJSON
     fi
 
     echo ""
-    echo "=== Dependencies (best-effort) ==="
+    section "Dependencies (best-effort)"
     need_cmd() {
       local cmd="$1" pkg_hint="$2"
       if command -v "$cmd" >/dev/null 2>&1; then
@@ -3034,7 +3131,7 @@ PYJSON
 
     if [[ "$DOCTOR_COMPACT" -eq 0 ]]; then
       echo ""
-      echo "=== systemd (best-effort) ==="
+      section "systemd (best-effort)"
       if command -v systemctl >/dev/null 2>&1; then
         for unit in linux-maint.timer linux-maint.service; do
           if systemctl list-unit-files --no-legend "$unit" 2>/dev/null | grep -q "^$unit"; then
@@ -3053,7 +3150,7 @@ PYJSON
     fi
 
     echo ""
-    echo "=== Can write state/logs? ==="
+    section "Can write state/logs?"
     printf "%-24s %s\n" "PATH" "STATUS"
     for d in /var/log/health /var/log/inventory /var/lib/linux_maint /var/lock; do
       if [[ -d "$d" ]]; then
@@ -3073,7 +3170,7 @@ PYJSON
     done
 
     echo ""
-    echo "=== Fix suggestions ==="
+    section "Fix suggestions"
     if [[ "${#fix_suggestions[@]}" -eq 0 ]]; then
       echo "- none"
     else
@@ -3084,7 +3181,7 @@ PYJSON
 
     if [[ "$DOCTOR_COMPACT" -eq 0 ]]; then
       echo ""
-      echo "=== Next recommended actions ==="
+      section "Next recommended actions"
       echo "- linux-maint verify-install"
       echo "- sudo linux-maint init      # if config is missing"
       echo "- sudo linux-maint preflight"
@@ -3163,14 +3260,14 @@ PY
       exit 0
     fi
 
-    echo "=== linux-maint self-check ==="
+    section "linux-maint self-check"
     echo "mode=$MODE"
     echo "cfg_dir=$CFG_DIR"
     if [[ "$SC_COMPACT" -eq 1 ]]; then
       echo "note=compact"
       echo ""
     fi
-    echo "=== Config files ==="
+    section "Config files"
     printf "%-44s %s\n" "FILE" "STATUS"
     for f in "$CFG_DIR/servers.txt" "$CFG_DIR/excluded.txt" "$CFG_DIR/services.txt"; do
       if [[ -e "$f" ]]; then
@@ -3181,7 +3278,7 @@ PY
     done
     if [[ "$SC_COMPACT" -eq 0 ]]; then
       echo ""
-      echo "=== Paths (writable) ==="
+      section "Paths (writable)"
       printf "%-10s %-44s %s\n" "PURPOSE" "PATH" "STATUS"
       for purpose in logs state lock; do
         case "$purpose" in
@@ -3200,7 +3297,7 @@ PY
         fi
       done
       echo ""
-      echo "=== Dependencies ==="
+      section "Dependencies"
       for cmd in bash awk sed grep df find timeout ssh; do
         command -v "$cmd" >/dev/null 2>&1 && printf "%-18s %s\n" "$cmd" "${C_GREEN}OK${C_RESET}" || printf "%-18s %s\n" "$cmd" "${C_RED}MISSING${C_RESET}"
       done
@@ -3214,7 +3311,7 @@ PY
 
     has_cmd() { command -v "$1" >/dev/null 2>&1 && echo yes || echo no; }
 
-    echo "=== linux-maint deps ==="
+    section "linux-maint deps"
     echo "mode=$MODE"
     echo "format: monitor|required|optional|available_required|available_optional"
 

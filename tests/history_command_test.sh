@@ -33,7 +33,7 @@ printf '%s\n' "$json_out" | grep -q '"runs"' || {
 printf '%s' "$json_out" | python3 "$ROOT_DIR/tools/json_schema_validate.py" "$ROOT_DIR/docs/schemas/history.json"
 
 table_out="$(LM_STATE_DIR="$tmp_dir" bash "$LM" history --last 2 --table 2>/dev/null || true)"
-printf '%s\n' "$table_out" | grep -q '^TIMESTAMP[[:space:]]+OVERALL' || {
+printf '%s\n' "$table_out" | grep -Eq '^TIMESTAMP[[:space:]]+OVERALL' || {
   echo "history --table missing header" >&2
   echo "$table_out" >&2
   exit 1
@@ -46,7 +46,7 @@ printf '%s\n' "$no_color_out" | grep -q $'\033' && {
   exit 1
 }
 
-color_out="$(LM_STATE_DIR="$tmp_dir" bash "$LM" history --last 2 --table 2>/dev/null || true)"
+color_out="$(LM_STATE_DIR="$tmp_dir" NO_COLOR= LM_FORCE_COLOR=1 bash "$LM" history --last 2 --table 2>/dev/null || true)"
 printf '%s\n' "$color_out" | grep -q $'\033' || {
   echo "history --table should contain ANSI when color enabled" >&2
   echo "$color_out" >&2

@@ -17,13 +17,13 @@ printf '%s\n' "$out_table" | grep -q 'overall=' || {
   echo "$out_table" >&2
   exit 1
 }
-printf '%s\n' "$out_table" | grep -q '^STATUS[[:space:]]+MONITOR' || {
+printf '%s\n' "$out_table" | grep -Eq '^STATUS[[:space:]]+MONITOR' || {
   echo "status --summary --table missing table header" >&2
   echo "$out_table" >&2
   exit 1
 }
 
-color_out="$(bash "$LM" status --summary --table 2>/dev/null || true)"
+color_out="$(NO_COLOR= LM_FORCE_COLOR=1 bash "$LM" status --summary --table 2>/dev/null || true)"
 printf '%s\n' "$color_out" | grep -q $'\033' || {
   echo "status --table should contain ANSI when color enabled" >&2
   echo "$color_out" >&2
