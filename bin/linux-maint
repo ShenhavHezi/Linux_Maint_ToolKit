@@ -260,9 +260,9 @@ usage(){
 Usage: linux-maint <command> [args]
 
 ${C_CYAN}Quick start${C_RESET}:
+  sudo linux-maint init
   sudo linux-maint run
-  sudo linux-maint report
-  sudo linux-maint doctor
+  sudo linux-maint status
 
 ${C_CYAN}Common commands${C_RESET}:
   run [flags]            Run the full wrapper
@@ -322,7 +322,6 @@ ${C_CYAN}Examples${C_RESET}:
 
 ${C_CYAN}Tips${C_RESET}:
   linux-maint help <command>
-  linux-maint <command> --help
   See docs/README.md for full docs and flag details
   NO_COLOR=1 linux-maint report
 EOF
