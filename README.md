@@ -1,10 +1,8 @@
 # Linux Maintenance Toolkit (linux-maint)
 
-`linux-maint` is a lightweight health and maintenance toolkit for Linux administrators.
+**`linux-maint` is a lightweight health and maintenance toolkit for Linux administrators.**
 Run it locally or from a monitoring node over SSH to get structured logs and OK/WARN/CRIT summaries.
 Target: RHEL 9. Offline/dark-site friendly.
-
-Note: this project was previously named `linux_Maint_Scripts` on GitHub. The CLI remains `linux-maint`.
 
 ## Table of Contents
 
