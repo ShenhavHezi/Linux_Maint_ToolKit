@@ -101,7 +101,12 @@ run_for_host(){
     return 2
   fi
 
-  [ -s "$TARGETS" ] || { lm_err "[$host] targets file missing/empty: $TARGETS"; lm_summary "backup_check" "$host" "SKIP" reason=missing_targets_file; lm_info "===== Completed $host ====="; return 0; }
+  if [ ! -s "$TARGETS" ]; then
+    lm_err "[$host] targets file missing/empty: $TARGETS"
+    append_alert "$host|*|missing_targets_file|-|-|-|SKIP|missing_targets_file"
+    lm_info "===== Completed $host ====="
+    return 0
+  fi
 
   # Select rows for this host (* or exact)
   awk -F',' -v H="$host" '
@@ -172,9 +177,14 @@ alerts="$(cat "$ALERTS_FILE" 2>/dev/null)"
 
 failures=$(printf %s "$alerts" | sed '/^$/d' | wc -l | tr -d " ")
 status=OK
-[ "$failures" != "0" ] && status=CRIT
-if [ "$status" != "OK" ]; then
-  lm_summary "backup_check" "runner" "$status" reason=backup_failures failures="$failures"
+if [ "$failures" != "0" ]; then
+  status=CRIT
+  reason=backup_failures
+  if grep -q '|SKIP|missing_targets_file' <<<"$alerts"; then
+    status=SKIP
+    reason=missing_targets_file
+  fi
+  lm_summary "backup_check" "runner" "$status" reason="$reason" failures="$failures"
 else
   lm_summary "backup_check" "runner" "$status" failures="$failures"
 fi

@@ -24,7 +24,7 @@ warn_file="$workdir/monitor_runtime_warn.conf"
 cat > "$warn_file" <<'WARN'
 slow=1
 WARN
-color_out="$(NO_COLOR= LM_FORCE_COLOR=1 MONITOR_RUNTIME_WARN_FILE="$warn_file" LOG_DIR="$logdir" bash "$ROOT_DIR/bin/linux-maint" runtimes)"
+color_out="$(NO_COLOR='' LM_FORCE_COLOR=1 MONITOR_RUNTIME_WARN_FILE="$warn_file" LOG_DIR="$logdir" bash "$ROOT_DIR/bin/linux-maint" runtimes)"
 printf '%s\n' "$color_out" | grep -q $'\033' || {
   echo "runtimes output should contain ANSI when warn threshold exceeded and color forced" >&2
   echo "$color_out" >&2

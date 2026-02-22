@@ -21,7 +21,7 @@ else
   touch "$summary_file"
 fi
 
-color_out="$(LM_FORCE_COLOR=1 NO_COLOR= bash "$LM" status --last 1 2>/dev/null || true)"
+color_out="$(LM_FORCE_COLOR=1 NO_COLOR='' bash "$LM" status --last 1 2>/dev/null || true)"
 printf '%s\n' "$color_out" | grep -q $'\033' || {
   echo "status --last should include ANSI when color forced" >&2
   echo "$color_out" >&2

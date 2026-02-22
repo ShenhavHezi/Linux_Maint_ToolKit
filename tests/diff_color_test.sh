@@ -29,7 +29,7 @@ monitor=svc host=a status=CRIT reason=service_failed
 monitor=svc host=b status=OK
 CUR
 
-out_color="$(LM_STATE_DIR="$workdir" NO_COLOR= LM_FORCE_COLOR=1 bash "$LM" diff 2>/dev/null || true)"
+out_color="$(LM_STATE_DIR="$workdir" NO_COLOR='' LM_FORCE_COLOR=1 bash "$LM" diff 2>/dev/null || true)"
 printf '%s\n' "$out_color" | grep -q $'\033' || {
   echo "diff output missing ANSI when forced" >&2
   echo "$out_color" >&2

@@ -31,7 +31,7 @@ monitor=health_monitor host=host-a status=OK
 monitor=network_monitor host=host-c status=UNKNOWN reason=ssh_unreachable
 SUM
 
-out_host="$($ROOT_DIR/bin/linux-maint status --compact --group-by host --no-color)"
+out_host="$("$ROOT_DIR"/bin/linux-maint status --compact --group-by host --no-color)"
 python3 - <<'PY' "$out_host"
 import sys
 out = sys.argv[1].splitlines()
@@ -43,7 +43,7 @@ assert order == expected, f"unexpected host order: {order}"
 print("status group-by host ok")
 PY
 
-out_reason="$($ROOT_DIR/bin/linux-maint status --compact --group-by reason --no-color)"
+out_reason="$("$ROOT_DIR"/bin/linux-maint status --compact --group-by reason --no-color)"
 python3 - <<'PY' "$out_reason"
 import sys
 out = sys.argv[1].splitlines()
