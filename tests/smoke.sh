@@ -70,6 +70,10 @@ run_required "check_command_test" bash "$ROOT_DIR/tests/check_command_test.sh"
 run_required "history_command_test" bash "$ROOT_DIR/tests/history_command_test.sh"
 run_required "summary_command_test" bash "$ROOT_DIR/tests/summary_command_test.sh"
 run_required "status_summary_test" bash "$ROOT_DIR/tests/status_summary_test.sh"
+run_required "help_command_test" bash "$ROOT_DIR/tests/help_command_test.sh"
+run_required "color_precedence_test" bash "$ROOT_DIR/tests/color_precedence_test.sh"
+run_required "progress_tty_test" bash "$ROOT_DIR/tests/progress_tty_test.sh"
+run_required "json_progress_guard_test" bash "$ROOT_DIR/tests/json_progress_guard_test.sh"
 
 # Security lint: forbid eval usage
 run_required "no_eval_lint" bash "$ROOT_DIR/tests/no_eval_lint.sh"

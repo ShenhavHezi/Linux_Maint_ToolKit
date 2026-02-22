@@ -91,6 +91,8 @@ sudo linux-maint logs 200
 
 # Diagnostics
 sudo linux-maint doctor
+sudo linux-maint doctor --fix
+sudo linux-maint doctor --fix --dry-run
 
 # Diagnostics (JSON for automation)
 sudo linux-maint doctor --json
@@ -105,8 +107,24 @@ linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
 # Explain a reason token quickly
 linux-maint explain reason ssh_unreachable
 
+# Per-command help
+linux-maint help status
+
 # Offline dependency manifest (required vs optional tools)
 sudo linux-maint deps
+
+# Config linting (detect invalid lines / duplicates)
+sudo linux-maint config --lint
+
+# Baseline workflows
+sudo linux-maint baseline ports --update
+sudo linux-maint baseline configs --update
+sudo linux-maint baseline users --update
+sudo linux-maint baseline sudoers --update
+
+# Progress controls (force disable)
+LM_PROGRESS=0 sudo linux-maint run
+LM_PROGRESS=0 sudo linux-maint pack-logs --out /tmp
 ```
 
 ## Fleet runs (monitoring node)

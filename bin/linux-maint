@@ -9,10 +9,13 @@ TMPDIR="${TMPDIR:-/tmp}"
 # Color handling (opt-out via NO_COLOR/LM_NO_COLOR or --no-color)
 LM_COLOR="${LM_COLOR:-1}"
 color_enabled() {
+  if [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]]; then
+    return 1
+  fi
   case "${LM_FORCE_COLOR:-${FORCE_COLOR:-}}" in
     1|true|TRUE|yes|YES|on|ON) return 0 ;;
   esac
-  [[ "$LM_COLOR" -eq 1 ]] && [[ -t 1 ]] && [[ -z "${NO_COLOR:-}" ]] && [[ -z "${LM_NO_COLOR:-}" ]]
+  [[ "$LM_COLOR" -eq 1 ]] && [[ -t 1 ]]
 }
 if color_enabled; then
   C_RESET=$'\033[0m'
@@ -219,12 +222,16 @@ parse_run_args(){
         LIMIT="$2"; shift 2;;
       --shuffle)
         SHUFFLE=1; shift 1;;
+      --progress)
+        LM_PROGRESS=1; export LM_PROGRESS; shift 1;;
+      --no-progress)
+        LM_PROGRESS=0; export LM_PROGRESS; shift 1;;
       --debug|--print-env)
         DEBUG=1; shift 1;;
       --dry-run)
         DRY_RUN=1; shift 1;;
       -h|--help)
-        echo "Usage: linux-maint run [--group G] [--hosts h1,h2] [--exclude h3,h4] [--parallel N] [--local-only] [--ssh-opts '...'] [--limit N] [--shuffle] [--debug|--print-env] [--dry-run]"
+        echo "Usage: linux-maint run [--group G] [--hosts h1,h2] [--exclude h3,h4] [--parallel N] [--local-only] [--ssh-opts '...'] [--limit N] [--shuffle] [--progress|--no-progress] [--debug|--print-env] [--dry-run]"
         exit 0;;
       *)
         echo "Unknown run flag: $1" >&2
@@ -279,6 +286,7 @@ ${C_CYAN}Release / packaging${C_RESET}:
   uninstall [args]        Run ./install.sh --uninstall (pass-through)
 
 ${C_CYAN}Help${C_RESET}:
+  help [command]          Show help for a command (shortcut for usage)
   explain reason <token>  Explain a reason= token (from docs/REASONS.md)
   explain status <S>      Explain a status value (OK/WARN/CRIT/UNKNOWN/SKIP)
   help                    Show this help
@@ -306,11 +314,83 @@ ${C_CYAN}Tips${C_RESET}:
 EOF
 }
 
+command_usage(){
+  local c="${1:-}"
+  case "$c" in
+    ""|help|-h|--help)
+      usage; return 0;;
+    run)
+      echo "Usage: linux-maint run [--group G] [--hosts h1,h2] [--exclude h3,h4] [--parallel N] [--local-only] [--ssh-opts '...'] [--limit N] [--shuffle] [--progress|--no-progress] [--debug|--print-env] [--dry-run]";;
+    status)
+      echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--no-color] [--table] [--summary] [--compact] [--problems N (max 100)] [--reasons N (max 20)] [--since 15m|2h|1d|30s] [--last N]";;
+    report)
+      echo "Usage: linux-maint report [--json] [--no-color] [--compact] [--table] [--no-trend] [--no-slow] [--no-reasons] [--no-problems]";;
+    config)
+      echo "Usage: linux-maint config [--json] [--sources] [--lint]";;
+    doctor)
+      echo "Usage: linux-maint doctor [--json] [--compact] [--fix] [--fix-deps] [--fix-deps-optional] [--yes] [--dry-run]";;
+    self-check)
+      echo "Usage: linux-maint self-check [--json] [--compact]";;
+    check)
+      echo "Usage: linux-maint check";;
+    history)
+      echo "Usage: linux-maint history [--last N] [--json] [--table] [--no-color] [--compact]";;
+    summary)
+      echo "Usage: linux-maint summary [--no-color]";;
+    trend)
+      echo "Usage: linux-maint trend [--last N] [--json]";;
+    runtimes)
+      echo "Usage: linux-maint runtimes [--last N] [--json]";;
+    export)
+      echo "Usage: linux-maint export --json|--csv";;
+    init)
+      echo "Usage: linux-maint init [--minimal]";;
+    tune)
+      echo "Usage: linux-maint tune dark-site";;
+    baseline)
+      echo "Usage: linux-maint baseline <ports|configs|users|sudoers> [--update] [--local-only] [--diff] [--show] [--progress|--no-progress]";;
+    preflight)
+      echo "Usage: linux-maint preflight";;
+    validate)
+      echo "Usage: linux-maint validate";;
+    deps)
+      echo "Usage: linux-maint deps";;
+    verify-install)
+      echo "Usage: linux-maint verify-install";;
+    pack-logs)
+      echo "Usage: linux-maint pack-logs [--out DIR] [--progress|--no-progress]";;
+    version)
+      echo "Usage: linux-maint version";;
+    make-tarball)
+      echo "Usage: linux-maint make-tarball";;
+    verify-release)
+      echo "Usage: linux-maint verify-release <tarball> --sums <SHA256SUMS>";;
+    install)
+      echo "Usage: linux-maint install [args]";;
+    uninstall)
+      echo "Usage: linux-maint uninstall [args]";;
+    diff)
+      echo "Usage: linux-maint diff [--json]";;
+    logs)
+      echo "Usage: linux-maint logs [n]";;
+    explain)
+      echo "Usage: linux-maint explain <reason|status> ...";;
+    *)
+      echo "Unknown command: $c" >&2
+      usage
+      return 2;;
+  esac
+}
+
 cmd="${1:-help}"; shift || true
 
 case "$cmd" in
   help|-h|--help)
-    usage
+    if [[ -n "${1:-}" ]]; then
+      command_usage "$1"
+    else
+      usage
+    fi
     ;;
 
   run)
@@ -2406,21 +2486,25 @@ PY
     BASELINE_LOCAL=0
     BASELINE_DIFF=0
     BASELINE_SHOW=0
+    BASELINE_PROGRESS_SET=0
+    BASELINE_PROGRESS=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --update) BASELINE_UPDATE=1; shift 1;;
         --local-only) BASELINE_LOCAL=1; shift 1;;
         --diff) BASELINE_DIFF=1; shift 1;;
         --show) BASELINE_SHOW=1; shift 1;;
+        --progress) BASELINE_PROGRESS=1; BASELINE_PROGRESS_SET=1; shift 1;;
+        --no-progress) BASELINE_PROGRESS=0; BASELINE_PROGRESS_SET=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint baseline <ports|configs|users|sudoers> [--update] [--local-only] [--diff] [--show]"
+          echo "Usage: linux-maint baseline <ports|configs|users|sudoers> [--update] [--local-only] [--diff] [--show] [--progress|--no-progress]"
           exit 0;;
         *) echo "Unknown baseline flag: $1" >&2; exit 2;;
       esac
     done
 
     if [[ -z "$target" ]]; then
-      echo "Usage: linux-maint baseline <ports|configs|users|sudoers> [--update] [--local-only] [--diff] [--show]" >&2
+      echo "Usage: linux-maint baseline <ports|configs|users|sudoers> [--update] [--local-only] [--diff] [--show] [--progress|--no-progress]" >&2
       exit 2
     fi
 
@@ -2482,6 +2566,16 @@ PY
     if [[ "$BASELINE_SHOW" -eq 1 ]]; then
       export LM_BASELINE_SHOW=1
       export LM_BASELINE_ONLY=0
+    fi
+
+    if [[ "$BASELINE_PROGRESS_SET" -eq 1 ]]; then
+      if [[ "$BASELINE_PROGRESS" -eq 1 ]]; then
+        export LM_PROGRESS=1
+        export LM_HOST_PROGRESS=1
+      else
+        export LM_PROGRESS=0
+        export LM_HOST_PROGRESS=0
+      fi
     fi
 
     exec bash "$script"
@@ -2563,9 +2657,19 @@ PY
 
   pack-logs)
     OUT=""
-    if [[ "${1:-}" == "--out" ]]; then
-      OUT="${2:-}"; shift 2 || true
-    fi
+    PACK_PROGRESS_SET=0
+    PACK_PROGRESS=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --out) OUT="${2:-}"; shift 2;;
+        --progress) PACK_PROGRESS=1; PACK_PROGRESS_SET=1; shift 1;;
+        --no-progress) PACK_PROGRESS=0; PACK_PROGRESS_SET=1; shift 1;;
+        -h|--help)
+          echo "Usage: linux-maint pack-logs [--out DIR] [--progress|--no-progress]"
+          exit 0;;
+        *) echo "Unknown pack-logs flag: $1" >&2; exit 2;;
+      esac
+    done
 
     # Default output directory:
     # - repo mode: repo root
@@ -2600,6 +2704,14 @@ PY
       hint_line "reinstall or run from a git checkout." >&2
       exit 1
     fi
+    if [[ "$PACK_PROGRESS_SET" -eq 1 ]]; then
+      if [[ "$PACK_PROGRESS" -eq 1 ]]; then
+        export LM_PROGRESS=1
+      else
+        export LM_PROGRESS=0
+      fi
+    fi
+
     OUTDIR="$OUT" LOG_DIR="$_logdir" CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}" STATE_DIR="$_state_dir" REPO_ROOT="$_repo_root" \
       "$pack_logs_bin"
     ;;

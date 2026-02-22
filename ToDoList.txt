@@ -13,28 +13,28 @@ Priorities:
 
 ## P0 — Correctness / reliability
 
-- Add explicit CLI flags `--progress` and `--no-progress` for `run`, `pack-logs`, and `baseline --update`.
-  - Ensure CLI flags override `LM_PROGRESS`.
-  - Add a test that confirms progress is suppressed when stderr is not a TTY.
+- Add explicit CLI flags `--progress` and `--no-progress` for `run`, `pack-logs`, and `baseline --update`. (DONE 2026-02-22)
+  - Ensure CLI flags override `LM_PROGRESS`. (DONE 2026-02-22)
+  - Add a test that confirms progress is suppressed when stderr is not a TTY. (DONE 2026-02-22)
 
-- Define and lock color precedence (NO_COLOR vs LM_FORCE_COLOR).
-  - Document the final behavior.
-  - Add tests for both forced color and NO_COLOR override.
+- Define and lock color precedence (NO_COLOR vs LM_FORCE_COLOR). (DONE 2026-02-22)
+  - Document the final behavior. (DONE 2026-02-22)
+  - Add tests for both forced color and NO_COLOR override. (DONE 2026-02-22)
 
-- Add a guard test to ensure progress output never contaminates JSON outputs.
-  - (progress should stay on stderr only)
+- Add a guard test to ensure progress output never contaminates JSON outputs. (DONE 2026-02-22)
+  - (progress should stay on stderr only) (DONE 2026-02-22)
 
 ## P1 — Operator UX / documentation
 
-- Update docs for new CLI features and env vars:
-  - `LM_PROGRESS`, `LM_PROGRESS_WIDTH`, `LM_HOST_PROGRESS`, `LM_FORCE_COLOR`
-  - `linux-maint config --lint`, `baseline`, `doctor --fix`
-  - add examples to `docs/QUICK_REFERENCE.md` and `docs/reference.md`
+- Update docs for new CLI features and env vars: (DONE 2026-02-22)
+  - `LM_PROGRESS`, `LM_PROGRESS_WIDTH`, `LM_HOST_PROGRESS`, `LM_FORCE_COLOR` (DONE 2026-02-22)
+  - `linux-maint config --lint`, `baseline`, `doctor --fix` (DONE 2026-02-22)
+  - add examples to `docs/QUICK_REFERENCE.md` and `docs/reference.md` (DONE 2026-02-22)
 
-- Add a short "output conventions" section to `docs/reference.md`.
-  - Explain headings, color usage, and how to disable/force color.
+- Add a short "output conventions" section to `docs/reference.md`. (DONE 2026-02-22)
+  - Explain headings, color usage, and how to disable/force color. (DONE 2026-02-22)
 
-- Add a `linux-maint help <command>` alias to surface per-command help consistently.
+- Add a `linux-maint help <command>` alias to surface per-command help consistently. (DONE 2026-02-22)
 
 ## P2 — Security / hardening
 
@@ -58,4 +58,3 @@ Priorities:
   - tag + optional `gh release create`
 
 - Add `make release` to run lint/tests and call `tools/release.sh`.
-

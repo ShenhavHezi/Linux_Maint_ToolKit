@@ -353,6 +353,14 @@ When running the full wrapper (`run_full_health_monitor.sh`) in installed mode:
 
 These artifacts are designed to be consumed by automation/CI or log shipping tools.
 
+### CLI output conventions (human-facing)
+
+- Section headers use `=== Section ===` for quick scanning.
+- Color is enabled only when output is a TTY and `NO_COLOR` is not set.
+- You can force color for non-TTY contexts with `LM_FORCE_COLOR=1`.
+- `NO_COLOR=1` (or `LM_NO_COLOR=1`) always disables color, even if force color is set.
+- Progress bars (when enabled) render on stderr only and never affect JSON output.
+
 ## Exit codes (for automation)
 
 ### tests/smoke.sh exit codes
@@ -388,6 +396,7 @@ After installation, use the `linux-maint` CLI as the primary interface.
 
 
 - `linux-maint run` *(root required)*: run the full wrapper (`run_full_health_monitor.sh`).
+  - `--progress|--no-progress`: enable/disable the run progress bar (overrides `LM_PROGRESS`).
 
 - `linux-maint status` *(root required)*: show last run metadata plus a compact, severity-sorted problems summary by default. Use `--verbose` for raw summary lines.
 
@@ -545,6 +554,11 @@ Example (`export --json`):
 - `LM_REDACT_LOGS=1` — redact common secret patterns from logs and summary lines (best-effort). When enabled, values like `password=...`, `token=...`, and JWT-like blobs are replaced with `REDACTED` in emitted log/summary lines.
 - `LM_REDACT_LOGS=1` also redacts values in `linux-maint export --json` output.
 - `LM_REDACT_LOGS=1` also redacts log content inside `linux-maint pack-logs` bundles.
+- `LM_PROGRESS=0` — disable progress bars (run, pack-logs, baseline update).
+- `LM_PROGRESS_WIDTH=24` — progress bar width in characters.
+- `LM_HOST_PROGRESS=1` — show per-host progress in host loops (used by baseline updates).
+- `LM_FORCE_COLOR=1` — force ANSI color even when output is not a TTY.
+- `NO_COLOR=1` / `LM_NO_COLOR=1` — disable ANSI color (overrides `LM_FORCE_COLOR`).
 - `LM_TEST_TIME_EPOCH=<unix_epoch>` — test-only override to freeze wrapper timestamps and filenames for deterministic output.
 - `LM_SUMMARY_ALLOWLIST=key1,key2,...` — optional allowlist of summary keys to keep; extra keys are dropped with a warning.
 - `LM_SUMMARY_STRICT=1` — enforce required summary fields and valid statuses at emission time (tests/CI).
@@ -1097,3 +1111,13 @@ echo "##active_line12##"
 CERTS_SCAN_DIR (optional): if set, cert_monitor scans this directory for cert files (offline expiry check).
 CERTS_SCAN_IGNORE_FILE: file with ignore patterns (substring match) to skip paths (default /etc/linux_maint/certs_scan_ignore.txt).
 CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).
+- `linux-maint config --lint` *(root required)*: validate config file syntax and detect duplicate keys.
+
+- `linux-maint baseline <ports|configs|users|sudoers> --update` *(root required)*: capture/update baselines (per-host).
+  - `--progress|--no-progress`: enable/disable per-host progress (overrides `LM_PROGRESS`).
+
+- `linux-maint doctor --fix` *(root required)*: attempt safe dependency fixes (use `--dry-run` to preview).
+
+- `linux-maint help <command>`: show concise usage for a specific command (no root required).
+
+- `linux-maint pack-logs [--out DIR]`: create a support bundle (progress can be toggled with `--progress|--no-progress`).
