@@ -454,7 +454,14 @@ if json_mode:
     raise SystemExit(0)
 
 if not compact:
-    print(c("=== linux-maint report ===","1;36"))
+    banner = f"health={overall} exit_code={exit_code}"
+    if overall == "CRIT":
+        banner = c(banner,"1;31")
+    elif overall == "WARN":
+        banner = c(banner,"1;33")
+    elif overall == "OK":
+        banner = c(banner,"1;32")
+    print(c("=== linux-maint report ===","1;36") + " " + banner)
 mode = status.get("mode", "unknown")
 last = status.get("last_status", {})
 overall = last.get("overall", "UNKNOWN")
@@ -1092,6 +1099,26 @@ PY
       exit 0
     fi
     if [[ "$QUIET" -eq 0 && "$SHOW_META" -eq 1 ]]; then
+
+      # Banner: overall health (best-effort)
+      if [[ "$MODE" == "repo" ]]; then
+        status_file="$REPO_STATUS_FILE"
+      else
+        status_file="/var/log/health/last_status_full"
+      fi
+      if [[ -f "$status_file" ]]; then
+        overall_val="$(awk -F= '$1=="overall"{print $2}' "$status_file" 2>/dev/null || true)"
+        exit_val="$(awk -F= '$1=="exit_code"{print $2}' "$status_file" 2>/dev/null || true)"
+        banner="health=${overall_val:-UNKNOWN} exit_code=${exit_val:-3}"
+        case "$overall_val" in
+          CRIT) banner="${C_RED}${banner}${C_RESET}" ;;
+          WARN) banner="${C_YELLOW}${banner}${C_RESET}" ;;
+          OK)   banner="${C_GREEN}${banner}${C_RESET}" ;;
+        esac
+        echo "=== linux-maint status === $banner"
+      else
+        echo "=== linux-maint status ==="
+      fi
 
     if [[ "$MODE" == "repo" ]]; then
       echo "=== Mode ==="
