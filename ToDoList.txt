@@ -52,9 +52,9 @@ Priorities:
 
 ## P4 — DX / release polish
 
-- Add `tools/release.sh` to automate:
-  - version bump (`VERSION`)
-  - changelog entry using `docs/RELEASE_TEMPLATE.md`
-  - tag + optional `gh release create`
+- Add `tools/release.sh` to automate: (DONE 2026-02-22)
+  - version bump (`VERSION`) (DONE 2026-02-22)
+  - changelog entry using `docs/RELEASE_TEMPLATE.md` (DONE 2026-02-22)
+  - tag + optional `gh release create` (DONE 2026-02-22)
 
-- Add `make release` to run lint/tests and call `tools/release.sh`.
+- Add `make release` to run lint/tests and call `tools/release.sh`. (DONE 2026-02-22)
