@@ -47,10 +47,20 @@ printf '%s\n' "$doctor_compact_out" | grep -q '^== Files ==' && {
   echo "$doctor_compact_out" >&2
   exit 1
 }
+printf '%s\n' "$doctor_compact_out" | grep -q '^note=compact' || {
+  echo "doctor --compact missing compact note" >&2
+  echo "$doctor_compact_out" >&2
+  exit 1
+}
 
 self_compact_out="$(bash "$LM" self-check --compact 2>/dev/null || true)"
 printf '%s\n' "$self_compact_out" | grep -q '^== Paths' && {
   echo "self-check --compact should hide Paths section" >&2
+  echo "$self_compact_out" >&2
+  exit 1
+}
+printf '%s\n' "$self_compact_out" | grep -q '^note=compact' || {
+  echo "self-check --compact missing compact note" >&2
   echo "$self_compact_out" >&2
   exit 1
 }

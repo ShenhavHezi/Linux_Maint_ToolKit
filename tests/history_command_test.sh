@@ -53,4 +53,11 @@ printf '%s\n' "$color_out" | grep -q $'\033' || {
   exit 1
 }
 
+compact_out="$(LM_STATE_DIR="$tmp_dir" bash "$LM" history --compact 2>/dev/null || true)"
+printf '%s\n' "$compact_out" | grep -q '^last_run=' || {
+  echo "history --compact missing output" >&2
+  echo "$compact_out" >&2
+  exit 1
+}
+
 echo "history command ok"

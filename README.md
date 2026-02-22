@@ -291,6 +291,7 @@ These SKIPs are expected until you populate the files. Use `linux-maint doctor` 
 - `linux-maint report [--json] [--compact] [--table]` — concise report combining status, trends, and slow monitors (table output supported).
 - `linux-maint check` — run config_validate + preflight and show expected SKIPs.
 - `linux-maint history --last N [--json] [--table]` — recent run list from run index (fast, no log scan).
+- `linux-maint history --compact` — one-line latest run from run index.
 - `linux-maint summary [--no-color]` — one-line latest summary (cron/dashboards).
 - `linux-maint status --summary` — one-line latest summary (alias of `summary`).
 - `linux-maint status --table` — table-formatted problems list.

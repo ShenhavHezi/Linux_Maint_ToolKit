@@ -636,14 +636,16 @@ PY
     HISTORY_JSON=0
     HISTORY_TABLE=0
     HISTORY_COLOR=1
+    HISTORY_COMPACT=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --last) LAST_N="$2"; shift 2;;
         --json) HISTORY_JSON=1; shift 1;;
         --table) HISTORY_TABLE=1; shift 1;;
         --no-color) HISTORY_COLOR=0; shift 1;;
+        --compact) HISTORY_COMPACT=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint history [--last N] [--json] [--table] [--no-color]"
+          echo "Usage: linux-maint history [--last N] [--json] [--table] [--no-color] [--compact]"
           exit 0;;
         *) echo "Unknown history flag: $1" >&2; exit 2;;
       esac
@@ -662,12 +664,13 @@ PY
     fi
     index_file="${LM_RUN_INDEX_FILE:-$state_dir/run_index.jsonl}"
 
-    LM_COLOR="$HISTORY_COLOR" python3 - "$index_file" "$LAST_N" "$HISTORY_JSON" "$HISTORY_TABLE" <<'PY'
+    LM_COLOR="$HISTORY_COLOR" python3 - "$index_file" "$LAST_N" "$HISTORY_JSON" "$HISTORY_TABLE" "$HISTORY_COMPACT" <<'PY'
 import json, os, sys
-path, last_n, json_mode, table = sys.argv[1:5]
+path, last_n, json_mode, table, compact = sys.argv[1:6]
 last_n = int(last_n)
 json_mode = json_mode == "1"
 table = table == "1"
+compact = compact == "1"
 color = os.environ.get("LM_COLOR","1") == "1"
 
 def c(s, code):
@@ -693,6 +696,15 @@ with open(path, "r", encoding="utf-8", errors="ignore") as f:
 rows = rows[-last_n:]
 if json_mode:
     print(json.dumps({"runs": rows}, indent=2, sort_keys=True))
+    raise SystemExit(0)
+
+if compact:
+    if rows:
+        r = rows[-1]
+        hosts = r.get("hosts",{}) or {}
+        print(f"last_run={r.get('timestamp','')} overall={r.get('overall','UNKNOWN')} CRIT={hosts.get('crit',0)} WARN={hosts.get('warn',0)} UNKNOWN={hosts.get('unknown',0)} SKIP={hosts.get('skipped',0)} OK={hosts.get('ok',0)}")
+    else:
+        print("no runs")
     raise SystemExit(0)
 
 print(f"=== Last {len(rows)} runs (run_index) ===")
@@ -2329,6 +2341,9 @@ PYJSON
     echo "=== linux-maint doctor ==="
     echo "mode=$MODE"
     echo "prefix=$PREFIX"
+    if [[ "$DOCTOR_COMPACT" -eq 1 ]]; then
+      echo "note=compact"
+    fi
     echo "wrapper=$wrapper"
     echo "libexec=$LIBEXEC"
     echo "lib=${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
@@ -2537,6 +2552,9 @@ PY
     echo "=== linux-maint self-check ==="
     echo "mode=$MODE"
     echo "cfg_dir=$CFG_DIR"
+    if [[ "$SC_COMPACT" -eq 1 ]]; then
+      echo "note=compact"
+    fi
     echo "== Config files =="
     for f in "$CFG_DIR/servers.txt" "$CFG_DIR/excluded.txt" "$CFG_DIR/services.txt"; do
       [[ -e "$f" ]] && echo "OK: $f" || echo "WARN: missing $f"
