@@ -364,7 +364,7 @@ case "$cmd" in
     if [[ ! -x "$diff_tool" ]]; then
       # In installed mode, tools/ may not exist; try a system python module not available; fallback to error.
       echo "Diff tool not found/executable: $diff_tool" >&2
-      echo "Hint: ensure summary_diff.py is installed (expected at $LIBEXEC/summary_diff.py)" >&2
+      echo "Hint: reinstall linux-maint to include summary_diff.py" >&2
       exit 1
     fi
 
@@ -678,9 +678,12 @@ def c(s, code):
         return s
     return f"\033[{code}m{s}\033[0m"
 
-if not os.path.exists(path):
-    print(f"No run index found: {path}")
-    sys.exit(1)
+    if not os.path.exists(path):
+        print(f"No run index found: {path}")
+        print("Hints:")
+        print("- Run: sudo linux-maint run")
+        print("- Or set LM_RUN_INDEX_FILE when invoking the wrapper")
+        sys.exit(1)
 
 rows=[]
 with open(path, "r", encoding="utf-8", errors="ignore") as f:
@@ -1387,21 +1390,22 @@ PY
       fi
     else
       echo "No summary file: $summary_file"
-      echo "Possible reasons:"
-      echo "- linux-maint has not been run yet"
-      echo "- wrapper ran with a different LOG_DIR/SUMMARY_DIR"
-      echo "- permission issue creating/writing in /var/log/health (try sudo)"
-      echo "Tips:"
+      echo "Likely causes:"
+      echo "- The wrapper has not been run yet"
+      echo "- LOG_DIR/SUMMARY_DIR points elsewhere"
+      echo "- Permission issue writing to /var/log/health (try sudo)"
+      echo "Next steps:"
       echo "- Run: sudo linux-maint run"
-      echo "- Or inspect latest wrapper log: sudo linux-maint logs 200"
-      echo "- Or run: sudo linux-maint doctor"
+      echo "- Check logs: sudo linux-maint logs 200"
+      echo "- Diagnose: sudo linux-maint doctor"
       echo "Falling back to grepping latest wrapper log"
       log="/var/log/health/full_health_monitor_latest.log"
       [[ "$MODE" == "repo" ]] && log="$REPO_LATEST_LOG"
       if [[ -f "$log" ]]; then
         grep -E " status=(WARN|CRIT|UNKNOWN)|SKIP:|SUMMARY_RESULT|FINAL_STATUS_SUMMARY|^\\[.*\\] monitor=" "$log" | tail -n 120 || true
       else
-        echo "No log: $log"
+        echo "No log found at: $log"
+        echo "Hint: run linux-maint run to generate logs"
       fi
     fi
     ;;
