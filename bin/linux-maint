@@ -545,6 +545,8 @@ if problems:
     print("\nnext_steps:")
     print("  - run: linux-maint doctor")
     print("  - run: linux-maint status --verbose")
+else:
+    print("\nproblems: none (all OK)")
 
 reason_rollup = status.get("reason_rollup", [])
 if reason_rollup:
