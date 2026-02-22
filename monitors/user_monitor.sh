@@ -39,6 +39,8 @@ SUDO_BASELINE_DIR="/etc/linux_maint/baselines/sudoers"      # per-host: ${host}.
 AUTO_BASELINE_INIT="true"    # create baseline on first run
 BASELINE_UPDATE="false"      # update baseline to current after reporting
 EMAIL_ON_ALERT="true"        # send email if anomalies are detected
+BASELINE_ONLY="${LM_BASELINE_ONLY:-0}"
+BASELINE_TARGET="${LM_BASELINE_TARGET:-all}"
 
 # User selection (default: all users). To focus on human users set USER_MIN_UID=1000.
 : "${USER_MIN_UID:=0}"       # include users with UID >= USER_MIN_UID, plus 'root'
@@ -144,6 +146,79 @@ run_for_host(){
   local sudo_hash sudo_base sudo_base_file
   sudo_base_file="$SUDO_BASELINE_DIR/${host}.sudoers"
   sudo_hash="$(lm_ssh "$host" bash -lc "$sudoers_hash_cmd")"
+
+  # Baseline-only mode: capture users/sudoers baselines and exit early.
+  if [ "$BASELINE_ONLY" = "1" ]; then
+    local want_users=0 want_sudoers=0
+    case "$BASELINE_TARGET" in
+      ""|all) want_users=1; want_sudoers=1 ;;
+      users) want_users=1 ;;
+      sudoers) want_sudoers=1 ;;
+    esac
+    local created=0 updated=0 existed=0 failed=0
+
+    if [ "$want_users" -eq 1 ]; then
+      if [ -z "$users_current" ]; then
+        lm_warn "[$host] unable to collect user list"
+        failed=$((failed+1))
+      else
+        local had_users=0
+        [ -f "$users_base_file" ] && had_users=1
+        if [ "$had_users" -eq 1 ] && [ "$BASELINE_UPDATE" != "true" ]; then
+          lm_info "[$host] users baseline exists at $users_base_file (use --update to overwrite)."
+          existed=$((existed+1))
+        else
+          printf "%s\n" "$users_current" > "$users_base_file"
+          if [ "$had_users" -eq 1 ]; then
+            updated=$((updated+1))
+            lm_info "[$host] users baseline updated."
+          else
+            created=$((created+1))
+            lm_info "[$host] users baseline created."
+          fi
+        fi
+      fi
+    fi
+
+    if [ "$want_sudoers" -eq 1 ]; then
+      if [ -z "$sudo_hash" ]; then
+        lm_warn "[$host] sudoers hash unavailable (no file or no permissions)"
+        failed=$((failed+1))
+      else
+        local had_sudo=0
+        [ -f "$sudo_base_file" ] && had_sudo=1
+        if [ "$had_sudo" -eq 1 ] && [ "$BASELINE_UPDATE" != "true" ]; then
+          lm_info "[$host] sudoers baseline exists at $sudo_base_file (use --update to overwrite)."
+          existed=$((existed+1))
+        else
+          echo "$sudo_hash" > "$sudo_base_file"
+          if [ "$had_sudo" -eq 1 ]; then
+            updated=$((updated+1))
+            lm_info "[$host] sudoers baseline updated."
+          else
+            created=$((created+1))
+            lm_info "[$host] sudoers baseline created."
+          fi
+        fi
+      fi
+    fi
+
+    local status="OK" reason="baseline_updated"
+    if [ "$failed" -gt 0 ] && [ "$created" -eq 0 ] && [ "$updated" -eq 0 ]; then
+      status="UNKNOWN"
+      reason="baseline_collect_failed"
+    elif [ "$created" -gt 0 ] && [ "$updated" -eq 0 ]; then
+      reason="baseline_created"
+    elif [ "$updated" -gt 0 ]; then
+      reason="baseline_updated"
+    elif [ "$existed" -gt 0 ]; then
+      status="SKIP"
+      reason="baseline_exists"
+    fi
+    lm_summary "user_monitor" "$host" "$status" reason="$reason" created="$created" updated="$updated" existed="$existed" failed="$failed"
+    lm_info "===== Completed $host ====="
+    return 0
+  fi
 
   if [ -z "$sudo_hash" ]; then
     lm_warn "[$host] sudoers hash unavailable (no file or no permissions)"

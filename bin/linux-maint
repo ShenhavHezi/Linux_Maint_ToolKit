@@ -210,6 +210,7 @@ Common commands:
   diff [--json]          Show diff since last run (uses wrapper diff state)
   logs [n]               Tail latest wrapper log (default n=200)
   report [--json] [--compact] [--table]  Summarize latest run, trends, and slow monitors
+  config [--json] [--sources]  Show effective config (merged from /etc/linux_maint)
   doctor [--json]        Diagnose installation/config/state permissions
   self-check [--json]    Quick validation (config/paths/deps; safe without sudo)
   check                 Run config_validate + preflight + show expected skips
@@ -224,6 +225,7 @@ Analysis / reporting:
 Setup / maintenance:
   init [--minimal]       Install /etc/linux_maint templates (from repo checkout)
   tune dark-site         Apply recommended dark-site defaults to linux-maint.conf
+  baseline <ports|configs|users|sudoers> [--update] [--local-only]  Capture baselines
   preflight              Run preflight checks
   validate               Validate config file formats (best-effort)
   deps                   Print required/optional dependency manifest by monitor
@@ -581,6 +583,43 @@ if reason_rollup:
     for r in reason_rollup[:10]:
         print(f"{r.get('reason')}={r.get('count')}")
 
+    hints_map = {
+        "permission_denied": "Run with sudo or fix permissions for logs/state/config.",
+        "missing_optional_cmd": "Install the optional dependency listed in the monitor output.",
+        "missing_dependency": "Install the required dependency on the runner/host.",
+        "kernel_log_unreadable": "Check journal/dmesg permissions and ensure kernel logs are readable.",
+        "collect_failed": "Inventory export failed; verify /var/log/inventory and required tools (ip, lsblk, lscpu).",
+        "ports_baseline_changed": "Review listening port changes and update the baseline if expected.",
+        "config_drift_changed": "Review config changes and update the baseline if intended.",
+        "user_anomalies": "Review new/removed users and sudoers changes.",
+        "ntp_drift_high": "Check NTP/chrony sync and clock drift.",
+        "ntp_not_synced": "Check NTP/chrony sync.",
+        "missing_log_source": "Ensure journald/syslog is available and readable.",
+        "security_updates_pending": "Apply security updates via your package manager.",
+        "updates_pending": "Apply pending package updates.",
+        "baseline_missing": "Create a baseline via linux-maint baseline.",
+        "baseline_created": "Baseline created; rerun to compare changes.",
+        "baseline_updated": "Baseline updated; rerun to check for drift.",
+        "baseline_exists": "Baseline already exists; use --update if you want to overwrite it.",
+        "baseline_collect_failed": "Baseline collection failed; check permissions/SSH and retry.",
+        "timer_missing": "Install/enable linux-maint.timer if you want scheduled runs.",
+        "timer_disabled": "Enable linux-maint.timer (systemctl enable --now linux-maint.timer).",
+        "timer_inactive": "Start linux-maint.timer (systemctl start linux-maint.timer).",
+        "ssh_unreachable": "Verify SSH connectivity and credentials for the target host.",
+        "stale_run": "Check timers/cron; last run appears too old.",
+    }
+    reasons = [r.get("reason") for r in reason_rollup[:10] if r.get("reason")]
+    hint_lines = []
+    seen = set()
+    for reason in reasons:
+        if reason in hints_map and reason not in seen:
+            seen.add(reason)
+            hint_lines.append(f"{reason}: {hints_map[reason]}")
+    if hint_lines:
+        print("\nhints:")
+        for h in hint_lines[:5]:
+            print(f"- {h}")
+
 if trend:
     t_totals = trend.get("totals", {})
     if t_totals:
@@ -611,6 +650,118 @@ if rows:
 PY
 
     rm -f "$tmp_status" "$tmp_trend" "$tmp_runtimes" 2>/dev/null || true
+    ;;
+
+  config)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for config
+    fi
+
+    CFG_JSON=0
+    CFG_SOURCES=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --json) CFG_JSON=1; shift 1;;
+        --sources) CFG_SOURCES=1; shift 1;;
+        -h|--help)
+          echo "Usage: linux-maint config [--json] [--sources]"
+          exit 0;;
+        *) echo "Unknown config flag: $1" >&2; exit 2;;
+      esac
+    done
+
+    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+    main_conf="$CFG_DIR/linux-maint.conf"
+    conf_d="$CFG_DIR/conf.d"
+    conf_files=()
+    [[ -f "$main_conf" ]] && conf_files+=("$main_conf")
+    if [[ -d "$conf_d" ]]; then
+      while IFS= read -r f; do
+        [[ -f "$f" ]] && conf_files+=("$f")
+      done < <(find "$conf_d" -maxdepth 1 -type f -name '*.conf' 2>/dev/null | sort)
+    fi
+
+    if [[ "${#conf_files[@]}" -eq 0 ]]; then
+      echo "No config files found in $CFG_DIR"
+      echo "Hint: sudo linux-maint init"
+      exit 1
+    fi
+
+    CFG_DIR="$CFG_DIR" CFG_SOURCES="$CFG_SOURCES" CFG_JSON="$CFG_JSON" python3 - "${conf_files[@]}" <<'PY'
+import json, os, re, shlex, subprocess, sys
+
+cfg_dir = os.environ.get("CFG_DIR", "/etc/linux_maint")
+show_sources = os.environ.get("CFG_SOURCES", "0") == "1"
+json_mode = os.environ.get("CFG_JSON", "0") == "1"
+files = sys.argv[1:]
+
+def extract_keys(paths):
+    keys = []
+    seen = set()
+    for p in paths:
+        try:
+            with open(p, "r", encoding="utf-8", errors="ignore") as f:
+                for raw in f:
+                    line = raw.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\s*=", line)
+                    if not m:
+                        continue
+                    k = m.group(1)
+                    if k not in seen:
+                        seen.add(k)
+                        keys.append(k)
+        except FileNotFoundError:
+            continue
+    return keys
+
+keys = extract_keys(files)
+if not keys:
+    print(f"No config keys found in {cfg_dir}")
+    sys.exit(1)
+
+src_cmd = "set -a; " + " ".join(f". {shlex.quote(p)};" for p in files) + " env"
+proc = subprocess.run(["/bin/bash", "-lc", src_cmd], capture_output=True, text=True)
+env = {}
+if proc.returncode == 0:
+    for line in proc.stdout.splitlines():
+        if "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        env[k] = v
+else:
+    msg = proc.stderr.strip() or "failed to source config"
+    if json_mode:
+        print(json.dumps({"error": msg, "cfg_dir": cfg_dir, "sources": files}, indent=2, sort_keys=True))
+    else:
+        print(f"ERROR: {msg}")
+        print("Hint: run 'sudo linux-maint config'")
+    sys.exit(1)
+
+values = {k: env.get(k, "") for k in keys}
+
+if json_mode:
+    out = {
+        "cfg_dir": cfg_dir,
+        "sources": files,
+        "values": values,
+    }
+    print(json.dumps(out, indent=2, sort_keys=True))
+    sys.exit(0)
+
+print("=== linux-maint config (effective) ===")
+print(f"cfg_dir={cfg_dir}")
+if show_sources:
+    print("sources:")
+    for p in files:
+        print(f"- {p}")
+print("")
+width = max(len(k) for k in keys)
+print(f"{'KEY':<{width}} VALUE")
+for k in keys:
+    print(f"{k:<{width}} {values.get(k,'')}")
+PY
     ;;
 
   version)
@@ -1455,6 +1606,39 @@ if reasons_limit > 0:
         rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
         for reason, count in rollup[:reasons_limit]:
             print(f"{reason}={count}")
+        hints_map = {
+            "permission_denied": "Run with sudo or fix permissions for logs/state/config.",
+            "missing_optional_cmd": "Install the optional dependency listed in the monitor output.",
+            "missing_dependency": "Install the required dependency on the runner/host.",
+            "kernel_log_unreadable": "Check journal/dmesg permissions and ensure kernel logs are readable.",
+            "collect_failed": "Inventory export failed; verify /var/log/inventory and required tools (ip, lsblk, lscpu).",
+            "ports_baseline_changed": "Review listening port changes and update the baseline if expected.",
+            "config_drift_changed": "Review config changes and update the baseline if intended.",
+            "user_anomalies": "Review new/removed users and sudoers changes.",
+            "ntp_drift_high": "Check NTP/chrony sync and clock drift.",
+            "ntp_not_synced": "Check NTP/chrony sync.",
+            "missing_log_source": "Ensure journald/syslog is available and readable.",
+            "security_updates_pending": "Apply security updates via your package manager.",
+            "updates_pending": "Apply pending package updates.",
+            "baseline_missing": "Create a baseline via linux-maint baseline.",
+            "baseline_created": "Baseline created; rerun to compare changes.",
+            "baseline_updated": "Baseline updated; rerun to check for drift.",
+            "baseline_exists": "Baseline already exists; use --update if you want to overwrite it.",
+            "baseline_collect_failed": "Baseline collection failed; check permissions/SSH and retry.",
+            "timer_missing": "Install/enable linux-maint.timer if you want scheduled runs.",
+            "timer_disabled": "Enable linux-maint.timer (systemctl enable --now linux-maint.timer).",
+            "timer_inactive": "Start linux-maint.timer (systemctl start linux-maint.timer).",
+            "ssh_unreachable": "Verify SSH connectivity and credentials for the target host.",
+            "stale_run": "Check timers/cron; last run appears too old.",
+        }
+        hints=[]
+        for reason, _count in rollup[:reasons_limit]:
+            if reason in hints_map and reason not in hints:
+                hints.append(reason)
+        if hints:
+            print("\nhints:")
+            for reason in hints[:5]:
+                print(f"- {reason}: {hints_map[reason]}")
     else:
         print('none')
 PY
@@ -2057,6 +2241,75 @@ PY
     esac
     ;;
 
+  baseline)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for baseline
+    fi
+
+    target="${1:-}"; shift || true
+    BASELINE_UPDATE=0
+    BASELINE_LOCAL=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --update) BASELINE_UPDATE=1; shift 1;;
+        --local-only) BASELINE_LOCAL=1; shift 1;;
+        -h|--help)
+          echo "Usage: linux-maint baseline <ports|configs|users|sudoers> [--update] [--local-only]"
+          exit 0;;
+        *) echo "Unknown baseline flag: $1" >&2; exit 2;;
+      esac
+    done
+
+    if [[ -z "$target" ]]; then
+      echo "Usage: linux-maint baseline <ports|configs|users|sudoers> [--update] [--local-only]" >&2
+      exit 2
+    fi
+
+    if [[ "$MODE" == "repo" ]]; then
+      scripts_dir="$REPO_MONITORS"
+    else
+      scripts_dir="$LIBEXEC"
+    fi
+
+    case "$target" in
+      ports)
+        script="$scripts_dir/ports_baseline_monitor.sh"
+        export LM_BASELINE_TARGET="ports"
+        ;;
+      configs|config)
+        script="$scripts_dir/config_drift_monitor.sh"
+        export LM_BASELINE_TARGET="configs"
+        ;;
+      users)
+        script="$scripts_dir/user_monitor.sh"
+        export LM_BASELINE_TARGET="users"
+        ;;
+      sudoers)
+        script="$scripts_dir/user_monitor.sh"
+        export LM_BASELINE_TARGET="sudoers"
+        ;;
+      *)
+        echo "Unknown baseline target: $target" >&2
+        exit 2
+        ;;
+    esac
+
+    if [[ ! -x "$script" ]]; then
+      echo "ERROR: baseline helper not found: $script" >&2
+      exit 1
+    fi
+
+    export LM_BASELINE_ONLY=1
+    if [[ "$BASELINE_UPDATE" -eq 1 ]]; then
+      export BASELINE_UPDATE="true"
+    fi
+    if [[ "$BASELINE_LOCAL" -eq 1 ]]; then
+      export LM_LOCAL_ONLY="true"
+    fi
+
+    exec bash "$script"
+    ;;
+
   explain)
     sub="${1:-}"; shift || true
     case "$sub" in
@@ -2285,18 +2538,98 @@ PY
 
     DOCTOR_JSON=0
     DOCTOR_COMPACT=0
+    DOCTOR_FIX=0
+    DOCTOR_FIX_DEPS=0
+    DOCTOR_FIX_OPTIONAL=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) DOCTOR_JSON=1; shift 1;;
         --compact) DOCTOR_COMPACT=1; shift 1;;
+        --fix) DOCTOR_FIX=1; shift 1;;
+        --fix-deps) DOCTOR_FIX=1; DOCTOR_FIX_DEPS=1; shift 1;;
+        --fix-deps-optional) DOCTOR_FIX=1; DOCTOR_FIX_DEPS=1; DOCTOR_FIX_OPTIONAL=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint doctor [--json] [--compact]"
+          echo "Usage: linux-maint doctor [--json] [--compact] [--fix] [--fix-deps] [--fix-deps-optional]"
           exit 0;;
         *) echo "Unknown doctor flag: $1" >&2; exit 2;;
       esac
     done
 
     CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+
+    if [[ "$DOCTOR_FIX" -eq 1 && "${EUID:-$(id -u)}" -ne 0 ]]; then
+      echo "ERROR: doctor --fix requires root" >&2
+      exit 1
+    fi
+
+    if [[ "$DOCTOR_FIX" -eq 1 ]]; then
+      fix_actions=()
+      ensure_dir() {
+        local d="$1"
+        if [[ ! -d "$d" ]]; then
+          install -d -m 0755 "$d" 2>/dev/null && fix_actions+=("create: $d") || fix_actions+=("failed: $d")
+        elif [[ ! -w "$d" ]]; then
+          chmod 0755 "$d" 2>/dev/null && fix_actions+=("chmod: $d") || fix_actions+=("failed: $d")
+        fi
+      }
+      ensure_dir "/var/log/health"
+      ensure_dir "/var/log/inventory"
+      ensure_dir "/var/lib/linux_maint"
+      ensure_dir "/var/lock"
+      if [[ ! -d "$CFG_DIR" ]]; then
+        install -d -m 0755 "$CFG_DIR" 2>/dev/null && fix_actions+=("create: $CFG_DIR")
+      fi
+
+      if [[ "$DOCTOR_FIX_DEPS" -eq 1 ]]; then
+        missing_pkgs=()
+        add_pkg() {
+          local pkg="$1"
+          [[ -z "$pkg" ]] && return 0
+          for p in "${missing_pkgs[@]:-}"; do
+            [[ "$p" == "$pkg" ]] && return 0
+          done
+          missing_pkgs+=("$pkg")
+        }
+        # required deps
+        command -v awk >/dev/null 2>&1 || add_pkg "gawk"
+        command -v sed >/dev/null 2>&1 || add_pkg "sed"
+        command -v grep >/dev/null 2>&1 || add_pkg "grep"
+        command -v df >/dev/null 2>&1 || add_pkg "coreutils"
+        command -v find >/dev/null 2>&1 || add_pkg "findutils"
+        command -v timeout >/dev/null 2>&1 || add_pkg "coreutils"
+        command -v curl >/dev/null 2>&1 || add_pkg "curl"
+        command -v openssl >/dev/null 2>&1 || add_pkg "openssl"
+        command -v ssh >/dev/null 2>&1 || add_pkg "openssh-clients"
+        command -v systemctl >/dev/null 2>&1 || add_pkg "systemd"
+
+        if [[ "$DOCTOR_FIX_OPTIONAL" -eq 1 ]]; then
+          command -v chronyc >/dev/null 2>&1 || add_pkg "chrony"
+          command -v ntpq >/dev/null 2>&1 || add_pkg "ntp"
+          command -v smartctl >/dev/null 2>&1 || add_pkg "smartmontools"
+          command -v nvme >/dev/null 2>&1 || add_pkg "nvme-cli"
+          command -v netstat >/dev/null 2>&1 || add_pkg "net-tools"
+          command -v ss >/dev/null 2>&1 || add_pkg "iproute"
+          command -v journalctl >/dev/null 2>&1 || add_pkg "systemd"
+        fi
+
+        if [[ "${#missing_pkgs[@]:-0}" -gt 0 ]]; then
+          if command -v dnf >/dev/null 2>&1; then
+            dnf -y install "${missing_pkgs[@]}" && fix_actions+=("deps: installed via dnf") || fix_actions+=("deps: install failed (dnf)")
+          elif command -v yum >/dev/null 2>&1; then
+            yum -y install "${missing_pkgs[@]}" && fix_actions+=("deps: installed via yum") || fix_actions+=("deps: install failed (yum)")
+          elif command -v apt-get >/dev/null 2>&1; then
+            apt-get update >/dev/null 2>&1 || true
+            apt-get -y install "${missing_pkgs[@]}" && fix_actions+=("deps: installed via apt-get") || fix_actions+=("deps: install failed (apt-get)")
+          elif command -v zypper >/dev/null 2>&1; then
+            zypper -n install "${missing_pkgs[@]}" && fix_actions+=("deps: installed via zypper") || fix_actions+=("deps: install failed (zypper)")
+          else
+            fix_actions+=("deps: no supported package manager found")
+          fi
+        else
+          fix_actions+=("deps: none missing")
+        fi
+      fi
+    fi
 
     if [[ "$DOCTOR_JSON" -eq 1 ]]; then
       MODE="$MODE" PREFIX="$PREFIX" WRAPPER="$wrapper" LIBEXEC="$LIBEXEC" LINUX_MAINT_LIB="${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" CFG_DIR="$CFG_DIR" python3 - <<'PYJSON'
@@ -2464,6 +2797,18 @@ PYJSON
     echo "libexec=$LIBEXEC"
     echo "lib=${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
     echo "cfg_dir=$CFG_DIR"
+
+    if [[ "$DOCTOR_FIX" -eq 1 ]]; then
+      echo ""
+      echo "=== Fixes applied ==="
+      if [[ "${#fix_actions[@]:-0}" -eq 0 ]]; then
+        echo "none"
+      else
+        for a in "${fix_actions[@]}"; do
+          echo "- $a"
+        done
+      fi
+    fi
 
     if [[ "$DOCTOR_COMPACT" -eq 0 ]]; then
       echo "== Files =="

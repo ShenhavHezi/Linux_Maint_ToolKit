@@ -49,6 +49,7 @@ BASELINE_DIR="/etc/linux_maint/baselines/configs"       # Per-host baselines liv
 AUTO_BASELINE_INIT="true"   # If baseline missing for a host, create it from current snapshot
 BASELINE_UPDATE="false"     # After reporting, accept current as new baseline
 EMAIL_ON_DRIFT="true"       # Send email when drift detected
+BASELINE_ONLY="${LM_BASELINE_ONLY:-0}"
 
 MAIL_SUBJECT_PREFIX='[Config Drift Monitor]'
 
@@ -232,6 +233,30 @@ run_for_host(){
   fi
 
   local base_file="$BASELINE_DIR/${host}.baseline"
+  local had_base=0
+  [ -f "$base_file" ] && had_base=1
+
+  if [ "$BASELINE_ONLY" = "1" ]; then
+    if [ "$had_base" -eq 1 ] && [ "$BASELINE_UPDATE" != "true" ]; then
+      lm_info "[$host] Baseline already exists at $base_file (use --update to overwrite)."
+      lm_summary "config_drift_monitor" "$host" "SKIP" reason=baseline_exists modified=0 added=0 removed=0
+      rm -f "$cur_file"
+      lm_info "===== Completed $host ====="
+      return 0
+    fi
+    cp -f "$cur_file" "$base_file"
+    if [ "$had_base" -eq 1 ]; then
+      lm_info "[$host] Baseline updated at $base_file."
+      lm_summary "config_drift_monitor" "$host" "OK" reason=baseline_updated modified=0 added=0 removed=0
+    else
+      lm_info "[$host] Baseline created at $base_file."
+      lm_summary "config_drift_monitor" "$host" "OK" reason=baseline_created modified=0 added=0 removed=0
+    fi
+    rm -f "$cur_file"
+    lm_info "===== Completed $host ====="
+    return 0
+  fi
+
   if [ ! -f "$base_file" ]; then
     if [ "$AUTO_BASELINE_INIT" = "true" ]; then
       cp -f "$cur_file" "$base_file"

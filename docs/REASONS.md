@@ -37,6 +37,10 @@ These are cross-monitor, reusable tokens. Prefer these before inventing a new on
 - `config_missing` — required config file missing
 - `config_invalid` — config present but invalid/unparseable
 - `unsupported` — environment unsupported (distro/tooling)
+- `baseline_created` — baseline created from current snapshot
+- `baseline_updated` — baseline updated to current snapshot
+- `baseline_exists` — baseline already present (no change)
+- `baseline_collect_failed` — unable to collect baseline data
 - `timer_missing` — systemd timer unit not installed
 - `timer_disabled` — systemd timer present but disabled
 - `timer_inactive` — systemd timer enabled but not active
