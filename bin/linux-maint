@@ -1358,7 +1358,8 @@ else:
     print('totals: ' + ' '.join(parts))
 
 if problems:
-    print("\nproblems:")
+    show_n=min(limit, len(problems))
+    print(f"\nproblems (top {show_n}):")
     if table:
         rows=[]
         for line in problems[:limit]:
@@ -1408,7 +1409,7 @@ else:
     print('\nproblems: none (all OK)')
 
 if reasons_limit > 0:
-    print('\nreason_rollup:')
+    print(f"\nreasons (top {reasons_limit}):")
     if reason_counts:
         rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
         for reason, count in rollup[:reasons_limit]:
