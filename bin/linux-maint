@@ -2905,7 +2905,7 @@ PYJSON
     if [[ "$DOCTOR_FIX" -eq 1 ]]; then
       echo ""
       echo "=== Fixes applied ==="
-      if [[ "${#fix_actions[@]:-0}" -eq 0 ]]; then
+      if [[ "${#fix_actions[@]}" -eq 0 ]]; then
         echo "none"
       else
         for a in "${fix_actions[@]}"; do
