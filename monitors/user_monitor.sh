@@ -34,13 +34,18 @@ MAIL_SUBJECT_PREFIX='[User Monitor]'
 # ========================
 # Script configuration
 # ========================
-USERS_BASELINE_DIR="/etc/linux_maint/baselines/users"       # per-host: ${host}.users
-SUDO_BASELINE_DIR="/etc/linux_maint/baselines/sudoers"      # per-host: ${host}.sudoers
+USERS_BASELINE_DIR="${LM_CFG_DIR:-/etc/linux_maint}/baselines/users"       # per-host: ${host}.users
+SUDO_BASELINE_DIR="${LM_CFG_DIR:-/etc/linux_maint}/baselines/sudoers"      # per-host: ${host}.sudoers
 AUTO_BASELINE_INIT="true"    # create baseline on first run
 BASELINE_UPDATE="false"      # update baseline to current after reporting
 EMAIL_ON_ALERT="true"        # send email if anomalies are detected
 BASELINE_ONLY="${LM_BASELINE_ONLY:-0}"
 BASELINE_TARGET="${LM_BASELINE_TARGET:-all}"
+BASELINE_DIFF="${LM_BASELINE_DIFF:-0}"
+BASELINE_SHOW="${LM_BASELINE_SHOW:-0}"
+if [ "$BASELINE_ONLY" = "1" ] || [ "$BASELINE_DIFF" = "1" ] || [ "$BASELINE_SHOW" = "1" ]; then
+  EMAIL_ON_ALERT="false"
+fi
 
 # User selection (default: all users). To focus on human users set USER_MIN_UID=1000.
 : "${USER_MIN_UID:=0}"       # include users with UID >= USER_MIN_UID, plus 'root'
@@ -146,6 +151,83 @@ run_for_host(){
   local sudo_hash sudo_base sudo_base_file
   sudo_base_file="$SUDO_BASELINE_DIR/${host}.sudoers"
   sudo_hash="$(lm_ssh "$host" bash -lc "$sudoers_hash_cmd")"
+
+  if [ "$BASELINE_SHOW" = "1" ]; then
+    local want_users=0 want_sudoers=0
+    case "$BASELINE_TARGET" in
+      ""|all) want_users=1; want_sudoers=1 ;;
+      users) want_users=1 ;;
+      sudoers) want_sudoers=1 ;;
+    esac
+    if [ "$want_users" -eq 1 ]; then
+      echo "=== Users baseline snapshot (current) host=$host ==="
+      printf "%s\n" "$users_current"
+    fi
+    if [ "$want_sudoers" -eq 1 ]; then
+      echo "=== Sudoers baseline snapshot (current) host=$host ==="
+      if [ -n "$sudo_hash" ]; then
+        echo "$sudo_hash"
+      else
+        echo "sudoers hash unavailable"
+      fi
+    fi
+    lm_summary "user_monitor" "$host" "OK" anomalies=0
+    lm_info "===== Completed $host ====="
+    return 0
+  fi
+
+  if [ "$BASELINE_DIFF" = "1" ]; then
+    local want_users=0 want_sudoers=0
+    case "$BASELINE_TARGET" in
+      ""|all) want_users=1; want_sudoers=1 ;;
+      users) want_users=1 ;;
+      sudoers) want_sudoers=1 ;;
+    esac
+    local new_users="" removed_users="" sudo_changed=0 missing=0
+    if [ "$want_users" -eq 1 ]; then
+      if [ ! -f "$users_base_file" ]; then
+        lm_warn "[$host] users baseline missing ($users_base_file)"
+        missing=1
+      else
+        users_base="$(cat "$users_base_file")"
+        new_users="$(comm -13 <(printf "%s\n" "$users_base") <(printf "%s\n" "$users_current"))"
+        removed_users="$(comm -23 <(printf "%s\n" "$users_base") <(printf "%s\n" "$users_current"))"
+        echo "=== Users baseline diff host=$host ==="
+        [ -n "$new_users" ] && { echo "new_users:"; printf "%s\n" "$new_users"; }
+        [ -n "$removed_users" ] && { echo "removed_users:"; printf "%s\n" "$removed_users"; }
+        [ -z "$new_users$removed_users" ] && echo "no user changes"
+      fi
+    fi
+    if [ "$want_sudoers" -eq 1 ]; then
+      if [ ! -f "$sudo_base_file" ]; then
+        lm_warn "[$host] sudoers baseline missing ($sudo_base_file)"
+        missing=1
+      else
+        sudo_base="$(cat "$sudo_base_file")"
+        if [ -n "$sudo_hash" ] && [ "$sudo_hash" != "$sudo_base" ]; then
+          sudo_changed=1
+          echo "=== Sudoers baseline diff host=$host ==="
+          echo "old=${sudo_base:0:12} new=${sudo_hash:0:12}"
+        else
+          echo "=== Sudoers baseline diff host=$host ==="
+          echo "no sudoers changes"
+        fi
+      fi
+    fi
+    local anomalies=0
+    [ -n "$new_users" ] && anomalies=$((anomalies+1))
+    [ -n "$removed_users" ] && anomalies=$((anomalies+1))
+    [ "$sudo_changed" -eq 1 ] && anomalies=$((anomalies+1))
+    if [ "$missing" -gt 0 ]; then
+      lm_summary "user_monitor" "$host" "SKIP" reason=baseline_missing anomalies=0
+    elif [ "$anomalies" -gt 0 ]; then
+      lm_summary "user_monitor" "$host" "WARN" reason=user_anomalies anomalies="$anomalies"
+    else
+      lm_summary "user_monitor" "$host" "OK" anomalies=0
+    fi
+    lm_info "===== Completed $host ====="
+    return 0
+  fi
 
   # Baseline-only mode: capture users/sudoers baselines and exit early.
   if [ "$BASELINE_ONLY" = "1" ]; then

@@ -209,8 +209,8 @@ Common commands:
   status [flags]         Show last run status + filtered summary lines
   diff [--json]          Show diff since last run (uses wrapper diff state)
   logs [n]               Tail latest wrapper log (default n=200)
-  report [--json] [--compact] [--table]  Summarize latest run, trends, and slow monitors
-  config [--json] [--sources]  Show effective config (merged from /etc/linux_maint)
+  report [--json] [--compact] [--table] [--no-trend] [--no-slow] [--no-reasons] [--no-problems]  Summarize latest run, trends, and slow monitors
+  config [--json] [--sources] [--lint]  Show effective config (merged from /etc/linux_maint)
   doctor [--json]        Diagnose installation/config/state permissions
   self-check [--json]    Quick validation (config/paths/deps; safe without sudo)
   check                 Run config_validate + preflight + show expected skips
@@ -225,7 +225,7 @@ Analysis / reporting:
 Setup / maintenance:
   init [--minimal]       Install /etc/linux_maint templates (from repo checkout)
   tune dark-site         Apply recommended dark-site defaults to linux-maint.conf
-  baseline <ports|configs|users|sudoers> [--update] [--local-only]  Capture baselines
+  baseline <ports|configs|users|sudoers> [--update] [--local-only] [--diff] [--show]  Capture or preview baselines
   preflight              Run preflight checks
   validate               Validate config file formats (best-effort)
   deps                   Print required/optional dependency manifest by monitor
@@ -410,15 +410,23 @@ case "$cmd" in
     REPORT_JSON=0
     REPORT_COLOR=1
     REPORT_COMPACT=0
-    REPORT_TABLE=0
+    REPORT_TABLE="${LM_REPORT_TABLE:-0}"
+    REPORT_NO_TREND=0
+    REPORT_NO_SLOW=0
+    REPORT_NO_REASONS=0
+    REPORT_NO_PROBLEMS=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) REPORT_JSON=1; shift 1;;
         --no-color) REPORT_COLOR=0; shift 1;;
         --compact) REPORT_COMPACT=1; shift 1;;
         --table) REPORT_TABLE=1; shift 1;;
+        --no-trend) REPORT_NO_TREND=1; shift 1;;
+        --no-slow) REPORT_NO_SLOW=1; shift 1;;
+        --no-reasons) REPORT_NO_REASONS=1; shift 1;;
+        --no-problems) REPORT_NO_PROBLEMS=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint report [--json] [--no-color] [--compact] [--table]"
+          echo "Usage: linux-maint report [--json] [--no-color] [--compact] [--table] [--no-trend] [--no-slow] [--no-reasons] [--no-problems]"
           exit 0;;
         *) echo "Unknown report flag: $1" >&2; exit 2;;
       esac
@@ -434,7 +442,7 @@ case "$cmd" in
     "$0" trend --last 10 --json >"$tmp_trend" 2>/dev/null || printf '{}' >"$tmp_trend"
     "$0" runtimes --last 1 --json >"$tmp_runtimes" 2>/dev/null || printf '{}' >"$tmp_runtimes"
 
-    LM_COLOR="$REPORT_COLOR" REPORT_COMPACT="$REPORT_COMPACT" REPORT_TABLE="$REPORT_TABLE" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
+    LM_COLOR="$REPORT_COLOR" REPORT_COMPACT="$REPORT_COMPACT" REPORT_TABLE="$REPORT_TABLE" REPORT_NO_TREND="$REPORT_NO_TREND" REPORT_NO_SLOW="$REPORT_NO_SLOW" REPORT_NO_REASONS="$REPORT_NO_REASONS" REPORT_NO_PROBLEMS="$REPORT_NO_PROBLEMS" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
 import json, os, sys
 
 status_path, trend_path, runtimes_path, json_mode = sys.argv[1:5]
@@ -442,6 +450,10 @@ json_mode = json_mode == "1"
 color = os.environ.get("LM_COLOR","1") == "1"
 compact = os.environ.get("REPORT_COMPACT","0") == "1"
 table = os.environ.get("REPORT_TABLE","0") == "1"
+no_trend = os.environ.get("REPORT_NO_TREND","0") == "1"
+no_slow = os.environ.get("REPORT_NO_SLOW","0") == "1"
+no_reasons = os.environ.get("REPORT_NO_REASONS","0") == "1"
+no_problems = os.environ.get("REPORT_NO_PROBLEMS","0") == "1"
 
 def c(s, code):
     if not color:
@@ -527,7 +539,7 @@ if totals:
         raise SystemExit(0)
 
 problems = status.get("problems", [])
-if problems:
+if problems and not no_problems:
     print("\nproblems (top):")
     if table:
         rows=[]
@@ -574,11 +586,11 @@ if problems:
     print("\nnext_steps:")
     print("  - run: linux-maint doctor")
     print("  - run: linux-maint status --verbose")
-else:
+elif not no_problems:
     print("\nproblems: none (all OK)")
 
 reason_rollup = status.get("reason_rollup", [])
-if reason_rollup:
+if reason_rollup and not no_reasons:
     print("\nreasons (latest):")
     for r in reason_rollup[:10]:
         print(f"{r.get('reason')}={r.get('count')}")
@@ -620,7 +632,7 @@ if reason_rollup:
         for h in hint_lines[:5]:
             print(f"- {h}")
 
-if trend:
+if trend and not no_trend:
     t_totals = trend.get("totals", {})
     if t_totals:
         print("\ntrend (last runs):")
@@ -632,7 +644,7 @@ if trend:
             print(f"{r.get('reason')}={r.get('count')}")
 
 rows = runtimes.get("rows", [])
-if rows:
+if rows and not no_slow:
     print("\nslow monitors (last run):")
     if table:
         rows2=[(r.get("monitor",""), str(r.get("ms",""))) for r in rows[:10]]
@@ -659,12 +671,14 @@ PY
 
     CFG_JSON=0
     CFG_SOURCES=0
+    CFG_LINT=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) CFG_JSON=1; shift 1;;
         --sources) CFG_SOURCES=1; shift 1;;
+        --lint) CFG_LINT=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint config [--json] [--sources]"
+          echo "Usage: linux-maint config [--json] [--sources] [--lint]"
           exit 0;;
         *) echo "Unknown config flag: $1" >&2; exit 2;;
       esac
@@ -687,12 +701,13 @@ PY
       exit 1
     fi
 
-    CFG_DIR="$CFG_DIR" CFG_SOURCES="$CFG_SOURCES" CFG_JSON="$CFG_JSON" python3 - "${conf_files[@]}" <<'PY'
+    CFG_DIR="$CFG_DIR" CFG_SOURCES="$CFG_SOURCES" CFG_JSON="$CFG_JSON" CFG_LINT="$CFG_LINT" python3 - "${conf_files[@]}" <<'PY'
 import json, os, re, shlex, subprocess, sys
 
 cfg_dir = os.environ.get("CFG_DIR", "/etc/linux_maint")
 show_sources = os.environ.get("CFG_SOURCES", "0") == "1"
 json_mode = os.environ.get("CFG_JSON", "0") == "1"
+lint_mode = os.environ.get("CFG_LINT", "0") == "1"
 files = sys.argv[1:]
 
 def extract_keys(paths):
@@ -715,6 +730,50 @@ def extract_keys(paths):
         except FileNotFoundError:
             continue
     return keys
+
+def lint(paths):
+    invalid = []
+    seen = {}
+    for p in paths:
+        try:
+            with open(p, "r", encoding="utf-8", errors="ignore") as f:
+                for i, raw in enumerate(f, start=1):
+                    line = raw.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if line.startswith("export "):
+                        line = line[len("export "):].lstrip()
+                    m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\s*=", line)
+                    if not m:
+                        invalid.append((p, i, raw.rstrip()))
+                        continue
+                    k = m.group(1)
+                    seen.setdefault(k, []).append((p, i))
+        except FileNotFoundError:
+            continue
+    duplicates = {k: v for k, v in seen.items() if len(v) > 1}
+    return invalid, duplicates
+
+if lint_mode:
+    invalid, duplicates = lint(files)
+    print("=== linux-maint config lint ===")
+    print(f"cfg_dir={cfg_dir}")
+    if invalid:
+        print("\ninvalid lines:")
+        for p, i, line in invalid[:50]:
+            print(f"- {p}:{i}: {line}")
+    else:
+        print("\ninvalid lines: none")
+    if duplicates:
+        print("\nduplicate keys:")
+        for k, locs in sorted(duplicates.items()):
+            loc_str = ", ".join(f"{p}:{i}" for p, i in locs[:6])
+            print(f"- {k}: {loc_str}")
+    else:
+        print("\nduplicate keys: none")
+    if invalid:
+        sys.exit(1)
+    sys.exit(0)
 
 keys = extract_keys(files)
 if not keys:
@@ -2249,19 +2308,32 @@ PY
     target="${1:-}"; shift || true
     BASELINE_UPDATE=0
     BASELINE_LOCAL=0
+    BASELINE_DIFF=0
+    BASELINE_SHOW=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --update) BASELINE_UPDATE=1; shift 1;;
         --local-only) BASELINE_LOCAL=1; shift 1;;
+        --diff) BASELINE_DIFF=1; shift 1;;
+        --show) BASELINE_SHOW=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint baseline <ports|configs|users|sudoers> [--update] [--local-only]"
+          echo "Usage: linux-maint baseline <ports|configs|users|sudoers> [--update] [--local-only] [--diff] [--show]"
           exit 0;;
         *) echo "Unknown baseline flag: $1" >&2; exit 2;;
       esac
     done
 
     if [[ -z "$target" ]]; then
-      echo "Usage: linux-maint baseline <ports|configs|users|sudoers> [--update] [--local-only]" >&2
+      echo "Usage: linux-maint baseline <ports|configs|users|sudoers> [--update] [--local-only] [--diff] [--show]" >&2
+      exit 2
+    fi
+
+    if [[ "$BASELINE_DIFF" -eq 1 && "$BASELINE_SHOW" -eq 1 ]]; then
+      echo "ERROR: use only one of --diff or --show" >&2
+      exit 2
+    fi
+    if [[ "$BASELINE_UPDATE" -eq 1 && ( "$BASELINE_DIFF" -eq 1 || "$BASELINE_SHOW" -eq 1 ) ]]; then
+      echo "ERROR: --update cannot be combined with --diff or --show" >&2
       exit 2
     fi
 
@@ -2305,6 +2377,14 @@ PY
     fi
     if [[ "$BASELINE_LOCAL" -eq 1 ]]; then
       export LM_LOCAL_ONLY="true"
+    fi
+    if [[ "$BASELINE_DIFF" -eq 1 ]]; then
+      export LM_BASELINE_DIFF=1
+      export LM_BASELINE_ONLY=0
+    fi
+    if [[ "$BASELINE_SHOW" -eq 1 ]]; then
+      export LM_BASELINE_SHOW=1
+      export LM_BASELINE_ONLY=0
     fi
 
     exec bash "$script"
@@ -2541,6 +2621,8 @@ PY
     DOCTOR_FIX=0
     DOCTOR_FIX_DEPS=0
     DOCTOR_FIX_OPTIONAL=0
+    DOCTOR_YES=0
+    DOCTOR_DRY_RUN=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) DOCTOR_JSON=1; shift 1;;
@@ -2548,8 +2630,10 @@ PY
         --fix) DOCTOR_FIX=1; shift 1;;
         --fix-deps) DOCTOR_FIX=1; DOCTOR_FIX_DEPS=1; shift 1;;
         --fix-deps-optional) DOCTOR_FIX=1; DOCTOR_FIX_DEPS=1; DOCTOR_FIX_OPTIONAL=1; shift 1;;
+        --yes) DOCTOR_YES=1; shift 1;;
+        --dry-run) DOCTOR_DRY_RUN=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint doctor [--json] [--compact] [--fix] [--fix-deps] [--fix-deps-optional]"
+          echo "Usage: linux-maint doctor [--json] [--compact] [--fix] [--fix-deps] [--fix-deps-optional] [--yes] [--dry-run]"
           exit 0;;
         *) echo "Unknown doctor flag: $1" >&2; exit 2;;
       esac
@@ -2563,13 +2647,31 @@ PY
     fi
 
     if [[ "$DOCTOR_FIX" -eq 1 ]]; then
+      if [[ "$DOCTOR_DRY_RUN" -eq 0 && "$DOCTOR_YES" -eq 0 ]]; then
+        if [[ -t 1 ]]; then
+          echo "About to apply fixes (dirs/perms${DOCTOR_FIX_DEPS:+, deps}). Proceed? [y/N]"
+          read -r ans
+          [[ "$ans" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 1; }
+        else
+          echo "ERROR: doctor --fix requires --yes in non-interactive mode" >&2
+          exit 1
+        fi
+      fi
       fix_actions=()
       ensure_dir() {
         local d="$1"
         if [[ ! -d "$d" ]]; then
-          install -d -m 0755 "$d" 2>/dev/null && fix_actions+=("create: $d") || fix_actions+=("failed: $d")
+          if [[ "$DOCTOR_DRY_RUN" -eq 1 ]]; then
+            fix_actions+=("would create: $d")
+          else
+            install -d -m 0755 "$d" 2>/dev/null && fix_actions+=("create: $d") || fix_actions+=("failed: $d")
+          fi
         elif [[ ! -w "$d" ]]; then
-          chmod 0755 "$d" 2>/dev/null && fix_actions+=("chmod: $d") || fix_actions+=("failed: $d")
+          if [[ "$DOCTOR_DRY_RUN" -eq 1 ]]; then
+            fix_actions+=("would chmod: $d")
+          else
+            chmod 0755 "$d" 2>/dev/null && fix_actions+=("chmod: $d") || fix_actions+=("failed: $d")
+          fi
         fi
       }
       ensure_dir "/var/log/health"
@@ -2613,7 +2715,9 @@ PY
         fi
 
         if [[ "${#missing_pkgs[@]:-0}" -gt 0 ]]; then
-          if command -v dnf >/dev/null 2>&1; then
+          if [[ "$DOCTOR_DRY_RUN" -eq 1 ]]; then
+            fix_actions+=("deps: would install ${missing_pkgs[*]}")
+          elif command -v dnf >/dev/null 2>&1; then
             dnf -y install "${missing_pkgs[@]}" && fix_actions+=("deps: installed via dnf") || fix_actions+=("deps: install failed (dnf)")
           elif command -v yum >/dev/null 2>&1; then
             yum -y install "${missing_pkgs[@]}" && fix_actions+=("deps: installed via yum") || fix_actions+=("deps: install failed (yum)")

@@ -30,11 +30,12 @@ lm_require_cmd "ports_baseline_monitor" "localhost" ss --optional || true
 lm_require_cmd "ports_baseline_monitor" "localhost" netstat --optional || true
 
 
-# If running unprivileged and /etc/linux_maint is not writable, skip to avoid failing CI/contract tests.
+# If running unprivileged and config dir is not writable, skip to avoid failing CI/contract tests.
+CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-  if ! mkdir -p /etc/linux_maint 2>/dev/null; then
-    echo "SKIP: requires root (cannot write /etc/linux_maint)"
-    lm_summary "ports_baseline_monitor" "localhost" "SKIP" reason="unprivileged_no_etc"
+  if ! mkdir -p "$CFG_DIR" 2>/dev/null; then
+    echo "SKIP: requires writable config dir ($CFG_DIR)"
+    lm_summary "ports_baseline_monitor" "localhost" "SKIP" reason="permission_denied"
     exit 0
   fi
 fi
@@ -50,6 +51,11 @@ AUTO_BASELINE_INIT="true"       # If no baseline for a host, create it from curr
 BASELINE_UPDATE="false"         # If true, replace baseline with current snapshot after reporting
 INCLUDE_PROCESS="true"          # Include process names in baseline when available
 BASELINE_ONLY="${LM_BASELINE_ONLY:-0}"
+BASELINE_DIFF="${LM_BASELINE_DIFF:-0}"
+BASELINE_SHOW="${LM_BASELINE_SHOW:-0}"
+if [ "$BASELINE_ONLY" = "1" ] || [ "$BASELINE_DIFF" = "1" ] || [ "$BASELINE_SHOW" = "1" ]; then
+  EMAIL_ON_CHANGE="false"
+fi
 
 MAIL_SUBJECT_PREFIX='[Ports Baseline Monitor]'
 EMAIL_ON_CHANGE="true"          # Send email when NEW/REMOVED entries are detected
@@ -222,6 +228,41 @@ run_for_host() {
   local base_file="$BASELINE_DIR/${host}.baseline"
   local had_base=0
   [ -f "$base_file" ] && had_base=1
+
+  if [ "$BASELINE_SHOW" = "1" ]; then
+    echo "=== Ports baseline snapshot (current) host=$host ==="
+    cat "$cur_file"
+    rm -f "$cur_file"
+    lm_summary "ports_baseline_monitor" "$host" "OK" new="0" removed="0"
+    lm_info "===== Completed $host ====="
+    return 0
+  fi
+
+  if [ "$BASELINE_DIFF" = "1" ]; then
+    if [ "$had_base" -eq 0 ]; then
+      lm_warn "[$host] Baseline missing ($base_file)."
+      lm_summary "ports_baseline_monitor" "$host" "SKIP" reason=baseline_missing new="0" removed="0"
+      rm -f "$cur_file"
+      lm_info "===== Completed $host ====="
+      return 0
+    fi
+    echo "=== Ports baseline diff host=$host ==="
+    diff -u "$base_file" "$cur_file" || true
+    new_count=$(comm -13 "$base_file" "$cur_file" 2>/dev/null | wc -l | tr -d ' ')
+    removed_count=$(comm -23 "$base_file" "$cur_file" 2>/dev/null | wc -l | tr -d ' ')
+    local status=OK
+    if [ "$new_count" -gt 0 ] || [ "$removed_count" -gt 0 ]; then
+      status=WARN
+    fi
+    if [ "$status" != "OK" ]; then
+      lm_summary "ports_baseline_monitor" "$host" "$status" reason=ports_baseline_changed new="$new_count" removed="$removed_count"
+    else
+      lm_summary "ports_baseline_monitor" "$host" "$status" new="$new_count" removed="$removed_count"
+    fi
+    rm -f "$cur_file"
+    lm_info "===== Completed $host ====="
+    return 0
+  fi
 
   if [ "$BASELINE_ONLY" = "1" ]; then
     if [ "$had_base" -eq 1 ] && [ "$BASELINE_UPDATE" != "true" ]; then

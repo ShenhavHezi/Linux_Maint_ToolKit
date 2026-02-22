@@ -29,11 +29,12 @@ if ! lm_has_cmd sha256sum && ! lm_has_cmd md5sum; then
   exit 3
 fi
 
-# If running unprivileged and /etc/linux_maint is not writable, skip to avoid failing CI/contract tests.
+# If running unprivileged and config dir is not writable, skip to avoid failing CI/contract tests.
+CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-  if ! mkdir -p /etc/linux_maint 2>/dev/null; then
-    echo "SKIP: requires root (cannot write /etc/linux_maint)"
-    lm_summary "config_drift_monitor" "localhost" "SKIP" reason="unprivileged_no_etc"
+  if ! mkdir -p "$CFG_DIR" 2>/dev/null; then
+    echo "SKIP: requires writable config dir ($CFG_DIR)"
+    lm_summary "config_drift_monitor" "localhost" "SKIP" reason="permission_denied"
     exit 0
   fi
 fi
@@ -41,15 +42,20 @@ fi
 # ========================
 # Script configuration
 # ========================
-CONFIG_PATHS="/etc/linux_maint/config_paths.txt"        # Targets (files/dirs/globs)
-ALLOWLIST_FILE="/etc/linux_maint/config_allowlist.txt"  # Optional: paths to ignore (exact or substring)
-BASELINE_DIR="/etc/linux_maint/baselines/configs"       # Per-host baselines live here
+CONFIG_PATHS="${LM_CFG_DIR:-/etc/linux_maint}/config_paths.txt"        # Targets (files/dirs/globs)
+ALLOWLIST_FILE="${LM_CFG_DIR:-/etc/linux_maint}/config_allowlist.txt"  # Optional: paths to ignore (exact or substring)
+BASELINE_DIR="${LM_CFG_DIR:-/etc/linux_maint}/baselines/configs"       # Per-host baselines live here
 
 # Behavior
 AUTO_BASELINE_INIT="true"   # If baseline missing for a host, create it from current snapshot
 BASELINE_UPDATE="false"     # After reporting, accept current as new baseline
 EMAIL_ON_DRIFT="true"       # Send email when drift detected
 BASELINE_ONLY="${LM_BASELINE_ONLY:-0}"
+BASELINE_DIFF="${LM_BASELINE_DIFF:-0}"
+BASELINE_SHOW="${LM_BASELINE_SHOW:-0}"
+if [ "$BASELINE_ONLY" = "1" ] || [ "$BASELINE_DIFF" = "1" ] || [ "$BASELINE_SHOW" = "1" ]; then
+  EMAIL_ON_DRIFT="false"
+fi
 
 MAIL_SUBJECT_PREFIX='[Config Drift Monitor]'
 
@@ -235,6 +241,42 @@ run_for_host(){
   local base_file="$BASELINE_DIR/${host}.baseline"
   local had_base=0
   [ -f "$base_file" ] && had_base=1
+
+  if [ "$BASELINE_SHOW" = "1" ]; then
+    echo "=== Config drift snapshot (current) host=$host ==="
+    cat "$cur_file"
+    rm -f "$cur_file"
+    lm_summary "config_drift_monitor" "$host" "OK" modified=0 added=0 removed=0
+    lm_info "===== Completed $host ====="
+    return 0
+  fi
+
+  if [ "$BASELINE_DIFF" = "1" ]; then
+    if [ "$had_base" -eq 0 ]; then
+      lm_warn "[$host] Baseline missing ($base_file)."
+      lm_summary "config_drift_monitor" "$host" "SKIP" reason=baseline_missing modified=0 added=0 removed=0
+      rm -f "$cur_file"
+      lm_info "===== Completed $host ====="
+      return 0
+    fi
+    echo "=== Config drift diff host=$host ==="
+    diff -u "$base_file" "$cur_file" || true
+    local added removed
+    added=$(comm -13 "$base_file" "$cur_file" 2>/dev/null | wc -l | tr -d ' ')
+    removed=$(comm -23 "$base_file" "$cur_file" 2>/dev/null | wc -l | tr -d ' ')
+    local status=OK
+    if [ "$added" -gt 0 ] || [ "$removed" -gt 0 ]; then
+      status=WARN
+    fi
+    if [ "$status" != "OK" ]; then
+      lm_summary "config_drift_monitor" "$host" "$status" reason=config_drift_changed modified=0 added="$added" removed="$removed"
+    else
+      lm_summary "config_drift_monitor" "$host" "$status" modified=0 added="$added" removed="$removed"
+    fi
+    rm -f "$cur_file"
+    lm_info "===== Completed $host ====="
+    return 0
+  fi
 
   if [ "$BASELINE_ONLY" = "1" ]; then
     if [ "$had_base" -eq 1 ] && [ "$BASELINE_UPDATE" != "true" ]; then
