@@ -2398,7 +2398,7 @@ PYJSON
     fi
 
     echo ""
-    echo "== Config presence =="
+    echo "=== Config presence ==="
     fix_suggestions=()
     add_fix(){ fix_suggestions+=("$1"); }
     if [[ -d "$CFG_DIR" ]]; then
@@ -2434,7 +2434,7 @@ PYJSON
     fi
 
     echo ""
-    echo "== Monitor gates (what may SKIP) =="
+    echo "=== Monitor gates (what may SKIP) ==="
     printf "%-22s %-10s %s\n" "MONITOR" "STATUS" "PATH"
     if [[ -s "$CFG_DIR/certs.txt" ]]; then
       printf "%-22s %-10s %s\n" "cert_monitor" "${C_GREEN}OK${C_RESET}" "$CFG_DIR/certs.txt"
@@ -2480,7 +2480,7 @@ PYJSON
     fi
 
     echo ""
-    echo "== Dependencies (best-effort) =="
+    echo "=== Dependencies (best-effort) ==="
     need_cmd() {
       local cmd="$1" pkg_hint="$2"
       if command -v "$cmd" >/dev/null 2>&1; then
@@ -2505,7 +2505,7 @@ PYJSON
 
     if [[ "$DOCTOR_COMPACT" -eq 0 ]]; then
       echo ""
-      echo "== systemd (best-effort) =="
+      echo "=== systemd (best-effort) ==="
       if command -v systemctl >/dev/null 2>&1; then
         for unit in linux-maint.timer linux-maint.service; do
           if systemctl list-unit-files --no-legend "$unit" 2>/dev/null | grep -q "^$unit"; then
@@ -2524,7 +2524,7 @@ PYJSON
     fi
 
     echo ""
-    echo "== Can write state/logs? =="
+    echo "=== Can write state/logs? ==="
     printf "%-24s %s\n" "PATH" "STATUS"
     for d in /var/log/health /var/log/inventory /var/lib/linux_maint /var/lock; do
       if [[ -d "$d" ]]; then
@@ -2544,7 +2544,7 @@ PYJSON
     done
 
     echo ""
-    echo "== Fix suggestions =="
+    echo "=== Fix suggestions ==="
     if [[ "${#fix_suggestions[@]}" -eq 0 ]]; then
       echo "- none"
     else
@@ -2555,7 +2555,7 @@ PYJSON
 
     if [[ "$DOCTOR_COMPACT" -eq 0 ]]; then
       echo ""
-      echo "== Next recommended actions =="
+      echo "=== Next recommended actions ==="
       echo "- linux-maint verify-install"
       echo "- sudo linux-maint init      # if config is missing"
       echo "- sudo linux-maint preflight"
@@ -2641,7 +2641,7 @@ PY
       echo "note=compact"
       echo ""
     fi
-    echo "== Config files =="
+    echo "=== Config files ==="
     printf "%-44s %s\n" "FILE" "STATUS"
     for f in "$CFG_DIR/servers.txt" "$CFG_DIR/excluded.txt" "$CFG_DIR/services.txt"; do
       if [[ -e "$f" ]]; then
@@ -2652,7 +2652,7 @@ PY
     done
     if [[ "$SC_COMPACT" -eq 0 ]]; then
       echo ""
-      echo "== Paths (writable) =="
+      echo "=== Paths (writable) ==="
       printf "%-24s %s\n" "PATH" "STATUS"
       for d in "$LOG_DIR_SC" "$STATE_DIR_SC" "$LOCK_DIR_SC"; do
         if [[ -d "$d" ]]; then
@@ -2662,7 +2662,7 @@ PY
         fi
       done
       echo ""
-      echo "== Dependencies =="
+      echo "=== Dependencies ==="
       for cmd in bash awk sed grep df find timeout ssh; do
         command -v "$cmd" >/dev/null 2>&1 && printf "%-18s %s\n" "$cmd" "${C_GREEN}OK${C_RESET}" || printf "%-18s %s\n" "$cmd" "${C_RED}MISSING${C_RESET}"
       done
