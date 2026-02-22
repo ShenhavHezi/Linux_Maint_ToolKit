@@ -29,7 +29,20 @@ if [[ -z "${LM_STATE_DIR:-}" ]]; then
   fi
 fi
 
-: "${LM_SSH_OPTS:=-o BatchMode=yes -o ConnectTimeout=7 -o ServerAliveInterval=10 -o ServerAliveCountMax=2 -o ForwardAgent=no -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/var/lib/linux_maint/known_hosts -o GlobalKnownHostsFile=/dev/null}"
+: "${LM_SSH_KNOWN_HOSTS_MODE:=accept-new}"
+case "${LM_SSH_KNOWN_HOSTS_MODE}" in
+  accept-new|strict) ;;
+  *)
+    echo "WARN: invalid LM_SSH_KNOWN_HOSTS_MODE '${LM_SSH_KNOWN_HOSTS_MODE}' (use strict|accept-new); defaulting to accept-new" >&2
+    LM_SSH_KNOWN_HOSTS_MODE="accept-new"
+    ;;
+esac
+if [[ "${LM_SSH_KNOWN_HOSTS_MODE}" == "strict" ]]; then
+  _LM_SSH_STRICT="yes"
+else
+  _LM_SSH_STRICT="accept-new"
+fi
+: "${LM_SSH_OPTS:=-o BatchMode=yes -o ConnectTimeout=7 -o ServerAliveInterval=10 -o ServerAliveCountMax=2 -o ForwardAgent=no -o StrictHostKeyChecking=${_LM_SSH_STRICT} -o UserKnownHostsFile=/var/lib/linux_maint/known_hosts -o GlobalKnownHostsFile=/dev/null}"
 
 : "${LM_EMAIL_ENABLED:=true}"      # scripts can set LM_EMAIL_ENABLED=false to suppress email
 : "${LM_MAX_PARALLEL:=0}"          # 0 = sequential
@@ -691,12 +704,42 @@ lm_summary() {
   # shellcheck disable=SC2086
   local line
   local args=("$@")
+  local reason=""
+  local has_next_step=0
+  local allow_next_step=1
+  local tok
+  for tok in "${args[@]}"; do
+    case "$tok" in
+      reason=*) reason="${tok#reason=}" ;;
+      next_step=*) has_next_step=1 ;;
+    esac
+  done
+  if [[ -n "${LM_SUMMARY_ALLOWLIST:-}" ]]; then
+    allow_next_step=0
+    if printf '%s' "${LM_SUMMARY_ALLOWLIST}" | tr ', ' '\n' | awk 'NF{print $1}' | grep -qx 'next_step'; then
+      allow_next_step=1
+    fi
+  fi
+  if [[ "$has_next_step" -eq 0 && -n "$reason" && "$allow_next_step" -eq 1 ]]; then
+    local next_step=""
+    case "$reason" in
+      ssh_unreachable) next_step="check_ssh" ;;
+      missing_dependency) next_step="install_dependency" ;;
+      missing_optional_cmd) next_step="install_optional_dependency" ;;
+      timer_missing) next_step="enable_timer" ;;
+      config_missing) next_step="run_init" ;;
+      stale_run) next_step="check_scheduler" ;;
+    esac
+    if [[ -n "$next_step" ]]; then
+      args+=("next_step=$next_step")
+    fi
+  fi
   if [[ -n "${LM_SUMMARY_ALLOWLIST:-}" ]]; then
     local allowlist
     allowlist="$(printf '%s' "${LM_SUMMARY_ALLOWLIST}" | tr ', ' '\n' | awk 'NF{print $1}' | paste -sd '|' -)"
     local filtered=()
     local dropped=0
-    local tok key
+    local key
     for tok in "${args[@]}"; do
       if [[ "$tok" == *=* ]]; then
         key="${tok%%=*}"

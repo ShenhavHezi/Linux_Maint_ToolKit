@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint metrics --json",
+  "type": "object",
+  "required": ["metrics_json_contract_version", "status", "trend", "runtimes"],
+  "properties": {
+    "metrics_json_contract_version": { "type": "integer" },
+    "status": { "type": "object" },
+    "trend": { "type": "object" },
+    "runtimes": { "type": "object" }
+  },
+  "additionalProperties": true
+}

@@ -105,3 +105,15 @@ for row in o.get("rows", []):
         assert row["token"] == "REDACTED"
 print("export json redaction ok")
 '
+
+allow_out="$(LM_EXPORT_ALLOWLIST=monitor,host,status bash "$LM" export --json)"
+printf '%s' "$allow_out" | python3 -c '
+import json,sys
+o=json.load(sys.stdin)
+rows=o.get("rows", [])
+assert rows and isinstance(rows, list)
+for row in rows:
+    assert "monitor" in row and "host" in row and "status" in row
+    assert "token" not in row
+print("export json allowlist ok")
+'

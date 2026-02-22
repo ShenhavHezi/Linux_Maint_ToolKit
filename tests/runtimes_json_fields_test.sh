@@ -18,5 +18,6 @@ LOG
 
 json_out="$(LOG_DIR="$logdir" bash "$ROOT_DIR/bin/linux-maint" runtimes --json)"
 python3 -c 'import json,sys; obj=json.loads(sys.stdin.read()); rows=obj.get("rows",[]); assert obj.get("unit")=="ms"; assert any(r.get("monitor")=="slow" and r.get("unit")=="ms" and r.get("source_file") for r in rows); assert any(r.get("monitor")=="fast" and r.get("unit")=="ms" and r.get("source_file") for r in rows)' <<<"$json_out"
+printf '%s' "$json_out" | python3 "$ROOT_DIR/tools/json_schema_validate.py" "$ROOT_DIR/docs/schemas/runtimes.json"
 
 echo "ok: runtimes json fields"

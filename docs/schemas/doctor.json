@@ -10,6 +10,7 @@
     "dependencies",
     "writable_locations",
     "fix_suggestions",
+    "fix_actions",
     "next_actions"
   ],
   "properties": {
@@ -74,6 +75,20 @@
     "fix_suggestions": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "fix_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "action", "status"],
+        "properties": {
+          "id": { "type": "integer" },
+          "action": { "type": "string" },
+          "target": { "type": "string" },
+          "status": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
     },
     "next_actions": {
       "type": "array",

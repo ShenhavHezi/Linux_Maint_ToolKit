@@ -4,6 +4,7 @@
 - [ ] Decide version and update `VERSION` if needed.
 - [ ] Update `CHANGELOG.md` using `docs/RELEASE_TEMPLATE.md`.
 - [ ] Place release notes under `docs/` (archive), not `dist/`.
+- [ ] Run `./tools/release_check.sh`.
 - [ ] Run `make lint` and `make test`.
 
 ## Breaking changes audit
@@ -19,9 +20,11 @@
 
 ## Verify
 - [ ] Verify tarball: `linux-maint verify-release dist/Linux_Maint_ToolKit-*.tgz --sums dist/SHA256SUMS`.
+- [ ] Or run: `make verify-release` (wraps `linux-maint verify-release`).
 - [ ] Smoke test install in a clean environment.
 
 ## Publish
 - [ ] Tag release in git.
+- [ ] Tag push triggers a draft release on GitHub (review/edit notes from `CHANGELOG.md` Unreleased).
 - [ ] Upload tarball + checksums.
 - [ ] Publish release notes.

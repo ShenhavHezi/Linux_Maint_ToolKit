@@ -20,6 +20,7 @@ monitor=<name> host=<host> status=<OK|WARN|CRIT|UNKNOWN|SKIP> node=<runner> [rea
 - For non-OK statuses (`WARN|CRIT|UNKNOWN|SKIP`), include `reason=`.
   - If a script truly cannot determine a reason, use `reason=unknown` (avoid omitting).
 - `reason` values are **lower_snake_case**.
+- Optional `next_step=<token>` may be emitted for common `reason=` values to suggest remediation.
 
 ## Recommended `reason` tokens
 
@@ -32,6 +33,7 @@ These are cross-monitor, reusable tokens. Prefer these before inventing a new on
 - `early_exit` — monitor exited without emitting a summary line (wrapper or monitor trap fallback)
 - `timeout` — command timed out
 - `runtime_exceeded` — monitor runtime exceeded warn threshold (wrapper guard)
+- `summary_invalid` — strict wrapper validation failed due to malformed summary line(s)
 - `not_installed` — required tool/service missing
 - `permission_denied` — permission problem reading state/logs/etc
 - `config_missing` — required config file missing

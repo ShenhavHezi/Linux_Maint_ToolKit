@@ -26,10 +26,14 @@ sudo linux-maint status --verbose
 # Status in JSON (automation)
 sudo linux-maint status --json
 
+# Status as Prometheus textfile metrics
+sudo linux-maint status --prom
+
 # Unified report (status + trends + runtimes)
 sudo linux-maint report
 sudo linux-maint report --json
 sudo linux-maint report --compact
+sudo linux-maint report --short
 sudo linux-maint report --table
 
 # Preflight + validate + expected SKIPs
@@ -54,6 +58,11 @@ sudo linux-maint status --summary
 # Table format for problems
 sudo linux-maint status --table
 sudo linux-maint status --compact
+
+# Grouped fleet summary
+sudo linux-maint status --group-by host
+sudo linux-maint status --group-by monitor
+sudo linux-maint status --group-by reason
 
 # Compact diagnostics
 sudo linux-maint doctor --compact
@@ -88,6 +97,12 @@ sudo linux-maint runtimes --last 3 --json
 # Export a unified JSON payload
 sudo linux-maint export --json
 
+# Metrics snapshot (status + trend + runtimes)
+sudo linux-maint metrics --json
+
+# Export JSON with row allowlist
+LM_EXPORT_ALLOWLIST=monitor,host,status,reason sudo linux-maint export --json
+
 # Export summary rows as CSV
 sudo linux-maint export --csv
 
@@ -119,6 +134,9 @@ linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
 # Explain a reason token quickly
 linux-maint explain reason ssh_unreachable
 
+# Explain a monitor (purpose, deps, common reasons)
+linux-maint explain monitor health_monitor
+
 # Per-command help
 linux-maint help status
 
@@ -137,6 +155,7 @@ sudo linux-maint baseline sudoers --update
 # Progress controls (force disable)
 LM_PROGRESS=0 sudo linux-maint run
 LM_PROGRESS=0 sudo linux-maint pack-logs --out /tmp
+LM_PACK_LOGS_HASH=1 sudo linux-maint pack-logs --out /tmp
 
 # Pack logs redaction control
 sudo linux-maint pack-logs --out /tmp --redact

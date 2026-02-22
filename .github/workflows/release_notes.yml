@@ -1,0 +1,40 @@
+name: Draft Release Notes
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  draft_release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract Unreleased Notes
+        run: |
+          python3 - <<'PY' > release_notes.md
+          import re
+          from pathlib import Path
+
+          text = Path("CHANGELOG.md").read_text(encoding="utf-8", errors="ignore")
+          m = re.search(r"^## Unreleased\s*(.*?)^## ", text, flags=re.S | re.M)
+          if not m:
+              body = "(No Unreleased notes found.)"
+          else:
+              body = m.group(1).strip()
+              if not body or body == "- (add changes here)":
+                  body = "(No Unreleased notes found.)"
+          print(body)
+          PY
+
+      - name: Create Draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: Release ${{ github.ref_name }}
+          body_path: release_notes.md

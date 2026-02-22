@@ -8,6 +8,19 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-02-22
 
+- Release v0.1.7
+- Added strict run validation (`linux-maint run --strict`) and deterministic test mode (`LM_TEST_MODE=1`).
+- Added structured `fix_actions` to `doctor --fix --json`.
+- Added `status --group-by` and a one-screen `report --short`.
+- Added expected-SKIPs banner for first-run guidance.
+- Added `status --prom` and `metrics --json` snapshots (with schemas).
+- Added `next_step=` hints for common `reason=` values.
+- Added `linux-maint explain monitor <name>` and export allowlist support.
+- Added SSH known_hosts mode toggle and pack-logs hash manifest.
+- Added trend/runtimes JSON schemas and release draft workflow on tag push.
+
+## 2026-02-22
+
 - Release v0.1.6
 - Added `linux-maint status --expected-skips` to show expected SKIPs for missing optional config.
 - Smoke tests now use a summary fixture for summary noise lint (avoid long wrapper runs in CI).

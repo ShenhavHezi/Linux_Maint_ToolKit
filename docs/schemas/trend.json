@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint trend --json",
+  "type": "object",
+  "required": ["runs", "totals", "reasons"],
+  "properties": {
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "totals"],
+        "properties": {
+          "file": { "type": "string" },
+          "totals": {
+            "type": "object",
+            "required": ["CRIT", "WARN", "UNKNOWN", "SKIP", "OK"],
+            "additionalProperties": false,
+            "properties": {
+              "CRIT": { "type": "integer" },
+              "WARN": { "type": "integer" },
+              "UNKNOWN": { "type": "integer" },
+              "SKIP": { "type": "integer" },
+              "OK": { "type": "integer" }
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "totals": {
+      "type": "object",
+      "required": ["CRIT", "WARN", "UNKNOWN", "SKIP", "OK"],
+      "additionalProperties": false,
+      "properties": {
+        "CRIT": { "type": "integer" },
+        "WARN": { "type": "integer" },
+        "UNKNOWN": { "type": "integer" },
+        "SKIP": { "type": "integer" },
+        "OK": { "type": "integer" }
+      }
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["reason", "count"],
+        "properties": {
+          "reason": { "type": "string" },
+          "count": { "type": "integer" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

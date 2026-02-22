@@ -80,6 +80,19 @@ if [ -n "$CONF_LIB" ] && [ -f "$CONF_LIB" ]; then
   if command -v lm_load_config >/dev/null 2>&1; then lm_load_config || true; fi
 fi
 
+# Deterministic test mode (single flag):
+# - freezes timestamps (unless already set)
+# - disables notify/email/progress
+if [[ "${LM_TEST_MODE:-0}" == "1" || "${LM_TEST_MODE:-}" == "true" ]]; then
+  export LM_NOTIFY=0
+  export LM_EMAIL_ENABLED=false
+  export LM_PROGRESS=0
+  export LM_HOST_PROGRESS=0
+  if [[ -z "${LM_TEST_TIME_EPOCH:-}" ]]; then
+    export LM_TEST_TIME_EPOCH=946684800  # 2000-01-01T00:00:00Z
+  fi
+fi
+
 # Resolve state dir with fallback chain (writable-required)
 STATE_DIR_REQUESTED="${LM_STATE_DIR:-$STATE_DIR_DEFAULT}"
 STATE_DIR_FALLBACK_FROM=""
@@ -510,6 +523,55 @@ done
 if [ "$runtime_warned" -eq 1 ]; then
   warn=$((warn+runtime_warn_count))
   [ "$worst" -lt 1 ] && worst=1
+fi
+
+# Strict summary validation (optional)
+strict_failed=0
+strict_first=""
+if [[ "${LM_STRICT:-0}" == "1" || "${LM_STRICT:-}" == "true" ]]; then
+  while IFS= read -r line; do
+    [[ "$line" =~ ^monitor= ]] || continue
+    has_monitor=0
+    has_host=0
+    has_status=0
+    status=""
+    for tok in $line; do
+      if [[ "$tok" != *=* ]]; then
+        strict_failed=1
+        strict_first="$line"
+        break
+      fi
+      key="${tok%%=*}"
+      val="${tok#*=}"
+      case "$key" in
+        monitor) has_monitor=1 ;;
+        host) has_host=1 ;;
+        status) has_status=1; status="$val" ;;
+      esac
+    done
+    if [[ "$strict_failed" -eq 1 ]]; then
+      break
+    fi
+    if [[ "$has_monitor" -eq 0 || "$has_host" -eq 0 || "$has_status" -eq 0 ]]; then
+      strict_failed=1
+      strict_first="$line"
+      break
+    fi
+    case "$status" in
+      OK|WARN|CRIT|UNKNOWN|SKIP) ;;
+      *)
+        strict_failed=1
+        strict_first="$line"
+        break
+        ;;
+    esac
+  done < <(grep -a '^monitor=' "$tmp_report" 2>/dev/null || true)
+  if [[ "$strict_failed" -eq 1 ]]; then
+    echo "ERROR: strict summary validation failed" >&2
+    [[ -n "$strict_first" ]] && echo "ERROR: bad line: $strict_first" >&2
+    echo "monitor=wrapper host=runner status=UNKNOWN node=$(hostname -f 2>/dev/null || hostname) reason=summary_invalid" >> "$tmp_report"
+    worst=3
+  fi
 fi
 
 case "$worst" in

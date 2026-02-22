@@ -48,6 +48,11 @@ progress_done() {
   printf '\n' >&2
 }
 
+hash_enabled=0
+case "${LM_PACK_LOGS_HASH:-0}" in
+  1|true|TRUE|yes|YES) hash_enabled=1 ;;
+esac
+
 # Redaction is intentionally simple and conservative.
 # We only redact common key patterns in *.conf and *.txt.
 redact_file() {
@@ -140,6 +145,9 @@ if [[ -d "$STATE_DIR" && -r "$STATE_DIR" ]]; then
 fi
 
 progress_total=$(( ${#log_files[@]} + ${#cfg_files[@]} + ${#meta_files[@]} + ${#state_files[@]} + 1 ))
+if [[ "$hash_enabled" -eq 1 ]]; then
+  progress_total=$((progress_total + 1))
+fi
 
 mkdir -p "$OUTDIR"
 workdir="$(mktemp -d -p "$TMPDIR")"
@@ -154,9 +162,14 @@ redact_state="disabled"
 if redact_enabled; then
   redact_state="enabled"
 fi
+hash_state="disabled"
+if [[ "$hash_enabled" -eq 1 ]]; then
+  hash_state="enabled"
+fi
 {
   echo "created_utc=$TS"
   echo "redaction=$redact_state"
+  echo "hashes=$hash_state"
 } > "$bundle_root/meta/bundle_meta.txt"
 
 # --- Logs ---
@@ -204,6 +217,19 @@ if [[ "${#state_files[@]}" -gt 0 ]]; then
     copy_log "$f" "$bundle_root/state"
     progress_step "state:$(basename -- "$f")"
   done
+fi
+
+# --- Bundle hashes (optional) ---
+if [[ "$hash_enabled" -eq 1 ]]; then
+  if command -v sha256sum >/dev/null 2>&1; then
+    hash_file="$bundle_root/meta/bundle_hashes.txt"
+    (cd "$bundle_root" && \
+      find . -type f ! -path './meta/bundle_hashes.txt' -print0 2>/dev/null | \
+      sort -z | xargs -0 sha256sum) > "$hash_file" 2>/dev/null || true
+  else
+    echo "WARN: sha256sum not found; hash list skipped" >&2
+  fi
+  progress_step "hashes"
 fi
 
 out_name="${NAME_PREFIX}-${TS}.tar.gz"

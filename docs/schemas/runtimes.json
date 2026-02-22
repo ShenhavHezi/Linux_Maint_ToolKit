@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint runtimes --json",
+  "type": "object",
+  "required": ["files", "unit", "rows"],
+  "properties": {
+    "files": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "unit": { "type": "string" },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["monitor", "ms", "unit", "source_file"],
+        "properties": {
+          "monitor": { "type": "string" },
+          "ms": { "type": "integer" },
+          "unit": { "type": "string" },
+          "source_file": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

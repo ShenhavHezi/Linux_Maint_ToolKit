@@ -32,7 +32,7 @@ x-auth-token: token-raw-value
 notes: sessionization is normal text
 CFG
 
-bundle_path="$(LM_REDACT_LOGS=1 OUTDIR="$workdir" LOG_DIR="$logdir" CFG_DIR="$cfgdir" REPO_ROOT="$ROOT_DIR" "$ROOT_DIR/tools/pack_logs.sh")"
+bundle_path="$(LM_REDACT_LOGS=1 LM_PACK_LOGS_HASH=1 OUTDIR="$workdir" LOG_DIR="$logdir" CFG_DIR="$cfgdir" REPO_ROOT="$ROOT_DIR" "$ROOT_DIR/tools/pack_logs.sh")"
 [[ -f "$bundle_path" ]]
 
 tar_list="$workdir/tar.list"
@@ -40,6 +40,7 @@ tar -tzf "$bundle_path" > "$tar_list"
 grep -q '^\./logs/full_health_monitor_summary_latest\.log$' "$tar_list"
 grep -q '^\./config/servers\.txt$' "$tar_list"
 grep -q '^\./meta/bundle_meta\.txt$' "$tar_list"
+grep -q '^\./meta/bundle_hashes\.txt$' "$tar_list"
 
 extracted_cfg="$workdir/extracted_servers.txt"
 tar -xOf "$bundle_path" ./config/servers.txt > "$extracted_cfg"
@@ -51,6 +52,12 @@ tar -xOf "$bundle_path" ./logs/full_health_monitor_latest.log > "$extracted_log"
 meta_file="$workdir/bundle_meta.txt"
 tar -xOf "$bundle_path" ./meta/bundle_meta.txt > "$meta_file"
 grep -q '^redaction=enabled$' "$meta_file"
+grep -q '^hashes=enabled$' "$meta_file"
+
+hash_file="$workdir/bundle_hashes.txt"
+tar -xOf "$bundle_path" ./meta/bundle_hashes.txt > "$hash_file"
+grep -q '  \./config/servers\.txt$' "$hash_file"
+grep -q '  \./logs/full_health_monitor_latest\.log$' "$hash_file"
 
 # Sensitive values must be redacted
 grep -qi 'password=REDACTED' "$extracted_cfg"

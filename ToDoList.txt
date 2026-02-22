@@ -33,90 +33,108 @@ Primary audiences: operators, sysadmins, and SREs working in constrained or air�
    Outcome: first‑10‑minutes runbook and artifact/log reference added.
    Acceptance: new docs linked from doc indexes and README.
 
+4. Release verification tool
+   Outcome: `tools/release_check.sh` validates docs, schemas, and release notes.
+   Acceptance: fails fast with actionable messages.
+
+5. Make target: verify release
+   Outcome: `make verify-release` wraps `linux-maint verify-release`.
+   Acceptance: simple, documented target.
+
+6. `linux-maint explain monitor <name>`
+   Outcome: concise monitor description with deps and common reasons.
+   Acceptance: output fits one screen and references `docs/REASONS.md`.
+
+7. Export allowlist
+   Outcome: `linux-maint export --json` supports `LM_EXPORT_ALLOWLIST`.
+   Acceptance: rows restricted to allowlisted keys; tests added.
+
+8. Report table empty header
+   Outcome: `report --table` always prints a header, even with no problems.
+   Acceptance: table header present in empty runs; tests pass in clean repo.
+
+9. Status summary table empty header
+   Outcome: `status --summary --table` prints a header even when no summary file exists.
+   Acceptance: table header present in clean repo runs; tests pass.
+
+10. SSH known_hosts mode switch
+    Outcome: `LM_SSH_KNOWN_HOSTS_MODE=strict|accept-new` toggles SSH host key policy.
+    Acceptance: strict uses `StrictHostKeyChecking=yes`; docs + tests updated.
+
+11. Bundle file hashes
+    Outcome: `pack-logs --hash` writes SHA256 per file into bundle metadata.
+    Acceptance: bundle includes `meta/bundle_hashes.txt`; tests updated.
+
+12. Trend/runtimes JSON contracts
+    Outcome: JSON schemas for `trend --json` and `runtimes --json`.
+    Acceptance: schema files added and validated in tests.
+
+13. Strict run validation mode
+    Outcome: `linux-maint run --strict` fails if any monitor emits malformed summary lines.
+    Acceptance: wrapper rejects invalid lines; docs/tests updated.
+
+14. Deterministic test mode
+    Outcome: `LM_TEST_MODE=1` freezes timestamps and disables outbound actions for CI.
+    Acceptance: deterministic timestamp tests pass; docs updated.
+
+15. Structured fix output (`doctor --fix --json`)
+    Outcome: structured `fix_actions` emitted with `id/action/status` (and target).
+    Acceptance: schema + tests updated; human output unchanged.
+
+16. Fleet summary grouping
+    Outcome: `status --group-by <host|monitor|reason>` for large fleets.
+    Acceptance: grouped output with totals and stable ordering.
+
+17. One-screen report
+    Outcome: `report --short` with totals, top problems, next steps.
+    Acceptance: fits in ~25 lines; no loss of machine outputs.
+
+18. First-run expectations banner
+    Outcome: status/report call out expected SKIPs when baselines/config are missing.
+    Acceptance: banner appears only when relevant.
+
+19. Lightweight Prometheus summary
+    Outcome: `status --prom` returns minimal textfile-style metrics.
+    Acceptance: includes overall status + per-status counts.
+
+20. Metrics snapshot command
+    Outcome: `linux-maint metrics --json` returns status + trend + runtimes.
+    Acceptance: stable schema and tests.
+
+21. Agent hints
+    Outcome: add `next_step=` hints for common reasons in summary output.
+    Acceptance: documented and tested for at least 3 monitors.
+
+22. Release note drafting workflow
+    Outcome: GH Action drafts release notes from CHANGELOG Unreleased.
+    Acceptance: draft created on tag push.
+
 ---
 
 ## P0 — Correctness / safety (next)
 
-1. JSON contracts for `trend --json` and `runtimes --json`
-   Outcome: stable schemas and versioning for both payloads.
-   Acceptance: JSON schema files + tests validate output shape.
-
-2. Strict run validation mode
-   Outcome: `linux-maint run --strict` fails if any monitor emits malformed summary lines.
-   Acceptance: wrapper rejects invalid lines; docs describe strict mode.
-
-3. Deterministic test mode
-   Outcome: stable timestamps and disabled outbound actions for CI.
-   Acceptance: single env flag freezes timestamps and blocks notify/email.
-
-4. Structured fix output for `doctor --fix`
-   Outcome: `doctor --fix --json` returns structured actions (id/action/status).
-   Acceptance: JSON schema + tests added; human output unchanged.
+No open items currently scheduled.
 
 ---
 
 ## P1 — Operator UX / docs (next)
 
-1. `linux-maint explain monitor <name>`
-   Outcome: concise description, required/optional deps, common reasons.
-   Acceptance: output fits on one screen and references `docs/REASONS.md`.
-
-2. Fleet summary grouping
-   Outcome: `status --group-by <host|monitor|reason>` for large fleets.
-   Acceptance: grouped output with totals and stable ordering.
-
-3. One‑screen report
-   Outcome: `report --short` with totals, top problems, next steps.
-   Acceptance: fits in ~25 lines; no loss of machine outputs.
-
-4. First‑run expectations banner
-   Outcome: status/report call out expected SKIPs when baselines/config are missing.
-   Acceptance: banner appears only when relevant.
+No open items currently scheduled.
 
 ---
 
 ## P2 — Security / hardening (soon)
 
-1. SSH known_hosts mode switch
-   Outcome: `LM_SSH_KNOWN_HOSTS_MODE=strict|accept-new` (default accept‑new).
-   Acceptance: strict mode errors on unknown hosts; documented.
-
-2. Export allowlist
-   Outcome: `linux-maint export --json` supports `LM_EXPORT_ALLOWLIST`.
-   Acceptance: only allowlisted fields emitted when set; tests added.
-
-3. Bundle file hashes
-   Outcome: `pack-logs --hash` writes SHA256 per bundle file into metadata.
-   Acceptance: hash list included and documented.
+No open items currently scheduled.
 
 ---
 
 ## P3 — Observability / integrations (later)
 
-1. Metrics snapshot command
-   Outcome: `linux-maint metrics --json` returns status + trend + runtimes.
-   Acceptance: stable schema and tests.
-
-2. Lightweight Prometheus summary
-   Outcome: `status --prom` returns minimal textfile‑style metrics.
-   Acceptance: includes overall status + per‑status counts.
-
-3. Agent hints
-   Outcome: add `next_step=` hints for common reasons in summary output.
-   Acceptance: documented and tested for at least 3 monitors.
+No open items currently scheduled.
 
 ---
 
 ## P4 — DX / release polish (later)
 
-1. Release verification tool
-   Outcome: `tools/release_check.sh` validates docs, schemas, and release notes.
-   Acceptance: fails fast with actionable messages.
-
-2. Make target: verify release
-   Outcome: `make verify-release` wraps `linux-maint verify-release`.
-   Acceptance: simple, documented target.
-
-3. Release note drafting workflow
-   Outcome: GH Action drafts release notes from CHANGELOG Unreleased.
-   Acceptance: draft created on tag push.
+No open items currently scheduled.

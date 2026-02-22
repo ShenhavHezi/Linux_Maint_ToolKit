@@ -171,6 +171,17 @@ expected_skips(){
   fi
 }
 
+expected_skips_text(){
+  local cfg="${1:-/etc/linux_maint}"
+  local out
+  out="$(expected_skips "$cfg")"
+  if printf '%s\n' "$out" | grep -q 'none (all optional config present)'; then
+    return 1
+  fi
+  printf '%s\n' "$out"
+  return 0
+}
+
 
 # ---- run() flags parsing (CLI-first, env-compatible) ----
 # Maps:
@@ -181,6 +192,7 @@ expected_skips(){
 #   --local-only     -> LM_LOCAL_ONLY=true
 #   --ssh-opts "..." -> LM_SSH_OPTS
 #   --dry-run        -> print resolved hosts and exit
+#   --strict         -> fail if any monitor emits malformed summary lines
 #
 _run_tmpfiles=()
 cleanup_tmpfiles(){
@@ -230,8 +242,10 @@ parse_run_args(){
         DEBUG=1; shift 1;;
       --dry-run)
         DRY_RUN=1; shift 1;;
+      --strict)
+        LM_STRICT=1; export LM_STRICT; shift 1;;
       -h|--help)
-        echo "Usage: linux-maint run [--group G] [--hosts h1,h2] [--exclude h3,h4] [--parallel N] [--local-only] [--ssh-opts '...'] [--limit N] [--shuffle] [--progress|--no-progress] [--debug|--print-env] [--dry-run]"
+        echo "Usage: linux-maint run [--group G] [--hosts h1,h2] [--exclude h3,h4] [--parallel N] [--local-only] [--ssh-opts '...'] [--limit N] [--shuffle] [--progress|--no-progress] [--debug|--print-env] [--dry-run] [--strict]"
         exit 0;;
       *)
         echo "Unknown run flag: $1" >&2
@@ -253,7 +267,8 @@ ${C_CYAN}Quick start${C_RESET}:
 ${C_CYAN}Common commands${C_RESET}:
   run [flags]            Run the full wrapper
   status [flags]         Show last run status + filtered summary lines
-  report [--json] [--compact] [--table] [--no-trend] [--no-slow] [--no-reasons] [--no-problems]  Summarize latest run, trends, and slow monitors
+  report [--json] [--compact] [--short] [--table] [--no-trend] [--no-slow] [--no-reasons] [--no-problems]  Summarize latest run, trends, and slow monitors
+  metrics --json          Snapshot status+trend+runtimes in one JSON payload
   logs [n]               Tail latest wrapper log (default n=200)
   history [--last N] [--json] [--table]  Show recent runs (run index; faster than log scan)
   diff [--json]          Show diff since last run (uses wrapper diff state)
@@ -276,7 +291,7 @@ ${C_CYAN}Setup / maintenance${C_RESET}:
   validate               Validate config file formats (best-effort)
   deps                   Print required/optional dependency manifest by monitor
   verify-install         Verify installation layout and systemd wiring (best-effort)
-  pack-logs [--out DIR] [--redact|--no-redact] [--progress|--no-progress]  Create a support bundle tar.gz (logs, config redacted, meta)
+  pack-logs [--out DIR] [--redact|--no-redact] [--progress|--no-progress] [--hash]  Create a support bundle tar.gz (logs, config redacted, meta)
 
 ${C_CYAN}Release / packaging${C_RESET}:
   version                Print installed BUILD_INFO (if present)
@@ -288,6 +303,7 @@ ${C_CYAN}Release / packaging${C_RESET}:
 ${C_CYAN}Help${C_RESET}:
   help [command]          Show help for a command (shortcut for usage)
   explain reason <token>  Explain a reason= token (from docs/REASONS.md)
+  explain monitor <name>  Explain a monitor (purpose, deps, common reasons)
   explain status <S>      Explain a status value (OK/WARN/CRIT/UNKNOWN/SKIP)
   help                    Show this help
 
@@ -322,9 +338,11 @@ command_usage(){
     run)
       echo "Usage: linux-maint run [--group G] [--hosts h1,h2] [--exclude h3,h4] [--parallel N] [--local-only] [--ssh-opts '...'] [--limit N] [--shuffle] [--progress|--no-progress] [--debug|--print-env] [--dry-run]";;
     status)
-      echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--no-color] [--table] [--summary] [--expected-skips] [--compact] [--problems N (max 100)] [--reasons N (max 20)] [--since 15m|2h|1d|30s] [--last N]";;
+      echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--prom] [--no-color] [--table] [--summary] [--expected-skips] [--compact] [--problems N (max 100)] [--reasons N (max 20)] [--group-by host|monitor|reason] [--since 15m|2h|1d|30s] [--last N]";;
     report)
-      echo "Usage: linux-maint report [--json] [--no-color] [--compact] [--table] [--no-trend] [--no-slow] [--no-reasons] [--no-problems]";;
+      echo "Usage: linux-maint report [--json] [--no-color] [--compact] [--short] [--table] [--no-trend] [--no-slow] [--no-reasons] [--no-problems]";;
+    metrics)
+      echo "Usage: linux-maint metrics --json";;
     config)
       echo "Usage: linux-maint config [--json] [--sources] [--lint]";;
     doctor)
@@ -358,7 +376,7 @@ command_usage(){
     verify-install)
       echo "Usage: linux-maint verify-install";;
     pack-logs)
-      echo "Usage: linux-maint pack-logs [--out DIR] [--redact|--no-redact] [--progress|--no-progress]";;
+      echo "Usage: linux-maint pack-logs [--out DIR] [--redact|--no-redact] [--progress|--no-progress] [--hash]";;
     version)
       echo "Usage: linux-maint version";;
     make-tarball)
@@ -374,7 +392,7 @@ command_usage(){
     logs)
       echo "Usage: linux-maint logs [n]";;
     explain)
-      echo "Usage: linux-maint explain <reason|status> ...";;
+      echo "Usage: linux-maint explain <reason|status|monitor> ...";;
     *)
       echo "Unknown command: $c" >&2
       usage
@@ -537,6 +555,7 @@ case "$cmd" in
     REPORT_JSON=0
     REPORT_COLOR=1
     REPORT_COMPACT=0
+    REPORT_SHORT=0
     REPORT_TABLE="${LM_REPORT_TABLE:-0}"
     REPORT_NO_TREND=0
     REPORT_NO_SLOW=0
@@ -547,13 +566,14 @@ case "$cmd" in
         --json) REPORT_JSON=1; shift 1;;
         --no-color) REPORT_COLOR=0; shift 1;;
         --compact) REPORT_COMPACT=1; shift 1;;
+        --short) REPORT_SHORT=1; shift 1;;
         --table) REPORT_TABLE=1; shift 1;;
         --no-trend) REPORT_NO_TREND=1; shift 1;;
         --no-slow) REPORT_NO_SLOW=1; shift 1;;
         --no-reasons) REPORT_NO_REASONS=1; shift 1;;
         --no-problems) REPORT_NO_PROBLEMS=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint report [--json] [--no-color] [--compact] [--table] [--no-trend] [--no-slow] [--no-reasons] [--no-problems]"
+          echo "Usage: linux-maint report [--json] [--no-color] [--compact] [--short] [--table] [--no-trend] [--no-slow] [--no-reasons] [--no-problems]"
           exit 0;;
         *) echo "Unknown report flag: $1" >&2; exit 2;;
       esac
@@ -569,18 +589,31 @@ case "$cmd" in
     "$0" trend --last 10 --json >"$tmp_trend" 2>/dev/null || printf '{}' >"$tmp_trend"
     "$0" runtimes --last 1 --json >"$tmp_runtimes" 2>/dev/null || printf '{}' >"$tmp_runtimes"
 
-    LM_COLOR="$REPORT_COLOR" REPORT_COMPACT="$REPORT_COMPACT" REPORT_TABLE="$REPORT_TABLE" REPORT_NO_TREND="$REPORT_NO_TREND" REPORT_NO_SLOW="$REPORT_NO_SLOW" REPORT_NO_REASONS="$REPORT_NO_REASONS" REPORT_NO_PROBLEMS="$REPORT_NO_PROBLEMS" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
+    REPORT_EXPECTED_SKIPS=""
+    if [[ "$REPORT_JSON" -eq 0 ]]; then
+      cfg_dir="/etc/linux_maint"
+      if [[ "$MODE" == "repo" ]]; then
+        cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+      fi
+      if banner="$(expected_skips_text "$cfg_dir")"; then
+        REPORT_EXPECTED_SKIPS="$banner"
+      fi
+    fi
+
+    LM_COLOR="$REPORT_COLOR" REPORT_COMPACT="$REPORT_COMPACT" REPORT_SHORT="$REPORT_SHORT" REPORT_TABLE="$REPORT_TABLE" REPORT_NO_TREND="$REPORT_NO_TREND" REPORT_NO_SLOW="$REPORT_NO_SLOW" REPORT_NO_REASONS="$REPORT_NO_REASONS" REPORT_NO_PROBLEMS="$REPORT_NO_PROBLEMS" REPORT_EXPECTED_SKIPS="$REPORT_EXPECTED_SKIPS" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
 import json, os, sys
 
 status_path, trend_path, runtimes_path, json_mode = sys.argv[1:5]
 json_mode = json_mode == "1"
 color = os.environ.get("LM_COLOR","1") == "1"
 compact = os.environ.get("REPORT_COMPACT","0") == "1"
+short = os.environ.get("REPORT_SHORT","0") == "1"
 table = os.environ.get("REPORT_TABLE","0") == "1"
 no_trend = os.environ.get("REPORT_NO_TREND","0") == "1"
 no_slow = os.environ.get("REPORT_NO_SLOW","0") == "1"
 no_reasons = os.environ.get("REPORT_NO_REASONS","0") == "1"
 no_problems = os.environ.get("REPORT_NO_PROBLEMS","0") == "1"
+expected_skips = os.environ.get("REPORT_EXPECTED_SKIPS","").strip()
 
 def c(s, code):
     if not color:
@@ -637,10 +670,48 @@ exit_code = last.get("exit_code", "3")
 logfile = last.get("logfile", "")
 summary = status.get("summary_file", "")
 ov = color_status(overall)
+if short:
+    print(header("=== linux-maint report (short) ==="))
+    print(f"mode={mode} overall={ov} exit_code={exit_code}")
+    if expected_skips:
+        print(expected_skips)
+    totals = status.get("totals", {})
+    if totals:
+        parts = []
+        for k in ["CRIT","WARN","UNKNOWN","SKIP","OK"]:
+            v = totals.get(k,0)
+            kv = f"{k}={v}"
+            if v != 0:
+                kv = color_status(k, kv)
+            parts.append(kv)
+        print("totals: " + " ".join(parts))
+    problems = status.get("problems", [])
+    if problems and not no_problems:
+        print("\nproblems (top 5):")
+        for p in problems[:5]:
+            s = p.get("status","UNKNOWN")
+            mon = p.get("monitor","unknown")
+            host = p.get("host","")
+            reason = p.get("reason","")
+            st = color_status(s)
+            line = f"{st} {mon}"
+            if host:
+                line += f" host={host}"
+            if reason:
+                line += f" reason={reason}"
+            print(line)
+    else:
+        print("\nproblems: none (all OK)")
+    print("\nnext_steps:")
+    print("  - run: linux-maint doctor")
+    print("  - run: linux-maint status --verbose")
+    raise SystemExit(0)
 if not compact:
     banner = f"health={color_status(overall)} exit_code={exit_code}"
     print(header("=== linux-maint report ===") + " " + banner)
 print(f"mode={mode} overall={ov} exit_code={exit_code}")
+if expected_skips and not compact:
+    print(expected_skips)
 if not compact:
     if logfile:
         print(f"logfile={logfile}")
@@ -723,6 +794,9 @@ if problems and not no_problems:
     print("  - run: linux-maint doctor")
     print("  - run: linux-maint status --verbose")
 elif not no_problems:
+    if table:
+        print("\nproblems (top):")
+        print("STATUS MONITOR HOST REASON")
     print("\nproblems: none (all OK)")
 
 reason_rollup = status.get("reason_rollup", [])
@@ -795,6 +869,60 @@ if rows and not no_slow:
     else:
         for r in rows[:10]:
             print(f"{r.get('monitor')} ms={r.get('ms')}")
+PY
+
+    rm -f "$tmp_status" "$tmp_trend" "$tmp_runtimes" 2>/dev/null || true
+    ;;
+
+  metrics)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for metrics
+    fi
+
+    METRICS_JSON=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --json) METRICS_JSON=1; shift 1;;
+        -h|--help)
+          echo "Usage: linux-maint metrics --json"
+          exit 0;;
+        *) echo "Unknown metrics flag: $1" >&2; exit 2;;
+      esac
+    done
+
+    if [[ "$METRICS_JSON" -ne 1 ]]; then
+      echo "ERROR: metrics output is JSON-only (use --json)" >&2
+      exit 2
+    fi
+
+    tmp_status="$(mktemp -p "$TMPDIR" linux_maint_metrics_status.XXXXXX.json)"
+    tmp_trend="$(mktemp -p "$TMPDIR" linux_maint_metrics_trend.XXXXXX.json)"
+    tmp_runtimes="$(mktemp -p "$TMPDIR" linux_maint_metrics_runtimes.XXXXXX.json)"
+
+    "$0" status --json --problems 20 --reasons 10 >"$tmp_status" 2>/dev/null || printf '{}' >"$tmp_status"
+    "$0" trend --last 10 --json >"$tmp_trend" 2>/dev/null || printf '{}' >"$tmp_trend"
+    "$0" runtimes --last 1 --json >"$tmp_runtimes" 2>/dev/null || printf '{}' >"$tmp_runtimes"
+
+    python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" <<'PY'
+import json, sys
+
+status_path, trend_path, runtimes_path = sys.argv[1:4]
+
+def read_json(p):
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+out = {
+    "metrics_json_contract_version": 1,
+    "status": read_json(status_path),
+    "trend": read_json(trend_path),
+    "runtimes": read_json(runtimes_path),
+}
+
+print(json.dumps(out, indent=2, sort_keys=True))
 PY
 
     rm -f "$tmp_status" "$tmp_trend" "$tmp_runtimes" 2>/dev/null || true
@@ -1301,6 +1429,8 @@ PY
     SUMMARY_ONLY=0
     SHOW_META=1
     EXPECTED_SKIPS=0
+    GROUP_BY=""
+    PROM=0
 
 
     while [[ $# -gt 0 ]]; do
@@ -1320,10 +1450,12 @@ PY
         --match-mode) MATCH_MODE="$2"; shift 2;;
         --problems) PROB_N="$2"; shift 2;;
         --reasons) REASONS_N="$2"; shift 2;;
+        --group-by) GROUP_BY="$2"; shift 2;;
+        --prom) PROM=1; shift 1;;
         --since) SINCE="$2"; shift 2;;
         --last) LAST_N="$2"; shift 2;;
         -h|--help)
-          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--no-color] [--table] [--summary] [--expected-skips] [--compact] [--problems N (max 100)] [--reasons N (max 20)] [--since 15m|2h|1d|30s] [--last N]"
+          echo "Usage: linux-maint status [--only OK|WARN|CRIT|UNKNOWN|SKIP] [--host PATTERN] [--monitor PATTERN] [--match-mode contains|exact|regex] [--tail N] [--verbose] [--quiet] [--json] [--prom] [--no-color] [--table] [--summary] [--expected-skips] [--compact] [--problems N (max 100)] [--reasons N (max 20)] [--group-by host|monitor|reason] [--since 15m|2h|1d|30s] [--last N]"
           exit 0;;
         *) echo "Unknown status flag: $1" >&2; exit 2;;
       esac
@@ -1333,6 +1465,10 @@ PY
 
     if [[ "$JSON" -eq 1 && "$EXPECTED_SKIPS" -eq 1 ]]; then
       echo "ERROR: --expected-skips is not compatible with --json" >&2
+      exit 2
+    fi
+    if [[ "$JSON" -eq 1 && "$PROM" -eq 1 ]]; then
+      echo "ERROR: --prom is not compatible with --json" >&2
       exit 2
     fi
 
@@ -1352,10 +1488,84 @@ PY
       echo ""
     fi
 
+    if [[ "$PROM" -eq 1 ]]; then
+      status_file=""
+      if [[ "$MODE" == "repo" ]]; then
+        status_file="$REPO_STATUS_FILE"
+      else
+        status_file="/var/log/health/last_status_full"
+      fi
+
+      summary_file=""
+      if [[ "$MODE" == "repo" ]]; then
+        summary_file="$REPO_SUMMARY_LATEST"
+      else
+        summary_file="$INST_SUMMARY_LATEST"
+      fi
+
+      python3 - "$status_file" "$summary_file" <<'PY'
+import os, sys, re
+
+status_path, summary_path = sys.argv[1:3]
+
+def read_kv(path):
+    d={}
+    if not path or not os.path.exists(path):
+        return d
+    with open(path,'r',encoding='utf-8',errors='ignore') as f:
+        for line in f:
+            line=line.strip()
+            if not line or '=' not in line:
+                continue
+            k,v=line.split('=',1)
+            d[k]=v
+    return d
+
+def get_kv(line, key):
+    m=re.search(rf"\b{re.escape(key)}=([^ ]+)", line)
+    return m.group(1) if m else None
+
+status = read_kv(status_path)
+overall = status.get("overall", "UNKNOWN")
+
+counts = {k:0 for k in ["OK","WARN","CRIT","UNKNOWN","SKIP"]}
+if summary_path and os.path.exists(summary_path):
+    with open(summary_path,'r',encoding='utf-8',errors='ignore') as f:
+        for line in f:
+            line=line.strip()
+            if not line:
+                continue
+            if not line.startswith("monitor="):
+                continue
+            st = get_kv(line, "status") or "UNKNOWN"
+            if st not in counts:
+                st = "UNKNOWN"
+            counts[st] += 1
+
+print("# HELP linux_maint_overall_status Overall status (labelled)")
+print("# TYPE linux_maint_overall_status gauge")
+for st in ["OK","WARN","CRIT","UNKNOWN","SKIP"]:
+    val = 1 if st == overall else 0
+    print(f"linux_maint_overall_status{{status=\"{st}\"}} {val}")
+print("# HELP linux_maint_status_count Count of monitor results by status")
+print("# TYPE linux_maint_status_count gauge")
+for st in ["OK","WARN","CRIT","UNKNOWN","SKIP"]:
+    print(f"linux_maint_status_count{{status=\"{st.lower()}\"}} {counts.get(st,0)}")
+PY
+      exit 0
+    fi
+
     case "$MATCH_MODE" in
       contains|exact|regex) ;;
       *)
         echo "ERROR: invalid --match-mode '$MATCH_MODE' (use contains|exact|regex)" >&2
+        exit 2
+        ;;
+    esac
+    case "$GROUP_BY" in
+      ""|host|monitor|reason) ;;
+      *)
+        echo "ERROR: invalid --group-by '$GROUP_BY' (use host|monitor|reason)" >&2
         exit 2
         ;;
     esac
@@ -1627,6 +1837,17 @@ PY
       log_dir="/var/log/health"
     fi
 
+    if [[ "$QUIET" -eq 0 && "$SUMMARY_ONLY" -eq 0 && "$EXPECTED_SKIPS" -eq 0 && "$SHOW_META" -eq 1 ]]; then
+      cfg_dir="/etc/linux_maint"
+      if [[ "$MODE" == "repo" ]]; then
+        cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+      fi
+      if banner="$(expected_skips_text "$cfg_dir")"; then
+        echo "$banner"
+        echo ""
+      fi
+    fi
+
     if [[ -n "$SINCE" ]]; then
       tmp_since="$(mktemp -p "$TMPDIR" linux_maint_status_since.XXXXXX.log)"
       _run_tmpfiles+=("$tmp_since")
@@ -1718,13 +1939,14 @@ PY
         fi
       else
         [[ "$QUIET" -eq 0 ]] && echo "(from: $summary_file)"
-      LM_COLOR="$LM_COLOR" python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" "$TABLE" <<'PY'
+      LM_COLOR="$LM_COLOR" python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" "$TABLE" "$GROUP_BY" <<'PY'
 import re, sys, os
-path, only, limit, host_filter, monitor_filter, match_mode, reasons_limit, table = sys.argv[1:9]
+path, only, limit, host_filter, monitor_filter, match_mode, reasons_limit, table, group_by = sys.argv[1:10]
 limit=int(limit)
 reasons_limit=int(reasons_limit)
 color = os.environ.get("LM_COLOR","1") == "1"
 table = table == "1"
+group_by = group_by.strip()
 
 def c(s, code):
     if not color:
@@ -1754,6 +1976,7 @@ def matched(value, flt):
 counts={}
 problems=[]
 reason_counts={}
+groups={}
 with open(path, 'r', encoding='utf-8', errors='ignore') as f:
     for line in f:
         line=line.strip()
@@ -1762,6 +1985,7 @@ with open(path, 'r', encoding='utf-8', errors='ignore') as f:
         st=get_kv(line,'status') or 'UNKNOWN'
         host=get_kv(line,'host') or ''
         monitor=get_kv(line,'monitor') or ''
+        reason=get_kv(line,'reason') or ''
         if only and st != only:
             continue
         if not matched(host, host_filter):
@@ -1769,10 +1993,21 @@ with open(path, 'r', encoding='utf-8', errors='ignore') as f:
         if not matched(monitor, monitor_filter):
             continue
         counts[st]=counts.get(st,0)+1
+        if group_by:
+            if group_by == 'host':
+                key = host or 'unknown_host'
+            elif group_by == 'monitor':
+                key = monitor or 'unknown_monitor'
+            else:
+                key = reason
+                if not key:
+                    key = ""
+            if group_by != 'reason' or key:
+                g = groups.setdefault(key, {})
+                g[st]=g.get(st,0)+1
         if st == 'OK':
             continue
         mon=monitor or 'unknown_monitor'
-        reason=get_kv(line,'reason')
         problems.append({
             "status": st,
             "monitor": mon,
@@ -1818,6 +2053,54 @@ else:
             kv=color_status(k, kv)
         parts.append(kv)
     print('totals: ' + ' '.join(parts))
+
+if group_by:
+    print(c(f"\ngroup_by={group_by}", "1;36"))
+    print(c("groups:", "1;36"))
+    def group_key(item):
+        name, data = item
+        worst = len(order)
+        for i, st in enumerate(order):
+            if data.get(st, 0) > 0:
+                worst = i
+                break
+        return (worst, name)
+    rows = sorted(groups.items(), key=group_key)
+    if table:
+        maxg = max([len("GROUP")] + [len(n) for n,_ in rows]) if rows else len("GROUP")
+        headers = ["CRIT","WARN","UNKNOWN","SKIP","OK","TOTAL"]
+        maxv = {}
+        for h in headers:
+            maxv[h]=len(h)
+        for _, data in rows:
+            total = sum(data.get(st,0) for st in order)
+            for h in headers:
+                val = total if h == "TOTAL" else data.get(h,0)
+                maxv[h]=max(maxv[h], len(str(val)))
+        header_line = f"{'GROUP':<{maxg}} " + " ".join(f"{h:<{maxv[h]}}" for h in headers)
+        print(header_line)
+        for name, data in rows:
+            total = sum(data.get(st,0) for st in order)
+            parts = []
+            for h in headers:
+                val = total if h == "TOTAL" else data.get(h,0)
+                cell = f"{val:<{maxv[h]}}"
+                if h != "TOTAL" and str(val) != "0":
+                    cell = color_status(h, cell)
+                parts.append(cell)
+            print(f"{name:<{maxg}} " + " ".join(parts))
+    else:
+        for name, data in rows:
+            total = sum(data.get(st,0) for st in order)
+            parts = []
+            for st in order:
+                val = data.get(st,0)
+                kv = f"{st}={val}"
+                if val != 0:
+                    kv = color_status(st, kv)
+                parts.append(kv)
+            parts.append(f"TOTAL={total}")
+            print(f"{name} " + " ".join(parts))
 
 if problems:
     sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3}
@@ -1891,6 +2174,9 @@ PY
       fi
     else
       echo "No summary file: $summary_file"
+      if [[ "$TABLE" -eq 1 ]]; then
+        echo "STATUS MONITOR HOST REASON"
+      fi
       if color_enabled; then
         echo "${C_CYAN}Likely causes:${C_RESET}"
       else
@@ -2225,6 +2511,23 @@ def read_rows():
                     rows.append(parse_kv_line(line))
     return rows, {}
 
+def parse_allowlist():
+    raw=os.environ.get("LM_EXPORT_ALLOWLIST","").strip()
+    if not raw:
+        return None
+    parts=[p for p in re.split(r'[,\s]+', raw) if p]
+    if not parts:
+        return None
+    allow=set(parts)
+    # Always keep core identity fields in rows.
+    allow.update(["monitor","host","status","reason"])
+    return allow
+
+def filter_map(d, allow):
+    if not d:
+        return d
+    return {k:v for k,v in d.items() if k in allow}
+
 def parse_log_summary(log_path):
     summary_result=None
     summary_hosts=None
@@ -2272,6 +2575,12 @@ if os.environ.get("LM_REDACT_LOGS","0") in ("1","true","TRUE","yes","YES"):
     rows = [redact_kv_map(r) for r in rows]
     if meta:
         meta = redact_kv_map(meta)
+
+allow = parse_allowlist()
+if allow:
+    rows = [filter_map(r, allow) for r in rows]
+    if meta:
+        meta = filter_map(meta, allow)
 summary_result, summary_hosts = parse_log_summary(log_path)
 
 summary_result_source = 'log' if summary_result else 'derived'
@@ -2282,6 +2591,10 @@ if not summary_result:
 if not summary_hosts:
     summary_hosts=derive_hosts(rows)
     summary_hosts['derived'] = True
+
+last_status = read_kv(status_path)
+if allow:
+    last_status = filter_map(last_status, allow)
 
 if csv_mode:
     import csv
@@ -2304,7 +2617,7 @@ else:
         'summary_hosts_source': summary_hosts_source,
         'summary_result': summary_result,
         'summary_hosts': summary_hosts,
-        'last_status': read_kv(status_path),
+        'last_status': last_status,
         'rows': rows,
     }
     if meta:
@@ -2663,6 +2976,154 @@ PY
         exit 1
         ;;
 
+      monitor)
+        mon="${1:-}"
+        if [[ -z "$mon" ]]; then
+          echo "Usage: linux-maint explain monitor <name>" >&2
+          exit 2
+        fi
+        # Normalize common aliases (allow both with/without _monitor suffix).
+        case "$mon" in
+          health) mon="health_monitor" ;;
+          inode) mon="inode_monitor" ;;
+          disk_trend) mon="disk_trend_monitor" ;;
+          network) mon="network_monitor" ;;
+          service) mon="service_monitor" ;;
+          ntp) mon="ntp_drift_monitor" ;;
+          patch) mon="patch_monitor" ;;
+          storage) mon="storage_health_monitor" ;;
+          kernel_events) mon="kernel_events_monitor" ;;
+          cert) mon="cert_monitor" ;;
+          nfs) mon="nfs_mount_monitor" ;;
+          ports) mon="ports_baseline_monitor" ;;
+          config_drift) mon="config_drift_monitor" ;;
+          user) mon="user_monitor" ;;
+          backup) mon="backup_check" ;;
+          inventory) mon="inventory_export" ;;
+          preflight) mon="preflight_check" ;;
+          config_validate|validate) mon="config_validate" ;;
+        esac
+
+        req=""
+        opt=""
+        while IFS='|' read -r m r o; do
+          [[ -z "$m" ]] && continue
+          if [[ "$m" == "$mon" ]]; then
+            req="$r"
+            opt="$o"
+            break
+          fi
+        done <<'EOF_DEPS'
+preflight_check|awk sed grep df timeout ssh|curl openssl
+config_validate|awk sed grep|none
+health_monitor|awk sed grep ps df|none
+inode_monitor|awk sed grep df|none
+disk_trend_monitor|awk sed grep df|none
+network_monitor|awk sed grep|curl
+service_monitor|awk sed grep|systemctl
+ntp_drift_monitor|awk sed grep|chronyc ntpq
+patch_monitor|awk sed grep|apt yum dnf zypper
+storage_health_monitor|awk sed grep|smartctl nvme
+kernel_events_monitor|awk sed grep|journalctl dmesg
+cert_monitor|awk sed grep|openssl
+nfs_mount_monitor|awk sed grep|showmount
+ports_baseline_monitor|awk sed grep|ss netstat
+config_drift_monitor|awk sed grep|sha256sum md5sum
+user_monitor|awk sed grep|id getent
+backup_check|awk sed grep|none
+inventory_export|awk sed grep hostname|ip lsblk lscpu
+EOF_DEPS
+
+        if [[ -z "$req" && -z "$opt" ]]; then
+          echo "Unknown monitor: $mon" >&2
+          exit 2
+        fi
+
+        purpose="General health check"
+        reasons="missing_dependency permission_denied"
+        case "$mon" in
+          preflight_check)
+            purpose="Preflight readiness (deps/SSH/config)"
+            reasons="missing_dependency missing_optional_cmd ssh_unreachable"
+            ;;
+          config_validate)
+            purpose="Validate /etc/linux_maint config formats"
+            reasons="config_invalid config_missing"
+            ;;
+          health_monitor)
+            purpose="CPU/mem/load/disk snapshot"
+            reasons="high_load high_mem disk_full"
+            ;;
+          inode_monitor)
+            purpose="Inode utilization thresholds"
+            reasons="inode_high"
+            ;;
+          disk_trend_monitor)
+            purpose="Disk growth trend tracking"
+            reasons="disk_growth disk_full"
+            ;;
+          network_monitor)
+            purpose="Ping/TCP/HTTP reachability checks"
+            reasons="ping_failed tcp_failed http_failed"
+            ;;
+          service_monitor)
+            purpose="Systemd service health"
+            reasons="service_inactive service_failed"
+            ;;
+          ntp_drift_monitor)
+            purpose="Time sync health and drift"
+            reasons="ntp_not_synced ntp_drift_high"
+            ;;
+          patch_monitor)
+            purpose="Pending updates and reboot hints"
+            reasons="security_updates_pending updates_pending reboot_required"
+            ;;
+          storage_health_monitor)
+            purpose="RAID/SMART/NVMe health"
+            reasons="raid_degraded smart_failed missing_dependency"
+            ;;
+          kernel_events_monitor)
+            purpose="Kernel log scan (OOM/I/O/FS/hung tasks)"
+            reasons="permission_denied missing_dependency"
+            ;;
+          cert_monitor)
+            purpose="TLS certificate expiry/validity"
+            reasons="cert_expiring cert_invalid"
+            ;;
+          nfs_mount_monitor)
+            purpose="NFS mounted + responsive"
+            reasons="timeout ssh_unreachable"
+            ;;
+          ports_baseline_monitor)
+            purpose="Listening ports drift vs baseline"
+            reasons="baseline_missing baseline_exists baseline_updated"
+            ;;
+          config_drift_monitor)
+            purpose="Config drift vs baseline"
+            reasons="config_missing baseline_missing"
+            ;;
+          user_monitor)
+            purpose="User/sudoers drift + SSH failures"
+            reasons="unexpected_user unexpected_sudoers_change failed_ssh_logins"
+            ;;
+          backup_check)
+            purpose="Backup freshness/integrity"
+            reasons="missing_dependency permission_denied"
+            ;;
+          inventory_export)
+            purpose="HW/SW inventory export"
+            reasons="missing_dependency permission_denied"
+            ;;
+        esac
+
+        echo "monitor=$mon"
+        echo "purpose=$purpose"
+        echo "required_deps=${req:-none}"
+        echo "optional_deps=${opt:-none}"
+        echo "common_reasons=$reasons"
+        echo "see=docs/REASONS.md"
+        ;;
+
       status)
         st="${1:-}"
         if [[ -z "$st" ]]; then
@@ -2680,7 +3141,7 @@ PY
         ;;
 
       *)
-        echo "Usage: linux-maint explain <reason|status> ..." >&2
+        echo "Usage: linux-maint explain <reason|status|monitor> ..." >&2
         exit 2
         ;;
     esac
@@ -2693,6 +3154,7 @@ PY
     PACK_PROGRESS=0
     PACK_REDACT_SET=0
     PACK_REDACT=0
+    PACK_HASH=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --out) OUT="${2:-}"; shift 2;;
@@ -2700,8 +3162,9 @@ PY
         --no-progress) PACK_PROGRESS=0; PACK_PROGRESS_SET=1; shift 1;;
         --redact) PACK_REDACT=1; PACK_REDACT_SET=1; shift 1;;
         --no-redact) PACK_REDACT=0; PACK_REDACT_SET=1; shift 1;;
+        --hash) PACK_HASH=1; shift 1;;
         -h|--help)
-          echo "Usage: linux-maint pack-logs [--out DIR] [--redact|--no-redact] [--progress|--no-progress]"
+          echo "Usage: linux-maint pack-logs [--out DIR] [--redact|--no-redact] [--progress|--no-progress] [--hash]"
           exit 0;;
         *) echo "Unknown pack-logs flag: $1" >&2; exit 2;;
       esac
@@ -2754,6 +3217,10 @@ PY
       else
         export LM_REDACT_LOGS=0
       fi
+    fi
+
+    if [[ "$PACK_HASH" -eq 1 ]]; then
+      export LM_PACK_LOGS_HASH=1
     fi
 
     OUTDIR="$OUT" LOG_DIR="$_logdir" CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}" STATE_DIR="$_state_dir" REPO_ROOT="$_repo_root" \
@@ -2899,6 +3366,7 @@ PY
       exit 1
     fi
 
+    fix_actions_file=""
     if [[ "$DOCTOR_FIX" -eq 1 ]]; then
       if [[ "$DOCTOR_DRY_RUN" -eq 0 && "$DOCTOR_YES" -eq 0 ]]; then
         if [[ -t 1 ]]; then
@@ -2911,19 +3379,39 @@ PY
         fi
       fi
       fix_actions=()
+      fix_actions_file="$(mktemp -p "${TMPDIR:-/tmp}" linux_maint_fix_actions.XXXXXX)"
+      record_fix_action() {
+        local action="$1" target="$2" status="$3"
+        [[ -n "$fix_actions_file" ]] || return 0
+        printf '%s\t%s\t%s\n' "$action" "$target" "$status" >> "$fix_actions_file" 2>/dev/null || true
+      }
       ensure_dir() {
         local d="$1"
         if [[ ! -d "$d" ]]; then
           if [[ "$DOCTOR_DRY_RUN" -eq 1 ]]; then
             fix_actions+=("would create: $d")
+            record_fix_action "create_dir" "$d" "dry_run"
           else
-            install -d -m 0755 "$d" 2>/dev/null && fix_actions+=("create: $d") || fix_actions+=("failed: $d")
+            if install -d -m 0755 "$d" 2>/dev/null; then
+              fix_actions+=("create: $d")
+              record_fix_action "create_dir" "$d" "ok"
+            else
+              fix_actions+=("failed: $d")
+              record_fix_action "create_dir" "$d" "failed"
+            fi
           fi
         elif [[ ! -w "$d" ]]; then
           if [[ "$DOCTOR_DRY_RUN" -eq 1 ]]; then
             fix_actions+=("would chmod: $d")
+            record_fix_action "chmod_dir" "$d" "dry_run"
           else
-            chmod 0755 "$d" 2>/dev/null && fix_actions+=("chmod: $d") || fix_actions+=("failed: $d")
+            if chmod 0755 "$d" 2>/dev/null; then
+              fix_actions+=("chmod: $d")
+              record_fix_action "chmod_dir" "$d" "ok"
+            else
+              fix_actions+=("failed: $d")
+              record_fix_action "chmod_dir" "$d" "failed"
+            fi
           fi
         fi
       }
@@ -2932,7 +3420,18 @@ PY
       ensure_dir "/var/lib/linux_maint"
       ensure_dir "/var/lock"
       if [[ ! -d "$CFG_DIR" ]]; then
-        install -d -m 0755 "$CFG_DIR" 2>/dev/null && fix_actions+=("create: $CFG_DIR")
+        if [[ "$DOCTOR_DRY_RUN" -eq 1 ]]; then
+          fix_actions+=("would create: $CFG_DIR")
+          record_fix_action "create_dir" "$CFG_DIR" "dry_run"
+        else
+          if install -d -m 0755 "$CFG_DIR" 2>/dev/null; then
+            fix_actions+=("create: $CFG_DIR")
+            record_fix_action "create_dir" "$CFG_DIR" "ok"
+          else
+            fix_actions+=("failed: $CFG_DIR")
+            record_fix_action "create_dir" "$CFG_DIR" "failed"
+          fi
+        fi
       fi
 
       if [[ "$DOCTOR_FIX_DEPS" -eq 1 ]]; then
@@ -2970,26 +3469,53 @@ PY
         if [[ "${#missing_pkgs[@]:-0}" -gt 0 ]]; then
           if [[ "$DOCTOR_DRY_RUN" -eq 1 ]]; then
             fix_actions+=("deps: would install ${missing_pkgs[*]}")
+            record_fix_action "install_deps" "${missing_pkgs[*]}" "dry_run"
           elif command -v dnf >/dev/null 2>&1; then
-            dnf -y install "${missing_pkgs[@]}" && fix_actions+=("deps: installed via dnf") || fix_actions+=("deps: install failed (dnf)")
+            if dnf -y install "${missing_pkgs[@]}"; then
+              fix_actions+=("deps: installed via dnf")
+              record_fix_action "install_deps" "${missing_pkgs[*]}" "ok"
+            else
+              fix_actions+=("deps: install failed (dnf)")
+              record_fix_action "install_deps" "${missing_pkgs[*]}" "failed"
+            fi
           elif command -v yum >/dev/null 2>&1; then
-            yum -y install "${missing_pkgs[@]}" && fix_actions+=("deps: installed via yum") || fix_actions+=("deps: install failed (yum)")
+            if yum -y install "${missing_pkgs[@]}"; then
+              fix_actions+=("deps: installed via yum")
+              record_fix_action "install_deps" "${missing_pkgs[*]}" "ok"
+            else
+              fix_actions+=("deps: install failed (yum)")
+              record_fix_action "install_deps" "${missing_pkgs[*]}" "failed"
+            fi
           elif command -v apt-get >/dev/null 2>&1; then
             apt-get update >/dev/null 2>&1 || true
-            apt-get -y install "${missing_pkgs[@]}" && fix_actions+=("deps: installed via apt-get") || fix_actions+=("deps: install failed (apt-get)")
+            if apt-get -y install "${missing_pkgs[@]}"; then
+              fix_actions+=("deps: installed via apt-get")
+              record_fix_action "install_deps" "${missing_pkgs[*]}" "ok"
+            else
+              fix_actions+=("deps: install failed (apt-get)")
+              record_fix_action "install_deps" "${missing_pkgs[*]}" "failed"
+            fi
           elif command -v zypper >/dev/null 2>&1; then
-            zypper -n install "${missing_pkgs[@]}" && fix_actions+=("deps: installed via zypper") || fix_actions+=("deps: install failed (zypper)")
+            if zypper -n install "${missing_pkgs[@]}"; then
+              fix_actions+=("deps: installed via zypper")
+              record_fix_action "install_deps" "${missing_pkgs[*]}" "ok"
+            else
+              fix_actions+=("deps: install failed (zypper)")
+              record_fix_action "install_deps" "${missing_pkgs[*]}" "failed"
+            fi
           else
             fix_actions+=("deps: no supported package manager found")
+            record_fix_action "install_deps" "${missing_pkgs[*]}" "failed"
           fi
         else
           fix_actions+=("deps: none missing")
+          record_fix_action "install_deps" "none" "skipped"
         fi
       fi
     fi
 
     if [[ "$DOCTOR_JSON" -eq 1 ]]; then
-      MODE="$MODE" PREFIX="$PREFIX" WRAPPER="$wrapper" LIBEXEC="$LIBEXEC" LINUX_MAINT_LIB="${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" CFG_DIR="$CFG_DIR" python3 - <<'PYJSON'
+      MODE="$MODE" PREFIX="$PREFIX" WRAPPER="$wrapper" LIBEXEC="$LIBEXEC" LINUX_MAINT_LIB="${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" CFG_DIR="$CFG_DIR" FIX_ACTIONS_FILE="$fix_actions_file" python3 - <<'PYJSON'
 import json
 import os
 import pathlib
@@ -3001,6 +3527,7 @@ wrapper = os.environ.get("WRAPPER", "")
 libexec = os.environ.get("LIBEXEC", "")
 lib = os.environ.get("LINUX_MAINT_LIB", "")
 cfg_dir = os.environ.get("CFG_DIR", "/etc/linux_maint")
+fix_actions_file = os.environ.get("FIX_ACTIONS_FILE", "")
 
 cfg_path = pathlib.Path(cfg_dir)
 
@@ -3129,6 +3656,7 @@ result = {
     "dependencies": dependencies,
     "writable_locations": writable_locations,
     "fix_suggestions": fix_suggestions,
+    "fix_actions": [],
     "next_actions": [
         "linux-maint verify-install",
         "sudo linux-maint init",
@@ -3138,8 +3666,28 @@ result = {
     ],
 }
 
+if fix_actions_file and os.path.exists(fix_actions_file):
+    try:
+        with open(fix_actions_file, "r", encoding="utf-8", errors="ignore") as f:
+            for i, raw in enumerate(f, start=1):
+                line = raw.rstrip("\n")
+                if not line:
+                    continue
+                parts = line.split("\t")
+                action = parts[0] if len(parts) > 0 else ""
+                target = parts[1] if len(parts) > 1 else ""
+                status = parts[2] if len(parts) > 2 else ""
+                result["fix_actions"].append(
+                    {"id": i, "action": action, "target": target, "status": status}
+                )
+    except Exception:
+        pass
+
 print(json.dumps(result, sort_keys=True))
 PYJSON
+      if [[ -n "$fix_actions_file" ]]; then
+        rm -f "$fix_actions_file" 2>/dev/null || true
+      fi
       exit 0
     fi
 
@@ -3343,6 +3891,9 @@ PYJSON
       echo "- sudo linux-maint preflight"
       echo "- sudo linux-maint run"
       echo "- linux-maint pack-logs --out .  # create bundle for export"
+    fi
+    if [[ -n "$fix_actions_file" ]]; then
+      rm -f "$fix_actions_file" 2>/dev/null || true
     fi
     ;;
 

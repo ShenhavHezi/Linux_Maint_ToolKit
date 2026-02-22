@@ -50,6 +50,7 @@ run_required "lm_time_test" bash "$ROOT_DIR/tests/lm_time_test.sh"
 run_required "lm_ssh_allowlist_test" bash "$ROOT_DIR/tests/lm_ssh_allowlist_test.sh"
 run_required "lm_ssh_opts_guard_test" bash "$ROOT_DIR/tests/lm_ssh_opts_guard_test.sh"
 run_required "lm_log_json_test" bash "$ROOT_DIR/tests/lm_log_json_test.sh"
+run_required "next_step_hint_test" bash "$ROOT_DIR/tests/next_step_hint_test.sh"
 run_required "timer_monitor_test" bash "$ROOT_DIR/tests/timer_monitor_test.sh"
 run_required "filesystem_readonly_monitor_test" bash "$ROOT_DIR/tests/filesystem_readonly_monitor_test.sh"
 run_required "last_run_age_monitor_test" bash "$ROOT_DIR/tests/last_run_age_monitor_test.sh"
@@ -63,14 +64,21 @@ run_required "monitor_summary_emission_test" bash "$ROOT_DIR/tests/monitor_summa
 run_required "summary_diff_canonicalization_test" bash "$ROOT_DIR/tests/summary_diff_canonicalization_test.sh"
 run_required "quick_check_make_target_test" bash "$ROOT_DIR/tests/quick_check_make_target_test.sh"
 run_required "wrapper_runtime_summary_test" bash "$ROOT_DIR/tests/wrapper_runtime_summary_test.sh"
+run_required "strict_run_validation_test" bash "$ROOT_DIR/tests/strict_run_validation_test.sh"
+run_required "test_mode_deterministic_test" bash "$ROOT_DIR/tests/test_mode_deterministic_test.sh"
 run_required "runtimes_command_test" bash "$ROOT_DIR/tests/runtimes_command_test.sh"
 run_required "runtimes_json_fields_test" bash "$ROOT_DIR/tests/runtimes_json_fields_test.sh"
 run_required "runtime_warn_threshold_test" bash "$ROOT_DIR/tests/runtime_warn_threshold_test.sh"
 run_required "report_command_test" bash "$ROOT_DIR/tests/report_command_test.sh"
+run_required "report_short_test" bash "$ROOT_DIR/tests/report_short_test.sh"
 run_required "check_command_test" bash "$ROOT_DIR/tests/check_command_test.sh"
+run_required "metrics_command_test" bash "$ROOT_DIR/tests/metrics_command_test.sh"
 run_required "history_command_test" bash "$ROOT_DIR/tests/history_command_test.sh"
 run_required "summary_command_test" bash "$ROOT_DIR/tests/summary_command_test.sh"
 run_required "status_summary_test" bash "$ROOT_DIR/tests/status_summary_test.sh"
+run_required "status_group_by_test" bash "$ROOT_DIR/tests/status_group_by_test.sh"
+run_required "status_expected_skips_banner_test" bash "$ROOT_DIR/tests/status_expected_skips_banner_test.sh"
+run_required "status_prom_test" bash "$ROOT_DIR/tests/status_prom_test.sh"
 run_required "help_command_test" bash "$ROOT_DIR/tests/help_command_test.sh"
 run_required "color_precedence_test" bash "$ROOT_DIR/tests/color_precedence_test.sh"
 run_required "progress_tty_test" bash "$ROOT_DIR/tests/progress_tty_test.sh"
@@ -120,6 +128,8 @@ run_required "doctor_offline_hints_test" bash "$ROOT_DIR/tests/doctor_offline_hi
 run_required "doctor_json_test" bash "$ROOT_DIR/tests/doctor_json_test.sh"
 run_required "doctor_json_schema_test" bash "$ROOT_DIR/tests/doctor_json_schema_test.sh"
 run_required "explain_reason_test" bash "$ROOT_DIR/tests/explain_reason_test.sh"
+run_required "explain_monitor_test" bash "$ROOT_DIR/tests/explain_monitor_test.sh"
+run_required "ssh_known_hosts_mode_test" bash "$ROOT_DIR/tests/ssh_known_hosts_mode_test.sh"
 run_required "self_check_json_test" bash "$ROOT_DIR/tests/self_check_json_test.sh"
 run_required "status_reason_rollup_test" bash "$ROOT_DIR/tests/status_reason_rollup_test.sh"
 run_required "status_json_compat_test" bash "$ROOT_DIR/tests/status_json_compat_test.sh"
@@ -129,6 +139,7 @@ run_required "export_json_schema_test" bash "$ROOT_DIR/tests/export_json_schema_
 run_required "export_csv_test" bash "$ROOT_DIR/tests/export_csv_test.sh"
 run_required "status_since_test" bash "$ROOT_DIR/tests/status_since_test.sh"
 run_required "trend_command_test" bash "$ROOT_DIR/tests/trend_command_test.sh"
+run_required "runtimes_json_fields_test" bash "$ROOT_DIR/tests/runtimes_json_fields_test.sh"
 fi
 
 # Sudo-gated tests
@@ -138,6 +149,7 @@ if sudo -n true >/dev/null 2>&1; then
   bash "$ROOT_DIR/tests/status_quiet_test.sh" >/dev/null
   bash "$ROOT_DIR/tests/status_contract_test.sh" >/dev/null
   bash "$ROOT_DIR/tests/summary_reason_lint.sh" >/dev/null
+  bash "$ROOT_DIR/tests/doctor_fix_json_test.sh" >/dev/null
   run_required "prom_textfile_output_test" bash "$ROOT_DIR/tests/prom_textfile_output_test.sh"
 else
   skipped_optional=1

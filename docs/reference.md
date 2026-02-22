@@ -157,6 +157,8 @@ linux-maint runtimes --last 3 --json
 ```
 
 JSON output includes `unit=ms` and a `source_file` path for each row.
+Schema:
+- `docs/schemas/runtimes.json` — JSON schema for `linux-maint runtimes --json`.
 
 ### Runtime warn thresholds
 
@@ -309,6 +311,7 @@ Notes:
 - `status` is the logical result (see below).
 - `node` is the machine that executed the monitor (runner).
 - Additional keys are monitor-specific metrics (counts, thresholds, paths, etc.).
+- Optional `next_step=<token>` may be emitted for common `reason=` values to suggest a remediation.
 - Each monitor must emit **exactly one** summary line per target host per run.
 - Summary lines are the only content allowed on stdout for monitor scripts; any progress or detail output must go to stderr.
 
@@ -402,10 +405,13 @@ After installation, use the `linux-maint` CLI as the primary interface.
 
 - `linux-maint run` *(root required)*: run the full wrapper (`run_full_health_monitor.sh`).
   - `--progress|--no-progress`: enable/disable the run progress bar (overrides `LM_PROGRESS`).
+  - `--strict`: fail the run if any monitor emits malformed summary lines (adds `reason=summary_invalid`).
 
 - `linux-maint init [--minimal] [--force]` *(root required)*: install `/etc/linux_maint` templates from the repo checkout.
   - By default, existing files are not overwritten.
   - `--force` overwrites existing files.
+
+- `linux-maint explain monitor <name>`: show monitor purpose, deps, and common `reason=` tokens.
 
 - `linux-maint status` *(root required)*: show last run metadata plus a compact, severity-sorted problems summary by default. Use `--verbose` for raw summary lines.
 
@@ -420,6 +426,15 @@ Status flags (installed mode):
 - `--match-mode contains|exact|regex` — how `--host`/`--monitor` are matched (default: `contains`)
 - `--since <int><s|m|h|d>` — include only timestamped summary artifacts from the recent time window (e.g., `30s`, `15m`, `2h`, `1d`)
 - `--expected-skips` — print a short list of expected SKIPs based on missing optional config (not compatible with `--json`)
+- `--group-by host|monitor|reason` — group summary lines with stable ordering (reason grouping includes non-OK entries)
+- `--prom` — emit Prometheus textfile-style summary metrics to stdout (overall + per-status counts)
+
+- `linux-maint report` *(root required)*: show combined status + trends + runtimes.
+  - `--short` emits a one-screen summary with totals, top problems, and next steps.
+
+Note: when optional config/baselines are missing, `status`/`report` show an `Expected SKIPs` banner by default (suppressed in compact/summary output). Use `--expected-skips` for the explicit list.
+
+- `linux-maint metrics --json` *(root required)*: emit a single JSON snapshot with status + trends + runtimes for automation.
 
 
 ### `linux-maint status --json` compatibility contract
@@ -459,6 +474,17 @@ Compatibility policy:
 
 Schema:
 - `docs/schemas/report.json` — JSON schema for `linux-maint report --json`.
+
+### `linux-maint metrics --json` compatibility contract
+
+Top-level keys:
+- `metrics_json_contract_version` (integer, current value: `1`)
+- `status` (object; same payload as `linux-maint status --json`)
+- `trend` (object; same payload as `linux-maint trend --json`)
+- `runtimes` (object; same payload as `linux-maint runtimes --json`)
+
+Schema:
+- `docs/schemas/metrics.json` — JSON schema for `linux-maint metrics --json`.
 
 ### `linux-maint config --json` compatibility contract
 
@@ -501,6 +527,7 @@ Top-level keys:
 - `dependencies` (array of command availability with package hints)
 - `writable_locations` (array of path checks: `exists`, `writable`)
 - `fix_suggestions` (array of suggested remediation actions)
+- `fix_actions` (array of structured actions taken by `doctor --fix`; empty when no fixes attempted)
 - `next_actions` (array of recommended follow-up commands)
 
 Schema:
@@ -525,6 +552,9 @@ Example (`doctor --json`):
   "fix_suggestions": [
     "Add network targets to /etc/linux_maint/network_targets.txt"
   ],
+  "fix_actions": [
+    { "id": 1, "action": "create_dir", "target": "/var/log/health", "status": "ok" }
+  ],
   "next_actions": [
     "linux-maint verify-install",
     "sudo linux-maint init"
@@ -540,22 +570,29 @@ Example (`trend --json`):
 
 ```json
 {
-  "runs": 10,
+  "runs": [
+    {
+      "file": "/var/log/health/full_health_monitor_summary_2026-02-20_120000.log",
+      "totals": { "CRIT": 1, "WARN": 2, "UNKNOWN": 0, "SKIP": 0, "OK": 12 }
+    }
+  ],
+  "totals": { "CRIT": 1, "WARN": 2, "UNKNOWN": 0, "SKIP": 0, "OK": 12 },
   "reasons": [
     { "reason": "ssh_unreachable", "count": 4 },
     { "reason": "security_updates_pending", "count": 2 }
-  ],
-  "statuses": [
-    { "status": "CRIT", "count": 1 },
-    { "status": "WARN", "count": 5 },
-    { "status": "OK", "count": 20 }
   ]
 }
 ```
 
+Schema:
+- `docs/schemas/trend.json` — JSON schema for `linux-maint trend --json`.
+
 - `linux-maint export --json` *(root required)*: export a single JSON payload containing summary_result/summary_hosts plus raw `monitor=` rows (best for external ingestion).
 - `linux-maint export --csv` *(root required)*: export `monitor,host,status,reason` rows as CSV (easy to import).
 - `linux-maint self-check [--json]`: quick validation for config/paths/deps (safe in repo mode).
+
+Export allowlist:
+- `LM_EXPORT_ALLOWLIST=monitor,host,status,reason,...` filters **row keys** in `export --json` output (core identity fields are always included).
 
 Schema:
 - `docs/schemas/export.json` — JSON schema for `linux-maint export --json`.
@@ -596,11 +633,15 @@ Example (`export --json`):
 - `LM_REDACT_LOGS=1` — redact common secret patterns from logs and summary lines (best-effort). When enabled, values like `password=...`, `token=...`, and JWT-like blobs are replaced with `REDACTED` in emitted log/summary lines.
 - `LM_REDACT_LOGS=1` also redacts values in `linux-maint export --json` output.
 - `LM_REDACT_LOGS=1` also redacts log content inside `linux-maint pack-logs` bundles.
+- `LM_EXPORT_ALLOWLIST=monitor,host,status,reason,...` — restrict keys emitted for each row in `linux-maint export --json`.
+- `LM_PACK_LOGS_HASH=1` — include `meta/bundle_hashes.txt` (SHA256 per file) in pack-logs bundles.
 - `LM_PROGRESS=0` — disable progress bars (run, pack-logs, baseline update).
 - `LM_PROGRESS_WIDTH=24` — progress bar width in characters.
 - `LM_HOST_PROGRESS=1` — show per-host progress in host loops (used by baseline updates).
 - `LM_FORCE_COLOR=1` — force ANSI color even when output is not a TTY.
 - `NO_COLOR=1` / `LM_NO_COLOR=1` — disable ANSI color (overrides `LM_FORCE_COLOR`).
+- `LM_STRICT=1` — wrapper strict mode (same as `linux-maint run --strict`) to fail on malformed summary lines.
+- `LM_TEST_MODE=1` — deterministic test mode (disables notify/email/progress and freezes timestamps unless `LM_TEST_TIME_EPOCH` is already set).
 - `LM_TEST_TIME_EPOCH=<unix_epoch>` — test-only override to freeze wrapper timestamps and filenames for deterministic output.
 - `LM_SUMMARY_ALLOWLIST=key1,key2,...` — optional allowlist of summary keys to keep; extra keys are dropped with a warning.
 - `LM_SUMMARY_STRICT=1` — enforce required summary fields and valid statuses at emission time (tests/CI).
@@ -617,7 +658,7 @@ Default `LM_SSH_OPTS` (as shipped):
 - `BatchMode=yes`
 - `ConnectTimeout=7`
 - `ServerAliveInterval=10`, `ServerAliveCountMax=2`
-- `StrictHostKeyChecking=accept-new`
+- `StrictHostKeyChecking=accept-new` (override with `LM_SSH_KNOWN_HOSTS_MODE=strict`)
 - `UserKnownHostsFile=/var/lib/linux_maint/known_hosts`
 - `GlobalKnownHostsFile=/dev/null`
 
@@ -627,6 +668,7 @@ You can override via `linux-maint run --ssh-opts "..."` or environment `LM_SSH_O
 Notes:
 - This project intentionally splits `LM_SSH_OPTS` into ssh argv. Avoid shell metacharacters; prefer only `-o Key=Value` style options.
 - If you enable strict host key verification in your environment, pre-populate the dedicated known_hosts file used by `UserKnownHostsFile`.
+- `LM_SSH_KNOWN_HOSTS_MODE=strict|accept-new` toggles `StrictHostKeyChecking` when `LM_SSH_OPTS` is not explicitly set.
 
 Validation guardrails (in `linux-maint run`):
 
@@ -1169,3 +1211,4 @@ CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).
 
 - `linux-maint pack-logs [--out DIR]`: create a support bundle (progress can be toggled with `--progress|--no-progress`).
   - `--redact|--no-redact`: override `LM_REDACT_LOGS` for this bundle only.
+  - `--hash`: include `meta/bundle_hashes.txt` (SHA256 per file) in the bundle.
