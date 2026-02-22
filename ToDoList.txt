@@ -113,28 +113,46 @@ Primary audiences: operators, sysadmins, and SREs working in constrained or air�
 
 ## P0 — Correctness / safety (next)
 
-No open items currently scheduled.
+1. Summary JSON schema contract
+   Outcome: JSON schema for wrapper summary JSON (`full_health_monitor_summary_latest.json`).
+   Acceptance: schema file added and validated in tests.
+
+2. Output cleanliness guardrail
+   Outcome: ensure JSON/summary outputs never contain ANSI/control chars even when color is forced.
+   Acceptance: tests assert outputs are clean across key commands.
 
 ---
 
 ## P1 — Operator UX / docs (next)
 
-No open items currently scheduled.
+1. Group-by output limits
+   Outcome: optional `--top N` for `status --group-by` to cap rows for large fleets.
+   Acceptance: stable ordering; tests cover default and capped output.
+
+2. Quickstart install doc polish
+   Outcome: tighten `docs/OPERATIONS.md` with a 10-minute installed-mode walkthrough.
+   Acceptance: operator path validated, no duplicate content in README.
 
 ---
 
 ## P2 — Security / hardening (soon)
 
-No open items currently scheduled.
+1. Known_hosts seeding helper
+   Outcome: helper script to pre-populate `LM_SSH_KNOWN_HOSTS` for strict mode.
+   Acceptance: offline-safe and documented; no runtime deps added.
 
 ---
 
 ## P3 — Observability / integrations (later)
 
-No open items currently scheduled.
+1. Run index JSON schema
+   Outcome: schema for `run_index.jsonl` entries and history JSON contract.
+   Acceptance: schema + tests; contract version documented.
 
 ---
 
 ## P4 — DX / release polish (later)
 
-No open items currently scheduled.
+1. Docs link check in CI
+   Outcome: CI job validates internal doc links (README + docs index).
+   Acceptance: job fails on broken links; offline-safe.
