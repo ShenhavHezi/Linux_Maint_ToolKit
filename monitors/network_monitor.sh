@@ -86,12 +86,9 @@ has_unsafe_chars(){
   if [[ "$s" =~ [[:space:]] ]]; then
     return 0
   fi
-  case "$s" in
-    # shellcheck disable=SC1003
-    *"'"*|*'`'*|*'$'*|*';'*|*'&'*|*'|'*|*'<'*|*'>'*|*'\\'*)
-      return 0
-      ;;
-  esac
+  if [[ "$s" == *"'"* || "$s" == *'`'* || "$s" == *'$'* || "$s" == *';'* || "$s" == *'&'* || "$s" == *'|'* || "$s" == *'<'* || "$s" == *'>'* || "$s" == *'\\'* ]]; then
+    return 0
+  fi
   return 1
 }
 
