@@ -2,7 +2,7 @@
 
 SHELL := /usr/bin/env bash
 
-.PHONY: help lint test quick-check dev-check release-tarball make-tarball release release-prep release-check verify-release install-githooks
+.PHONY: help lint test quick-check dev-check docs-check release-tarball make-tarball release release-prep release-check verify-release install-githooks
 
 help:
 	@echo "Targets:"
@@ -14,6 +14,7 @@ help:
 	@echo "  make release-prep VERSION=x.y.z - bump version/changelog and draft notes (tools/release_prep.sh)"
 	@echo "  make release-check - validate docs/schemas/release notes (tools/release_check.sh)"
 	@echo "  make verify-release - verify tarball checksums (linux-maint verify-release)"
+	@echo "  make docs-check - validate internal markdown links"
 	@echo "  make test   - run repo test suite (contract + smoke)"
 	@echo "  make quick-check - run fast contract/lint checks"
 	@echo "  make dev-check - run lint + smoke"
@@ -41,6 +42,9 @@ quick-check:
 
 dev-check:
 	@./tools/dev_check.sh
+
+docs-check:
+	@./tools/docs_link_check.sh
 
 release-tarball:
 	@./tools/make_tarball.sh

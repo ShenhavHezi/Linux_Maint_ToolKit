@@ -1,7 +1,8 @@
 {
   "type": "object",
-  "required": ["runs"],
+  "required": ["history_json_contract_version", "runs"],
   "properties": {
+    "history_json_contract_version": { "type": "integer" },
     "runs": {
       "type": "array",
       "items": {

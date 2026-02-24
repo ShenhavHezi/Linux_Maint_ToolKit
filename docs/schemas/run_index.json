@@ -2,8 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "linux-maint run_index.jsonl entry",
   "type": "object",
-  "required": ["timestamp", "overall", "exit_code", "hosts"],
+  "required": ["run_index_version", "timestamp", "overall", "exit_code", "hosts"],
   "properties": {
+    "run_index_version": { "type": "integer" },
     "timestamp": { "type": "string" },
     "timestamp_epoch": { "type": ["integer", "null"] },
     "overall": { "type": "string" },

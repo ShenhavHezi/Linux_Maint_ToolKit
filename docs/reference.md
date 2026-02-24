@@ -494,6 +494,7 @@ Schema:
 ### `linux-maint history --json` compatibility contract
 
 Top-level keys:
+- `history_json_contract_version` (integer, current value: `1`)
 - `runs` (array of run index entries; newest first)
 
 Compatibility policy:
@@ -845,6 +846,7 @@ You can control retention with `LM_RUN_INDEX_KEEP` (default 200).
 
 Run index schema:
 - `docs/schemas/run_index.json` — JSON schema for each JSONL entry.
+  - Each entry includes `run_index_version` (current: `1`) for compatibility.
 
 Optional: Prometheus export (textfile collector format)
 

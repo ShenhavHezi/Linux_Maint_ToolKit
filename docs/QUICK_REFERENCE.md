@@ -51,6 +51,11 @@ sudo linux-maint history --table
 sudo linux-maint history --table --no-color
 sudo linux-maint history --compact
 
+# History usage tips
+# - Text view: quick skim of recent runs in terminals
+# - Table view: stable columns for copy/paste into tickets
+# - JSON view: automation/dashboards (parse with jq)
+
 # One-line summary (cron/dashboards)
 sudo linux-maint summary
 sudo linux-maint status --summary

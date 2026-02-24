@@ -12,6 +12,7 @@ Quick links:
 - [`docs/DARK_SITE.md`](DARK_SITE.md)
 - [`docs/DAY2.md`](DAY2.md)
 - [`docs/OPERATIONS.md`](OPERATIONS.md)
+- [`docs/OPERATIONS.md#7-ssh-strict-mode-quickstart`](OPERATIONS.md#7-ssh-strict-mode-quickstart)
 - [`docs/UPGRADE.md`](UPGRADE.md)
 - [`docs/ARTIFACTS.md`](ARTIFACTS.md)
 - [`docs/COMMAND_CONTRACT_CHECKLIST.md`](COMMAND_CONTRACT_CHECKLIST.md)

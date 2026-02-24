@@ -17,6 +17,8 @@
 #LM_MAX_PARALLEL=0
 #LM_LOCAL_ONLY=false
 #LM_SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=5"
+#LM_SSH_KNOWN_HOSTS_MODE="accept-new"   # set to "strict" for strict host key checking
+#LM_SSH_ALLOWLIST="^bash -lc |^command -v |^df |^ss |^netstat |^systemctl |^ping |^nc |^curl |^timeout |^chronyc |^ntpq |^timedatectl |^mountpoint |^stat |^uname "
 
 # ---- Wrapper runtime ----
 #LOG_DIR="/var/log/health"

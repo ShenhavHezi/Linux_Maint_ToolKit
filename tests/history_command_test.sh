@@ -30,6 +30,11 @@ printf '%s\n' "$json_out" | grep -q '"runs"' || {
   echo "$json_out" >&2
   exit 1
 }
+printf '%s\n' "$json_out" | grep -q '"history_json_contract_version"' || {
+  echo "history --json missing contract version" >&2
+  echo "$json_out" >&2
+  exit 1
+}
 printf '%s' "$json_out" | python3 "$ROOT_DIR/tools/json_schema_validate.py" "$ROOT_DIR/docs/schemas/history.json"
 
 table_out="$(LM_STATE_DIR="$tmp_dir" bash "$LM" history --last 2 --table 2>/dev/null || true)"

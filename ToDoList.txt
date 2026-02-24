@@ -27,46 +27,22 @@ No P0 items currently.
 
 ## P1 — Operator UX / docs (next)
 
-1. SSH strict-mode quickstart (docs)
-   Outcome: add a short operator flow for strict SSH (seed known_hosts + set `LM_SSH_KNOWN_HOSTS_MODE=strict`) in `docs/OPERATIONS.md`.
-   Acceptance: steps included and linked from docs index.
-
-2. History usage examples
-   Outcome: add a brief “when to use history” section (text vs `--table` vs `--json`) in `docs/QUICK_REFERENCE.md`.
-   Acceptance: examples included, no duplicate content in README.
+No P1 items currently.
 
 ---
 
 ## P2 — Security / hardening (soon)
 
-1. known_hosts seeding tests
-   Outcome: add tests for `tools/seed_known_hosts.sh` (user@host, host:port, IPv6 bracket form).
-   Acceptance: tests run in smoke/CI; no network calls required.
-
-2. SSH allowlist defaults (config template)
-   Outcome: add commented `LM_SSH_ALLOWLIST` and `LM_SSH_KNOWN_HOSTS_MODE=strict` examples in `etc/linux_maint/linux-maint.conf.example`.
-   Acceptance: examples documented and do not change defaults unless uncommented.
+No P2 items currently.
 
 ---
 
 ## P3 — Observability / integrations (later)
 
-1. History JSON contract version
-   Outcome: include `history_json_contract_version` in `linux-maint history --json` output.
-   Acceptance: schema/test updated; contract documented in `docs/reference.md`.
-
-2. Run index schema versioning
-   Outcome: add `run_index_version` to JSONL entries for future compatibility.
-   Acceptance: writer updated; schema/test updated; example entry documented.
+No P3 items currently.
 
 ---
 
 ## P4 — DX / release polish (later)
 
-1. Local docs-check target
-   Outcome: add `make docs-check` and include it in `tools/dev_check.sh`.
-   Acceptance: local dev check runs docs link validation.
-
-2. Release notes index automation
-   Outcome: extend `tools/release_prep.sh` to update docs index pointers to the latest release notes.
-   Acceptance: `docs/README.md` and `docs/INDEX.md` updated automatically.
+No P4 items currently.

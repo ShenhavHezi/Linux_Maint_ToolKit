@@ -14,6 +14,9 @@ echo "==> shellcheck"
   tests/*.sh \
   tools/*.sh
 
+echo "==> docs-check"
+./tools/docs_link_check.sh
+
 echo "==> smoke"
 bash ./tests/smoke.sh
 

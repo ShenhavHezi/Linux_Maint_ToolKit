@@ -1102,6 +1102,7 @@ def read_status_counts(summary_path):
 host_counts = read_status_counts(summary_file)
 
 entry = {
+    "run_index_version": 1,
     "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(int(ts_epoch))) if ts_epoch.isdigit() else "",
     "timestamp_epoch": int(ts_epoch) if ts_epoch.isdigit() else None,
     "overall": overall,

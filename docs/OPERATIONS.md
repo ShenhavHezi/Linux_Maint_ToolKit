@@ -58,13 +58,31 @@ sudo linux-maint status --json
 sudo linux-maint run --group prod --dry-run
 ```
 
-## 7) Common next fixes
+## 7) SSH strict-mode quickstart
+
+If you require strict host key verification:
+
+```bash
+# Seed dedicated known_hosts (installed mode)
+sudo /usr/local/libexec/linux_maint/seed_known_hosts.sh --hosts-file /etc/linux_maint/servers.txt
+
+# Enable strict mode in config
+echo "LM_SSH_KNOWN_HOSTS_MODE=strict" | sudo tee -a /etc/linux_maint/linux-maint.conf >/dev/null
+```
+
+Re-run after seeding:
+
+```bash
+sudo linux-maint run
+```
+
+## 8) Common next fixes
 
 - `reason=missing_dependency` → install the missing command on the target.
 - `reason=config_missing` → populate the referenced config file under `/etc/linux_maint/`.
 - `reason=baseline_missing` → create or allow baseline auto‑init where supported.
 
-## 8) First‑run expected SKIPs
+## 9) First‑run expected SKIPs
 
 Run this to confirm optional gates:
 
@@ -72,21 +90,21 @@ Run this to confirm optional gates:
 sudo linux-maint status --expected-skips
 ```
 
-## 9) Troubleshooting bundle (offline‑friendly)
+## 10) Troubleshooting bundle (offline‑friendly)
 
 ```bash
 sudo linux-maint doctor
 sudo linux-maint pack-logs --out /tmp
 ```
 
-## 10) Repo mode (if you are not installed)
+## 11) Repo mode (if you are not installed)
 
 ```bash
 sudo ./run_full_health_monitor.sh
 sudo ./bin/linux-maint status
 ```
 
-## 11) Reference docs
+## 12) Reference docs
 
 - Full configuration and monitor reference: `docs/reference.md`
 - Reason token glossary: `docs/REASONS.md`
