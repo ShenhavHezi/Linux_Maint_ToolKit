@@ -33,4 +33,4 @@
 - `cert_monitor` now emits `host=runner` instead of `host=all`. Update any automation that filtered on `host=all`.
 
 ## Checksums (if releasing a tarball)
-- SHA256SUMS:
+- SHA256SUMS: add12e96eebdfc703a7b335de0d25e111942267bbd7c2d28d61b013cf8125352  Linux_Maint_ToolKit-v0.2.4-77efb68.tgz
