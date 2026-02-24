@@ -1060,7 +1060,7 @@ def read_reason_counts(summary_path):
                         break
                 if reason:
                     counts[reason] = counts.get(reason, 0) + 1
-    except FileNotFoundError:
+    except (FileNotFoundError, PermissionError, OSError):
         pass
     return counts
 
@@ -1095,7 +1095,7 @@ def read_status_counts(summary_path):
                     counts["unknown"] += 1
                 elif status == "SKIP":
                     counts["skipped"] += 1
-    except FileNotFoundError:
+    except (FileNotFoundError, PermissionError, OSError):
         pass
     return counts
 

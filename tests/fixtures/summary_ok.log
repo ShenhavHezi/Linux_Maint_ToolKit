@@ -1,0 +1,3 @@
+monitor=health_monitor host=localhost status=OK node=localhost
+monitor=disk_trend_monitor host=localhost status=WARN node=localhost reason=disk_growth mounts=2 warn=1 crit=0 inode_mounts=2 inode_warn=1 inode_crit=0
+monitor=inventory_export host=localhost status=SKIP node=localhost reason=missing_inventory_targets_file targets=0

@@ -37,7 +37,7 @@ trap 'rc=$?; if [ "${_summary_emitted:-0}" -eq 0 ]; then lm_summary "service_mon
 # ========================
 # Script configuration
 # ========================
-SERVICES="/etc/linux_maint/services.txt"     # One service per line (unit name). Comments (#…) and blanks allowed.
+SERVICES="${SERVICES:-/etc/linux_maint/services.txt}"     # One service per line (unit name). Comments (#…) and blanks allowed.
 AUTO_RESTART="false"                          # "true" to attempt restart on failure (requires root or sudo NOPASSWD)
 MAIL_SUBJECT_PREFIX='[Service Monitor]'
 EMAIL_ON_ALERT="false"                        # "true" to email when any service is not active
