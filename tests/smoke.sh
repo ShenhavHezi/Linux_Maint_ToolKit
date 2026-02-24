@@ -55,7 +55,6 @@ run_required "seed_known_hosts_test" bash "$ROOT_DIR/tests/seed_known_hosts_test
 run_required "lm_ssh_opts_guard_test" bash "$ROOT_DIR/tests/lm_ssh_opts_guard_test.sh"
 run_required "lm_log_json_test" bash "$ROOT_DIR/tests/lm_log_json_test.sh"
 run_required "log_redaction_test" bash "$ROOT_DIR/tests/log_redaction_test.sh"
-run_required "inventory_cache_test" bash "$ROOT_DIR/tests/inventory_cache_test.sh"
 run_required "next_step_hint_test" bash "$ROOT_DIR/tests/next_step_hint_test.sh"
 run_required "timer_monitor_test" bash "$ROOT_DIR/tests/timer_monitor_test.sh"
 run_required "filesystem_readonly_monitor_test" bash "$ROOT_DIR/tests/filesystem_readonly_monitor_test.sh"
@@ -114,6 +113,7 @@ if [[ "$SMOKE_PROFILE" != "compat" ]]; then
   # Summary noise guardrail (wrapper-level) - use fixture to avoid long wrapper runs in CI
   run_required "summary_noise_lint" bash "$ROOT_DIR/tests/summary_noise_lint.sh" "$ROOT_DIR/tests/fixtures/summary_ok.log"
   run_required "summary_budget_lint_fixture_test" bash "$ROOT_DIR/tests/summary_budget_lint_fixture_test.sh"
+  run_required "inventory_cache_test" bash "$ROOT_DIR/tests/inventory_cache_test.sh"
 run_required "wrapper_fallback_paths_test" bash "$ROOT_DIR/tests/wrapper_fallback_paths_test.sh"
 run_required "wrapper_summary_write_fail_test" bash "$ROOT_DIR/tests/wrapper_summary_write_fail_test.sh"
 run_required "summary_checksum_test" bash "$ROOT_DIR/tests/summary_checksum_test.sh"
