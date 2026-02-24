@@ -449,20 +449,77 @@ case "${LM_PROGRESS:-1}" in
   0|false|no|off) progress_enabled=0 ;;
 esac
 progress_width="${LM_PROGRESS_WIDTH:-24}"
+progress_color_enabled=0
+case "${LM_PROGRESS_COLOR:-1}" in
+  0|false|no|off) progress_color_enabled=0 ;;
+  *) progress_color_enabled=1 ;;
+esac
+if [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]]; then
+  progress_color_enabled=0
+fi
+if [[ "$progress_enabled" -ne 1 || ! -t 2 ]]; then
+  progress_color_enabled=0
+fi
+if [[ "$progress_color_enabled" -eq 1 ]]; then
+  P_C_RESET=$'\033[0m'
+  P_C_BOLD=$'\033[1m'
+  P_C_DIM=$'\033[2m'
+  P_C_CYAN=$'\033[36m'
+  P_C_GREEN=$'\033[32m'
+  P_C_YELLOW=$'\033[1;33m'
+  P_C_RED=$'\033[31m'
+else
+  P_C_RESET=""; P_C_BOLD=""; P_C_DIM=""; P_C_CYAN=""; P_C_GREEN=""; P_C_YELLOW=""; P_C_RED=""
+fi
 progress_render() {
   local idx="$1" total="$2" name="$3"
   [[ "$progress_enabled" -eq 1 ]] || return 0
   [[ "$total" -gt 0 ]] || return 0
   local filled=$(( idx * progress_width / total ))
   local rest=$(( progress_width - filled ))
+  local pct=$(( idx * 100 / total ))
+  local spin_chars="|/-\\"
+  local spin_idx=$(( idx % 4 ))
+  local spin="${spin_chars:$spin_idx:1}"
   local bar
-  bar="$(printf '%*s' "$filled" '' | tr ' ' '#')"
-  bar="${bar}$(printf '%*s' "$rest" '' | tr ' ' '-')"
-  printf '\r[%s] %d/%d %s' "$bar" "$idx" "$total" "$name" >&2
+  if [[ "$filled" -ge "$progress_width" ]]; then
+    bar="$(printf '%*s' "$progress_width" '' | tr ' ' '=')"
+  elif [[ "$filled" -gt 0 ]]; then
+    bar="$(printf '%*s' "$((filled-1))" '' | tr ' ' '=')>"
+    bar="${bar}$(printf '%*s' "$rest" '' | tr ' ' '.')"
+  else
+    bar="$(printf '%*s' "$rest" '' | tr ' ' '.')"
+  fi
+  local count label pct_str
+  pct_str="$(printf '%3d%%' "$pct")"
+  label="  current: ${name}"
+  if [[ "$progress_color_enabled" -eq 1 ]]; then
+    local bar_color="${P_C_RED}"
+    if [[ "$pct" -ge 80 ]]; then
+      bar_color="${P_C_GREEN}"
+    elif [[ "$pct" -ge 50 ]]; then
+      bar_color="${P_C_YELLOW}"
+    else
+      bar_color="${P_C_RED}"
+    fi
+    bar="${bar_color}${bar}${P_C_RESET}"
+    pct_str="${P_C_BOLD}${pct_str}${P_C_RESET}"
+    count="${P_C_BOLD}${idx}${P_C_RESET}/${P_C_DIM}${total}${P_C_RESET}"
+    label="${P_C_DIM}${label}${P_C_RESET}"
+    spin="${P_C_DIM}${spin}${P_C_RESET}"
+  else
+    count="${idx}/${total}"
+  fi
+  # Clear to end-of-line to avoid leftover text when monitor names shrink.
+  printf '\r%s [%s] %s %s %s\033[K' "$spin" "$bar" "$pct_str" "$count" "$label" >&2
 }
 progress_done() {
   [[ "$progress_enabled" -eq 1 ]] || return 0
-  printf '\n' >&2
+  if [[ "$progress_color_enabled" -eq 1 ]]; then
+    printf '\r%s %s\033[K\n' "${P_C_GREEN}DONE${P_C_RESET}" "${P_C_DIM}100% - summary ready (run: linux-maint report)${P_C_RESET}" >&2
+  else
+    printf '\rDONE 100%% - summary ready (run: linux-maint report)\033[K\n' >&2
+  fi
 }
 
 now_ms(){

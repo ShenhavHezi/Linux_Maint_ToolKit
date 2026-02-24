@@ -523,6 +523,12 @@ case "$cmd" in
             mapfile -t _hosts < <(printf '%s\n' "${_hosts[@]}" | head -n "${LIMIT}")
           fi
 
+          if [[ -t 1 ]]; then
+            section "run plan"
+            echo "mode=${MODE} local_only=${LM_LOCAL_ONLY:-false} parallel=${LM_MAX_PARALLEL:-0}"
+            [[ -n "${LM_GROUP:-}" ]] && echo "group=${LM_GROUP}"
+            echo ""
+          fi
           echo "Resolved hosts (${#_hosts[@]}):"
           printf '%s\n' "${_hosts[@]}"
           exit 0
@@ -549,7 +555,9 @@ case "$cmd" in
         echo "Summary: $INST_SUMMARY_LATEST"
         echo "Log: /var/log/health/full_health_monitor_latest.log"
       fi
-      echo "Tip: linux-maint report"
+      echo "Next: linux-maint report"
+      echo "Tip: linux-maint status --reasons 5"
+      echo "If WARN/CRIT: linux-maint doctor"
     fi
     exit $rc
     ;;
@@ -574,6 +582,9 @@ case "$cmd" in
     PREV_SUMMARY="$DIFF_STATE_DIR/last_summary_monitor_lines.log"
 
     CUR_SUMMARY="$SUMMARY_LATEST"
+    if [[ -t 1 ]]; then
+      section "linux-maint diff"
+    fi
     echo "diff_state_dir=$DIFF_STATE_DIR"
 
     if [[ ! -f "$CUR_SUMMARY" ]]; then
@@ -613,8 +624,16 @@ case "$cmd" in
         if [[ "$MODE" == "repo" ]]; then
           mkdir -p "$REPO_LOG_DIR"
           [[ -f "$REPO_LATEST_LOG" ]] || { echo "No repo log yet: $REPO_LATEST_LOG"; exit 1; }
+          if [[ -t 1 ]]; then
+            section "logs (last $n)"
+            echo "file=$REPO_LATEST_LOG"
+          fi
           tail -n "$n" "$REPO_LATEST_LOG"
         else
+          if [[ -t 1 ]]; then
+            section "logs (last $n)"
+            echo "file=/var/log/health/full_health_monitor_latest.log"
+          fi
           exec sudo -n tail -n "$n" /var/log/health/full_health_monitor_latest.log 2>/dev/null || tail -n "$n" /var/log/health/full_health_monitor_latest.log
         fi
     ;;
@@ -700,6 +719,11 @@ def header(text):
         return f"=== {c(inner, '1;36')} ==="
     return c(text, "1;36")
 
+def section(title):
+    # Friendly section header for human output.
+    print("")
+    print(c(title, "1;36"))
+
 def color_status(st, text=None):
     label = text if text is not None else st
     if st == "CRIT":
@@ -774,7 +798,7 @@ if short:
             print(line)
     else:
         print("\nproblems: none (all OK)")
-    print("\nnext_steps:")
+    print(c("\nnext_steps:", "1;36"))
     print("  - run: linux-maint doctor")
     print("  - run: linux-maint status --verbose")
     raise SystemExit(0)
@@ -785,6 +809,7 @@ print(f"mode={mode} overall={ov} exit_code={exit_code}")
 if expected_skips and not compact:
     print(expected_skips)
 if not compact:
+    section("files")
     if logfile:
         print(f"logfile={logfile}")
     if summary:
@@ -792,6 +817,8 @@ if not compact:
 
 totals = status.get("totals", {})
 if totals:
+    if not compact:
+        section("totals")
     tvals=[("CRIT", totals.get("CRIT",0)), ("WARN", totals.get("WARN",0)), ("UNKNOWN", totals.get("UNKNOWN",0)), ("SKIP", totals.get("SKIP",0)), ("OK", totals.get("OK",0))]
     maxk=max(len(k) for k,_ in tvals) if tvals else 0
     maxv=max(len(str(v)) for _,v in tvals) if tvals else 0
@@ -819,7 +846,7 @@ if totals:
 
 problems = status.get("problems", [])
 if problems and not no_problems:
-    print("\nproblems (top):")
+    section("problems (top)")
     if table:
         rows=[]
         for p in problems[:20]:
@@ -862,18 +889,18 @@ if problems and not no_problems:
             if reason:
                 line += f" reason={reason}"
             print(line)
-    print("\nnext_steps:")
+    print(c("\nnext_steps:", "1;36"))
     print("  - run: linux-maint doctor")
     print("  - run: linux-maint status --verbose")
 elif not no_problems:
     if table:
-        print("\nproblems (top):")
+        section("problems (top)")
         print("STATUS MONITOR HOST REASON")
     print("\nproblems: none (all OK)")
 
 reason_rollup = status.get("reason_rollup", [])
 if reason_rollup and not no_reasons:
-    print("\nreasons (latest):")
+    section("reasons (latest)")
     for r in reason_rollup[:10]:
         print(f"{r.get('reason')}={r.get('count')}")
 
@@ -910,14 +937,14 @@ if reason_rollup and not no_reasons:
             seen.add(reason)
             hint_lines.append(f"{reason}: {hints_map[reason]}")
     if hint_lines:
-        print("\nhints:")
+        print(c("\nhints:", "1;36"))
         for h in hint_lines[:5]:
             print(f"- {h}")
 
 if trend and not no_trend:
     t_totals = trend.get("totals", {})
     if t_totals:
-        print("\ntrend (last runs):")
+        section("trend (last runs)")
         print("totals: " + " ".join(f"{k}={t_totals.get(k,0)}" for k in ["CRIT","WARN","UNKNOWN","SKIP","OK"]))
     t_reasons = trend.get("reasons", [])
     if t_reasons:
@@ -927,7 +954,7 @@ if trend and not no_trend:
 
 rows = runtimes.get("rows", [])
 if rows and not no_slow:
-    print("\nslow monitors (last run):")
+    section("slow monitors (last run)")
     if table:
         rows2=[(r.get("monitor",""), str(r.get("ms",""))) for r in rows[:10]]
         headers=("MONITOR","MS")
@@ -1981,6 +2008,7 @@ PY
 
     if [[ "$QUIET" -eq 0 ]]; then
       echo ""; section "Summary (compact)"
+      tip_line "Use --verbose to show raw monitor lines"
     fi
     summary_file=""
     if [[ "$MODE" == "repo" ]]; then
@@ -2093,7 +2121,7 @@ PY
         fi
       else
         [[ "$QUIET" -eq 0 ]] && echo "(from: $summary_file)"
-      LM_COLOR="$LM_COLOR" python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" "$TABLE" "$GROUP_BY" <<'PY'
+      STATUS_QUIET="$QUIET" LM_COLOR="$LM_COLOR" python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" "$TABLE" "$GROUP_BY" <<'PY'
 import re, sys, os
 path, only, limit, host_filter, monitor_filter, match_mode, reasons_limit, table, group_by = sys.argv[1:10]
 limit=int(limit)
@@ -2101,11 +2129,17 @@ reasons_limit=int(reasons_limit)
 color = os.environ.get("LM_COLOR","1") == "1"
 table = table == "1"
 group_by = group_by.strip()
+quiet = os.environ.get("STATUS_QUIET","0") == "1"
 
 def c(s, code):
     if not color:
         return s
     return f"\033[{code}m{s}\033[0m"
+
+def section(title):
+    if quiet:
+        return
+    print(c(title, "1;36"))
 
 # Example line:
 # monitor=config_validate host=localhost status=WARN node=localhost warn=1 crit=0 reason=...
@@ -2186,7 +2220,22 @@ def color_status(st, text=None):
     return label
 
 order=['CRIT','WARN','UNKNOWN','SKIP','OK']
+if not quiet:
+    filters=[]
+    if only:
+        filters.append(f"only={only}")
+    if host_filter:
+        filters.append(f"host={host_filter}")
+    if monitor_filter:
+        filters.append(f"monitor={monitor_filter}")
+    if (host_filter or monitor_filter) and match_mode:
+        filters.append(f"match_mode={match_mode}")
+    if group_by:
+        filters.append(f"group_by={group_by}")
+    if filters:
+        print(c("filters: " + " ".join(filters), "1;36"))
 if table:
+    section("totals")
     print(c("totals:", "1;36"))
     maxk=max(len(k) for k in order)
     maxv=max(len(str(counts.get(k,0))) for k in order)
@@ -2199,6 +2248,7 @@ if table:
             count = color_status(k, count)
         print(f"  {label} {count}")
 else:
+    section("totals")
     parts=[]
     for k in order:
         v=str(counts.get(k,0))
@@ -2209,7 +2259,9 @@ else:
     print('totals: ' + ' '.join(parts))
 
 if group_by:
-    print(c(f"\ngroup_by={group_by}", "1;36"))
+    if not quiet:
+        print("")
+    print(c(f"group_by={group_by}", "1;36"))
     print(c("groups:", "1;36"))
     def group_key(item):
         name, data = item
@@ -2260,7 +2312,9 @@ if problems:
     sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3}
     problems.sort(key=lambda r: sev_order.get(r["status"], 9))
     show_n=min(limit, len(problems))
-    print(c(f"\nproblems (top {show_n}):", "1;36"))
+    if not quiet:
+        print("")
+    print(c(f"problems (top {show_n}):", "1;36"))
     if table:
         rows=[(p["status"], p["monitor"], p["host"], p["reason"]) for p in problems[:limit]]
         headers=("STATUS","MONITOR","HOST","REASON")
@@ -2279,12 +2333,17 @@ if problems:
             if p["reason"]:
                 line += f" reason={p['reason']}"
             print(line)
-    print(c("\ntip: run 'linux-maint doctor' for fix suggestions", "1;33"))
+    if not quiet:
+        print(c("\ntip: run 'linux-maint doctor' for fix suggestions", "1;33"))
 else:
-    print(c('\nproblems: none (all OK)', "1;32"))
+    if not quiet:
+        print("")
+    print(c('problems: none (all OK)', "1;32"))
 
 if reasons_limit > 0:
-    print(c(f"\nreasons (top {reasons_limit}):", "1;36"))
+    if not quiet:
+        print("")
+    print(c(f"reasons (top {reasons_limit}):", "1;36"))
     if reason_counts:
         rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
         for reason, count in rollup[:reasons_limit]:
@@ -2404,6 +2463,14 @@ def c(s, code):
         return s
     return f"\033[{code}m{s}\033[0m"
 
+def header(text):
+    if not color:
+        return text
+    if text.startswith("=== ") and text.endswith(" ==="):
+        inner = text[4:-4]
+        return f"=== {c(inner, '1;36')} ==="
+    return c(text, "1;36")
+
 def color_kv(k, v):
     text = f"{k}={v}"
     if not color or int(v) == 0:
@@ -2462,14 +2529,15 @@ if json_mode:
     out={'runs':runs, 'totals':overall, 'reasons':[{'reason':r,'count':c} for r,c in rollup]}
     print(json.dumps(out, indent=2, sort_keys=True))
 else:
+    print(header("=== linux-maint trend ==="))
     print(f'trend_runs={len(runs)} source_dir={log_dir}')
-    print('totals: ' + ' '.join(color_kv(k, overall.get(k,0)) for k in order))
+    print(c('totals:', "1;36") + ' ' + ' '.join(color_kv(k, overall.get(k,0)) for k in order))
     print('')
-    print('runs:')
+    print(c('runs:', "1;36"))
     for r in runs:
       print(f"- {os.path.basename(r['file'])}: " + ' '.join(color_kv(k, r['totals'].get(k,0)) for k in order))
     print('')
-    print('reasons:')
+    print(c('reasons:', "1;36"))
     if rollup:
       for reason, count in rollup[:20]:
           print(f"{reason}={count}")
