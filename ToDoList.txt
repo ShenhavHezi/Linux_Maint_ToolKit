@@ -26,57 +26,29 @@ Primary audiences: operators, sysadmins, and SREs working in constrained or air-
 ---
 
 ## P0 - Correctness and safety (next)
-- Audit every monitor for strict summary contract: one monitor line per host path, no duplicates, consistent reason values.
-- Enforce reason presence for non-OK statuses and add a lint that fails on missing reason.
-- Make smoke and compat tests deterministic: no dependency on missing system tools, no shared lock dirs, no timing flakes.
-- Enforce JSON cleanliness: never emit progress or color on any --json output.
-- Harden host parsing in lm_hosts: comments, whitespace, IPv6, user@host, host:port, dedupe, and tests.
-- Validate config parsing across all monitors: missing file must be SKIP or UNKNOWN with explicit reason.
-- Ensure linux-maint run exit codes align with summary severity and documented semantics.
-- Make run index and summary writes atomic with temp + rename, crash safe.
-- Guard against locale and timezone drift in tests and outputs by pinning LC_ALL and TZ where needed.
+- Audit remaining monitors for strict summary contract: one line per host path, no duplicates, consistent reason values.
+- Ensure any remaining JSON outputs are covered by schema validation tests.
 
 ---
 
 ## P1 - Operator UX, docs, compatibility (next)
-- Add a single Quickstart for air-gapped systems in README with copy-paste steps.
-- Create a per-monitor config reference table: file path, required or optional, example lines.
-- Consolidate reason codes and suggested actions into a single cheat sheet.
+- Create a per-monitor config reference table: file path, required/optional, example lines.
 - Add Common failures and fixes for SSH, missing deps, and config errors.
-- Expand linux-maint help examples for report, trend, diff, run with color and no-color examples.
-- Document supported distros and minimum versions for bash, coreutils, openssl.
-- Add a compatibility preflight check that warns on unsupported bash or missing core tools.
-- Document repo mode vs installed mode behavior differences and recommended use cases.
+- Expand linux-maint help examples for report, trend, diff, run (color + no-color).
+- Add a compatibility preflight warning for unsupported bash or missing core tools.
 
 ---
 
 ## P2 - Security, hardening, performance (soon)
-- Provide strict known_hosts workflows: detect host key changes, explain remediation, allow hash output.
-- Extend log redaction patterns with tests for tokens, bearer, auth headers, SSH keys.
-- Add a --redact flag for human outputs only, JSON untouched.
-- Add minimal-privilege guidance for sudoers and SSH keys in SECURITY.
-- Provide release artifact integrity checks with checksums and verification steps.
-- Add adaptive concurrency with safe defaults and guardrails for large fleets.
-- Add lightweight caching for inventory and trend computations, opt-in and time-boxed.
-- Add per-monitor timeouts for remote commands where missing, with tests.
+- Add per-monitor timeouts where missing, plus tests.
 
 ---
 
 ## P3 - Observability, integrations, QA (later)
 - Expand metrics output: per-monitor duration, host counts, severity totals.
-- Add trend export modes for CSV and JSON with stable schema and date range filters.
-- Provide Prometheus textfile examples and a sample systemd timer for scraping.
-- Add run index retention tooling with docs and tests.
-- Add CI matrix coverage for bash 4.2 and 4.4 plus minimal dependency containers.
 - Add fixture-driven tests per monitor for edge cases and regression coverage.
-- Add schema validation tests for all JSON outputs across commands.
 
 ---
 
 ## P4 - DX, release polish, community (later)
-- Introduce a release helper that bumps VERSION, updates notes, and validates required files.
-- Add a CI fast lane for lint and unit tests to speed local iteration.
-- Standardize packaging outputs and document install paths and config examples.
-- Add DEB packaging or a clear statement of why RPM-only is intentional.
-- Create a minimal dev quickstart for contributors: tests to run, CI expectations, style rules.
-- Add GitHub issue and PR templates and a support policy section in README.
+- Standardize packaging outputs and document install paths/config examples (verify gaps).
