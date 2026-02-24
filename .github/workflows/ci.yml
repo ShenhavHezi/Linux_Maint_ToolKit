@@ -25,6 +25,10 @@ jobs:
           ./tools/shellcheck_wrapper.sh -x tests/*.sh
           ./tools/shellcheck_wrapper.sh -x tools/*.sh
 
+      - name: Docs link check
+        run: |
+          ./tools/docs_link_check.sh
+
 
 
       - name: Secret scan (high-confidence, allowlisted)

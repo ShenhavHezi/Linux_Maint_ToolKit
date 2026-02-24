@@ -27,50 +27,22 @@ No P0 items currently.
 
 ## P1 — Operator UX / docs (next)
 
-1. Quickstart install doc polish
-   Outcome: tighten `docs/OPERATIONS.md` with a 10-minute installed-mode walkthrough.
-   Acceptance: operator path validated, no duplicate content in README.
-
-2. Upgrade / rollback guidance
-   Outcome: short, safe upgrade and rollback steps for installed mode.
-   Acceptance: doc referenced from README and OPERATIONS.
-
-3. Reasons quick-reference
-   Outcome: top-10 reasons quick list with links to `docs/REASONS.md`.
-   Acceptance: added to docs index and operator docs.
+No P1 items currently.
 
 ---
 
 ## P2 — Security / hardening (soon)
 
-1. Known_hosts seeding helper
-   Outcome: helper script to pre-populate `LM_SSH_KNOWN_HOSTS` for strict mode.
-   Acceptance: offline-safe and documented; no runtime deps added.
-
-2. SSH allowlist defaults (docs)
-   Outcome: add recommended `LM_SSH_ALLOWLIST` examples and guidance.
-   Acceptance: documented in config reference; include example config snippet.
+No P2 items currently.
 
 ---
 
 ## P3 — Observability / integrations (later)
 
-1. Run index JSON schema
-   Outcome: schema for `run_index.jsonl` entries and history JSON contract.
-   Acceptance: schema + tests; contract version documented.
-
-2. Prometheus contract note
-   Outcome: document label stability and metric meanings for Prometheus output.
-   Acceptance: referenced in `docs/reference.md` and `docs/QUICK_REFERENCE.md`.
+No P3 items currently.
 
 ---
 
 ## P4 — DX / release polish (later)
 
-1. Docs link check in CI
-   Outcome: CI job validates internal doc links (README + docs index).
-   Acceptance: job fails on broken links; offline-safe.
-
-2. Release prep helper
-   Outcome: script to bump version + draft CHANGELOG section for release notes.
-   Acceptance: `make release-prep` (or similar) updates VERSION/CHANGELOG consistently.
+No P4 items currently.

@@ -1,8 +1,7 @@
 # Release Checklist
 
 ## Prep
-- [ ] Decide version and update `VERSION` if needed.
-- [ ] Update `CHANGELOG.md` using `docs/RELEASE_TEMPLATE.md`.
+- [ ] Decide version and run `make release-prep VERSION=x.y.z`.
 - [ ] Place release notes under `docs/` (archive), not `dist/`.
 - [ ] Run `./tools/release_check.sh`.
 - [ ] Run `make lint` and `make test`.
