@@ -8,6 +8,11 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-02-24
 
+- Release v0.2.3
+- (no notable changes)
+
+## 2026-02-24
+
 - Release v0.2.2
 - Added SSH strict-mode quickstart and history usage tips in operator docs.
 - Added seed_known_hosts tests and SSH allowlist/strict-mode examples in config template.
