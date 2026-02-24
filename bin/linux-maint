@@ -327,11 +327,15 @@ ${C_CYAN}Environment${C_RESET}:
   LM_DARK_SITE=true     enable conservative offline defaults
 
 ${C_CYAN}Examples${C_RESET}:
-  linux-maint run --group prod --parallel 10 --dry-run
+  linux-maint run --group prod --parallel 10 --progress
+  NO_COLOR=1 linux-maint run --local-only --dry-run
   linux-maint status --only WARN --reasons 5
-  linux-maint report --short
-  linux-maint trend --last 10 --json
-  linux-maint diff --json
+  linux-maint report --short --no-trend
+  NO_COLOR=1 linux-maint report --compact
+  linux-maint trend --last 10
+  NO_COLOR=1 linux-maint trend --last 10 --json
+  linux-maint diff
+  NO_COLOR=1 linux-maint diff --json
   linux-maint pack-logs --out /tmp --redact
 
 ${C_CYAN}Tips${C_RESET}:
@@ -360,6 +364,10 @@ Key flags:
   --dry-run            print plan only (no execution)
   --strict             fail if any monitor emits malformed summary lines
   --progress|--no-progress  progress bar control
+
+Examples:
+  linux-maint run --group prod --parallel 10 --progress
+  NO_COLOR=1 linux-maint run --local-only --dry-run
 EOF
       ;;
     status)
@@ -399,6 +407,10 @@ Output:
   --no-slow      suppress slow monitors
   --no-reasons   suppress reason rollup
   --no-problems  suppress problem list
+
+Examples:
+  linux-maint report --short --no-trend
+  NO_COLOR=1 linux-maint report --compact
 EOF
       ;;
     metrics)
@@ -434,7 +446,14 @@ EOF
     summary)
       echo "Usage: linux-maint summary [--no-color]";;
     trend)
-      echo "Usage: linux-maint trend [--last N] [--since DATE] [--until DATE] [--json|--csv|--export csv|json] [--redact]";;
+      cat <<'EOF'
+Usage: linux-maint trend [--last N] [--since DATE] [--until DATE] [--json|--csv|--export csv|json] [--redact]
+
+Examples:
+  linux-maint trend --last 10
+  NO_COLOR=1 linux-maint trend --last 10 --json
+EOF
+      ;;
     runtimes)
       echo "Usage: linux-maint runtimes [--last N] [--json]";;
     export)
@@ -483,7 +502,14 @@ EOF
     uninstall)
       echo "Usage: linux-maint uninstall [args]";;
     diff)
-      echo "Usage: linux-maint diff [--json]";;
+      cat <<'EOF'
+Usage: linux-maint diff [--json]
+
+Examples:
+  linux-maint diff
+  NO_COLOR=1 linux-maint diff --json
+EOF
+      ;;
     logs)
       echo "Usage: linux-maint logs [n]";;
     explain)
@@ -1062,7 +1088,7 @@ PY
     "$0" runtimes --last 1 --json >"$tmp_runtimes" 2>/dev/null || printf '{}' >"$tmp_runtimes"
 
     python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" <<'PY'
-import json, sys
+import json, os, sys
 
 status_path, trend_path, runtimes_path = sys.argv[1:4]
 
@@ -1073,11 +1099,97 @@ def read_json(p):
     except Exception:
         return {}
 
+def parse_kv_line(line: str):
+    d = {}
+    for p in line.strip().split():
+        if "=" in p:
+            k, v = p.split("=", 1)
+            d[k] = v
+    return d
+
+def read_summary_rows(summary_path):
+    rows = []
+    if summary_path and os.path.exists(summary_path):
+        with open(summary_path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                if line.startswith("monitor="):
+                    rows.append(parse_kv_line(line))
+    return rows
+
+def ensure_totals(src):
+    base = {"CRIT": 0, "WARN": 0, "UNKNOWN": 0, "SKIP": 0, "OK": 0}
+    if isinstance(src, dict):
+        for k in base:
+            try:
+                base[k] = int(src.get(k, 0))
+            except Exception:
+                base[k] = 0
+    return base
+
+def status_rank(st):
+    return {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3, "SKIP": 3}.get(st, 3)
+
+status = read_json(status_path)
+trend = read_json(trend_path)
+runtimes = read_json(runtimes_path)
+
+summary_file = ""
+if isinstance(status, dict):
+    summary_file = status.get("summary_file") or ""
+
+rows = read_summary_rows(summary_file)
+
+severity_totals = ensure_totals(status.get("totals") if isinstance(status, dict) else {})
+if not rows and not any(severity_totals.values()):
+    severity_totals = {"CRIT": 0, "WARN": 0, "UNKNOWN": 0, "SKIP": 0, "OK": 0}
+elif rows and not any(severity_totals.values()):
+    for r in rows:
+        st = (r.get("status") or "UNKNOWN").upper()
+        if st not in severity_totals:
+            st = "UNKNOWN"
+        severity_totals[st] += 1
+
+host_status = {}
+for r in rows:
+    host = r.get("host") or ""
+    if not host:
+        continue
+    st = (r.get("status") or "UNKNOWN").upper()
+    if st not in severity_totals:
+        st = "UNKNOWN"
+    prev = host_status.get(host)
+    if prev is None or status_rank(st) >= status_rank(prev):
+        host_status[host] = st
+
+host_counts = {"CRIT": 0, "WARN": 0, "UNKNOWN": 0, "SKIP": 0, "OK": 0}
+for st in host_status.values():
+    host_counts[st] = host_counts.get(st, 0) + 1
+
+monitor_durations_ms = {}
+if isinstance(runtimes, dict):
+    for row in runtimes.get("rows", []) or []:
+        if not isinstance(row, dict):
+            continue
+        mon = row.get("monitor")
+        ms = row.get("ms")
+        if mon is None or ms is None:
+            continue
+        try:
+            ms_val = int(ms)
+        except Exception:
+            continue
+        prev = monitor_durations_ms.get(mon)
+        if prev is None or ms_val > prev:
+            monitor_durations_ms[mon] = ms_val
+
 out = {
     "metrics_json_contract_version": 1,
-    "status": read_json(status_path),
-    "trend": read_json(trend_path),
-    "runtimes": read_json(runtimes_path),
+    "status": status,
+    "trend": trend,
+    "runtimes": runtimes,
+    "severity_totals": severity_totals,
+    "host_counts": host_counts,
+    "monitor_durations_ms": monitor_durations_ms,
 }
 
 print(json.dumps(out, indent=2, sort_keys=True))

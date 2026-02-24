@@ -58,3 +58,14 @@ cd dist
 sha256sum -c SHA256SUMS
 linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
 ```
+
+## Packaging outputs
+
+- Tarball builds: `dist/Linux_Maint_ToolKit-<tag>-<sha>.tgz` and `dist/SHA256SUMS`
+- RPM builds: `dist/rpm/` (created by `packaging/rpm/build_rpm.sh`)
+
+To customize output paths, set `OUTDIR` when building:
+
+```bash
+OUTDIR=/tmp/out ./packaging/rpm/build_rpm.sh
+```

@@ -40,3 +40,11 @@ If you’re not sure, start with repo mode, then install once you like the outpu
 ## Manual install (appendix)
 
 If you prefer manual installation or need a custom layout, see `docs/reference.md` for full paths and contracts.
+
+## Config templates (quick note)
+
+Example configs live under `etc/linux_maint/*.example`. Common ones:
+- `linux-maint.conf.example`
+- `servers.txt.example` / `services.txt.example`
+- `monitor_timeouts.conf.example` (per-monitor timeouts)
+- `monitor_runtime_warn.conf.example` (per-monitor runtime warn thresholds)

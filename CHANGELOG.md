@@ -8,6 +8,15 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-02-24
 
+- Release v0.2.4
+- Expanded metrics JSON with severity totals, host counts, and per-monitor durations.
+- Added JSON schemas/tests for diff and self-check outputs.
+- Added per-monitor fixture coverage and stricter summary contract linting.
+- Improved preflight compatibility warnings and help examples.
+- Standardized RPM build outputs and documented install/layout/config templates.
+
+## 2026-02-24
+
 - Release v0.2.3
 - (no notable changes)
 

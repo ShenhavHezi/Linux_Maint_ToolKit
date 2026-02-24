@@ -16,6 +16,21 @@ printf '%s\n' "$out" | grep -q '"status"' || {
   echo "$out" >&2
   exit 1
 }
+printf '%s\n' "$out" | grep -q '"severity_totals"' || {
+  echo "metrics --json missing severity_totals" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q '"host_counts"' || {
+  echo "metrics --json missing host_counts" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q '"monitor_durations_ms"' || {
+  echo "metrics --json missing monitor_durations_ms" >&2
+  echo "$out" >&2
+  exit 1
+}
 
 printf '%s' "$out" | python3 "$ROOT_DIR/tools/json_schema_validate.py" "$ROOT_DIR/docs/schemas/metrics.json"
 

@@ -785,10 +785,22 @@ lm_summary() {
       next_step=*) has_next_step=1 ;;
     esac
   done
-  if [[ -z "$reason" && "$status" != "OK" ]]; then
-    reason="unknown"
-    args+=("reason=$reason")
-    has_reason=1
+  if [[ -z "$reason" ]]; then
+    local filtered=()
+    for tok in "${args[@]}"; do
+      case "$tok" in
+        reason=*) ;;
+        *) filtered+=("$tok") ;;
+      esac
+    done
+    args=("${filtered[@]}")
+    if [[ "$status" != "OK" ]]; then
+      reason="unknown"
+      args+=("reason=$reason")
+      has_reason=1
+    else
+      has_reason=0
+    fi
   fi
   if [[ -n "${LM_SUMMARY_ALLOWLIST:-}" ]]; then
     allow_next_step=0

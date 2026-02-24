@@ -1,0 +1,5 @@
+# Per-monitor runtime warning thresholds (seconds)
+# Format: monitor_name=seconds
+# Example:
+# disk_trend_monitor=30
+# inventory_export=120

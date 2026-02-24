@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint self-check --json",
+  "type": "object",
+  "required": ["mode", "cfg_dir", "config", "paths", "dependencies"],
+  "properties": {
+    "mode": { "type": "string" },
+    "cfg_dir": { "type": "string" },
+    "config": {
+      "type": "object",
+      "required": ["dir_exists", "files"],
+      "properties": {
+        "dir_exists": { "type": "boolean" },
+        "files": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["purpose", "path", "exists", "writable"],
+        "properties": {
+          "purpose": { "type": "string" },
+          "path": { "type": "string" },
+          "exists": { "type": "boolean" },
+          "writable": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["cmd", "present"],
+        "properties": {
+          "cmd": { "type": "string" },
+          "present": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

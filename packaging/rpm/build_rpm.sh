@@ -10,6 +10,7 @@ TMPDIR="${TMPDIR:-/tmp}"
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 SPEC="$ROOT/packaging/rpm/linux-maint.spec"
 VERSION="${1:-$(cat "$ROOT/VERSION" 2>/dev/null || echo 0.1.0)}"
+OUTDIR="${OUTDIR:-$ROOT/dist}"
 
 WORK="${WORK:-${TMPDIR}/linux-maint-rpmbuild}"
 rm -rf "$WORK"
@@ -44,3 +45,9 @@ rpmbuild \
 
 echo "RPMs built under: $WORK/RPMS"
 find "$WORK/RPMS" -type f -name '*.rpm' -maxdepth 3 -print
+
+# Copy artifacts to a stable output directory
+out_rpm_dir="$OUTDIR/rpm"
+mkdir -p "$out_rpm_dir"
+find "$WORK/RPMS" -type f -name '*.rpm' -maxdepth 3 -exec cp -a {} "$out_rpm_dir/" \;
+echo "RPMs copied to: $out_rpm_dir"

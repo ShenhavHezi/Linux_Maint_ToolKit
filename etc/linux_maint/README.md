@@ -10,6 +10,7 @@ This directory contains **example** configuration files. When installed, templat
 - `services.txt` — services to verify (service monitor)
 - `network_targets.txt` — optional reachability targets
 - `linux-maint.conf` — wrapper/CLI configuration (optional; enables/overrides defaults)
+- `monitor_timeouts.conf` — optional per-monitor timeout overrides
 - `monitor_runtime_warn.conf` — optional per-monitor runtime warning thresholds
 
 ## Notes

@@ -323,7 +323,7 @@ fi
 
 overall="OK"
 if [ ${crit:-0} -gt 0 ]; then overall="CRIT"; elif [ ${warn:-0} -gt 0 ]; then overall="WARN"; fi
-emit_summary "all" "$overall" checked=${checked:-0} warn=${warn:-0} crit=${crit:-0}
+emit_summary "runner" "$overall" checked=${checked:-0} warn=${warn:-0} crit=${crit:-0}
 # legacy:
 # echo "cert_monitor summary status=$overall checked=${checked:-0} warn=${warn:-0} crit=${crit:-0}"
 

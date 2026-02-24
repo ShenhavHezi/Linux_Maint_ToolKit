@@ -2,12 +2,48 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "linux-maint metrics --json",
   "type": "object",
-  "required": ["metrics_json_contract_version", "status", "trend", "runtimes"],
+  "required": [
+    "metrics_json_contract_version",
+    "status",
+    "trend",
+    "runtimes",
+    "severity_totals",
+    "host_counts",
+    "monitor_durations_ms"
+  ],
   "properties": {
     "metrics_json_contract_version": { "type": "integer" },
     "status": { "type": "object" },
     "trend": { "type": "object" },
-    "runtimes": { "type": "object" }
+    "runtimes": { "type": "object" },
+    "severity_totals": {
+      "type": "object",
+      "required": ["CRIT", "WARN", "UNKNOWN", "SKIP", "OK"],
+      "additionalProperties": false,
+      "properties": {
+        "CRIT": { "type": "integer" },
+        "WARN": { "type": "integer" },
+        "UNKNOWN": { "type": "integer" },
+        "SKIP": { "type": "integer" },
+        "OK": { "type": "integer" }
+      }
+    },
+    "host_counts": {
+      "type": "object",
+      "required": ["CRIT", "WARN", "UNKNOWN", "SKIP", "OK"],
+      "additionalProperties": false,
+      "properties": {
+        "CRIT": { "type": "integer" },
+        "WARN": { "type": "integer" },
+        "UNKNOWN": { "type": "integer" },
+        "SKIP": { "type": "integer" },
+        "OK": { "type": "integer" }
+      }
+    },
+    "monitor_durations_ms": {
+      "type": "object",
+      "additionalProperties": { "type": "integer" }
+    }
   },
   "additionalProperties": true
 }

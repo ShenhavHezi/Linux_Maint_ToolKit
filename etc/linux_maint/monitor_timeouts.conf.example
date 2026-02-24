@@ -1,0 +1,5 @@
+# Per-monitor timeout overrides (seconds)
+# Format: monitor_name=seconds
+# Example:
+# disk_trend_monitor=60
+# inventory_export=300

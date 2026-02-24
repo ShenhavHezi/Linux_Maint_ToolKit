@@ -22,6 +22,8 @@ Dark-site tip:
 ## Common knobs (short list)
 
 - `MONITOR_TIMEOUT_SECS` (default `600`)
+- `MONITOR_TIMEOUTS_FILE` (per-monitor timeouts; default `/etc/linux_maint/monitor_timeouts.conf`)
+- `MONITOR_RUNTIME_WARN_FILE` (per-monitor runtime warn thresholds; default `/etc/linux_maint/monitor_runtime_warn.conf`)
 - `LM_NOTIFY` (wrapper-level per-run email summary; default `0` / off)
 - `LM_SSH_OPTS` (e.g. `-o BatchMode=yes -o ConnectTimeout=3`)
 - `LM_SSH_ALLOWLIST` (optional regex allowlist for SSH commands; blocks non-matching)

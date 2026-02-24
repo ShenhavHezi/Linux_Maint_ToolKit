@@ -14,6 +14,7 @@ import sys
 from collections import defaultdict
 
 ALLOWED_STATUSES = {"OK", "WARN", "CRIT", "UNKNOWN", "SKIP"}
+REASON_RE = re.compile(r"^[a-z0-9_]+$")
 
 
 def parse_kv(line: str):
@@ -73,7 +74,10 @@ def main(path: str) -> int:
 
     bad_status = 0
     missing_reason = 0
+    bad_reason = 0
     missing_required = 0
+    dup_monitor_host = 0
+    seen_monitor_host = {}
 
     for r in rows:
         st = r.get("status", "")
@@ -83,7 +87,19 @@ def main(path: str) -> int:
         if st not in ALLOWED_STATUSES:
             bad_status += 1
             print(f"ERROR: invalid status={st} line={r}")
-        if st in {"WARN", "CRIT", "UNKNOWN", "SKIP"} and "reason" not in r:
+        if r.get("monitor") and r.get("host"):
+            key = (r.get("monitor"), r.get("host"))
+            seen_monitor_host[key] = seen_monitor_host.get(key, 0) + 1
+            if seen_monitor_host[key] > 1:
+                dup_monitor_host += 1
+                print(f"ERROR: duplicate monitor/host entries for {key}")
+        reason = r.get("reason", "")
+        if st in {"WARN", "CRIT", "UNKNOWN", "SKIP"}:
+            if "reason" not in r or reason == "":
+                missing_reason += 1
+            elif not REASON_RE.match(reason):
+                bad_reason += 1
+                print(f"ERROR: invalid reason token={reason!r} line={r}")
             missing_reason += 1
 
     # monitor emission check
@@ -106,7 +122,7 @@ def main(path: str) -> int:
     if missing_reason:
         print(f"ERROR: {missing_reason} non-OK monitor= lines are missing reason=")
 
-    if bad_status or missing_monitor_lines or missing_required or malformed or missing_reason:
+    if bad_status or missing_monitor_lines or missing_required or malformed or missing_reason or bad_reason or dup_monitor_host:
         return 2
     return 0
 

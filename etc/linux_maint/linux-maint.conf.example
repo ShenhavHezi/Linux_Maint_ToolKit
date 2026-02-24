@@ -24,6 +24,7 @@
 #LOG_DIR="/var/log/health"
 #SUMMARY_DIR="/var/log/health"
 #MONITOR_TIMEOUT_SECS=600
+#MONITOR_RUNTIME_WARN_FILE="/etc/linux_maint/monitor_runtime_warn.conf"
 #LM_DARK_SITE=false
 #LM_LAST_RUN_MAX_AGE_MIN=120
 #LM_LAST_RUN_LOG_DIR="/var/log/health"

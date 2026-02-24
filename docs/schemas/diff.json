@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint diff --json",
+  "type": "object",
+  "required": ["new_failures", "recovered", "still_bad", "changed"],
+  "properties": {
+    "new_failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["monitor", "host", "prev", "cur"],
+        "properties": {
+          "monitor": { "type": "string" },
+          "host": { "type": "string" },
+          "prev": { "type": ["object", "null"] },
+          "cur": { "type": ["object", "null"] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "recovered": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["monitor", "host", "prev", "cur"],
+        "properties": {
+          "monitor": { "type": "string" },
+          "host": { "type": "string" },
+          "prev": { "type": ["object", "null"] },
+          "cur": { "type": ["object", "null"] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "still_bad": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["monitor", "host", "cur"],
+        "properties": {
+          "monitor": { "type": "string" },
+          "host": { "type": "string" },
+          "cur": { "type": ["object", "null"] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "changed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "key", "prev", "cur"],
+        "properties": {
+          "type": { "type": "string" },
+          "key": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "prev": { "type": ["object", "null"] },
+          "cur": { "type": ["object", "null"] }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

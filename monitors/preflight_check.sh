@@ -57,9 +57,12 @@ main(){
 
   local bash_major="${BASH_VERSINFO[0]:-0}"
   local bash_minor="${BASH_VERSINFO[1]:-0}"
+  local bash_req_str="bash>=${REQ_BASH_MAJOR}.${REQ_BASH_MINOR}"
+  local bash_bad=0
   if [[ "$bash_major" -lt "$REQ_BASH_MAJOR" || ( "$bash_major" -eq "$REQ_BASH_MAJOR" && "$bash_minor" -lt "$REQ_BASH_MINOR" ) ]]; then
     missing_req=$((missing_req+1))
-    miss_req_list+="bash>=${REQ_BASH_MAJOR}.${REQ_BASH_MINOR},"
+    miss_req_list+="${bash_req_str},"
+    bash_bad=1
   fi
 
   for c in "${REQ_CMDS[@]}"; do
@@ -78,6 +81,14 @@ main(){
 
   if [ "$missing_req" -gt 0 ] || [ "$missing_opt" -gt 0 ]; then
     echo "preflight_check deps missing required=[${miss_req_list%,}] optional=[${miss_opt_list%,}]" >> "$LM_LOGFILE"
+  fi
+  if [ "$bash_bad" -eq 1 ]; then
+    echo "WARN: unsupported bash detected (have ${bash_major}.${bash_minor}; need ${bash_req_str})" >&2
+    echo "preflight_check warn unsupported_bash=${bash_major}.${bash_minor} required=${bash_req_str}" >> "$LM_LOGFILE"
+  fi
+  if [ "$missing_req" -gt 0 ]; then
+    echo "WARN: missing required tools: ${miss_req_list%,}" >&2
+    echo "preflight_check warn missing_required=[${miss_req_list%,}]" >> "$LM_LOGFILE"
   fi
 
   # Check state/log dirs are writable

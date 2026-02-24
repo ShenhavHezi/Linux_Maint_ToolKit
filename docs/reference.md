@@ -399,6 +399,37 @@ The wrapper returns the **worst** exit code across all executed monitors.
 
 ## Installed file layout (recommended)
 
+Default `PREFIX` is `/usr/local` (override with `PREFIX=/custom` during install).
+
+Core binaries:
+- `/usr/local/bin/linux-maint` (CLI)
+- `/usr/local/sbin/run_full_health_monitor.sh` (wrapper)
+
+Libraries and monitors:
+- `/usr/local/lib/linux_maint.sh`
+- `/usr/local/lib/linux_maint_conf.sh`
+- `/usr/local/libexec/linux_maint/*.sh` (monitors)
+- `/usr/local/libexec/linux_maint/summary_diff.py`
+- `/usr/local/libexec/linux_maint/pack_logs.sh`
+- `/usr/local/libexec/linux_maint/seed_known_hosts.sh`
+
+Config and templates:
+- `/etc/linux_maint/linux-maint.conf`
+- `/etc/linux_maint/conf.d/*.conf`
+- `/etc/linux_maint/{servers.txt,services.txt,excluded.txt,network_targets.txt}`
+- `/etc/linux_maint/monitor_timeouts.conf` (optional)
+- `/etc/linux_maint/monitor_runtime_warn.conf` (optional)
+- `/etc/linux_maint/baselines/` (baseline data)
+- `/usr/local/share/linux_maint/templates/` (template copy for `linux-maint init`)
+
+Logs and state:
+- `/var/log/health/` (wrapper logs + summaries)
+- `/var/lib/linux_maint/` (state, summary diff)
+- `/var/lock/` (locks)
+
+Operator docs:
+- `/usr/local/share/Linux_Maint_ToolKit/docs/`
+
 ## CLI usage (`linux-maint`) (appendix)
 
 After installation, use the `linux-maint` CLI as the primary interface.
@@ -492,9 +523,35 @@ Top-level keys:
 - `status` (object; same payload as `linux-maint status --json`)
 - `trend` (object; same payload as `linux-maint trend --json`)
 - `runtimes` (object; same payload as `linux-maint runtimes --json`)
+- `severity_totals` (object; counts of `monitor=` lines by status)
+- `host_counts` (object; worst-status-per-host counts derived from summary lines)
+- `monitor_durations_ms` (object; map of `monitor` to runtime in ms)
 
 Schema:
 - `docs/schemas/metrics.json` — JSON schema for `linux-maint metrics --json`.
+
+### `linux-maint diff --json` compatibility contract
+
+Top-level keys:
+- `new_failures` (array; non-OK transitions from `OK` to `WARN|CRIT|UNKNOWN`)
+- `recovered` (array; transitions from non-OK to `OK`)
+- `still_bad` (array; entries that remain non-OK)
+- `changed` (array; other transitions, including new rows)
+
+Schema:
+- `docs/schemas/diff.json` — JSON schema for `linux-maint diff --json`.
+
+### `linux-maint self-check --json` compatibility contract
+
+Top-level keys:
+- `mode` (string: `repo` or `installed`)
+- `cfg_dir` (string path to config root)
+- `config` (object; `dir_exists` plus per-file existence)
+- `paths` (array; log/state/lock paths with `exists`/`writable`)
+- `dependencies` (array; required/optional commands and presence)
+
+Schema:
+- `docs/schemas/self_check.json` — JSON schema for `linux-maint self-check --json`.
 
 ### `linux-maint history --json` compatibility contract
 
