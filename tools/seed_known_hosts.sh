@@ -68,11 +68,6 @@ if [[ -z "$HOSTS_FILE" ]]; then
   HOSTS_FILE="${LM_SERVERLIST:-/etc/linux_maint/servers.txt}"
 fi
 
-if ! command -v ssh-keyscan >/dev/null 2>&1; then
-  echo "ERROR: ssh-keyscan not found (install openssh-clients)" >&2
-  exit 1
-fi
-
 hosts=()
 if [[ -n "$HOSTS_RAW" ]]; then
   while IFS= read -r h; do
@@ -93,6 +88,11 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "out=$OUT"
   printf '%s\n' "${hosts[@]}"
   exit 0
+fi
+
+if ! command -v ssh-keyscan >/dev/null 2>&1; then
+  echo "ERROR: ssh-keyscan not found (install openssh-clients)" >&2
+  exit 1
 fi
 
 mkdir -p "$(dirname "$OUT")" 2>/dev/null || true
