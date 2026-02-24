@@ -8,7 +8,7 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-02-24
 
-- Release v0.2.3
+- Release v0.2.2
 - Added SSH strict-mode quickstart and history usage tips in operator docs.
 - Added seed_known_hosts tests and SSH allowlist/strict-mode examples in config template.
 - Added history JSON contract version and run_index versioning with schema/test updates.
@@ -16,7 +16,7 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-02-24
 
-- Release v0.2.2
+- Release v0.2.1
 - Added SSH known_hosts seeding helper and allowlist guidance for safer fleet SSH.
 - Added run_index JSON schema + history contract notes, plus Prometheus contract notes.
 - Added docs link check in CI and release-prep helper (`make release-prep`).
@@ -24,7 +24,7 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-02-24
 
-- Release v0.2.1
+- Release v0.2.0
 - Added `status --strict` validation and summary JSON schema validation in tests.
 - Guarded JSON outputs from ANSI/control characters even when color is forced.
 - Polished CLI output (report/trend/diff/status) and upgraded the run progress bar with percent + color cues.

@@ -54,9 +54,9 @@ check_schemas(){
 }
 
 check_release_notes(){
-  local notes=("$ROOT_DIR"/docs/release_notes_v*.md)
-  if [[ "${notes[0]}" == "$ROOT_DIR/docs/release_notes_v*.md" ]]; then
-    fail_msg "No release notes found under docs/ (expected docs/release_notes_v*.md)"
+  local notes=("$ROOT_DIR"/docs/release_notes/release_notes_v*.md)
+  if [[ "${notes[0]}" == "$ROOT_DIR/docs/release_notes/release_notes_v*.md" ]]; then
+    fail_msg "No release notes found under docs/release_notes/ (expected docs/release_notes/release_notes_v*.md)"
     return
   fi
   local n

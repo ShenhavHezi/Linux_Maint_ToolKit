@@ -14,7 +14,7 @@ bash tests/summary_contract.sh  # when touching summary/json/monitor output
 - Checklist: `docs/RELEASE_CHECKLIST.md`
 - Template: `docs/RELEASE_TEMPLATE.md`
 - Draft release workflow: `.github/workflows/release_notes.yml`
-- Release notes archive: `docs/release_notes_v*.md`
+- Release notes archive: `docs/release_notes/release_notes_v*.md`
 
 ## Repo tools
 

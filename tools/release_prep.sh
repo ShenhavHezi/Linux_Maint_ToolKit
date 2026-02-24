@@ -15,7 +15,7 @@ Automates:
 
 Examples:
   tools/release_prep.sh 0.2.2
-  tools/release_prep.sh 0.2.2 --notes-out docs/release_notes_v0.2.2.md
+  tools/release_prep.sh 0.2.2 --notes-out docs/release_notes/release_notes_v0.2.2.md
 USAGE
 }
 
@@ -42,7 +42,7 @@ if [[ -z "$VERSION" ]]; then
 fi
 
 if [[ -z "$NOTES_OUT" ]]; then
-  NOTES_OUT="docs/release_notes_v${VERSION}.md"
+  NOTES_OUT="docs/release_notes/release_notes_v${VERSION}.md"
 fi
 
 args=("$VERSION" --no-tag --no-commit --notes-out "$NOTES_OUT")
@@ -69,7 +69,7 @@ notes_rel = f"docs/{notes_rel}" if not notes_rel.startswith("docs/") else notes_
 def update_readme(path: Path, notes: str) -> None:
     lines = path.read_text(encoding="utf-8").splitlines()
     out = []
-    pat = re.compile(r"`(docs/release_notes_v[^`]+)`")
+    pat = re.compile(r"`(docs/release_notes/release_notes_v[^`]+)`")
     replaced = False
     for line in lines:
         if line.strip().startswith("- Release notes (latest):"):

@@ -1,9 +1,9 @@
-# Release Notes v0.2.1
+# Release Notes v0.2.0
 
 ## Version
-- Version: 0.2.1
+- Version: 0.2.0
 - Date (UTC): 2026-02-24
-- Git tag: v0.2.1
+- Git tag: v0.2.0
 
 ## Highlights
 - Clearer operator output across `status`, `report`, `trend`, and `diff` with consistent color cues.

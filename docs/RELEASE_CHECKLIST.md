@@ -2,7 +2,7 @@
 
 ## Prep
 - [ ] Decide version and run `make release-prep VERSION=x.y.z`.
-- [ ] Place release notes under `docs/` (archive), not `dist/`.
+- [ ] Place release notes under `docs/release_notes/` (archive), not `dist/`.
 - [ ] Run `./tools/release_check.sh`.
 - [ ] Run `make lint` and `make test`.
 

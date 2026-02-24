@@ -1,9 +1,9 @@
-# Release Notes v0.2.3
+# Release Notes v0.2.2
 
 ## Version
-- Version: 0.2.3
+- Version: 0.2.2
 - Date (UTC): 2026-02-24
-- Git tag: v0.2.3
+- Git tag: v0.2.2
 
 ## Highlights
 - Clearer operator guidance for strict SSH mode and history usage.
