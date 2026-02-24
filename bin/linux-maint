@@ -634,10 +634,12 @@ case "$cmd" in
     PREV_SUMMARY="$DIFF_STATE_DIR/last_summary_monitor_lines.log"
 
     CUR_SUMMARY="$SUMMARY_LATEST"
-    if [[ -t 1 ]]; then
-      section "linux-maint diff"
+    if [[ "$JSON" -eq 0 ]]; then
+      if [[ -t 1 ]]; then
+        section "linux-maint diff"
+      fi
+      echo "diff_state_dir=$DIFF_STATE_DIR"
     fi
-    echo "diff_state_dir=$DIFF_STATE_DIR"
 
     if [[ ! -f "$CUR_SUMMARY" ]]; then
       echo "No current summary file: $CUR_SUMMARY" >&2
