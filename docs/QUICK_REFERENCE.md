@@ -63,6 +63,7 @@ sudo linux-maint status --compact
 sudo linux-maint status --group-by host
 sudo linux-maint status --group-by monitor
 sudo linux-maint status --group-by reason
+sudo linux-maint status --group-by host --top 10
 
 # Compact diagnostics
 sudo linux-maint doctor --compact

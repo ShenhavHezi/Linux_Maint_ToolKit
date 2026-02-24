@@ -79,6 +79,7 @@ run_required "summary_command_test" bash "$ROOT_DIR/tests/summary_command_test.s
 run_required "status_summary_test" bash "$ROOT_DIR/tests/status_summary_test.sh"
 run_required "status_last_color_test" bash "$ROOT_DIR/tests/status_last_color_test.sh"
 run_required "status_group_by_test" bash "$ROOT_DIR/tests/status_group_by_test.sh"
+run_required "status_group_by_top_test" bash "$ROOT_DIR/tests/status_group_by_top_test.sh"
 run_required "status_expected_skips_banner_test" bash "$ROOT_DIR/tests/status_expected_skips_banner_test.sh"
 run_required "status_prom_test" bash "$ROOT_DIR/tests/status_prom_test.sh"
 run_required "status_strict_test" bash "$ROOT_DIR/tests/status_strict_test.sh"

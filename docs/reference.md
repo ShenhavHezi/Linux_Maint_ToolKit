@@ -431,6 +431,7 @@ Status flags (installed mode):
 - `--since <int><s|m|h|d>` — include only timestamped summary artifacts from the recent time window (e.g., `30s`, `15m`, `2h`, `1d`)
 - `--expected-skips` — print a short list of expected SKIPs based on missing optional config (not compatible with `--json`)
 - `--group-by host|monitor|reason` — group summary lines with stable ordering (reason grouping includes non-OK entries)
+- `--top N` — cap the number of group-by rows (requires `--group-by`)
 - `--prom` — emit Prometheus textfile-style summary metrics to stdout (overall + per-status counts)
 
 - `linux-maint report` *(root required)*: show combined status + trends + runtimes.

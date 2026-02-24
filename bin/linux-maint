@@ -366,6 +366,7 @@ Output:
   --prom                   Prometheus textfile format
   --table                  table output
   --group-by host|monitor|reason
+  --top N                  limit group-by rows (requires --group-by)
   --problems N             cap problem list (max 100)
   --reasons N              top reasons rollup (max 20)
   --strict                 fail if summary lines are malformed
@@ -1588,6 +1589,7 @@ PY
     SHOW_META=1
     EXPECTED_SKIPS=0
     GROUP_BY=""
+    TOP_N=0
     PROM=0
     STRICT=0
 
@@ -1610,6 +1612,7 @@ PY
         --problems) PROB_N="$2"; shift 2;;
         --reasons) REASONS_N="$2"; shift 2;;
         --group-by) GROUP_BY="$2"; shift 2;;
+        --top) TOP_N="$2"; shift 2;;
         --prom) PROM=1; shift 1;;
         --since) SINCE="$2"; shift 2;;
         --last) LAST_N="$2"; shift 2;;
@@ -1822,6 +1825,14 @@ PY
         exit 2
         ;;
     esac
+    if [[ ! "$TOP_N" =~ ^[0-9]+$ ]]; then
+      echo "ERROR: --top must be a non-negative integer" >&2
+      exit 2
+    fi
+    if (( TOP_N > 0 )) && [[ -z "$GROUP_BY" ]]; then
+      echo "ERROR: --top requires --group-by" >&2
+      exit 2
+    fi
 
     # Validate/cap PROB_N (default 20, max 100)
     if [[ ! "$PROB_N" =~ ^[0-9]+$ ]]; then
@@ -2217,11 +2228,12 @@ PY
         fi
       else
         [[ "$QUIET" -eq 0 ]] && echo "(from: $summary_file)"
-      STATUS_QUIET="$QUIET" LM_COLOR="$LM_COLOR" python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" "$TABLE" "$GROUP_BY" <<'PY'
+      STATUS_QUIET="$QUIET" LM_COLOR="$LM_COLOR" python3 - "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" "$TABLE" "$GROUP_BY" "$TOP_N" <<'PY'
 import re, sys, os
-path, only, limit, host_filter, monitor_filter, match_mode, reasons_limit, table, group_by = sys.argv[1:10]
+path, only, limit, host_filter, monitor_filter, match_mode, reasons_limit, table, group_by, top_n = sys.argv[1:11]
 limit=int(limit)
 reasons_limit=int(reasons_limit)
+top_n=int(top_n)
 color = os.environ.get("LM_COLOR","1") == "1"
 table = table == "1"
 group_by = group_by.strip()
@@ -2328,6 +2340,8 @@ if not quiet:
         filters.append(f"match_mode={match_mode}")
     if group_by:
         filters.append(f"group_by={group_by}")
+    if group_by and top_n > 0:
+        filters.append(f"top={top_n}")
     if filters:
         print(c("filters: " + " ".join(filters), "1;36"))
 if table:
@@ -2368,6 +2382,8 @@ if group_by:
                 break
         return (worst, name)
     rows = sorted(groups.items(), key=group_key)
+    if top_n > 0:
+        rows = rows[:top_n]
     if table:
         maxg = max([len("GROUP")] + [len(n) for n,_ in rows]) if rows else len("GROUP")
         headers = ["CRIT","WARN","UNKNOWN","SKIP","OK","TOTAL"]

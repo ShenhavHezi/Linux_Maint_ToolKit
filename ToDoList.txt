@@ -27,19 +27,15 @@ No P0 items currently.
 
 ## P1 — Operator UX / docs (next)
 
-1. Group-by output limits
-   Outcome: optional `--top N` for `status --group-by` to cap rows for large fleets.
-   Acceptance: stable ordering; tests cover default and capped output.
-
-2. Quickstart install doc polish
+1. Quickstart install doc polish
    Outcome: tighten `docs/OPERATIONS.md` with a 10-minute installed-mode walkthrough.
    Acceptance: operator path validated, no duplicate content in README.
 
-3. Upgrade / rollback guidance
+2. Upgrade / rollback guidance
    Outcome: short, safe upgrade and rollback steps for installed mode.
    Acceptance: doc referenced from README and OPERATIONS.
 
-4. Reasons quick-reference
+3. Reasons quick-reference
    Outcome: top-10 reasons quick list with links to `docs/REASONS.md`.
    Acceptance: added to docs index and operator docs.
 
