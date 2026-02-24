@@ -30,7 +30,7 @@ monitor=svc host=delta status=OK
 monitor=svc host=epsilon status=OK
 SUM
 
-out_full="$($ROOT_DIR/bin/linux-maint status --compact --group-by host --no-color)"
+out_full="$("$ROOT_DIR"/bin/linux-maint status --compact --group-by host --no-color)"
 python3 - <<'PY' "$out_full"
 import sys
 out = sys.argv[1].splitlines()
@@ -50,7 +50,7 @@ assert order == expected, f"unexpected full order: {order}"
 print("status group-by top full ok")
 PY
 
-out_top="$($ROOT_DIR/bin/linux-maint status --compact --group-by host --top 3 --no-color)"
+out_top="$("$ROOT_DIR"/bin/linux-maint status --compact --group-by host --top 3 --no-color)"
 python3 - <<'PY' "$out_top"
 import sys
 out = sys.argv[1].splitlines()
