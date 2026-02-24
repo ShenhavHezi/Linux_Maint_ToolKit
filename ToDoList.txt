@@ -1,49 +1,79 @@
 # Linux_Maint_ToolKit - Roadmap and Backlog (2026-02-24)
 
 ## Project brief
-Linux_Maint_ToolKit is a lightweight, offline-friendly Linux maintenance and health toolkit.
-It runs locally or via SSH, emits machine-parseable summary lines, and keeps outputs stable for automation.
-Primary audiences: operators, sysadmins, and SREs working in constrained or air-gapped environments.
+Linux_Maint_ToolKit is a lightweight, offline-first Linux health toolkit for fleet and single-host checks.
+It runs locally or over SSH, emits stable machine-parseable summary lines, and favors predictable outputs for automation.
+Primary users: operators, sysadmins, and SREs working in constrained or air-gapped environments.
 
 ## Principles
-- Bash-only runtime, no new runtime dependencies.
-- Machine outputs are clean and parse-safe, stdout contract preserved.
-- Minimal, reversible changes, tests and docs required for behavior changes.
+- Bash-only runtime; avoid new dependencies.
+- Output contracts are stable, parse-safe, and versioned where needed.
+- Changes should be minimal and reversible; behavior changes require tests + docs.
 
 ## Success criteria
-- One command gets a useful status report with sane defaults.
-- Summary contract is stable and validated across all monitors and CLI outputs.
-- Works on RHEL 9 and common distros with clear compatibility guidance.
-- CI is reliable with low flake and deterministic tests.
+- One command provides a clear, actionable status report with sane defaults.
+- Summary contract is consistent and validated across all monitors and CLI outputs.
+- Works on RHEL 9 and common distros with explicit compatibility guidance.
+- CI is reliable, deterministic, and low-flake.
 
 ## Priority legend
-- P0: correctness and safety
-- P1: operator UX, docs, compatibility
-- P2: security, hardening, performance
-- P3: observability, integrations, QA
-- P4: DX, release polish, community
+- P0: correctness, safety, and contract integrity
+- P1: operator UX, docs, and compatibility
+- P2: security, hardening, and performance
+- P3: observability, integrations, and QA coverage
+- P4: DX, release polish, and community
 
 ---
 
 ## P0 - Correctness and safety (next)
-- No open items (last sweep complete: 2026-02-24).
+- Enforce reason vocabulary: lint summary lines against docs/REASONS.md with explicit allowlist for legacy tokens.
+- Add lint to forbid host=all and require host=runner/localhost/target across all summary lines.
+- Add wrapper skip-gate tests to ensure SKIP reasons are stable and include missing=...
+- Extend config validation to detect duplicate keys across linux-maint.conf + conf.d and unknown keys.
+- Add a shared JSON-output guard test for all --json commands (no prefix/header contamination).
+- Add a summary contract lint to require node= present and non-empty on every monitor= line.
+- Add a duplicate monitor/host lint for wrapper summaries to prevent multiple rows per monitor/host.
+- Add a sync check that summary_contract.monitors matches monitors/ (allowlist only where justified).
 
 ---
 
 ## P1 - Operator UX, docs, compatibility (next)
-- No open items (last sweep complete: 2026-02-24).
+- Add `linux-maint run --only/--skip` CLI flags for focused runs (wrap LM_MONITORS).
+- Expand QUICK_REFERENCE with first-run workflow, baselines, expected SKIPs, and triage steps.
+- Add compatibility matrix doc (bash/Python versions, supported distros, required tools).
+- Improve `linux-maint explain reason` to include next_step guidance and common fixes.
+- Add `linux-maint check --json` for automation-friendly preflight + config status.
+- Add example outputs for report/trend/diff in docs (color + no-color).
+- Add a short operator runbook: initial install, first run, baseline creation, and day-2 checks.
 
 ---
 
 ## P2 - Security, hardening, performance (soon)
-- No open items (last sweep complete: 2026-02-24).
+- Add `LM_SSH_ALLOWLIST_STRICT=1` to fail hard on blocked commands (instead of warn).
+- Add optional `LM_SSH_KNOWN_HOSTS_PIN_FILE` for pinned host keys and document usage.
+- Expand redaction coverage for known secret formats in report/pack-logs outputs.
+- Add inventory cache pruning (`LM_INVENTORY_CACHE_MAX`) to prevent unbounded growth.
+- Harden tempdir usage in wrapper (dedicated run dir + cleanup on signals).
+- Add optional `LM_REDACT_JSON=1` to redact secrets from JSON outputs.
+- Add `LM_SSH_RETRY` with small backoff for transient SSH failures.
 
 ---
 
-## P3 - Observability, integrations, QA (later)
-- No open items (last sweep complete: 2026-02-24).
+## P3 - Observability, integrations, QA coverage (later)
+- Add Prometheus metrics for per-monitor runtime and host counts.
+- Add golden fixtures for report/trend/diff outputs to lock formatting regressions.
+- Add a JSON schema test for metrics fields to ensure numeric types are stable.
+- Add smoke test coverage for skip-gate reasons (config_missing/baseline_missing).
+- Add a contract test for LM_SUMMARY_ALLOWLIST behavior in strict mode.
+- Add trend cache tests to validate TTL behavior and filter-aware caching.
+- Add run_index retention tests for prune/keep edge cases.
 
 ---
 
 ## P4 - DX, release polish, community (later)
-- No open items (last sweep complete: 2026-02-24).
+- Automate release pipeline to build tarball, compute checksum, and attach to GitHub release.
+- Extend `make release` to tag, draft notes, and update checksums in release notes.
+- Add contributor guide section on summary contract and reason token policy.
+- Add a short security disclosure note and lifecycle/support policy.
+- Add DEB packaging plan or explicit statement of non-support in docs.
+- Add a minimal example pack under docs/examples for quick evaluation.
