@@ -6,6 +6,16 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 - (add changes here)
 
+## 2026-02-24
+
+- Release v0.2.1
+- Added `status --strict` validation and summary JSON schema validation in tests.
+- Guarded JSON outputs from ANSI/control characters even when color is forced.
+- Polished CLI output (report/trend/diff/status) and upgraded the run progress bar with percent + color cues.
+- Added `status --group-by --top N` to cap group rows for large fleets.
+- Added installed-mode sanity checks and a command contract checklist for core commands.
+- Fixed summary reading/fixtures and hardened SSH known_hosts/dependency handling.
+
 ## 2026-02-22
 
 - Release v0.1.8
