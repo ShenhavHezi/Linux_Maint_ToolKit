@@ -291,6 +291,9 @@ When `LM_DISK_TREND_INODES=1|true`, `disk_trend_monitor` also emits compact inod
 ### `inventory_export.sh`
 - `OUTPUT_DIR` = `"/var/log/inventory"`
 - `DETAILS_DIR` = `"${OUTPUT_DIR}/details"`
+- `LM_INVENTORY_CACHE` = `0` (set to `1` to reuse recent inventory data)
+- `LM_INVENTORY_CACHE_TTL` = `3600` (seconds)
+- `LM_INVENTORY_CACHE_DIR` = `"${OUTPUT_DIR}/cache"`
 - `MAIL_ON_RUN` = `"false"`
 
 
@@ -436,10 +439,12 @@ Status flags (installed mode):
 
 - `linux-maint report` *(root required)*: show combined status + trends + runtimes.
   - `--short` emits a one-screen summary with totals, top problems, and next steps.
+  - `--redact` applies best-effort redaction to human output only (not JSON).
 
 Note: when optional config/baselines are missing, `status`/`report` show an `Expected SKIPs` banner by default (suppressed in compact/summary output). Use `--expected-skips` for the explicit list.
 
 - `linux-maint metrics --json` *(root required)*: emit a single JSON snapshot with status + trends + runtimes for automation.
+- `linux-maint run-index` *(root required)*: show stats for `run_index.jsonl` and optionally prune with `--keep N`.
 
 
 ### `linux-maint status --json` compatibility contract
@@ -584,7 +589,11 @@ Example (`doctor --json`):
 
 
 
-- `linux-maint trend [--last N] [--json]` *(root required)*: aggregate severity and reason trends across recent timestamped summary artifacts (default last 10 runs).
+- `linux-maint trend [--last N] [--since DATE] [--until DATE] [--json|--csv|--export csv|json] [--redact]` *(root required)*: aggregate severity and reason trends across recent timestamped summary artifacts (default last 10 runs).
+  - `--since`/`--until` accept `YYYY-MM-DD` or `YYYY-MM-DD_HHMMSS` (local time).
+  - `--csv` emits a stable CSV table for imports.
+  - `--redact` applies best-effort redaction to human output only (not JSON/CSV).
+  - Optional cache: `LM_TREND_CACHE=1` and `LM_TREND_CACHE_TTL=60` to reuse recent computations.
 
 Example (`trend --json`):
 
@@ -698,6 +707,12 @@ sudo ./tools/seed_known_hosts.sh --hosts-file /etc/linux_maint/servers.txt
 
 # installed mode
 sudo /usr/local/libexec/linux_maint/seed_known_hosts.sh --hosts-file /etc/linux_maint/servers.txt
+```
+
+Verify known_hosts entries (detect key changes):
+
+```bash
+sudo /usr/local/libexec/linux_maint/seed_known_hosts.sh --hosts-file /etc/linux_maint/servers.txt --check
 ```
 
 Recommended `LM_SSH_ALLOWLIST` example (place in `/etc/linux_maint/linux-maint.conf`):

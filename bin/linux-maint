@@ -290,6 +290,7 @@ ${C_CYAN}Analysis / reporting${C_RESET}:
   runtimes [flags]      Show per-monitor runtimes
   export --json|--csv   Export a single payload (summary_result/hosts + rows)
   history [flags]       Show recent runs (run index; faster than log scan)
+  run-index [flags]     Inspect or prune the run index
   logs [n]              Tail latest wrapper log (default n=200)
   diff [--json]         Show diff since last run (uses wrapper diff state)
 
@@ -393,6 +394,7 @@ Output:
   --compact      minimal output
   --table        table formatting
   --json         machine JSON
+  --redact       redact secrets in human output only
   --no-trend     suppress trend section
   --no-slow      suppress slow monitors
   --no-reasons   suppress reason rollup
@@ -419,10 +421,20 @@ Usage: linux-maint history [flags]
   --compact     one-line latest run
 EOF
       ;;
+    run-index)
+      cat <<'EOF'
+Usage: linux-maint run-index [flags]
+
+  --stats            show run index stats (default)
+  --prune            prune to last N entries (default keep=200)
+  --keep N           number of entries to retain
+  --json             machine JSON
+EOF
+      ;;
     summary)
       echo "Usage: linux-maint summary [--no-color]";;
     trend)
-      echo "Usage: linux-maint trend [--last N] [--json]";;
+      echo "Usage: linux-maint trend [--last N] [--since DATE] [--until DATE] [--json|--csv|--export csv|json] [--redact]";;
     runtimes)
       echo "Usage: linux-maint runtimes [--last N] [--json]";;
     export)
@@ -666,6 +678,7 @@ case "$cmd" in
     REPORT_NO_SLOW=0
     REPORT_NO_REASONS=0
     REPORT_NO_PROBLEMS=0
+    REPORT_REDACT=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) REPORT_JSON=1; shift 1;;
@@ -673,6 +686,8 @@ case "$cmd" in
         --compact) REPORT_COMPACT=1; shift 1;;
         --short) REPORT_SHORT=1; shift 1;;
         --table) REPORT_TABLE=1; shift 1;;
+        --redact) REPORT_REDACT=1; shift 1;;
+        --no-redact) REPORT_REDACT=0; shift 1;;
         --no-trend) REPORT_NO_TREND=1; shift 1;;
         --no-slow) REPORT_NO_SLOW=1; shift 1;;
         --no-reasons) REPORT_NO_REASONS=1; shift 1;;
@@ -685,6 +700,10 @@ case "$cmd" in
     done
     [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && REPORT_COLOR=0
     color_enabled || REPORT_COLOR=0
+    if [[ "$REPORT_JSON" -eq 1 && "$REPORT_REDACT" -eq 1 ]]; then
+      echo "ERROR: --redact is only for human output (not --json)" >&2
+      exit 2
+    fi
 
     tmp_status="$(mktemp -p "$TMPDIR" linux_maint_report_status.XXXXXX.json)"
     tmp_trend="$(mktemp -p "$TMPDIR" linux_maint_report_trend.XXXXXX.json)"
@@ -705,8 +724,10 @@ case "$cmd" in
       fi
     fi
 
-    LM_COLOR="$REPORT_COLOR" REPORT_COMPACT="$REPORT_COMPACT" REPORT_SHORT="$REPORT_SHORT" REPORT_TABLE="$REPORT_TABLE" REPORT_NO_TREND="$REPORT_NO_TREND" REPORT_NO_SLOW="$REPORT_NO_SLOW" REPORT_NO_REASONS="$REPORT_NO_REASONS" REPORT_NO_PROBLEMS="$REPORT_NO_PROBLEMS" REPORT_EXPECTED_SKIPS="$REPORT_EXPECTED_SKIPS" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
+    LM_COLOR="$REPORT_COLOR" REPORT_COMPACT="$REPORT_COMPACT" REPORT_SHORT="$REPORT_SHORT" REPORT_TABLE="$REPORT_TABLE" REPORT_NO_TREND="$REPORT_NO_TREND" REPORT_NO_SLOW="$REPORT_NO_SLOW" REPORT_NO_REASONS="$REPORT_NO_REASONS" REPORT_NO_PROBLEMS="$REPORT_NO_PROBLEMS" REPORT_EXPECTED_SKIPS="$REPORT_EXPECTED_SKIPS" REPORT_REDACT="$REPORT_REDACT" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
 import json, os, sys
+import re
+import builtins
 
 status_path, trend_path, runtimes_path, json_mode = sys.argv[1:5]
 json_mode = json_mode == "1"
@@ -719,6 +740,30 @@ no_slow = os.environ.get("REPORT_NO_SLOW","0") == "1"
 no_reasons = os.environ.get("REPORT_NO_REASONS","0") == "1"
 no_problems = os.environ.get("REPORT_NO_PROBLEMS","0") == "1"
 expected_skips = os.environ.get("REPORT_EXPECTED_SKIPS","").strip()
+redact = os.environ.get("REPORT_REDACT","0") == "1"
+
+def redact_line(s: str) -> str:
+    pats = [
+        (re.compile(r'(?i)\\b([A-Za-z0-9_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key|session([_-]?id)?|id[_-]?token|refresh[_-]?token|x[_-]?auth[_-]?token)[A-Za-z0-9_]*)=([^ \\t]+)'), r'\\1=REDACTED'),
+        (re.compile(r'(?i)\\b(Authorization:|X-Auth-Token:)\\s+[^ \\t]+'), r'\\1 REDACTED'),
+        (re.compile(r'(?i)\\b(Bearer)\\s+[A-Za-z0-9_.~+/-]+=*'), r'\\1 REDACTED'),
+        (re.compile(r'\\b[0-9A-Za-z_-]{12,}\\.[0-9A-Za-z_-]{12,}\\.[0-9A-Za-z_-]{12,}\\b'), 'REDACTED_JWT'),
+        (re.compile(r'\\bAKIA[0-9A-Z]{16}\\b'), 'AKIA_REDACTED'),
+        (re.compile(r'\\bASIA[0-9A-Z]{16}\\b'), 'ASIA_REDACTED'),
+        (re.compile(r'-----BEGIN [A-Z ]*PRIVATE KEY-----'), '-----BEGIN PRIVATE KEY-----'),
+        (re.compile(r'-----END [A-Z ]*PRIVATE KEY-----'), '-----END PRIVATE KEY-----'),
+    ]
+    out = s
+    for pat, rep in pats:
+        out = pat.sub(rep, out)
+    return out
+
+if redact and not json_mode:
+    def print(*args, **kwargs):
+        sep = kwargs.get("sep", " ")
+        end = kwargs.get("end", "\\n")
+        text = sep.join(str(a) for a in args)
+        builtins.print(redact_line(text), end=end)
 
 def c(s, code):
     if not color:
@@ -1502,6 +1547,107 @@ else:
             color_count("OK", hosts.get("ok",0)),
         ])
         print(f"{ts} overall={color_status(overall)} exit_code={exit_code} {counts}")
+PY
+    ;;
+
+  run-index)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for run-index
+    fi
+
+    ACTION="stats"
+    KEEP=200
+    RI_JSON=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --stats) ACTION="stats"; shift 1;;
+        --prune) ACTION="prune"; shift 1;;
+        --keep) KEEP="$2"; shift 2;;
+        --json) RI_JSON=1; shift 1;;
+        -h|--help)
+          command_usage run-index
+          exit 0;;
+        *) echo "Unknown run-index flag: $1" >&2; exit 2;;
+      esac
+    done
+
+    if [[ ! "$KEEP" =~ ^[0-9]+$ ]] || (( KEEP <= 0 )); then
+      echo "ERROR: --keep must be a positive integer" >&2
+      exit 2
+    fi
+
+    if [[ "$MODE" == "repo" ]]; then
+      state_dir="${LM_STATE_DIR:-$REPO_LOG_DIR}"
+    else
+      state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
+    fi
+    index_file="${LM_RUN_INDEX_FILE:-$state_dir/run_index.jsonl}"
+    if [[ ! -f "$index_file" ]]; then
+      for alt in /var/tmp/run_index.jsonl /var/tmp/linux_maint/run_index.jsonl /tmp/linux_maint/run_index.jsonl; do
+        if [[ -f "$alt" ]]; then
+          index_file="$alt"
+          break
+        fi
+      done
+    fi
+
+    python3 - "$index_file" "$ACTION" "$KEEP" "$RI_JSON" <<'PY'
+import json, os, sys, time, tempfile
+path, action, keep_s, json_mode = sys.argv[1:5]
+keep = int(keep_s)
+json_mode = json_mode == "1"
+
+exists = os.path.exists(path)
+if not exists:
+    if json_mode:
+        print(json.dumps({"exists": False, "path": path}, indent=2, sort_keys=True))
+    else:
+        print(f"No run index found: {path}")
+    sys.exit(1)
+
+lines = []
+with open(path, "r", encoding="utf-8", errors="ignore") as f:
+    lines = [l for l in f if l.strip()]
+
+count = len(lines)
+last = {}
+if lines:
+    try:
+        last = json.loads(lines[-1])
+    except Exception:
+        last = {}
+
+if action == "prune":
+    if keep > 0 and count > keep:
+        lines = lines[-keep:]
+        try:
+            tmp_dir = os.path.dirname(path) or "."
+            fd, tmp = tempfile.mkstemp(prefix=".run_index.", dir=tmp_dir)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.writelines(lines)
+            os.replace(tmp, path)
+        except Exception:
+            pass
+    if json_mode:
+        print(json.dumps({"path": path, "kept": min(count, keep), "total_before": count}, indent=2, sort_keys=True))
+    else:
+        print(f"run_index_pruned path={path} kept={min(count, keep)} total_before={count}")
+    sys.exit(0)
+
+if json_mode:
+    out = {
+        "path": path,
+        "count": count,
+        "last": last,
+    }
+    print(json.dumps(out, indent=2, sort_keys=True))
+else:
+    print(f"run_index path={path} count={count}")
+    if last:
+        ts = last.get("timestamp","")
+        overall = last.get("overall","")
+        code = last.get("exit_code","")
+        print(f"last_run timestamp={ts} overall={overall} exit_code={code}")
 PY
     ;;
 
@@ -2554,10 +2700,25 @@ PY
 
     LAST_N=10
     JSON=0
+    CSV=0
+    REDACT=0
+    SINCE=""
+    UNTIL=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --last) LAST_N="$2"; shift 2 ;;
+        --since|--from) SINCE="$2"; shift 2 ;;
+        --until|--to) UNTIL="$2"; shift 2 ;;
         --json) JSON=1; shift 1 ;;
+        --csv) CSV=1; shift 1 ;;
+        --export)
+          case "${2:-}" in
+            csv) CSV=1; shift 2 ;;
+            json) JSON=1; shift 2 ;;
+            *) echo "ERROR: --export expects csv|json" >&2; exit 2 ;;
+          esac
+          ;;
+        --redact) REDACT=1; shift 1 ;;
         -h|--help)
           command_usage trend
           exit 0 ;;
@@ -2569,22 +2730,61 @@ PY
       echo "ERROR: --last must be a positive integer" >&2
       exit 2
     fi
+    if [[ "$JSON" -eq 1 && "$CSV" -eq 1 ]]; then
+      echo "ERROR: choose only one output format (--json or --csv)" >&2
+      exit 2
+    fi
+    if [[ "$REDACT" -eq 1 && ( "$JSON" -eq 1 || "$CSV" -eq 1 ) ]]; then
+      echo "ERROR: --redact is only for human output" >&2
+      exit 2
+    fi
 
     if [[ "$MODE" == "repo" ]]; then
-      log_dir="$REPO_LOG_DIR"
+      log_dir="${LOG_DIR:-$REPO_LOG_DIR}"
+      cache_dir="${LM_STATE_DIR:-$REPO_LOG_DIR}"
     else
       log_dir="/var/log/health"
+      cache_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
     fi
 
     TREND_COLOR=0
     color_enabled && TREND_COLOR=1
-    LM_COLOR="$TREND_COLOR" python3 - "$log_dir" "$LAST_N" "$JSON" <<'PY'
-import glob, json, os, re, sys
+    LM_COLOR="$TREND_COLOR" TREND_REDACT="$REDACT" TREND_CACHE="${LM_TREND_CACHE:-0}" TREND_CACHE_TTL="${LM_TREND_CACHE_TTL:-60}" TREND_CACHE_FILE="${LM_TREND_CACHE_FILE:-$cache_dir/trend_cache.json}" python3 - "$log_dir" "$LAST_N" "$JSON" "$CSV" "$SINCE" "$UNTIL" <<'PY'
+import glob, json, os, re, sys, time
+import builtins
 
-log_dir, last_n, json_mode = sys.argv[1:4]
+log_dir, last_n, json_mode, csv_mode, since_arg, until_arg = sys.argv[1:7]
 last_n=int(last_n)
 json_mode = json_mode == '1'
+csv_mode = csv_mode == '1'
 color = os.environ.get("LM_COLOR","1") == "1"
+redact = os.environ.get("TREND_REDACT","0") == "1"
+cache_enabled = os.environ.get("TREND_CACHE","0") == "1"
+cache_ttl = int(os.environ.get("TREND_CACHE_TTL","60") or "60")
+cache_file = os.environ.get("TREND_CACHE_FILE","")
+
+def redact_line(s: str) -> str:
+    pats = [
+        (re.compile(r'(?i)\\b([A-Za-z0-9_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key|session([_-]?id)?|id[_-]?token|refresh[_-]?token|x[_-]?auth[_-]?token)[A-Za-z0-9_]*)=([^ \\t]+)'), r'\\1=REDACTED'),
+        (re.compile(r'(?i)\\b(Authorization:|X-Auth-Token:)\\s+[^ \\t]+'), r'\\1 REDACTED'),
+        (re.compile(r'(?i)\\b(Bearer)\\s+[A-Za-z0-9_.~+/-]+=*'), r'\\1 REDACTED'),
+        (re.compile(r'\\b[0-9A-Za-z_-]{12,}\\.[0-9A-Za-z_-]{12,}\\.[0-9A-Za-z_-]{12,}\\b'), 'REDACTED_JWT'),
+        (re.compile(r'\\bAKIA[0-9A-Z]{16}\\b'), 'AKIA_REDACTED'),
+        (re.compile(r'\\bASIA[0-9A-Z]{16}\\b'), 'ASIA_REDACTED'),
+        (re.compile(r'-----BEGIN [A-Z ]*PRIVATE KEY-----'), '-----BEGIN PRIVATE KEY-----'),
+        (re.compile(r'-----END [A-Z ]*PRIVATE KEY-----'), '-----END PRIVATE KEY-----'),
+    ]
+    out = s
+    for pat, rep in pats:
+        out = pat.sub(rep, out)
+    return out
+
+if redact and not json_mode and not csv_mode:
+    def print(*args, **kwargs):
+        sep = kwargs.get("sep", " ")
+        end = kwargs.get("end", "\\n")
+        text = sep.join(str(a) for a in args)
+        builtins.print(redact_line(text), end=end)
 
 def c(s, code):
     if not color:
@@ -2615,12 +2815,53 @@ def color_kv(k, v):
         return c(text, "1;32")
     return text
 
-pat = os.path.join(log_dir, 'full_health_monitor_summary_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9].log')
-files=sorted(glob.glob(pat), reverse=True)[:last_n]
+def parse_date_arg(s: str, end_of_day: bool = False):
+    if not s:
+        return None
+    fmts = ("%Y-%m-%d", "%Y-%m-%d_%H%M%S", "%Y-%m-%dT%H:%M:%S")
+    for fmt in fmts:
+        try:
+            ts = time.strptime(s, fmt)
+            epoch = int(time.mktime(ts))
+            if fmt == "%Y-%m-%d" and end_of_day:
+                epoch += 86399
+            return epoch
+        except Exception:
+            continue
+    raise ValueError(f"invalid date: {s} (use YYYY-MM-DD or YYYY-MM-DD_HHMMSS)")
 
-if not files:
+try:
+    since_ts = parse_date_arg(since_arg, end_of_day=False)
+    until_ts = parse_date_arg(until_arg, end_of_day=True)
+except ValueError as exc:
+    print(f"ERROR: {exc}", file=sys.stderr)
+    sys.exit(2)
+
+pat = os.path.join(log_dir, 'full_health_monitor_summary_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9].log')
+all_files = glob.glob(pat)
+file_rows = []
+name_re = re.compile(r'full_health_monitor_summary_(\d{4}-\d{2}-\d{2})_(\d{6})\.log$')
+for fp in all_files:
+    m = name_re.search(os.path.basename(fp))
+    if not m:
+        continue
+    try:
+        ts = time.mktime(time.strptime(f"{m.group(1)} {m.group(2)}", "%Y-%m-%d %H%M%S"))
+    except Exception:
+        continue
+    if since_ts is not None and ts < since_ts:
+        continue
+    if until_ts is not None and ts > until_ts:
+        continue
+    file_rows.append((ts, fp))
+file_rows.sort(reverse=True)
+files = [fp for _, fp in file_rows][:last_n]
+
+if not files and not cache_enabled:
     if json_mode:
-        print(json.dumps({'runs':[], 'totals':{'CRIT':0,'WARN':0,'UNKNOWN':0,'SKIP':0,'OK':0}, 'reasons':[]}, indent=2, sort_keys=True))
+        print(json.dumps({'trend_json_contract_version': 1, 'runs':[], 'totals':{'CRIT':0,'WARN':0,'UNKNOWN':0,'SKIP':0,'OK':0}, 'reasons':[]}, indent=2, sort_keys=True))
+    elif csv_mode:
+        print("file,CRIT,WARN,UNKNOWN,SKIP,OK")
     else:
         print(f'No summary artifacts found in: {log_dir}')
     sys.exit(0)
@@ -2634,28 +2875,48 @@ def get_kv(line, key):
     m=re.search(rf"\b{re.escape(key)}=([^ ]+)", line)
     return m.group(1) if m else None
 
-for fp in files:
-    rc={k:0 for k in order}
-    with open(fp,'r',encoding='utf-8',errors='ignore') as f:
-        for line in f:
-            line=line.strip()
-            if not line.startswith('monitor='):
-                continue
-            st=get_kv(line,'status') or 'UNKNOWN'
-            if st not in rc:
-                st='UNKNOWN'
-            rc[st]+=1
-            overall[st]=overall.get(st,0)+1
-            if st!='OK':
-                reason=get_kv(line,'reason')
-                if reason:
-                    reason_counts[reason]=reason_counts.get(reason,0)+1
-    runs.append({'file': fp, 'totals': rc})
+cache_hit = False
+if cache_enabled and cache_file and os.path.exists(cache_file):
+    try:
+        age = time.time() - os.path.getmtime(cache_file)
+        if age <= cache_ttl:
+            cached = json.load(open(cache_file, "r", encoding="utf-8"))
+            if cached.get("last_n") == last_n and cached.get("source_dir") == log_dir and cached.get("since") == since_arg and cached.get("until") == until_arg:
+                runs = cached.get("runs", [])
+                overall = cached.get("totals", overall)
+                reason_counts = {r["reason"]: r["count"] for r in cached.get("reasons", [])}
+                cache_hit = True
+    except Exception:
+        cache_hit = False
+
+if not cache_hit:
+    for fp in files:
+        rc={k:0 for k in order}
+        with open(fp,'r',encoding='utf-8',errors='ignore') as f:
+            for line in f:
+                line=line.strip()
+                if not line.startswith('monitor='):
+                    continue
+                st=get_kv(line,'status') or 'UNKNOWN'
+                if st not in rc:
+                    st='UNKNOWN'
+                rc[st]+=1
+                overall[st]=overall.get(st,0)+1
+                if st!='OK':
+                    reason=get_kv(line,'reason')
+                    if reason:
+                        reason_counts[reason]=reason_counts.get(reason,0)+1
+        runs.append({'file': fp, 'totals': rc})
 
 rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
 if json_mode:
-    out={'runs':runs, 'totals':overall, 'reasons':[{'reason':r,'count':c} for r,c in rollup]}
+    out={'trend_json_contract_version': 1, 'runs':runs, 'totals':overall, 'reasons':[{'reason':r,'count':c} for r,c in rollup]}
     print(json.dumps(out, indent=2, sort_keys=True))
+elif csv_mode:
+    print("file,CRIT,WARN,UNKNOWN,SKIP,OK")
+    for r in runs:
+        row = [os.path.basename(r["file"]), str(r["totals"].get("CRIT",0)), str(r["totals"].get("WARN",0)), str(r["totals"].get("UNKNOWN",0)), str(r["totals"].get("SKIP",0)), str(r["totals"].get("OK",0))]
+        print(",".join(row))
 else:
     print(header("=== linux-maint trend ==="))
     print(f'trend_runs={len(runs)} source_dir={log_dir}')
@@ -2671,6 +2932,23 @@ else:
           print(f"{reason}={count}")
     else:
       print('none')
+
+if cache_enabled and cache_file and not cache_hit:
+    try:
+        payload = {
+            "last_n": last_n,
+            "since": since_arg,
+            "until": until_arg,
+            "source_dir": log_dir,
+            "created_epoch": int(time.time()),
+            "runs": runs,
+            "totals": overall,
+            "reasons": [{"reason": r, "count": c} for r,c in rollup],
+        }
+        with open(cache_file, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, sort_keys=True)
+    except Exception:
+        pass
 PY
     ;;
 

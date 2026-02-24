@@ -44,6 +44,7 @@ else
 fi
 : "${LM_SSH_KNOWN_HOSTS_FILE:=${LM_STATE_DIR:-/var/lib/linux_maint}/known_hosts}"
 : "${LM_SSH_OPTS:=-o BatchMode=yes -o ConnectTimeout=7 -o ServerAliveInterval=10 -o ServerAliveCountMax=2 -o ForwardAgent=no -o StrictHostKeyChecking=${_LM_SSH_STRICT} -o UserKnownHostsFile=${LM_SSH_KNOWN_HOSTS_FILE} -o GlobalKnownHostsFile=/dev/null}"
+: "${LM_SSH_TIMEOUT:=0}"
 
 : "${LM_EMAIL_ENABLED:=true}"      # scripts can set LM_EMAIL_ENABLED=false to suppress email
 : "${LM_MAX_PARALLEL:=0}"          # 0 = sequential
@@ -249,6 +250,10 @@ lm_redact_line() {
     -e 's/\b(Authorization:|X-Auth-Token:)[[:space:]]+[^[:space:]]+/\1 REDACTED/Ig' \
     -e 's/\b(Bearer)[[:space:]]+[[:alnum:]_.~+\/-]+=*/\1 REDACTED/Ig' \
     -e 's/\b[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}\b/REDACTED_JWT/g' \
+    -e 's/\b(AKIA[0-9A-Z]{16})\b/AKIA_REDACTED/g' \
+    -e 's/\b(ASIA[0-9A-Z]{16})\b/ASIA_REDACTED/g' \
+    -e 's/-----BEGIN [A-Z ]*PRIVATE KEY-----/-----BEGIN PRIVATE KEY-----/g' \
+    -e 's/-----END [A-Z ]*PRIVATE KEY-----/-----END PRIVATE KEY-----/g' \
   )"
 
   printf '%s' "$s"
@@ -264,6 +269,10 @@ lm_redact_kv_line() {
   s="$(printf '%s' "$s" | sed -E \
     -e 's/\b([[:alnum:]_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key|session([_-]?id)?|id[_-]?token|refresh[_-]?token|x[_-]?auth[_-]?token)[[:alnum:]_]*)=([^[:space:]]+)/\1=REDACTED/Ig' \
     -e 's/\b[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}\b/REDACTED_JWT/g' \
+    -e 's/\b(AKIA[0-9A-Z]{16})\b/AKIA_REDACTED/g' \
+    -e 's/\b(ASIA[0-9A-Z]{16})\b/ASIA_REDACTED/g' \
+    -e 's/-----BEGIN [A-Z ]*PRIVATE KEY-----/-----BEGIN PRIVATE KEY-----/g' \
+    -e 's/-----END [A-Z ]*PRIVATE KEY-----/-----END PRIVATE KEY-----/g' \
   )"
   printf '%s' "$s"
 }
@@ -421,7 +430,11 @@ lm_ssh() {
     # shellcheck disable=SC2206
     _ssh_opts=(${LM_SSH_OPTS:-})
     # shellcheck disable=SC2029
-    ssh "${_ssh_opts[@]}" "$host" "$@" 2>/dev/null
+    if [[ "${LM_SSH_TIMEOUT:-0}" -gt 0 ]] && command -v timeout >/dev/null 2>&1; then
+      timeout "${LM_SSH_TIMEOUT}" ssh "${_ssh_opts[@]}" "$host" "$@" 2>/dev/null
+    else
+      ssh "${_ssh_opts[@]}" "$host" "$@" 2>/dev/null
+    fi
   fi
 }
 # quick reachability probe (0=ok)
@@ -541,6 +554,12 @@ lm_for_each_host() {
   local -a PIDS=()
   local running=0
   local use_progress=0
+  local max_parallel="${LM_MAX_PARALLEL:-0}"
+  local cap="${LM_MAX_PARALLEL_CAP:-25}"
+  if [[ "$max_parallel" -gt 0 && "$cap" -gt 0 && "$max_parallel" -gt "$cap" ]]; then
+    lm_warn "LM_MAX_PARALLEL=$max_parallel exceeds cap=$cap; using cap"
+    max_parallel="$cap"
+  fi
 
   if [[ "${LM_HOST_PROGRESS:-0}" -eq 1 ]] && lm_progress_enabled; then
     use_progress=1
@@ -564,11 +583,11 @@ lm_for_each_host() {
         continue
       fi
       lm_progress_step "$HOST"
-      if [ "${LM_MAX_PARALLEL:-0}" -gt 0 ]; then
+      if [ "$max_parallel" -gt 0 ]; then
         "$fn" "$HOST" &
         PIDS+=($!)
         running=$((running+1))
-        if [ "$running" -ge "$LM_MAX_PARALLEL" ]; then
+        if [ "$running" -ge "$max_parallel" ]; then
           wait -n
           running=$((running-1))
         fi
@@ -581,12 +600,12 @@ lm_for_each_host() {
       [ -z "$HOST" ] && continue
       lm_is_excluded "$HOST" && { lm_info "Skipping $HOST (excluded)"; continue; }
 
-      if [ "${LM_MAX_PARALLEL:-0}" -gt 0 ]; then
+      if [ "$max_parallel" -gt 0 ]; then
         # background with simple pool
         "$fn" "$HOST" &
         PIDS+=($!)
         running=$((running+1))
-        if [ "$running" -ge "$LM_MAX_PARALLEL" ]; then
+        if [ "$running" -ge "$max_parallel" ]; then
           wait -n
           running=$((running-1))
         fi
@@ -619,6 +638,12 @@ lm_for_each_host_rc() {
   local running=0
   local worst=0
   local use_progress=0
+  local max_parallel="${LM_MAX_PARALLEL:-0}"
+  local cap="${LM_MAX_PARALLEL_CAP:-25}"
+  if [[ "$max_parallel" -gt 0 && "$cap" -gt 0 && "$max_parallel" -gt "$cap" ]]; then
+    lm_warn "LM_MAX_PARALLEL=$max_parallel exceeds cap=$cap; using cap"
+    max_parallel="$cap"
+  fi
 
   wait_one_oldest(){
     local pid rc
@@ -655,13 +680,13 @@ lm_for_each_host_rc() {
         continue
       fi
       lm_progress_step "$HOST"
-      if [ "${LM_MAX_PARALLEL:-0}" -gt 0 ]; then
+      if [ "$max_parallel" -gt 0 ]; then
         "$fn" "$HOST" &
         PIDS+=($!)
         running=$((running+1))
 
         # throttle
-        while [ "$running" -ge "$LM_MAX_PARALLEL" ]; do
+        while [ "$running" -ge "$max_parallel" ]; do
           wait_one_oldest
         done
       else
@@ -675,13 +700,13 @@ lm_for_each_host_rc() {
       [ -z "$HOST" ] && continue
       lm_is_excluded "$HOST" && { lm_info "Skipping $HOST (excluded)"; continue; }
 
-      if [ "${LM_MAX_PARALLEL:-0}" -gt 0 ]; then
+      if [ "$max_parallel" -gt 0 ]; then
         "$fn" "$HOST" &
         PIDS+=($!)
         running=$((running+1))
 
         # throttle
-        while [ "$running" -ge "$LM_MAX_PARALLEL" ]; do
+        while [ "$running" -ge "$max_parallel" ]; do
           wait_one_oldest
         done
       else

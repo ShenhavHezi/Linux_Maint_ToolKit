@@ -48,3 +48,13 @@ If enabled, the wrapper can write:
 - `/var/lib/node_exporter/textfile_collector/linux_maint.prom`
 
 This file contains counters derived from `monitor=` summary lines.
+
+## Release artifacts (integrity)
+
+Release tarballs are accompanied by `SHA256SUMS`:
+
+```bash
+cd dist
+sha256sum -c SHA256SUMS
+linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
+```

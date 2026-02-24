@@ -35,6 +35,7 @@ sudo linux-maint report --json
 sudo linux-maint report --compact
 sudo linux-maint report --short
 sudo linux-maint report --table
+sudo linux-maint report --redact
 
 # Preflight + validate + expected SKIPs
 sudo linux-maint check
@@ -50,6 +51,10 @@ sudo linux-maint history --json
 sudo linux-maint history --table
 sudo linux-maint history --table --no-color
 sudo linux-maint history --compact
+
+# Run index maintenance
+sudo linux-maint run-index --stats
+sudo linux-maint run-index --prune --keep 200
 
 # History usage tips
 # - Text view: quick skim of recent runs in terminals
@@ -99,6 +104,8 @@ sudo linux-maint trend --last 10
 
 # Trend in JSON
 sudo linux-maint trend --last 10 --json
+sudo linux-maint trend --last 10 --csv
+sudo linux-maint trend --since 2026-02-01 --until 2026-02-24
 
 # Monitor runtimes from wrapper logs
 sudo linux-maint runtimes

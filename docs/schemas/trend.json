@@ -4,6 +4,7 @@
   "type": "object",
   "required": ["runs", "totals", "reasons"],
   "properties": {
+    "trend_json_contract_version": { "type": "integer" },
     "runs": {
       "type": "array",
       "items": {

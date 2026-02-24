@@ -49,6 +49,12 @@ lm_require_cmd "inventory_export" "localhost" systemd-detect-virt --optional || 
 # ========================
 OUTPUT_DIR="${LM_INVENTORY_OUTPUT_DIR:-/var/log/inventory}"
 DETAILS_DIR="${OUTPUT_DIR}/details"
+: "${LM_INVENTORY_CACHE:=0}"    # 1|true to reuse recent inventory data
+: "${LM_INVENTORY_CACHE_TTL:=3600}"  # seconds (opt-in cache age)
+CACHE_DIR="${LM_INVENTORY_CACHE_DIR:-$OUTPUT_DIR/cache}"
+if [[ ! "${LM_INVENTORY_CACHE_TTL}" =~ ^[0-9]+$ ]]; then
+  LM_INVENTORY_CACHE_TTL=3600
+fi
 
 # Email (optional): send a short summary when the run finishes
 MAIL_ON_RUN="false"
@@ -57,8 +63,35 @@ MAIL_SUBJECT_PREFIX='[Inventory Export]'
 # ========================
 # Helpers
 # ========================
-ensure_dirs(){ mkdir -p "$(dirname "$LM_LOGFILE")" "$OUTPUT_DIR" "$DETAILS_DIR"; }
+ensure_dirs(){ mkdir -p "$(dirname "$LM_LOGFILE")" "$OUTPUT_DIR" "$DETAILS_DIR" "$CACHE_DIR"; }
 csv_escape(){ local s="$1"; s="${s//\"/\"\"}"; printf "\"%s\"" "$s"; }
+cache_key(){
+  local s="$1"
+  s="${s//@/_}"
+  s="${s//:/_}"
+  s="${s//\//_}"
+  s="${s// /_}"
+  printf '%s' "$s"
+}
+cache_age_seconds(){
+  local file="$1"
+  local now mtime
+  now="$(date +%s)"
+  if mtime="$(stat -c %Y "$file" 2>/dev/null)"; then
+    :
+  elif mtime="$(stat -f %m "$file" 2>/dev/null)"; then
+    :
+  else
+    return 1
+  fi
+  printf '%s' "$((now - mtime))"
+}
+cache_fresh(){
+  local file="$1" ttl="$2"
+  local age
+  age="$(cache_age_seconds "$file")" || return 1
+  [[ "$age" -le "$ttl" ]]
+}
 
 # ---- CSV header + append with flock (safe under parallelism) ----
 write_csv_header_if_needed(){
@@ -199,14 +232,19 @@ CSV_FILE="${OUTPUT_DIR}/inventory_${DATE_SHORT}.csv"
 # ========================
 run_for_host(){
   local host="$1"
+  local cache_enabled=0
+  local cache_hit=0
+  local cache_age=""
+  local cache_id cache_kv cache_details
 
   lm_info "===== Collecting inventory on $host ====="
 
-  if ! lm_reachable "$host"; then
-    lm_err "[$host] SSH unreachable"
-    lm_summary "inventory_export" "$host" "CRIT" reason=ssh_unreachable
-    return 2
-  fi
+  case "${LM_INVENTORY_CACHE:-0}" in
+    1|true|TRUE|yes|YES) cache_enabled=1 ;;
+  esac
+  cache_id="$(cache_key "$host")"
+  cache_kv="${CACHE_DIR}/${cache_id}.kv"
+  cache_details="${CACHE_DIR}/${cache_id}.details.txt"
 
   # --- inventory values ---
   declare -A V
@@ -215,10 +253,27 @@ run_for_host(){
     V["$_k"]=""
   done
 
-  while IFS='=' read -r k v; do
-    [ -z "$k" ] && continue
-    V["$k"]="$v"
-  done < <(lm_ssh "$host" bash -lc "'$remote_inv_cmd'")
+  if [[ "$cache_enabled" -eq 1 ]] && [[ "${LM_INVENTORY_CACHE_TTL}" -gt 0 ]] && cache_fresh "$cache_kv" "$LM_INVENTORY_CACHE_TTL"; then
+    cache_hit=1
+    cache_age="$(cache_age_seconds "$cache_kv" 2>/dev/null || true)"
+    while IFS='=' read -r k v; do
+      [ -z "$k" ] && continue
+      V["$k"]="$v"
+    done < "$cache_kv"
+    [[ -z "${V[DATE]:-}" ]] && V[DATE]="$(date -Iseconds)"
+    lm_info "[$host] cache hit (age=${cache_age}s)"
+  else
+    if ! lm_reachable "$host"; then
+      lm_err "[$host] SSH unreachable"
+      lm_summary "inventory_export" "$host" "CRIT" reason=ssh_unreachable
+      return 2
+    fi
+
+    while IFS='=' read -r k v; do
+      [ -z "$k" ] && continue
+      V["$k"]="$v"
+    done < <(lm_ssh "$host" bash -lc "'$remote_inv_cmd'")
+  fi
 
   if [ -z "${V[DATE]:-}" ]; then
     lm_err "[$host] inventory collector returned no data"
@@ -239,8 +294,29 @@ run_for_host(){
 
   # --- details snapshot ---
   local details="${DETAILS_DIR}/${V[HOST]}_${DATE_SHORT}.txt"
-  lm_ssh "$host" bash -lc "'$remote_details_cmd'" > "$details"
-  lm_info "[$host] details -> $details"
+  if [[ "$cache_hit" -eq 1 ]]; then
+    if [[ -f "$cache_details" ]]; then
+      cp -f "$cache_details" "$details"
+      lm_info "[$host] details (cache) -> $details"
+    else
+      printf 'cached_details=missing host=%s\n' "$host" > "$details"
+      lm_warn "[$host] cache hit but details cache missing"
+    fi
+  else
+    lm_ssh "$host" bash -lc "'$remote_details_cmd'" > "$details"
+    lm_info "[$host] details -> $details"
+  fi
+
+  if [[ "$cache_enabled" -eq 1 ]]; then
+    {
+      for _k in DATE HOST FQDN OS KERNEL ARCH VIRT UPTIME CPU_MODEL SOCKETS CORES_PER_SOCKET THREADS_PER_CORE VCPUS MEM_MB SWAP_MB DISK_TOTAL_GB ROOTFS_USE VGS LVS PVS VGS_SIZE_GB IPS GW DNS PKG_COUNT; do
+        printf '%s=%s\n' "$_k" "${V[$_k]}"
+      done
+    } > "$cache_kv"
+    if [[ -f "$details" ]]; then
+      cp -f "$details" "$cache_details"
+    fi
+  fi
 
   lm_info "===== Completed $host ====="
 }

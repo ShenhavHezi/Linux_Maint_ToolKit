@@ -70,6 +70,12 @@ sudo /usr/local/libexec/linux_maint/seed_known_hosts.sh --hosts-file /etc/linux_
 echo "LM_SSH_KNOWN_HOSTS_MODE=strict" | sudo tee -a /etc/linux_maint/linux-maint.conf >/dev/null
 ```
 
+Optional verification (detect key changes):
+
+```bash
+sudo /usr/local/libexec/linux_maint/seed_known_hosts.sh --hosts-file /etc/linux_maint/servers.txt --check
+```
+
 Re-run after seeding:
 
 ```bash
@@ -95,6 +101,36 @@ sudo linux-maint status --expected-skips
 ```bash
 sudo linux-maint doctor
 sudo linux-maint pack-logs --out /tmp
+```
+
+## 11) Prometheus textfile quickstart
+
+Wrapper runs write a textfile by default at:
+`/var/lib/node_exporter/textfile_collector/linux_maint.prom`
+
+Minimal scrape timer example:
+
+```ini
+# /etc/systemd/system/linux-maint-prom.timer
+[Unit]
+Description=linux-maint Prometheus textfile refresh
+
+[Timer]
+OnCalendar=*:0/5
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+```ini
+# /etc/systemd/system/linux-maint-prom.service
+[Unit]
+Description=linux-maint Prometheus textfile refresh
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/run_full_health_monitor.sh
 ```
 
 ## 11) Repo mode (if you are not installed)

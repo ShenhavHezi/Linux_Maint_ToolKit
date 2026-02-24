@@ -1,18 +1,10 @@
-## What
+## Summary
+What does this change do?
 
-(What does this PR change?)
+## Testing
+- [ ] `bash tests/smoke.sh`
+- [ ] `bash tests/summary_contract.sh`
+- [ ] Other:
 
-## Why
-
-(Why is this needed? Link to issue if applicable.)
-
-## Tests
-
-- [ ] `./tools/shellcheck_wrapper.sh ...`
-- [ ] `bash ./tests/smoke.sh`
-
-## Notes
-
-- Backward compatibility / behavior changes:
-- Docs updated:
-
+## Risk
+Any behavior changes, compatibility notes, or rollout concerns?

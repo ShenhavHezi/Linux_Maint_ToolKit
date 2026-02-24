@@ -27,6 +27,14 @@ Dark-site tip:
 - `LM_SSH_ALLOWLIST` (optional regex allowlist for SSH commands; blocks non-matching)
 - `LM_LOCAL_ONLY=true` (force local-only; useful for CI)
 - `LM_DARK_SITE=true` (optional profile for conservative defaults)
+- `LM_MAX_PARALLEL` (max parallel SSH fan-out)
+- `LM_MAX_PARALLEL_CAP` (safety cap for LM_MAX_PARALLEL; default 25)
+- `LM_TREND_CACHE=1` (opt-in cache for `linux-maint trend`)
+- `LM_TREND_CACHE_TTL=60` (seconds to reuse cached trend output)
+- `LM_INVENTORY_CACHE=1` (opt-in cache for `inventory_export`)
+- `LM_INVENTORY_CACHE_TTL=3600` (seconds to reuse cached inventory data)
+- `LM_INVENTORY_CACHE_DIR=/var/log/inventory/cache` (optional override for inventory cache)
+- `LM_SSH_TIMEOUT=30` (optional hard timeout for ssh commands when `timeout` exists)
 
 Details are in `docs/reference.md`.
 

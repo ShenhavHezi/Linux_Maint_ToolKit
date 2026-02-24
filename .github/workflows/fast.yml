@@ -1,0 +1,26 @@
+name: CI (fast)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  fast-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: ShellCheck (key files)
+        run: |
+          ./tools/shellcheck_wrapper.sh -x bin/linux-maint
+          ./tools/shellcheck_wrapper.sh -x lib/linux_maint.sh
+
+      - name: Quick checks
+        run: |
+          ./tools/quick_check.sh

@@ -20,3 +20,18 @@ If you believe you have found a security issue:
 
 We will respond as soon as practical.
 
+## Minimal-privilege guidance
+
+Operational safety improves when linux-maint runs with the least required privileges:
+
+- Use a dedicated SSH key for the monitoring node and restrict it to the monitoring user.
+- Avoid agent forwarding (`-o ForwardAgent=no` is default).
+- Prefer a dedicated known_hosts file (`LM_SSH_KNOWN_HOSTS_FILE`) and strict mode where possible.
+
+If you need sudo for installed mode, use a constrained sudoers entry that only permits the linux-maint wrapper:
+
+```
+linuxmaint ALL=(root) NOPASSWD: /usr/local/sbin/run_full_health_monitor.sh
+```
+
+Adjust for your environment and consider additional restrictions such as `NOEXEC` or host-specific rules.

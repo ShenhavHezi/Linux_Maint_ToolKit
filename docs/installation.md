@@ -17,6 +17,11 @@ Manual install is also supported (see the appendix in this file).
 - Execution: local host checks and/or distributed checks over SSH from a monitoring node.
 - Schedulers: cron or systemd timer (installer can set these up).
 
+## Packaging note
+
+RPM packages are supported and tested. DEB packaging is not currently provided.
+For Debian/Ubuntu, use repo mode or the release tarball from `tools/make_tarball.sh`.
+
 ## Requirements (minimal)
 
 - `bash` + standard core utilities (`awk`, `sed`, `grep`, `df`, `ps`, etc.)

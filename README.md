@@ -113,3 +113,13 @@ Minimums:
 - coreutils, awk, sed, grep
 - openssh client for SSH mode
 - python3 for JSON tooling and contract tests
+
+## Support
+
+Support is best-effort. Please include:
+- linux-maint version and mode (repo or installed)
+- distro and shell version
+- last log tail (`linux-maint logs 200`)
+- summary output (`linux-maint status --verbose`)
+
+For security issues, follow `SECURITY.md`.

@@ -24,6 +24,7 @@ Options:
   --timeout SECS         ssh-keyscan timeout per host (default: 5)
   --hash                 hash hostnames in output (ssh-keygen -H)
   --dry-run              print resolved hosts and target file
+  --check                verify current known_hosts entries against live keys
   -h, --help             show help
 
 Notes:
@@ -40,6 +41,7 @@ OUT=""
 TIMEOUT=5
 HASH=0
 DRY_RUN=0
+CHECK=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -50,6 +52,7 @@ while [[ $# -gt 0 ]]; do
     --timeout) TIMEOUT="$2"; shift 2;;
     --hash) HASH=1; shift;;
     --dry-run) DRY_RUN=1; shift;;
+    --check) CHECK=1; shift;;
     -h|--help) usage; exit 0;;
     *) echo "Unknown option: $1" >&2; usage; exit 2;;
   esac
@@ -95,17 +98,26 @@ if ! command -v ssh-keyscan >/dev/null 2>&1; then
   exit 1
 fi
 
-mkdir -p "$(dirname "$OUT")" 2>/dev/null || true
+normalize_host() {
+  local raw="$1" host="$1" port=""
+  host="${host#*@}"
+  if [[ "$host" =~ ^\[.*\]:[0-9]+$ ]]; then
+    port="${host##*:}"
+    host="${host#\[}"
+    host="${host%\]:*}"
+  elif [[ "$host" =~ ^[^:]+:[0-9]+$ ]]; then
+    port="${host##*:}"
+    host="${host%%:*}"
+  fi
+  if [[ -n "$port" ]]; then
+    printf '[%s]:%s' "$host" "$port"
+  else
+    printf '%s' "$host"
+  fi
+}
 
-workdir="${TMPDIR:-/tmp}"
-tmp="$(mktemp -p "$workdir" lm_known_hosts.XXXXXX)"
-trap 'rm -f "$tmp"' EXIT
-
-fail=0
-
-scan_host() {
-  local raw="$1" host="$1" port="" out_line
-  # Strip user@ prefix if present
+scan_host_lines() {
+  local raw="$1" host="$1" port=""
   host="${host#*@}"
   [[ -z "$host" ]] && return 0
 
@@ -119,16 +131,81 @@ scan_host() {
   fi
 
   if [[ -n "$port" ]]; then
-    if ! ssh-keyscan -T "$TIMEOUT" -p "$port" "$host" 2>/dev/null | \
-      awk -v h="$host" -v p="$port" '{ $1="["h"]:"p; print }' >> "$tmp"; then
-      echo "WARN: ssh-keyscan failed for $raw" >&2
-      fail=1
-    fi
+    ssh-keyscan -T "$TIMEOUT" -p "$port" "$host" 2>/dev/null | \
+      awk -v h="$host" -v p="$port" '{ $1="["h"]:"p; print }'
   else
-    if ! ssh-keyscan -T "$TIMEOUT" "$host" 2>/dev/null >> "$tmp"; then
-      echo "WARN: ssh-keyscan failed for $raw" >&2
-      fail=1
+    ssh-keyscan -T "$TIMEOUT" "$host" 2>/dev/null
+  fi
+}
+
+if [[ "$CHECK" -eq 1 ]]; then
+  if [[ ! -s "$OUT" ]]; then
+    echo "ERROR: known_hosts file not found or empty: $OUT" >&2
+    exit 1
+  fi
+  if grep -q '^\|1\|' "$OUT"; then
+    echo "WARN: hashed known_hosts entries detected; check may be incomplete" >&2
+  fi
+
+  declare -A existing_keys=()
+  declare -A existing_hosts=()
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" =~ ^# ]] && continue
+    [[ "$line" =~ ^\|1\| ]] && continue
+    read -r hostfield keytype key _rest <<< "$line"
+    [[ -z "$hostfield" || -z "$keytype" || -z "$key" ]] && continue
+    IFS=',' read -ra hostlist <<< "$hostfield"
+    for h in "${hostlist[@]}"; do
+      existing_hosts["$h"]=1
+      existing_keys["$h|$keytype|$key"]=1
+    done
+  done < "$OUT"
+
+  missing=0
+  mismatch=0
+  for h in "${hosts[@]}"; do
+    label="$(normalize_host "$h")"
+    if [[ -z "${existing_hosts[$label]+x}" ]]; then
+      echo "MISSING: $label (no known_hosts entry)" >&2
+      missing=$((missing+1))
+      continue
     fi
+    found_match=0
+    while IFS= read -r line; do
+      read -r hostfield keytype key _rest <<< "$line"
+      [[ -z "$hostfield" || -z "$keytype" || -z "$key" ]] && continue
+      if [[ -n "${existing_keys[$hostfield|$keytype|$key]+x}" ]]; then
+        found_match=1
+        break
+      fi
+    done < <(scan_host_lines "$h")
+    if [[ "$found_match" -eq 0 ]]; then
+      echo "MISMATCH: $label (key changed or not present)" >&2
+      mismatch=$((mismatch+1))
+    fi
+  done
+
+  if [[ "$missing" -gt 0 || "$mismatch" -gt 0 ]]; then
+    echo "known_hosts check failed: missing=$missing mismatch=$mismatch" >&2
+    exit 1
+  fi
+  echo "known_hosts check ok (hosts=${#hosts[@]})"
+  exit 0
+fi
+
+mkdir -p "$(dirname "$OUT")" 2>/dev/null || true
+
+workdir="${TMPDIR:-/tmp}"
+tmp="$(mktemp -p "$workdir" lm_known_hosts.XXXXXX)"
+trap 'rm -f "$tmp"' EXIT
+
+fail=0
+
+scan_host() {
+  local raw="$1"
+  if ! scan_host_lines "$raw" >> "$tmp"; then
+    echo "WARN: ssh-keyscan failed for $raw" >&2
+    fail=1
   fi
 }
 

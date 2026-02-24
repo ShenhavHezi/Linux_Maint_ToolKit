@@ -2,6 +2,25 @@
 
 Contributor-facing notes that do not belong on the README.
 
+## Dev quickstart
+
+Prereqs:
+- bash 4.2+
+- python3
+- shellcheck
+
+Quick loop:
+```bash
+./tools/quick_check.sh
+./tools/shellcheck_wrapper.sh -x bin/linux-maint
+```
+
+Full run:
+```bash
+bash tests/smoke.sh
+bash tests/summary_contract.sh
+```
+
 ## Tests
 
 ```bash
