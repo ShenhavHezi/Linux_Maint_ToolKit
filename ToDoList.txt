@@ -32,8 +32,6 @@ Primary audiences: operators, sysadmins, and SREs working in constrained or air-
 ---
 
 ## P1 - Operator UX, docs, compatibility (next)
-- Create a per-monitor config reference table: file path, required/optional, example lines.
-- Add Common failures and fixes for SSH, missing deps, and config errors.
 - Expand linux-maint help examples for report, trend, diff, run (color + no-color).
 - Add a compatibility preflight warning for unsupported bash or missing core tools.
 

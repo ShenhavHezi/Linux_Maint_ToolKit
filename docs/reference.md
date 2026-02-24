@@ -834,6 +834,21 @@ That wrapper executes these scripts (in order):
 - `backup_check.sh` – verify backups from `/etc/linux_maint/backup_targets.csv`
 - `inventory_export.sh` – write daily inventory CSV under `/var/log/inventory/`
 
+### Per-monitor config reference
+
+Monitors not listed here are configuration-free (only environment overrides).
+
+| Monitor | Config file(s) | Required? | Example line |
+| --- | --- | --- | --- |
+| `service_monitor.sh` | `/etc/linux_maint/services.txt` | Yes | `sshd` |
+| `network_monitor.sh` | `/etc/linux_maint/network_targets.txt` | Optional (SKIP if missing/empty) | `localhost,ping,8.8.8.8` |
+| `cert_monitor.sh` | `/etc/linux_maint/certs.txt` | Optional (SKIP if missing/empty) | `example.com,443` |
+| `ports_baseline_monitor.sh` | `/etc/linux_maint/ports_baseline.txt` | Gate file | `enable` |
+| `config_drift_monitor.sh` | `/etc/linux_maint/config_paths.txt` | Gate file | `/etc/ssh/sshd_config` |
+| `user_monitor.sh` (users) | `/etc/linux_maint/baseline_users.txt` | Gate file | `enable` |
+| `user_monitor.sh` (sudoers) | `/etc/linux_maint/baseline_sudoers.txt` | Gate file | `enable` |
+| `backup_check.sh` | `/etc/linux_maint/backup_targets.csv` | Yes | `localhost,/backups/*.tar.gz,100,48,tar` |
+
 
 ### Wrapper summary counters
 
