@@ -8,6 +8,14 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-02-24
 
+- Release v0.2.3
+- Added SSH strict-mode quickstart and history usage tips in operator docs.
+- Added seed_known_hosts tests and SSH allowlist/strict-mode examples in config template.
+- Added history JSON contract version and run_index versioning with schema/test updates.
+- Added docs-check to dev workflow and improved release-prep automation.
+
+## 2026-02-24
+
 - Release v0.2.2
 - Added SSH known_hosts seeding helper and allowlist guidance for safer fleet SSH.
 - Added run_index JSON schema + history contract notes, plus Prometheus contract notes.
