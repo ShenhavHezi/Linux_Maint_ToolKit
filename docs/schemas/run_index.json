@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint run_index.jsonl entry",
+  "type": "object",
+  "required": ["timestamp", "overall", "exit_code", "hosts"],
+  "properties": {
+    "timestamp": { "type": "string" },
+    "timestamp_epoch": { "type": ["integer", "null"] },
+    "overall": { "type": "string" },
+    "exit_code": { "type": "integer" },
+    "logfile": { "type": ["string", "null"] },
+    "summary_file": { "type": ["string", "null"] },
+    "summary_json": { "type": ["string", "null"] },
+    "hosts": {
+      "type": "object",
+      "required": ["ok", "warn", "crit", "unknown", "skipped"],
+      "properties": {
+        "ok": { "type": "integer" },
+        "warn": { "type": "integer" },
+        "crit": { "type": "integer" },
+        "unknown": { "type": "integer" },
+        "skipped": { "type": "integer" }
+      }
+    },
+    "top_reasons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["reason", "count"],
+        "properties": {
+          "reason": { "type": "string" },
+          "count": { "type": "integer" }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

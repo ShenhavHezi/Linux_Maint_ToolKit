@@ -72,12 +72,16 @@ sudo linux-maint self-check --compact
 # JSON schemas (validation)
 docs/schemas/report.json
 docs/schemas/history.json
+docs/schemas/run_index.json
 
 # Filter by host/monitor/status
 sudo linux-maint status --host web --monitor service --only WARN
 
 # Regex matching mode for host/monitor filters
 sudo linux-maint status --host '^web-[0-9]+$' --match-mode regex
+
+# Seed known_hosts for strict SSH mode
+sudo /usr/local/libexec/linux_maint/seed_known_hosts.sh --hosts-file /etc/linux_maint/servers.txt
 
 # Focus on recent run artifacts only
 sudo linux-maint status --since 2h
@@ -110,6 +114,7 @@ sudo linux-maint export --csv
 # Prometheus textfile output (written by wrapper)
 # Default: /var/lib/node_exporter/textfile_collector/linux_maint.prom
 # Also includes linux_maint_last_run_age_seconds
+# Contract notes: status labels are stable (ok|warn|crit|unknown|skipped); reason labels are top-N only.
 
 # Diff in JSON (automation)
 sudo linux-maint diff --json

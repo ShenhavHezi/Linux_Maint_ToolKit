@@ -26,6 +26,21 @@ monitor=<name> host=<host> status=<OK|WARN|CRIT|UNKNOWN|SKIP> node=<runner> [rea
 
 These are cross-monitor, reusable tokens. Prefer these before inventing a new one.
 
+## Top 10 reasons (quick reference)
+
+These are the most common operator-facing reasons. Use them for first-line triage:
+
+- `missing_dependency` — required command missing on runner/host
+- `missing_optional_cmd` — optional command missing (monitor skipped/degraded)
+- `ssh_unreachable` — cannot reach host via SSH / command execution
+- `service_failed` — systemd unit in failed state
+- `service_inactive` — systemd unit inactive/disabled
+- `timeout` — command timed out
+- `config_missing` — required config file missing
+- `baseline_missing` — baseline not found (expected on first run)
+- `security_updates_pending` — security updates available
+- `timer_missing` — systemd timer unit not installed
+
 ### Common
 - `ssh_unreachable` — cannot reach host via SSH / command execution
 - `missing_dependency` — required command missing on runner/host

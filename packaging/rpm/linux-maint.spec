@@ -51,6 +51,7 @@ install -m 0755 lib/linux_maint.sh %{buildroot}/usr/lib/linux_maint.sh
 # monitors + tools
 install -m 0755 monitors/*.sh %{buildroot}/usr/libexec/linux_maint/
 install -m 0755 tools/summary_diff.py %{buildroot}/usr/libexec/linux_maint/summary_diff.py
+install -m 0755 tools/seed_known_hosts.sh %{buildroot}/usr/libexec/linux_maint/seed_known_hosts.sh
 
 # operator docs (for dark-site usage and `linux-maint explain`)
 cp -a docs/*.md %{buildroot}/usr/share/Linux_Maint_ToolKit/docs/ 2>/dev/null || true

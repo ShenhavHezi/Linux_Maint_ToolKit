@@ -13,7 +13,9 @@ Start here to navigate operator and contributor documentation.
 - Reason tokens: `docs/REASONS.md`
 - Day-2 ops: `docs/DAY2.md`
 - Operations quickstart: `docs/OPERATIONS.md`
+- Upgrade and rollback: `docs/UPGRADE.md`
 - Artifacts and logs: `docs/ARTIFACTS.md`
+- Reasons quick reference: `docs/REASONS.md#top-10-reasons-quick-reference`
 - Short index (quick links): `docs/INDEX.md`
 
 ## Contributor docs

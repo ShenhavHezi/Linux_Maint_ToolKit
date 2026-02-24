@@ -147,6 +147,7 @@ run_required "status_since_test" bash "$ROOT_DIR/tests/status_since_test.sh"
 run_required "trend_command_test" bash "$ROOT_DIR/tests/trend_command_test.sh"
 run_required "runtimes_json_fields_test" bash "$ROOT_DIR/tests/runtimes_json_fields_test.sh"
 run_required "summary_json_schema_test" bash "$ROOT_DIR/tests/summary_json_schema_test.sh"
+run_required "run_index_schema_test" bash "$ROOT_DIR/tests/run_index_schema_test.sh"
 fi
 
 # Sudo-gated tests

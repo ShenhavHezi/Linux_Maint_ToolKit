@@ -74,6 +74,7 @@ For JSON payloads and full contracts, see `docs/reference.md`.
 - Quick reference: `docs/QUICK_REFERENCE.md`
 - Full reference (monitors, outputs, contracts): `docs/reference.md`
 - Installation: `docs/installation.md`
+- Upgrade / rollback: `docs/UPGRADE.md`
 - Troubleshooting: `docs/troubleshooting.md`
 
 Pinned docs:

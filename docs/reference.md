@@ -491,6 +491,20 @@ Top-level keys:
 Schema:
 - `docs/schemas/metrics.json` — JSON schema for `linux-maint metrics --json`.
 
+### `linux-maint history --json` compatibility contract
+
+Top-level keys:
+- `runs` (array of run index entries; newest first)
+
+Compatibility policy:
+- Existing keys/types above are treated as stable for contract version `1`.
+- Additive keys may be introduced without breaking compatibility.
+- Breaking shape/type changes require incrementing a contract version and schema update.
+
+Schemas:
+- `docs/schemas/history.json` — JSON schema for `linux-maint history --json`.
+- `docs/schemas/run_index.json` — JSON schema for each `run_index.jsonl` entry.
+
 ### `linux-maint config --json` compatibility contract
 
 Top-level keys:
@@ -675,6 +689,24 @@ Notes:
 - If you enable strict host key verification in your environment, pre-populate the dedicated known_hosts file used by `UserKnownHostsFile`.
 - `LM_SSH_KNOWN_HOSTS_MODE=strict|accept-new` toggles `StrictHostKeyChecking` when `LM_SSH_OPTS` is not explicitly set.
 
+Seeding `known_hosts` for strict mode:
+
+```bash
+# repo mode
+sudo ./tools/seed_known_hosts.sh --hosts-file /etc/linux_maint/servers.txt
+
+# installed mode
+sudo /usr/local/libexec/linux_maint/seed_known_hosts.sh --hosts-file /etc/linux_maint/servers.txt
+```
+
+Recommended `LM_SSH_ALLOWLIST` example (place in `/etc/linux_maint/linux-maint.conf`):
+
+```bash
+LM_SSH_ALLOWLIST='^bash -lc |^command -v |^df |^ss |^netstat |^systemctl |^ping |^nc |^curl |^timeout |^chronyc |^ntpq |^timedatectl |^mountpoint |^stat |^uname '
+```
+
+Start with a broad allowlist, then tighten it based on blocked-command warnings in logs.
+
 Validation guardrails (in `linux-maint run`):
 
 ### Least-privilege guidance (SSH mode)
@@ -811,6 +843,9 @@ The wrapper also appends a compact run index entry (JSONL) to:
 
 You can control retention with `LM_RUN_INDEX_KEEP` (default 200).
 
+Run index schema:
+- `docs/schemas/run_index.json` — JSON schema for each JSONL entry.
+
 Optional: Prometheus export (textfile collector format)
 
 - Default path: `/var/lib/node_exporter/textfile_collector/linux_maint.prom`
@@ -823,6 +858,13 @@ Optional: Prometheus export (textfile collector format)
 - `linux_maint_monitor_runtime_ms{monitor="..."}` — per-monitor runtime in milliseconds (wrapper)
 - `linux_maint_runtime_warn_count` — count of monitors exceeding runtime warn thresholds
 - `LM_PROM_FORMAT=openmetrics` — append `# EOF` for OpenMetrics-compatible output.
+
+Prometheus contract notes:
+- Metric names and label keys are stable; new metrics may be added over time.
+- `status` label values are stable: `ok|warn|crit|unknown|skipped` (lowercase).
+- `linux_maint_monitor_status` uses the exit-code scale: `OK=0`, `WARN=1`, `CRIT=2`, `UNKNOWN/SKIP=3`.
+- `linux_maint_overall_status` is the overall exit-code scale value for the last run.
+- `linux_maint_reason_count` only emits the top N reasons (bounded by `LM_PROM_MAX_REASON_LABELS`), so rare reasons may be omitted.
 
 Each script prints a **single one-line summary** to stdout so the wrapper log stays readable.
 
