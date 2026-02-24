@@ -61,20 +61,24 @@ jobs:
         include:
           - distro: ubuntu-24.04
             image: ubuntu:24.04
-            pkg_install: apt-get update && apt-get install -y bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute2
+            pkg_install: apt-get update && apt-get install -y bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute2 git
             allow_failure: false
+            legacy_checkout: false
           - distro: debian-12
             image: debian:12
-            pkg_install: apt-get update && apt-get install -y bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute2
+            pkg_install: apt-get update && apt-get install -y bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute2 git
             allow_failure: false
+            legacy_checkout: false
           - distro: ubuntu-18.04
             image: ubuntu:18.04
-            pkg_install: apt-get update && apt-get install -y bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute2
+            pkg_install: apt-get update && apt-get install -y bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute2 git
             allow_failure: false
+            legacy_checkout: true
           - distro: centos-7
             image: centos:7
-            pkg_install: yum -y install bash coreutils findutils gawk grep sed tar gzip openssl iproute python3 || yum -y install python36 || true
+            pkg_install: yum -y install bash coreutils findutils gawk grep sed tar gzip openssl iproute python3 git || yum -y install python36 git || true
             allow_failure: true
+            legacy_checkout: true
     container:
       image: ${{ matrix.image }}
     steps:
@@ -85,8 +89,20 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           bash -lc "${{ matrix.pkg_install }}"
 
-      - name: Checkout
+      - name: Checkout (actions)
+        if: ${{ !matrix.legacy_checkout }}
         uses: actions/checkout@v3
+
+      - name: Checkout (legacy manual)
+        if: ${{ matrix.legacy_checkout }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf ./*
+          git init .
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git -c protocol.version=2 fetch --no-tags --prune --depth=1 origin "${GITHUB_SHA}"
+          git checkout --force FETCH_HEAD
 
       - name: Bash version
         run: |
