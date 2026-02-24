@@ -21,23 +21,7 @@ Primary audiences: operators, sysadmins, and SREs working in constrained or airâ
 
 ## P0 â€” Correctness / safety (next)
 
-1. Summary JSON schema contract
-   Outcome: JSON schema for wrapper summary JSON (`full_health_monitor_summary_latest.json`).
-   Acceptance: schema file added and validated in tests.
-
-2. Output cleanliness guardrail
-   Outcome: ensure JSON/summary outputs never contain ANSI/control chars even when color is forced.
-   Acceptance: tests assert outputs are clean across key commands.
-
-3. Installed-mode sanity check
-   Outcome: minimal installed-mode validation (paths, config, and logs) runs in CI and locally.
-   Acceptance: CI verifies `/usr/local` layout, `/etc/linux_maint` presence, and expected artifacts.
-
-4. Strict status validation
-   Outcome: optional `status --strict` to fail if summary/JSON are malformed.
-   Acceptance: strict mode returns non-zero on invalid summary/JSON with clear error.
-
-5. Core command contract checklist
+1. Core command contract checklist
    Outcome: doc/checklist covering `status/report/summary/diff` output guarantees.
    Acceptance: contract doc linked from docs index; changes require checklist review.
 

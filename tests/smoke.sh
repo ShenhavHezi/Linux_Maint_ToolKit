@@ -125,6 +125,7 @@ run_required "ntp_chrony_parsing_variants_test" bash "$ROOT_DIR/tests/ntp_chrony
 run_required "log_spike_fixture_test" bash "$ROOT_DIR/tests/log_spike_fixture_test.sh"
 run_required "cert_monitor_scan_dir_test" bash "$ROOT_DIR/tests/cert_monitor_scan_dir_test.sh"
 run_required "verify_install_test" bash "$ROOT_DIR/tests/verify_install_test.sh"
+run_required "installed_mode_sanity_test" bash "$ROOT_DIR/tests/installed_mode_sanity_test.sh"
 run_required "init_minimal_idempotent_test" bash "$ROOT_DIR/tests/init_minimal_idempotent_test.sh"
 run_required "pack_logs_test" bash "$ROOT_DIR/tests/pack_logs_test.sh"
 run_required "release_verify_test" bash "$ROOT_DIR/tests/release_verify_test.sh"
