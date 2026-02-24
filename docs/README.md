@@ -20,6 +20,7 @@ Start here to navigate operator and contributor documentation.
 
 - Contributing: `CONTRIBUTING.md`
 - Development notes: `docs/development.md`
+- Command contract checklist: `docs/COMMAND_CONTRACT_CHECKLIST.md`
 - Release checklist: `docs/RELEASE_CHECKLIST.md`
 - Release template: `docs/RELEASE_TEMPLATE.md`
 - Release notes (latest): `docs/release_notes_v0.1.8.md`, `docs/release_notes_v0.1.7.md`

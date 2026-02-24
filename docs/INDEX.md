@@ -12,6 +12,7 @@ Quick links:
 - [`docs/DAY2.md`](DAY2.md)
 - [`docs/OPERATIONS.md`](OPERATIONS.md)
 - [`docs/ARTIFACTS.md`](ARTIFACTS.md)
+- [`docs/COMMAND_CONTRACT_CHECKLIST.md`](COMMAND_CONTRACT_CHECKLIST.md)
 - [`docs/RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md)
 - [`docs/RELEASE_TEMPLATE.md`](RELEASE_TEMPLATE.md)
 - [`docs/security_best_practices_report.md`](security_best_practices_report.md)

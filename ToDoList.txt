@@ -21,9 +21,7 @@ Primary audiences: operators, sysadmins, and SREs working in constrained or airâ
 
 ## P0 â€” Correctness / safety (next)
 
-1. Core command contract checklist
-   Outcome: doc/checklist covering `status/report/summary/diff` output guarantees.
-   Acceptance: contract doc linked from docs index; changes require checklist review.
+No P0 items currently.
 
 ---
 
