@@ -26,6 +26,11 @@ EOF
 
 out="$(LM_NOTIFY_STATE_DIR="$workdir" bash "$LM" diff --json 2>/dev/null || true)"
 
+if [ -z "$out" ]; then
+  echo "diff --json produced no output" >&2
+  exit 1
+fi
+
 printf '%s' "$out" | python3 "$ROOT_DIR/tools/json_schema_validate.py" "$ROOT_DIR/docs/schemas/diff.json"
 python3 - <<'PY' "$out"
 import json,sys

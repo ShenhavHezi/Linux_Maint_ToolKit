@@ -9,12 +9,11 @@ Contract (high level):
 - Key-budget guardrails: global max keys with optional per-monitor overrides.
 """
 
-from __future__ import annotations
-
 import os
 import re
 import sys
 from pathlib import Path
+from typing import Dict, List, Set, Tuple
 
 REQUIRED = {"monitor", "host", "status", "node"}
 VALID_STATUS = {"OK", "WARN", "CRIT", "UNKNOWN", "SKIP"}
@@ -31,8 +30,8 @@ def die(msg: str) -> None:
     sys.exit(1)
 
 
-def parse_monitor_limits(raw: str) -> dict[str, int]:
-    out: dict[str, int] = {}
+def parse_monitor_limits(raw: str) -> Dict[str, int]:
+    out: Dict[str, int] = {}
     for part in raw.split(","):
         part = part.strip()
         if not part:
@@ -48,9 +47,9 @@ def parse_monitor_limits(raw: str) -> dict[str, int]:
     return out
 
 
-def parse_kv_line(line: str) -> list[tuple[str, str]]:
+def parse_kv_line(line: str) -> List[Tuple[str, str]]:
     tokens = [t for t in line.strip().split(" ") if t]
-    out: list[tuple[str, str]] = []
+    out: List[Tuple[str, str]] = []
     for t in tokens:
         if "=" not in t:
             die(f"non key=value token: {t!r} in line: {line!r}")
@@ -88,7 +87,7 @@ def main() -> None:
         kvs = parse_kv_line(line)
         keys = [k for k, _ in kvs]
 
-        seen: set[str] = set()
+        seen: Set[str] = set()
         dups = []
         for k in keys:
             if k in seen:
