@@ -368,6 +368,7 @@ Output:
   --group-by host|monitor|reason
   --problems N             cap problem list (max 100)
   --reasons N              top reasons rollup (max 20)
+  --strict                 fail if summary lines are malformed
 EOF
       ;;
     report)
@@ -1588,6 +1589,7 @@ PY
     EXPECTED_SKIPS=0
     GROUP_BY=""
     PROM=0
+    STRICT=0
 
 
     while [[ $# -gt 0 ]]; do
@@ -1611,6 +1613,7 @@ PY
         --prom) PROM=1; shift 1;;
         --since) SINCE="$2"; shift 2;;
         --last) LAST_N="$2"; shift 2;;
+        --strict) STRICT=1; shift 1;;
         -h|--help)
           command_usage status
           exit 0;;
@@ -1710,6 +1713,99 @@ for st in ["OK","WARN","CRIT","UNKNOWN","SKIP"]:
     print(f"linux_maint_status_count{{status=\"{st.lower()}\"}} {counts.get(st,0)}")
 PY
       exit 0
+    fi
+
+    # Optional strict validation of summary lines (ensure monitor/host/status are valid).
+    if [[ "$STRICT" -eq 1 ]]; then
+      # Resolve summary file path the same way status does.
+      if [[ "$MODE" == "repo" ]]; then
+        summary_file="$REPO_SUMMARY_LATEST"
+        log_dir="$REPO_LOG_DIR"
+      else
+        summary_file="$INST_SUMMARY_LATEST"
+        log_dir="/var/log/health"
+      fi
+      if [[ -n "$SINCE" ]]; then
+        tmp_since="$(mktemp -p "$TMPDIR" linux_maint_status_since.XXXXXX.log)"
+        _run_tmpfiles+=("$tmp_since")
+        python3 - "$log_dir" "$SINCE" <<'PY' | while IFS= read -r f; do
+import os, re, sys, time
+log_dir, since = sys.argv[1:3]
+m = re.match(r'^(\d+)([smhd])$', since)
+if not m:
+    sys.exit(2)
+num = int(m.group(1))
+unit = m.group(2)
+mult = {'s':1, 'm':60, 'h':3600, 'd':86400}[unit]
+cutoff = time.time() - (num * mult)
+pat = re.compile(r'^full_health_monitor_summary_(\d{4}-\d{2}-\d{2})_(\d{6})\.log$')
+rows=[]
+try:
+    names=os.listdir(log_dir)
+except FileNotFoundError:
+    names=[]
+for name in names:
+    m2 = pat.match(name)
+    if not m2:
+        continue
+    ts=f"{m2.group(1)} {m2.group(2)}"
+    try:
+        epoch=time.mktime(time.strptime(ts, "%Y-%m-%d %H%M%S"))
+    except Exception:
+        continue
+    if epoch >= cutoff:
+        rows.append((epoch, os.path.join(log_dir, name)))
+rows.sort()
+for _,p in rows:
+    print(p)
+PY
+          [[ -f "$f" ]] && cat "$f" >> "$tmp_since"
+        done
+        summary_file="$tmp_since"
+      fi
+      if [[ ! -f "$summary_file" ]]; then
+        echo "ERROR: strict status validation failed (missing summary file: $summary_file)" >&2
+        exit 2
+      fi
+      if ! python3 - "$summary_file" <<'PY'
+import sys
+path = sys.argv[1]
+allowed = {"OK","WARN","CRIT","UNKNOWN","SKIP"}
+had = False
+with open(path, "r", encoding="utf-8", errors="ignore") as f:
+    for line in f:
+        line = line.strip()
+        if not line.startswith("monitor="):
+            continue
+        had = True
+        has_monitor = has_host = has_status = False
+        status = ""
+        for tok in line.split():
+            if "=" not in tok:
+                print(f"bad token: {tok}", file=sys.stderr)
+                sys.exit(2)
+            key, val = tok.split("=", 1)
+            if key == "monitor":
+                has_monitor = True
+            elif key == "host":
+                has_host = True
+            elif key == "status":
+                has_status = True
+                status = val
+        if not (has_monitor and has_host and has_status):
+            print(f"missing required fields: {line}", file=sys.stderr)
+            sys.exit(2)
+        if status not in allowed:
+            print(f"invalid status: {status}", file=sys.stderr)
+            sys.exit(2)
+if not had:
+    print("no monitor= lines found", file=sys.stderr)
+    sys.exit(2)
+PY
+      then
+        echo "ERROR: strict status validation failed" >&2
+        exit 2
+      fi
     fi
 
     case "$MATCH_MODE" in

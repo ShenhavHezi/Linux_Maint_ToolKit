@@ -81,6 +81,7 @@ run_required "status_last_color_test" bash "$ROOT_DIR/tests/status_last_color_te
 run_required "status_group_by_test" bash "$ROOT_DIR/tests/status_group_by_test.sh"
 run_required "status_expected_skips_banner_test" bash "$ROOT_DIR/tests/status_expected_skips_banner_test.sh"
 run_required "status_prom_test" bash "$ROOT_DIR/tests/status_prom_test.sh"
+run_required "status_strict_test" bash "$ROOT_DIR/tests/status_strict_test.sh"
 run_required "help_command_test" bash "$ROOT_DIR/tests/help_command_test.sh"
 run_required "color_precedence_test" bash "$ROOT_DIR/tests/color_precedence_test.sh"
 run_required "progress_tty_test" bash "$ROOT_DIR/tests/progress_tty_test.sh"
