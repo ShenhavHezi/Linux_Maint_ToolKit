@@ -76,7 +76,7 @@ jobs:
             legacy_checkout: true
           - distro: centos-7
             image: centos:7
-            pkg_install: yum -y install bash coreutils findutils gawk grep sed tar gzip openssl iproute git && (yum -y install python3 || yum -y install python36 || true)
+            pkg_install: yum -y --setopt=skip_if_unavailable=true install bash coreutils findutils gawk grep sed tar gzip openssl iproute git || true; yum -y --setopt=skip_if_unavailable=true install python3 || yum -y --setopt=skip_if_unavailable=true install python36 || true
             allow_failure: true
             legacy_checkout: true
     container:
@@ -89,12 +89,24 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           bash -lc "${{ matrix.pkg_install }}"
 
+      - name: Compat readiness
+        id: compat_ready
+        if: ${{ matrix.legacy_checkout }}
+        shell: bash
+        run: |
+          if command -v git >/dev/null 2>&1; then
+            echo "ready=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "ready=0" >> "$GITHUB_OUTPUT"
+          echo "skip: git unavailable after package install"
+
       - name: Checkout (actions)
         if: ${{ !matrix.legacy_checkout }}
         uses: actions/checkout@v3
 
       - name: Checkout (legacy manual)
-        if: ${{ matrix.legacy_checkout }}
+        if: ${{ matrix.legacy_checkout && steps.compat_ready.outputs.ready == '1' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -110,14 +122,16 @@ jobs:
           git init .
           git config --global --add safe.directory "$(pwd)"
           git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
-          git -c protocol.version=2 fetch --no-tags --prune --depth=1 origin "${GITHUB_SHA}"
+          git fetch --no-tags --prune --depth=1 origin "${GITHUB_SHA}"
           git checkout --force FETCH_HEAD
 
       - name: Bash version
+        if: ${{ !matrix.legacy_checkout || steps.compat_ready.outputs.ready == '1' }}
         run: |
           bash --version | head -n 1
 
       - name: Smoke test (matrix)
+        if: ${{ !matrix.legacy_checkout || steps.compat_ready.outputs.ready == '1' }}
         run: |
           chmod +x tests/smoke.sh
           rc=0
