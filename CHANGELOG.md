@@ -8,6 +8,14 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-02-24
 
+- Release v0.2.5
+- Stabilized wrapper SKIP reasons (config_missing/baseline_missing + missing=... detail).
+- Fixed diff --json to emit clean JSON-only output.
+- Restored Python 3.6 compatibility for summary lint tooling.
+- Fixed compat fixture naming in tests.
+
+## 2026-02-24
+
 - Release v0.2.4
 - Expanded metrics JSON with severity totals, host counts, and per-monitor durations.
 - Added JSON schemas/tests for diff and self-check outputs.
