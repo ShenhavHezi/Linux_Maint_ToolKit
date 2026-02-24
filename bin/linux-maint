@@ -6,6 +6,16 @@ set -euo pipefail
 # Prefer a writable temp dir when creating tmp files.
 TMPDIR="${TMPDIR:-/tmp}"
 
+# If any command requests JSON, disable color and progress globally.
+for arg in "$@"; do
+  if [[ "$arg" == "--json" ]]; then
+    export LM_NO_COLOR=1
+    export LM_PROGRESS=0
+    export LM_HOST_PROGRESS=0
+    break
+  fi
+done
+
 # Color handling (opt-out via NO_COLOR/LM_NO_COLOR or --no-color)
 LM_COLOR="${LM_COLOR:-1}"
 color_enabled() {
@@ -319,6 +329,8 @@ ${C_CYAN}Examples${C_RESET}:
   linux-maint run --group prod --parallel 10 --dry-run
   linux-maint status --only WARN --reasons 5
   linux-maint report --short
+  linux-maint trend --last 10 --json
+  linux-maint diff --json
   linux-maint pack-logs --out /tmp --redact
 
 ${C_CYAN}Tips${C_RESET}:

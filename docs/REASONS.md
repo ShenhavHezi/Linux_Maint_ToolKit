@@ -41,6 +41,18 @@ These are the most common operator-facing reasons. Use them for first-line triag
 - `security_updates_pending` — security updates available
 - `timer_missing` — systemd timer unit not installed
 
+Suggested first actions:
+- `missing_dependency`: install the listed tool on the runner or target host.
+- `missing_optional_cmd`: install the optional tool or accept the SKIP until needed.
+- `ssh_unreachable`: verify DNS, keys, firewall, and `LM_SSH_OPTS`.
+- `service_failed`: check `systemctl status <unit>` and recent logs.
+- `service_inactive`: enable or start the unit if required for your environment.
+- `timeout`: increase `MONITOR_TIMEOUT_SECS` or per-monitor timeouts, then re-run.
+- `config_missing`: run `sudo linux-maint init` and populate the file.
+- `baseline_missing`: generate the baseline or allow baseline auto-init where supported.
+- `security_updates_pending`: run your distro update workflow, then re-check.
+- `timer_missing`: install/enable `linux-maint.timer` in installed mode.
+
 ### Common
 - `ssh_unreachable` — cannot reach host via SSH / command execution
 - `missing_dependency` — required command missing on runner/host

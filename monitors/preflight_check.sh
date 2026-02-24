@@ -25,6 +25,9 @@ lm_require_singleton "preflight_check"
 
 # Required commands
 REQ_CMDS=(awk sed grep df ssh)
+# Minimum supported bash version (uses associative arrays)
+REQ_BASH_MAJOR=4
+REQ_BASH_MINOR=2
 # Optional commands that improve coverage
 OPT_CMDS=(openssl ss netstat journalctl smartctl nvme mail timeout)
 # Allow override via space-separated list (e.g. "openssl ss journalctl")
@@ -51,6 +54,13 @@ main(){
 
   local missing_req=0 missing_opt=0
   local miss_req_list="" miss_opt_list=""
+
+  local bash_major="${BASH_VERSINFO[0]:-0}"
+  local bash_minor="${BASH_VERSINFO[1]:-0}"
+  if [[ "$bash_major" -lt "$REQ_BASH_MAJOR" || ( "$bash_major" -eq "$REQ_BASH_MAJOR" && "$bash_minor" -lt "$REQ_BASH_MINOR" ) ]]; then
+    missing_req=$((missing_req+1))
+    miss_req_list+="bash>=${REQ_BASH_MAJOR}.${REQ_BASH_MINOR},"
+  fi
 
   for c in "${REQ_CMDS[@]}"; do
     if ! has "$c"; then

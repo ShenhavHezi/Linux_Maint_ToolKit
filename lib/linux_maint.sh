@@ -454,21 +454,50 @@ lm_hosts() {
   #  3) fallback: localhost
 
   local group_file=""
+  local src_file=""
   if [ -n "${LM_GROUP:-}" ]; then
     group_file="${LM_HOSTS_DIR:-/etc/linux_maint/hosts.d}/${LM_GROUP}.txt"
     if [ -f "$group_file" ]; then
-      grep -vE '^[[:space:]]*($|#)' "$group_file"
-      return 0
+      src_file="$group_file"
     else
       lm_warn "LM_GROUP set to '${LM_GROUP}' but group file not found: $group_file"
     fi
   fi
 
-  if [ -f "$LM_SERVERLIST" ]; then
-    grep -vE '^[[:space:]]*($|#)' "$LM_SERVERLIST"
-  else
-    echo "localhost"
+  if [ -z "$src_file" ] && [ -f "$LM_SERVERLIST" ]; then
+    src_file="$LM_SERVERLIST"
   fi
+
+  if [ -z "$src_file" ]; then
+    echo "localhost"
+    return 0
+  fi
+
+  awk -v excluded="${LM_EXCLUDED:-}" '
+    function trim(s){gsub(/^[ \t]+|[ \t]+$/, "", s); return s}
+    function load_excluded(path,  line){
+      if(path=="" || system("test -f " path " >/dev/null 2>&1")!=0) return
+      while((getline line < path) > 0){
+        sub(/#.*/, "", line)
+        line=trim(line)
+        if(line!="") ex[line]=1
+      }
+      close(path)
+    }
+    BEGIN { load_excluded(excluded) }
+    {
+      line=$0
+      sub(/#.*/, "", line)
+      gsub(/,/, " ", line)
+      n=split(line, a, /[[:space:]]+/)
+      for(i=1;i<=n;i++){
+        h=a[i]
+        if(h=="") continue
+        if(h in ex) continue
+        if(!(h in seen)){ print h; seen[h]=1 }
+      }
+    }
+  ' "$src_file"
 }
 
 
@@ -721,15 +750,21 @@ lm_summary() {
   local line
   local args=("$@")
   local reason=""
+  local has_reason=0
   local has_next_step=0
   local allow_next_step=1
   local tok
   for tok in "${args[@]}"; do
     case "$tok" in
-      reason=*) reason="${tok#reason=}" ;;
+      reason=*) reason="${tok#reason=}"; has_reason=1 ;;
       next_step=*) has_next_step=1 ;;
     esac
   done
+  if [[ -z "$reason" && "$status" != "OK" ]]; then
+    reason="unknown"
+    args+=("reason=$reason")
+    has_reason=1
+  fi
   if [[ -n "${LM_SUMMARY_ALLOWLIST:-}" ]]; then
     allow_next_step=0
     if printf '%s' "${LM_SUMMARY_ALLOWLIST}" | tr ', ' '\n' | awk 'NF{print $1}' | grep -qx 'next_step'; then
@@ -753,6 +788,13 @@ lm_summary() {
   if [[ -n "${LM_SUMMARY_ALLOWLIST:-}" ]]; then
     local allowlist
     allowlist="$(printf '%s' "${LM_SUMMARY_ALLOWLIST}" | tr ', ' '\n' | awk 'NF{print $1}' | paste -sd '|' -)"
+    if [[ -n "$reason" ]]; then
+      if [[ -z "$allowlist" ]]; then
+        allowlist="reason"
+      elif ! printf '%s' "$allowlist" | grep -qE '(^|\\|)reason(\\||$)'; then
+        allowlist="${allowlist}|reason"
+      fi
+    fi
     local filtered=()
     local dropped=0
     local key

@@ -41,25 +41,25 @@ sudo zypper install -y smartmontools nvme-cli
 
 ## Monitor reference (what checks what)
 
-| Script | Purpose | Config required to be useful | Typical WARN/CRIT causes |
+| Script | Purpose | Config file (if any) | Typical WARN/CRIT causes |
 |---|---|---|---|
 | `health_monitor.sh` | CPU/mem/load/disk/top snapshot | none | low disk, load spikes, memory pressure |
-| `filesystem_readonly_monitor.sh` | detect read-only mounts | none (optional excludes) | filesystems remounted read-only |
-| `inode_monitor.sh` | inode utilization thresholds | optional thresholds/excludes | inode exhaustion |
-| `network_monitor.sh` | ping/tcp/http checks | `network_targets.txt` | packet loss, TCP connect fail, HTTP latency/status |
-| `service_monitor.sh` | service health (systemd) | `services.txt` | inactive/failed services |
+| `filesystem_readonly_monitor.sh` | detect read-only mounts | none (optional excludes via env) | filesystems remounted read-only |
+| `inode_monitor.sh` | inode utilization thresholds | `/etc/linux_maint/inode_thresholds.txt` (optional excludes) | inode exhaustion |
+| `network_monitor.sh` | ping/tcp/http checks | `/etc/linux_maint/network_targets.txt` | packet loss, TCP connect fail, HTTP latency/status |
+| `service_monitor.sh` | service health (systemd) | `/etc/linux_maint/services.txt` | inactive/failed services |
 | `timer_monitor.sh` | linux-maint timer health (systemd) | none (systemd required) | timer missing/disabled/inactive |
 | `last_run_age_monitor.sh` | wrapper last-run freshness | none (optional threshold/log dir) | missing/stale wrapper logs |
 | `ntp_drift_monitor.sh` | time sync health | none | unsynced clock, high offset |
 | `patch_monitor.sh` | pending updates/reboot hints | none | security updates pending, reboot required |
 | `storage_health_monitor.sh` | RAID/SMART/NVMe storage health | none (best-effort) | degraded RAID, SMART failures, NVMe critical warnings |
 | `kernel_events_monitor.sh` | kernel log scan (OOM/I/O/FS/hung tasks) | none (journalctl recommended) | OOM killer events, disk I/O errors, filesystem errors |
-| `cert_monitor.sh` | certificate expiry | `certs.txt` | expiring/expired certs, verify failures |
+| `cert_monitor.sh` | certificate expiry | `/etc/linux_maint/certs.txt` | expiring/expired certs, verify failures |
 | `nfs_mount_monitor.sh` | NFS mounted + responsive | none | stale/unresponsive mounts |
-| `ports_baseline_monitor.sh` | port drift vs baseline | `ports_baseline.txt` (gate) | new/removed listening ports |
-| `config_drift_monitor.sh` | config drift vs baseline | `config_paths.txt` | changed hashes vs baseline |
-| `user_monitor.sh` | user/sudoers drift + SSH failures | baseline inputs | new users, sudoers changed, brute-force attempts |
-| `backup_check.sh` | backup freshness/integrity | `backup_targets.csv` | old/missing/small/corrupt backups |
+| `ports_baseline_monitor.sh` | port drift vs baseline | `/etc/linux_maint/ports_baseline.txt` | new/removed listening ports |
+| `config_drift_monitor.sh` | config drift vs baseline | `/etc/linux_maint/config_paths.txt` | changed hashes vs baseline |
+| `user_monitor.sh` | user/sudoers drift + SSH failures | `/etc/linux_maint/baseline_users.txt`, `/etc/linux_maint/baseline_sudoers.txt` | new users, sudoers changed, brute-force attempts |
+| `backup_check.sh` | backup freshness/integrity | `/etc/linux_maint/backup_targets.csv` | old/missing/small/corrupt backups |
 | `inventory_export.sh` | HW/SW inventory CSV | none | collection failures |
 
 ## What to check next (quick hints)

@@ -37,6 +37,15 @@ sudo ./run_full_health_monitor.sh
 sudo ./bin/linux-maint status
 ```
 
+Air-gapped quickstart (installed mode):
+
+```bash
+sudo ./install.sh --with-user --with-timer --with-logrotate
+sudo linux-maint init --minimal
+sudo linux-maint run
+sudo linux-maint status
+```
+
 For installed mode and timers, see `docs/installation.md`.
 
 ## Configuration
@@ -50,6 +59,8 @@ Start here:
 
 - **Repo mode**: run from a git checkout (uses repo paths and `.logs/`).
 - **Installed mode**: run from `/usr/local` with config in `/etc/linux_maint`.
+  - Repo mode logs live under `.logs/` and are safe for non-root tests.
+  - Installed mode logs live under `/var/log/health` and require root.
 
 Install steps and timers: `docs/installation.md`.
 
@@ -92,3 +103,13 @@ See `docs/DARK_SITE.md` for offline install steps and bootstrap checklist.
 bash tests/smoke.sh
 bash tests/summary_contract.sh  # when touching summary/json/monitor output
 ```
+
+## Compatibility
+
+Primary target: RHEL 9. CI covers Ubuntu 24.04 and Debian 12 (container).
+
+Minimums:
+- bash 4.2+
+- coreutils, awk, sed, grep
+- openssh client for SSH mode
+- python3 for JSON tooling and contract tests

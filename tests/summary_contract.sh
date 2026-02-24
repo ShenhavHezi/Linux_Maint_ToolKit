@@ -24,6 +24,8 @@ if [[ -z "${TEST_TMP:-}" ]]; then
   exit 1
 fi
 export TMPDIR="${TMPDIR:-$TEST_TMP}"
+export LC_ALL="${LC_ALL:-C}"
+export TZ="${TZ:-UTC}"
 
 # Optional overrides for targeted tests/debugging.
 SUMMARY_CONTRACT_MONITORS_DIR="${SUMMARY_CONTRACT_MONITORS_DIR:-$ROOT_DIR/monitors}"

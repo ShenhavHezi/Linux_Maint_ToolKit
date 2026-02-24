@@ -83,7 +83,7 @@ def main(path: str) -> int:
         if st not in ALLOWED_STATUSES:
             bad_status += 1
             print(f"ERROR: invalid status={st} line={r}")
-        if st in {"WARN", "CRIT", "UNKNOWN"} and "reason" not in r:
+        if st in {"WARN", "CRIT", "UNKNOWN", "SKIP"} and "reason" not in r:
             missing_reason += 1
 
     # monitor emission check
@@ -103,11 +103,10 @@ def main(path: str) -> int:
         for m in missing_monitor_lines:
             print(f"- {m}")
 
-    # best-effort enforcement: missing_reason is a WARN unless other errors exist
     if missing_reason:
-        print(f"WARN: {missing_reason} non-OK monitor= lines are missing reason=")
+        print(f"ERROR: {missing_reason} non-OK monitor= lines are missing reason=")
 
-    if bad_status or missing_monitor_lines or missing_required or malformed:
+    if bad_status or missing_monitor_lines or missing_required or malformed or missing_reason:
         return 2
     return 0
 

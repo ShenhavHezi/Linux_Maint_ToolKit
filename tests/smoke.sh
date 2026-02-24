@@ -13,6 +13,8 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 TEST_TMP="${LM_TEST_TMPDIR:-$ROOT_DIR/.tmp_test}"
 mkdir -p "$TEST_TMP"
 export TMPDIR="$TEST_TMP"
+export LC_ALL="${LC_ALL:-C}"
+export TZ="${TZ:-UTC}"
 
 SMOKE_OK=0
 SMOKE_SKIPPED_OPTIONAL=3
@@ -48,6 +50,7 @@ run_required "lm_summary_strict_test" bash "$ROOT_DIR/tests/lm_summary_strict_te
 run_required "lm_summary_allowlist_test" bash "$ROOT_DIR/tests/lm_summary_allowlist_test.sh"
 run_required "lm_time_test" bash "$ROOT_DIR/tests/lm_time_test.sh"
 run_required "lm_ssh_allowlist_test" bash "$ROOT_DIR/tests/lm_ssh_allowlist_test.sh"
+run_required "hosts_parse_test" bash "$ROOT_DIR/tests/hosts_parse_test.sh"
 run_required "seed_known_hosts_test" bash "$ROOT_DIR/tests/seed_known_hosts_test.sh"
 run_required "lm_ssh_opts_guard_test" bash "$ROOT_DIR/tests/lm_ssh_opts_guard_test.sh"
 run_required "lm_log_json_test" bash "$ROOT_DIR/tests/lm_log_json_test.sh"

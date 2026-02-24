@@ -765,13 +765,32 @@ mkdir -p "$SUMMARY_DIR" 2>/dev/null || true
 tmp_mon=$(mktemp -p "$TMPDIR" linux_maint_mon.XXXXXX)
   grep -a '^monitor=' "$tmp_report" > "$tmp_mon" || true
   cat "$tmp_mon" > "$tmp_summary" 2>/dev/null || :
-{ cat "$tmp_summary" > "$SUMMARY_FILE"; } 2>/dev/null || true
+tmp_summary_file=""
+if tmp_summary_file="$(mktemp -p "$SUMMARY_DIR" full_health_monitor_summary.XXXXXX 2>/dev/null)"; then
+  { cat "$tmp_summary" > "$tmp_summary_file"; } 2>/dev/null || true
+  if [[ -s "$tmp_summary_file" ]]; then
+    mv -f "$tmp_summary_file" "$SUMMARY_FILE" 2>/dev/null || true
+  else
+    rm -f "$tmp_summary_file" 2>/dev/null || true
+  fi
+else
+  { cat "$tmp_summary" > "$SUMMARY_FILE"; } 2>/dev/null || true
+fi
 if [[ ! -s "$SUMMARY_FILE" ]]; then
   warn_line="monitor=wrapper host=runner status=WARN reason=summary_write_failed path=$SUMMARY_FILE"
   echo "WARN: summary write failed: $SUMMARY_FILE" >> "$tmp_report"
   echo "$warn_line" >> "$tmp_report"
   echo "$warn_line" >> "$tmp_summary"
-  { cat "$tmp_summary" > "$SUMMARY_FILE"; } 2>/dev/null || true
+  if [[ -n "$tmp_summary_file" ]]; then
+    { cat "$tmp_summary" > "$tmp_summary_file"; } 2>/dev/null || true
+    if [[ -s "$tmp_summary_file" ]]; then
+      mv -f "$tmp_summary_file" "$SUMMARY_FILE" 2>/dev/null || true
+    else
+      rm -f "$tmp_summary_file" 2>/dev/null || true
+    fi
+  else
+    { cat "$tmp_summary" > "$SUMMARY_FILE"; } 2>/dev/null || true
+  fi
   if [[ -s "$logfile" ]]; then
     printf '%s\n' "[WARN] summary write failed: $SUMMARY_FILE" >> "$logfile" 2>/dev/null || true
     printf '%s\n' "$warn_line" >> "$logfile" 2>/dev/null || true
@@ -783,7 +802,7 @@ rm -f "$tmp_summary" 2>/dev/null || true
 # Also write JSON + Prometheus outputs (best-effort)
 # shellcheck disable=SC2031
 SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" LM_HOSTS_OK="${hosts_ok:-0}" LM_HOSTS_WARN="${hosts_warn:-0}" LM_HOSTS_CRIT="${hosts_crit:-0}" LM_HOSTS_UNKNOWN="${hosts_unknown:-0}" LM_HOSTS_SKIPPED="${hosts_skip:-0}" LM_OVERALL="$overall" LM_EXIT_CODE="$worst" LM_STATUS_FILE="$STATUS_FILE" LM_RUNTIME_FILE="$runtime_file" LM_RUNTIME_WARN_COUNT="$runtime_warn_count" LM_RUN_EPOCH="$ts_epoch" python3 - <<'PY' || true
-import json, os
+import json, os, tempfile
 import time
 from datetime import datetime
 summary_file=os.environ.get("SUMMARY_FILE")
@@ -842,8 +861,14 @@ payload = rows if legacy else {"meta": meta, "rows": rows}
 
 if json_file:
     os.makedirs(os.path.dirname(json_file), exist_ok=True)
-    with open(json_file,"w",encoding="utf-8") as f:
-        json.dump(payload,f,indent=2,sort_keys=True)
+    try:
+        tmp_dir = os.path.dirname(json_file) or "."
+        fd, tmp = tempfile.mkstemp(prefix=".summary_json.", dir=tmp_dir)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, sort_keys=True)
+        os.replace(tmp, json_file)
+    except Exception:
+        pass
     if json_latest:
         try:
             if os.path.islink(json_latest) or os.path.exists(json_latest):
@@ -1037,7 +1062,7 @@ if [[ ! -f "$RUN_INDEX_FILE" ]]; then
   done
 fi
 python3 - "$RUN_INDEX_FILE" "$RUN_INDEX_KEEP" "$SUMMARY_FILE" "$SUMMARY_JSON_FILE" "$logfile" "$overall" "$worst" "$ts_epoch" <<'PY' || true
-import json, os, sys, time
+import json, os, sys, time, tempfile
 
 path, keep_s, summary_file, summary_json, logfile, overall, exit_code, ts_epoch = sys.argv[1:9]
 try:
@@ -1115,20 +1140,25 @@ entry = {
 }
 
 os.makedirs(os.path.dirname(path), exist_ok=True)
-with open(path, "a", encoding="utf-8") as f:
-    f.write(json.dumps(entry, sort_keys=True))
-    f.write("\n")
+lines = []
+try:
+    with open(path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+except Exception:
+    lines = []
 
-if keep > 0:
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        if len(lines) > keep:
-            lines = lines[-keep:]
-            with open(path, "w", encoding="utf-8") as f:
-                f.writelines(lines)
-    except Exception:
-        pass
+lines.append(json.dumps(entry, sort_keys=True) + "\n")
+if keep > 0 and len(lines) > keep:
+    lines = lines[-keep:]
+
+try:
+    tmp_dir = os.path.dirname(path) or "."
+    fd, tmp = tempfile.mkstemp(prefix=".run_index.", dir=tmp_dir)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+    os.replace(tmp, path)
+except Exception:
+    pass
 PY
 
 rm -f "$tmp_report" "$runtime_file" 2>/dev/null || true
