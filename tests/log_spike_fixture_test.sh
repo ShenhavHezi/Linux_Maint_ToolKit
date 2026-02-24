@@ -14,6 +14,7 @@ run_case() {
     LM_LOG_SPIKE_FIXTURE_FILE="$ROOT_DIR/tests/fixtures/$fixture" \
     LM_LOG_SPIKE_WARN="$warn" \
     LM_LOG_SPIKE_CRIT="$crit" \
+    LM_LOG_SPIKE_PATTERN='error|failed|oom' \
     bash "$ROOT_DIR/monitors/log_spike_monitor.sh"
   } 2>/dev/null)"
 

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 LIB="$ROOT_DIR/lib/linux_maint.sh"
 
-out="$(LM_SUMMARY_ALLOWLIST='reason,foo' bash -c ". \"$LIB\"; lm_summary monitorA hostA OK reason=ok token=secret foo=bar baretoken")"
+out="$(LM_SUMMARY_ALLOWLIST='reason,foo' bash -c ". \"$LIB\"; lm_summary monitorA hostA OK reason=ok token=secret foo=bar baretoken" 2>&1)"
 
 echo "$out" | grep -q 'reason=ok'
 echo "$out" | grep -q 'foo=bar'
