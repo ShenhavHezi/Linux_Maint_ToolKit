@@ -1,70 +1,82 @@
-# Linux_Maint_ToolKit — Roadmap & Backlog (2026-02-24)
+# Linux_Maint_ToolKit - Roadmap and Backlog (2026-02-24)
 
 ## Project brief
-Linux_Maint_ToolKit is a lightweight, offline‑friendly Linux maintenance and health toolkit.
-It runs locally or via SSH, emits machine‑parseable summary lines, and keeps outputs stable for automation.
-Primary audiences: operators, sysadmins, and SREs working in constrained or air‑gapped environments.
+Linux_Maint_ToolKit is a lightweight, offline-friendly Linux maintenance and health toolkit.
+It runs locally or via SSH, emits machine-parseable summary lines, and keeps outputs stable for automation.
+Primary audiences: operators, sysadmins, and SREs working in constrained or air-gapped environments.
 
 ## Principles
-- Bash‑only runtime; no new runtime dependencies.
-- Machine outputs are clean and parse‑safe (stdout contract preserved).
-- Minimal, reversible changes; strong tests + docs for any behavior change.
+- Bash-only runtime, no new runtime dependencies.
+- Machine outputs are clean and parse-safe, stdout contract preserved.
+- Minimal, reversible changes, tests and docs required for behavior changes.
+
+## Success criteria
+- One command gets a useful status report with sane defaults.
+- Summary contract is stable and validated across all monitors and CLI outputs.
+- Works on RHEL 9 and common distros with clear compatibility guidance.
+- CI is reliable with low flake and deterministic tests.
 
 ## Priority legend
-- P0: correctness / safety
-- P1: operator UX / docs / compatibility
-- P2: security / hardening / performance
-- P3: observability / integrations / QA
-- P4: DX / release polish / community
+- P0: correctness and safety
+- P1: operator UX, docs, compatibility
+- P2: security, hardening, performance
+- P3: observability, integrations, QA
+- P4: DX, release polish, community
 
 ---
 
-## P0 — Correctness / safety (next)
-- Audit every monitor for strict summary contract: one `monitor=` line per host path, no duplicates, consistent `reason` values.
-- Make smoke/compat tests fully deterministic: no dependency on missing system tools, no shared lock dirs, no timing flakes.
-- Enforce JSON cleanliness: guarantee progress/spinner output never appears when any `--json` mode is active.
-- Harden host parsing in `lm_hosts` (comments, whitespace, IPv6, user@host, host:port) with tests.
-- Validate config file parsing for all monitors (missing file behavior must be SKIP/UNKNOWN with explicit reason).
-- Ensure `linux-maint run` exit codes align with summary status severity and documented semantics.
-- Add atomic writes for run index and summary files (temp + rename), with crash‑safe behavior.
+## P0 - Correctness and safety (next)
+- Audit every monitor for strict summary contract: one monitor line per host path, no duplicates, consistent reason values.
+- Enforce reason presence for non-OK statuses and add a lint that fails on missing reason.
+- Make smoke and compat tests deterministic: no dependency on missing system tools, no shared lock dirs, no timing flakes.
+- Enforce JSON cleanliness: never emit progress or color on any --json output.
+- Harden host parsing in lm_hosts: comments, whitespace, IPv6, user@host, host:port, dedupe, and tests.
+- Validate config parsing across all monitors: missing file must be SKIP or UNKNOWN with explicit reason.
+- Ensure linux-maint run exit codes align with summary severity and documented semantics.
+- Make run index and summary writes atomic with temp + rename, crash safe.
+- Guard against locale and timezone drift in tests and outputs by pinning LC_ALL and TZ where needed.
 
 ---
 
-## P1 — Operator UX / docs / compatibility (next)
-- Add a single “Quickstart for air‑gapped systems” in `README.md` with copy‑paste commands.
-- Create a per‑monitor config reference table (file path, required/optional, example lines).
-- Document `reason` codes and suggested operator actions in one consolidated cheat sheet.
-- Add “Common failures & fixes” section for SSH, missing dependencies, and config errors.
-- Expand `linux-maint help` examples for `report`, `trend`, `diff`, and `run` (including color/no‑color flags).
-- Document supported distros and minimum versions (bash/coreutils/openssl), plus known limitations.
-- Add a compatibility preflight check that warns on unsupported bash versions or missing core tools.
+## P1 - Operator UX, docs, compatibility (next)
+- Add a single Quickstart for air-gapped systems in README with copy-paste steps.
+- Create a per-monitor config reference table: file path, required or optional, example lines.
+- Consolidate reason codes and suggested actions into a single cheat sheet.
+- Add Common failures and fixes for SSH, missing deps, and config errors.
+- Expand linux-maint help examples for report, trend, diff, run with color and no-color examples.
+- Document supported distros and minimum versions for bash, coreutils, openssl.
+- Add a compatibility preflight check that warns on unsupported bash or missing core tools.
+- Document repo mode vs installed mode behavior differences and recommended use cases.
 
 ---
 
-## P2 — Security / hardening / performance (soon)
-- Add optional strict known_hosts workflows: detect changes, explain remediation, and allow hash output.
-- Extend log redaction patterns and add tests (tokens, bearer, auth headers, SSH keys).
-- Add a `--redact` flag for report/trend outputs (human output only, never touch JSON).
-- Add minimal‑privilege guidance for sudoers entries and SSH keys in `SECURITY.md`.
-- Provide integrity checks for release artifacts (checksums + verification instructions).
-- Add adaptive concurrency (`LM_MAX_PARALLEL`) with safe defaults and guardrails for large fleets.
-- Add lightweight caching for expensive inventory/trend computations (opt‑in, time‑boxed).
+## P2 - Security, hardening, performance (soon)
+- Provide strict known_hosts workflows: detect host key changes, explain remediation, allow hash output.
+- Extend log redaction patterns with tests for tokens, bearer, auth headers, SSH keys.
+- Add a --redact flag for human outputs only, JSON untouched.
+- Add minimal-privilege guidance for sudoers and SSH keys in SECURITY.
+- Provide release artifact integrity checks with checksums and verification steps.
+- Add adaptive concurrency with safe defaults and guardrails for large fleets.
+- Add lightweight caching for inventory and trend computations, opt-in and time-boxed.
+- Add per-monitor timeouts for remote commands where missing, with tests.
 
 ---
 
-## P3 — Observability / integrations / QA (later)
-- Expand metrics output: per‑monitor duration, count of hosts, and summary severity counts.
-- Add `trend --export` CSV/JSON modes with stable schema and date range filters.
+## P3 - Observability, integrations, QA (later)
+- Expand metrics output: per-monitor duration, host counts, severity totals.
+- Add trend export modes for CSV and JSON with stable schema and date range filters.
 - Provide Prometheus textfile examples and a sample systemd timer for scraping.
-- Add run index retention tooling (cleanup command + docs + tests).
-- Add CI matrix coverage for bash 4.2/4.4 and minimal‑dependency containers.
-- Add fixture‑driven tests per monitor for predictable edge‑case coverage.
+- Add run index retention tooling with docs and tests.
+- Add CI matrix coverage for bash 4.2 and 4.4 plus minimal dependency containers.
+- Add fixture-driven tests per monitor for edge cases and regression coverage.
+- Add schema validation tests for all JSON outputs across commands.
 
 ---
 
-## P4 — DX / release polish / community (later)
-- Introduce a release helper that bumps `VERSION`, updates notes, and validates required files.
-- Add a lightweight CI “fast lane” (lint + unit tests only) for quick pre‑commit checks.
-- Standardize packaging outputs (RPM metadata, install paths, config examples) and document them.
-- Create a minimal “dev quickstart” for contributors (tests to run, CI expectations, style rules).
-- Add GitHub issue/PR templates and a support policy section in `README.md`.
+## P4 - DX, release polish, community (later)
+- Introduce a release helper that bumps VERSION, updates notes, and validates required files.
+- Add a CI fast lane for lint and unit tests to speed local iteration.
+- Standardize packaging outputs and document install paths and config examples.
+- Add DEB packaging or a clear statement of why RPM-only is intentional.
+- Create a minimal dev quickstart for contributors: tests to run, CI expectations, style rules.
+- Add GitHub issue and PR templates and a support policy section in README.
