@@ -20,7 +20,7 @@ LM_LOGFILE="${LM_LOGFILE:-/var/log/health_monitor.log}"
 : "${LM_MAX_PARALLEL:=0}"     # 0 = sequential; >0 runs hosts concurrently
 : "${LM_EMAIL_ENABLED:=true}" # master toggle for lm_mail
 
-lm_require_singleton "distributed_health_monitor"
+lm_require_singleton "distributed_health_monitor" "health_monitor"
 
 # Dependency checks (local runner)
 lm_require_cmd "health_monitor" "localhost" awk || exit $?

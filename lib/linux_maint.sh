@@ -42,7 +42,8 @@ if [[ "${LM_SSH_KNOWN_HOSTS_MODE}" == "strict" ]]; then
 else
   _LM_SSH_STRICT="accept-new"
 fi
-: "${LM_SSH_OPTS:=-o BatchMode=yes -o ConnectTimeout=7 -o ServerAliveInterval=10 -o ServerAliveCountMax=2 -o ForwardAgent=no -o StrictHostKeyChecking=${_LM_SSH_STRICT} -o UserKnownHostsFile=/var/lib/linux_maint/known_hosts -o GlobalKnownHostsFile=/dev/null}"
+: "${LM_SSH_KNOWN_HOSTS_FILE:=${LM_STATE_DIR:-/var/lib/linux_maint}/known_hosts}"
+: "${LM_SSH_OPTS:=-o BatchMode=yes -o ConnectTimeout=7 -o ServerAliveInterval=10 -o ServerAliveCountMax=2 -o ForwardAgent=no -o StrictHostKeyChecking=${_LM_SSH_STRICT} -o UserKnownHostsFile=${LM_SSH_KNOWN_HOSTS_FILE} -o GlobalKnownHostsFile=/dev/null}"
 
 : "${LM_EMAIL_ENABLED:=true}"      # scripts can set LM_EMAIL_ENABLED=false to suppress email
 : "${LM_MAX_PARALLEL:=0}"          # 0 = sequential
@@ -272,10 +273,14 @@ lm_redact_kv_line() {
 # Usage: lm_require_singleton myscript      → exits if already running
 lm_require_singleton() {
   local name="$1"
+  local monitor="${2:-$name}"
   mkdir -p "$LM_LOCKDIR" 2>/dev/null || true
   exec {__lm_lock_fd}>"$LM_LOCKDIR/${name}.lock" || lm_die "Cannot open lock file"
   if ! flock -n "$__lm_lock_fd"; then
     lm_warn "Another ${name} is already running; exiting."
+    if command -v lm_summary >/dev/null 2>&1; then
+      lm_summary "$monitor" "runner" "SKIP" reason=already_running
+    fi
     exit 0
   fi
 }
@@ -377,6 +382,14 @@ lm_notify_send() {
 }
 
 # ========= SSH helpers =========
+# lm_is_localhost HOST
+lm_is_localhost() {
+  case "${1:-}" in
+    ""|localhost|127.0.0.1|::1) return 0 ;;
+  esac
+  return 1
+}
+
 # lm_ssh HOST CMD...
 lm_ssh() {
   local host="$1"; shift
@@ -390,7 +403,7 @@ lm_ssh() {
       return 2
     fi
   fi
-  if [ "$host" = "localhost" ] || [ "$host" = "127.0.0.1" ]; then
+  if lm_is_localhost "$host"; then
     # Preserve caller PATH for localhost runs so test shims and local tools are respected.
     if [[ "$#" -ge 2 && "$1" == "bash" && "$2" == "-lc" ]]; then
       PATH="$PATH" "$@" 2>/dev/null
@@ -400,6 +413,9 @@ lm_ssh() {
       PATH="$PATH" "$@" 2>/dev/null
     fi
   else
+    if [[ -n "${LM_SSH_KNOWN_HOSTS_FILE:-}" ]]; then
+      mkdir -p "$(dirname "${LM_SSH_KNOWN_HOSTS_FILE}")" 2>/dev/null || true
+    fi
     # LM_SSH_OPTS may contain multiple ssh arguments. Split intentionally into an array.
     local -a _ssh_opts=()
     # shellcheck disable=SC2206
@@ -774,6 +790,15 @@ lm_has_cmd(){
   command -v "$cmd" >/dev/null 2>&1
 }
 
+lm_has_cmd_remote(){
+  local host="$1" cmd="$2"
+  if lm_force_missing_dep "$cmd"; then
+    return 1
+  fi
+  [[ "$cmd" =~ ^[A-Za-z0-9._+-]+$ ]] || return 1
+  lm_ssh "$host" "command -v $cmd >/dev/null 2>&1"
+}
+
 # Allow tests to force specific deps to appear missing (comma-separated list)
 lm_force_missing_dep(){
   local cmd="$1"
@@ -787,8 +812,14 @@ lm_force_missing_dep(){
 # If missing optional cmd: prints standardized summary line and returns 0.
 lm_require_cmd(){
   local monitor="$1" host="$2" cmd="$3" opt="${4:-}"
-  if lm_has_cmd "$cmd"; then
-    return 0
+  if lm_is_localhost "$host"; then
+    if lm_has_cmd "$cmd"; then
+      return 0
+    fi
+  else
+    if lm_has_cmd_remote "$host" "$cmd"; then
+      return 0
+    fi
   fi
 
   if [[ "$opt" == "--optional" ]]; then
