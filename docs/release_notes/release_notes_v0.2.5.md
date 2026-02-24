@@ -29,4 +29,4 @@
 - If automation matched `reason=missing:/path`, update to `reason=config_missing` or `reason=baseline_missing` and read `missing=...` for detail.
 
 ## Checksums (if releasing a tarball)
-- SHA256SUMS: TBD
+- SHA256SUMS: 6fb33735e361af6b1e826902954b059f56416652fd3268f25548ea668d06fb9e  Linux_Maint_ToolKit-v0.2.5-af45c85.tgz
