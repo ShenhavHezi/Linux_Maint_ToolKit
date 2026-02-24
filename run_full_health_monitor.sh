@@ -360,8 +360,14 @@ run_one() {
   # Emit standardized SKIP summary lines when wrapper gates skip a monitor
   skip_monitor() {
     local reason="$1"
+    shift || true
+    local extra=("$@")
     echo "SKIP: $reason" >> "$tmp_report"
-    echo "monitor=${s%.sh} host=runner status=SKIP node=$(hostname -f 2>/dev/null || hostname) reason=$reason" >> "$tmp_report"
+    if [[ "${#extra[@]}" -gt 0 ]]; then
+      echo "monitor=${s%.sh} host=runner status=SKIP node=$(hostname -f 2>/dev/null || hostname) reason=$reason ${extra[*]}" >> "$tmp_report"
+    else
+      echo "monitor=${s%.sh} host=runner status=SKIP node=$(hostname -f 2>/dev/null || hostname) reason=$reason" >> "$tmp_report"
+    fi
     skipped=$((skipped+1))
     return 0
   }
@@ -372,25 +378,25 @@ run_one() {
   case "$s" in
     cert_monitor.sh)
       if [ ! -s "$CFG_DIR/certs.txt" ]; then
-        skip_monitor "missing:$CFG_DIR/certs.txt"
+        skip_monitor "config_missing" "missing=$CFG_DIR/certs.txt"
         return 0
       fi
       ;;
     network_monitor.sh)
       if [ ! -s "$CFG_DIR/network_targets.txt" ]; then
-        skip_monitor "missing:$CFG_DIR/network_targets.txt"
+        skip_monitor "config_missing" "missing=$CFG_DIR/network_targets.txt"
         return 0
       fi
       ;;
     ports_baseline_monitor.sh)
       if [ ! -s "$CFG_DIR/ports_baseline.txt" ]; then
-        skip_monitor "missing:$CFG_DIR/ports_baseline.txt"
+        skip_monitor "baseline_missing" "missing=$CFG_DIR/ports_baseline.txt"
         return 0
       fi
       ;;
     config_drift_monitor.sh)
       if [ ! -s "$CFG_DIR/config_paths.txt" ]; then
-        skip_monitor "missing:$CFG_DIR/config_paths.txt"
+        skip_monitor "config_missing" "missing=$CFG_DIR/config_paths.txt"
         return 0
       fi
       ;;
@@ -400,7 +406,7 @@ run_one() {
       [ -s "$CFG_DIR/baseline_sudoers.txt" ] || missing+=("$CFG_DIR/baseline_sudoers.txt")
       if [ "${#missing[@]}" -gt 0 ]; then
         local IFS=,
-        skip_monitor "missing:${missing[*]}"
+        skip_monitor "baseline_missing" "missing=${missing[*]}"
         return 0
       fi
       ;;

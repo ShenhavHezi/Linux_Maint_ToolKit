@@ -100,7 +100,6 @@ def main(path: str) -> int:
             elif not REASON_RE.match(reason):
                 bad_reason += 1
                 print(f"ERROR: invalid reason token={reason!r} line={r}")
-            missing_reason += 1
 
     # monitor emission check
     mon_to_lines = defaultdict(int)
