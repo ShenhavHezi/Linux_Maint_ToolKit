@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-fixture="$ROOT_DIR/tests/fixtures/summary_all_monitors.log"
+fixture="$ROOT_DIR/tests/fixtures/summary_all_monitors.txt"
 mon_list="$ROOT_DIR/tests/summary_contract.monitors"
 
 [ -f "$fixture" ] || { echo "Missing fixture: $fixture" >&2; exit 1; }

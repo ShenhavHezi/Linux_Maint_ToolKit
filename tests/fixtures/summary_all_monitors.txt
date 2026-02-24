@@ -1,0 +1,21 @@
+monitor=preflight_check host=localhost status=WARN node=fixture reason=missing_optional_cmd required_missing=0 optional_missing=2 ssh_unreachable=0
+monitor=config_validate host=localhost status=OK node=fixture warn=0 crit=0
+monitor=health_monitor host=runner status=CRIT node=fixture reason=ssh_unreachable hosts=5 unreachable=1 report_lines=12
+monitor=filesystem_readonly_monitor host=localhost status=OK node=fixture
+monitor=inode_monitor host=localhost status=WARN node=fixture reason=inode_usage_warn checked=5 warn=1 crit=0
+monitor=disk_trend_monitor host=localhost status=CRIT node=fixture reason=disk_trend_crit mounts=4 warn=1 crit=1 note=growth inode_mounts=2 inode_warn=1 inode_crit=0
+monitor=network_monitor host=localhost status=UNKNOWN node=fixture reason=missing_dependency checked=0 failures=0 dep=curl
+monitor=service_monitor host=localhost status=WARN node=fixture reason=failed_units checked=3 failures=1 failed_units=sshd
+monitor=timer_monitor host=runner status=SKIP node=fixture reason=timer_missing unit=linux-maint.timer
+monitor=last_run_age_monitor host=runner status=WARN node=fixture reason=stale_run age_min=120 max_age_min=60 path=/var/log/health/full_health_monitor_latest.log
+monitor=ntp_drift_monitor host=localhost status=CRIT node=fixture reason=ntp_drift_high checked=1 warn=0 crit=1
+monitor=patch_monitor host=localhost status=WARN node=fixture reason=security_updates_pending total=5 security=2 kernel=1 reboot_required=unknown
+monitor=storage_health_monitor host=localhost status=UNKNOWN node=fixture reason=collect_failed mdraid=NA smart=NA nvme=NA checked=0 bad=0 ctrl=NA
+monitor=kernel_events_monitor host=localhost status=WARN node=fixture reason=kernel_events_warn matches=5 window_h=24
+monitor=cert_monitor host=runner status=WARN node=fixture reason=cert_expiring checked=5 warn=2 crit=0
+monitor=nfs_mount_monitor host=localhost status=CRIT node=fixture reason=nfs_unhealthy checked=3 bad=1
+monitor=ports_baseline_monitor host=localhost status=SKIP node=fixture reason=baseline_missing new=0 removed=0
+monitor=config_drift_monitor host=localhost status=CRIT node=fixture reason=config_drift_changed modified=2 added=1 removed=0
+monitor=user_monitor host=localhost status=WARN node=fixture reason=user_anomalies anomalies=3
+monitor=backup_check host=runner status=WARN node=fixture reason=backup_failures failures=2
+monitor=inventory_export host=runner status=OK node=fixture csv=/var/log/inventory/export.csv hosts=5
