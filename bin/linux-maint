@@ -446,6 +446,39 @@ tui_menu_prompt_safe(){
   return 0
 }
 
+tui_input(){
+  local prompt="$1"
+  local placeholder="${2:-}"
+  local out rc
+  TUI_INPUT_RC=0
+  set +e
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    out="$(gum input --prompt "$prompt: " --placeholder "$placeholder")"
+    rc=$?
+  elif [[ "$TUI_BACKEND" == "dialog" ]]; then
+    out="$(dialog --clear --backtitle "$TUI_BACKTITLE" --title "$TUI_TITLE" \
+      --inputbox "$prompt" 10 70 "$placeholder" 3>&1 1>&2 2>&3)"
+    rc=$?
+  else
+    out="$(whiptail --title "$TUI_TITLE" --inputbox "$prompt" 10 70 "$placeholder" 3>&1 1>&2 2>&3)"
+    rc=$?
+  fi
+  set -e
+  TUI_INPUT_RC="$rc"
+  printf '%s' "$out"
+  return 0
+}
+
+tui_view_file(){
+  local title="$1"
+  local file="$2"
+  if [[ -f "$file" ]]; then
+    tui_textbox "$title" "$file"
+  else
+    tui_msgbox "File not found: $file"
+  fi
+}
+
 tui_msgbox(){
   local msg="$1"
   if [[ "$TUI_BACKEND" == "gum" ]]; then
@@ -759,6 +792,128 @@ run_menu_reports(){
   done
 }
 
+run_menu_tools(){
+  while true; do
+    local choice
+    choice="$(tui_menu_prompt_safe "Tools & automation" \
+      check "Preflight + validate + expected SKIPs" \
+      summary "One-line summary" \
+      diff "Diff since last run" \
+      history "Run history (table)" \
+      runindex "Run index stats" \
+      metrics_prom "Metrics (Prometheus text)" \
+      metrics_json "Metrics (JSON)" \
+      pack_logs "Support bundle (redacted)" \
+      back "Back to main")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="${choice#"${choice%%[! ]*}"}"
+    choice="${choice%%:*}"
+    case "$choice" in
+      check)
+        tui_run_cmd "linux-maint check" "$0" check
+        ;;
+      summary)
+        tui_run_cmd "linux-maint summary" "$0" summary --no-color
+        ;;
+      diff)
+        tui_run_cmd "linux-maint diff" "$0" diff
+        ;;
+      history)
+        tui_run_cmd "linux-maint history --table" "$0" history --table
+        ;;
+      runindex)
+        tui_run_cmd "linux-maint run-index --stats" "$0" run-index --stats
+        ;;
+      metrics_prom)
+        tui_run_cmd "linux-maint metrics --prom" "$0" metrics --prom
+        ;;
+      metrics_json)
+        tui_run_cmd "linux-maint metrics --json" "$0" metrics --json
+        ;;
+      pack_logs)
+        if tui_yesno "Create redacted support bundle in /tmp?"; then
+          tui_run_cmd "linux-maint pack-logs --out /tmp --redact" "$0" pack-logs --out /tmp --redact
+        fi
+        ;;
+      back)
+        break
+        ;;
+    esac
+  done
+}
+
+run_menu_help(){
+  while true; do
+    local choice
+    choice="$(tui_menu_prompt_safe "Help & docs" \
+      quickref "Quick reference" \
+      faq "FAQ" \
+      reasons "Reasons catalog" \
+      monitors "Monitors matrix" \
+      explain_reason "Explain reason token" \
+      explain_monitor "Explain monitor" \
+      explain_status "Explain status" \
+      back "Back to main")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="${choice#"${choice%%[! ]*}"}"
+    choice="${choice%%:*}"
+    case "$choice" in
+      quickref)
+        tui_view_file "Quick reference" "$REPO_ROOT/docs/QUICK_REFERENCE.md"
+        ;;
+      faq)
+        tui_view_file "FAQ" "$REPO_ROOT/docs/FAQ.md"
+        ;;
+      reasons)
+        tui_view_file "Reasons" "$REPO_ROOT/docs/REASONS.md"
+        ;;
+      monitors)
+        tui_view_file "Monitors matrix" "$REPO_ROOT/docs/MONITORS_MATRIX.md"
+        ;;
+      explain_reason)
+        local token
+        token="$(tui_input "Reason token" "e.g. disk_full")"
+        if [[ "$TUI_INPUT_RC" -eq 0 && -n "$token" ]]; then
+          tui_run_cmd "linux-maint explain reason $token" "$0" explain reason "$token"
+        fi
+        ;;
+      explain_monitor)
+        local mon
+        mon="$(tui_input "Monitor name" "e.g. service_monitor")"
+        if [[ "$TUI_INPUT_RC" -eq 0 && -n "$mon" ]]; then
+          tui_run_cmd "linux-maint explain monitor $mon" "$0" explain monitor "$mon"
+        fi
+        ;;
+      explain_status)
+        local s
+        s="$(tui_menu_prompt_safe "Pick status" \
+          OK "Healthy" \
+          WARN "Warning" \
+          CRIT "Critical" \
+          UNKNOWN "Unknown" \
+          SKIP "Skipped" \
+          back "Back")"
+        if [[ "$TUI_MENU_RC" -eq 0 && -n "$s" ]]; then
+          s="${s#"${s%%[! ]*}"}"
+          s="${s%%:*}"
+          if [[ "$s" != "back" ]]; then
+            tui_run_cmd "linux-maint explain status $s" "$0" explain status "$s"
+          fi
+        fi
+        ;;
+      back)
+        break
+        ;;
+    esac
+  done
+}
+
 run_menu_diagnostics(){
   while true; do
     local choice
@@ -846,9 +1001,10 @@ run_menu(){
     choice="$(tui_menu_prompt_safe "Select an action" \
       run "Run / plan" \
       reports "Status / report / trend / runtimes" \
+      tools "Tools & automation" \
       diagnostics "Logs / doctor / self-check" \
       config "Config / monitors" \
-      help "Show help tips" \
+      help "Help & docs" \
       exit "Exit")"
     rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
@@ -865,6 +1021,10 @@ run_menu(){
         TUI_MENU_STYLE="compact"
         run_menu_reports
         ;;
+      tools)
+        TUI_MENU_STYLE="compact"
+        run_menu_tools
+        ;;
       diagnostics)
         TUI_MENU_STYLE="compact"
         run_menu_diagnostics
@@ -874,7 +1034,8 @@ run_menu(){
         run_menu_config
         ;;
       help)
-        tui_msgbox "Use arrows/Enter to select. Output is shown in a scrollable view.\nTip: run as root for full checks.\nDocs: docs/README.md"
+        TUI_MENU_STYLE="compact"
+        run_menu_help
         ;;
       exit)
         break
