@@ -243,25 +243,40 @@ detect_tui_backend(){
 tui_gum_banner(){
   local title="${1:-Linux Maint ToolKit}"
   local subtitle="${2:-Interactive menu}"
+  local accent="#9ca3af"
+  case "${TUI_ANIM_TICK:-0}" in
+    1) accent="#60a5fa" ;;
+    2) accent="#34d399" ;;
+  esac
   local logo
   logo="$(cat <<'EOF'
-  __    _                 __  __       _       _
- / /   (_)___  ___  _____/ /_/ /__  __| | ___ (_)
-/ /   / / __ \/ _ \/ ___/ __/ / _ \/ _` |/ _ \| |
-/ /___/ / / / /  __(__  ) /_/ /  __/ (_| | (_) | |
-\_____/_/_/ /_/\___/____/\__/_/\___|\__,_|\___/|_|
+ _      _                    __  __       _       _
+| |    (_)___  ___  _____   / / / /__  __| | ___ (_)
+| |   / / __ \/ _ \/ ___/  / / / / _ \/ _` |/ _ \| |
+| |__/ / / / /  __(__  )  / /_/ /  __/ (_| | (_) | |
+|____/_/_/ /_/\___/____/  \____/\___|\__,_|\___/|_|
+           Linux-Maint
 EOF
 )"
   gum style --border thick --border-foreground "#3b82f6" --foreground "#f9fafb" \
     --padding "1 4" --margin "1 1" --align center --width 104 \
     "$(gum style --bold --foreground "#f9fafb" "$logo")" \
     "$(gum style --foreground "#e5e7eb" "$title")" \
-    "$(gum style --foreground "#9ca3af" "$subtitle")" >&2
+    "$(gum style --foreground "$accent" "$subtitle")" >&2
 }
 
 tui_gum_hint(){
   local msg="${1:-Use arrows + Enter. Esc to go back.}"
   gum style --foreground "#9ca3af" --margin "0 2" "$msg" >&2
+}
+
+tui_gum_header(){
+  local title="${1:-Linux Maint ToolKit}"
+  local subtitle="${2:-Menu}"
+  gum style --border normal --border-foreground "#1f2937" --foreground "#f9fafb" \
+    --padding "0 2" --margin "1 1" --align left --width 104 \
+    "$(gum style --bold --foreground "#f9fafb" "$title")" \
+    "$(gum style --foreground "#9ca3af" "$subtitle")" >&2
 }
 
 tui_latest_log_path(){
@@ -378,7 +393,11 @@ tui_menu_prompt(){
       shift 2
       items+=("${tag}: ${desc}")
     done
-    tui_gum_banner "Linux Maint ToolKit" "$prompt"
+    if [[ "${TUI_MENU_STYLE:-full}" == "full" ]]; then
+      tui_gum_banner "Linux Maint ToolKit" "$prompt"
+    else
+      tui_gum_header "Linux Maint ToolKit" "$prompt"
+    fi
     tui_gum_hint "Use arrows + Enter. Esc to go back."
     gum choose --header "Select an option" --height 16 --cursor "> " \
       --cursor-prefix "> " --selected-prefix "* " --unselected-prefix "  " \
@@ -490,8 +509,10 @@ tui_run_live(){
   local title="$1"
   shift || true
   if [[ "$TUI_BACKEND" == "gum" ]]; then
-    gum spin --spinner dot --title "$title" --show-output -- \
-      env LM_PROGRESS=1 LM_PROGRESS_MODE=plain LM_PROGRESS_FORCE=1 LM_PROGRESS_WIDTH=32 "$@"
+    clear
+    tui_gum_header "Linux Maint ToolKit" "$title"
+    tui_gum_hint "Live output. Press Ctrl+C to stop."
+    env LM_PROGRESS=1 LM_PROGRESS_MODE=plain LM_PROGRESS_FORCE=1 LM_PROGRESS_WIDTH=32 "$@"
     return $?
   fi
   if [[ "$TUI_BACKEND" == "dialog" ]]; then
@@ -525,14 +546,15 @@ tui_tail_logs(){
 }
 
 tui_gum_dashboard(){
-  local status_json
-  status_json="$(NO_COLOR=1 "$0" status --json --problems 8 --reasons 6 2>/dev/null || true)"
-  clear
-  tui_gum_banner "Linux Maint ToolKit" "Dashboard"
-  tui_gum_status_overview
+  while true; do
+    local status_json
+    status_json="$(NO_COLOR=1 "$0" status --json --problems 8 --reasons 6 2>/dev/null || true)"
+    clear
+    tui_gum_banner "Linux Maint ToolKit" "Dashboard (auto-refresh)"
+    tui_gum_status_overview
 
-  local problems_csv reasons_csv
-  problems_csv="$(STATUS_JSON="$status_json" python3 - <<'PY'
+    local problems_csv reasons_csv
+    problems_csv="$(STATUS_JSON="$status_json" python3 - <<'PY'
 import json, os, sys
 raw = os.environ.get("STATUS_JSON", "")
 if not raw:
@@ -558,7 +580,7 @@ for row in rows[:8]:
 PY
 )"
 
-  reasons_csv="$(STATUS_JSON="$status_json" python3 - <<'PY'
+    reasons_csv="$(STATUS_JSON="$status_json" python3 - <<'PY'
 import json, os, sys
 raw = os.environ.get("STATUS_JSON", "")
 if not raw:
@@ -578,29 +600,34 @@ for row in rows[:6]:
 PY
 )"
 
-  local problems_table reasons_table
-  if [[ -n "$problems_csv" ]]; then
-    problems_table="$(printf '%s\n' "$problems_csv" | gum table --separator "|" \
-      --columns "Status,Monitor,Host,Reason" --border rounded --print \
-      --border.foreground "#1f2937" --header.foreground "#93c5fd")"
-  else
-    problems_table="$(gum style --foreground "#9ca3af" "No problems detected.")"
-  fi
-  if [[ -n "$reasons_csv" ]]; then
-    reasons_table="$(printf '%s\n' "$reasons_csv" | gum table --separator "|" \
-      --columns "Reason,Count" --border rounded --print \
-      --border.foreground "#1f2937" --header.foreground "#93c5fd")"
-  else
-    reasons_table="$(gum style --foreground "#9ca3af" "No top reasons yet.")"
-  fi
+    local problems_table reasons_table
+    if [[ -n "$problems_csv" ]]; then
+      problems_table="$(printf '%s\n' "$problems_csv" | gum table --separator "|" \
+        --columns "Status,Monitor,Host,Reason" --border rounded --print \
+        --border.foreground "#1f2937" --header.foreground "#93c5fd")"
+    else
+      problems_table="$(gum style --foreground "#9ca3af" "No problems detected.")"
+    fi
+    if [[ -n "$reasons_csv" ]]; then
+      reasons_table="$(printf '%s\n' "$reasons_csv" | gum table --separator "|" \
+        --columns "Reason,Count" --border rounded --print \
+        --border.foreground "#1f2937" --header.foreground "#93c5fd")"
+    else
+      reasons_table="$(gum style --foreground "#9ca3af" "No top reasons yet.")"
+    fi
 
-  gum style --bold --foreground "#f9fafb" --margin "1 2" "Top problems" >&2
-  echo "$problems_table" >&2
-  gum style --bold --foreground "#f9fafb" --margin "1 2" "Top reasons" >&2
-  echo "$reasons_table" >&2
+    gum style --bold --foreground "#f9fafb" --margin "1 2" "Top problems" >&2
+    echo "$problems_table" >&2
+    gum style --bold --foreground "#f9fafb" --margin "1 2" "Top reasons" >&2
+    echo "$reasons_table" >&2
 
-  tui_gum_hint "Press Enter to return."
-  read -r _ </dev/tty
+    tui_gum_hint "Auto-refresh every 2s. Press Enter or q to return."
+    if read -r -t 2 -n 1 key </dev/tty; then
+      if [[ "$key" == $'\n' || "$key" == "q" || "$key" == "Q" ]]; then
+        break
+      fi
+    fi
+  done
 }
 
 run_menu_run(){
@@ -752,11 +779,13 @@ run_menu(){
     tui_msgbox "Some actions (run/doctor/summary) require root.\nRe-run with: sudo linux-maint menu"
   fi
 
+  TUI_ANIM_TICK=0
   while true; do
     if [[ "$TUI_BACKEND" == "gum" ]]; then
       clear
       tui_gum_status_overview
     fi
+    TUI_MENU_STYLE="full"
     choice="$(tui_menu_prompt "Select an action" \
       run "Run / plan" \
       reports "Status / report / trend / runtimes" \
@@ -771,15 +800,19 @@ run_menu(){
     choice="${choice%%:*}"
     case "$choice" in
       run)
+        TUI_MENU_STYLE="compact"
         run_menu_run
         ;;
       reports)
+        TUI_MENU_STYLE="compact"
         run_menu_reports
         ;;
       diagnostics)
+        TUI_MENU_STYLE="compact"
         run_menu_diagnostics
         ;;
       config)
+        TUI_MENU_STYLE="compact"
         run_menu_config
         ;;
       help)
@@ -789,6 +822,9 @@ run_menu(){
         break
         ;;
     esac
+    if [[ "$TUI_BACKEND" == "gum" ]]; then
+      TUI_ANIM_TICK=$(( (TUI_ANIM_TICK + 1) % 3 ))
+    fi
   done
 
   if [[ "$TUI_BACKEND" == "dialog" ]]; then
