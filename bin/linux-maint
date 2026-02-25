@@ -677,7 +677,7 @@ PY
       read -r -n 1 key </dev/tty
     fi
     if [[ -n "${key:-}" ]]; then
-      if [[ "$key" == $'\n' || "$key" == "q" || "$key" == "Q" ]]; then
+      if [[ "$key" == $'\n' || "$key" == "q" || "$key" == "Q" || "$key" == $'\e' ]]; then
         break
       fi
       if [[ "$key" == "r" || "$key" == "R" ]]; then
