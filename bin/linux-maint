@@ -486,7 +486,11 @@ tui_menu_prompt_safe(){
   set -e
   TUI_MENU_RC="$rc"
   if [[ "${LM_TUI_DEBUG:-0}" == "1" ]]; then
-    tui_msgbox "debug: prompt=$prompt\nrc=$rc\nraw=[$out]\nlen=${#out}"
+    local norm
+    norm="$(normalize_menu_choice "$out")"
+    local hex
+    hex="$(printf '%s' "$out" | od -An -tx1 | tr -s ' ')"
+    tui_msgbox "debug: prompt=$prompt\nrc=$rc\nraw=[$out]\nlen=${#out}\nnormalized=[$norm]\nhex=$hex"
   fi
   printf '%s' "$out"
   return 0
