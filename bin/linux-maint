@@ -410,6 +410,7 @@ tui_menu_prompt(){
     else
       tui_gum_header "Linux Maint ToolKit" "$prompt"
     fi
+    printf '\n' >&2
     tui_gum_hint "Use arrows + Enter. Esc to go back."
     local banner_w="${TUI_BANNER_WIDTH:-100}"
     local pad=$(( (banner_w - max_len) / 2 ))
@@ -573,11 +574,13 @@ tui_tail_logs(){
 }
 
 tui_gum_dashboard(){
+  local refresh_secs="${LM_TUI_DASH_REFRESH:-5}"
+  [[ "$refresh_secs" =~ ^[0-9]+$ ]] || refresh_secs=5
   while true; do
     local status_json
     status_json="$(NO_COLOR=1 "$0" status --json --problems 8 --reasons 6 2>/dev/null || true)"
     clear
-    tui_gum_header "Linux Maint ToolKit" "Dashboard (auto-refresh)"
+    tui_gum_header "Linux Maint ToolKit" "Dashboard"
     tui_gum_status_overview
 
     local problems_csv reasons_csv
@@ -648,10 +651,13 @@ PY
     gum style --bold --foreground "#f9fafb" --margin "1 2" "Top reasons" >&2
     echo "$reasons_table" >&2
 
-    tui_gum_hint "Auto-refresh every 2s. Press Enter or q to return."
-    if read -r -t 2 -n 1 key </dev/tty; then
+    tui_gum_hint "Press r to refresh, q/Enter to return. Auto-refresh: ${refresh_secs}s."
+    if read -r -t "$refresh_secs" -n 1 key </dev/tty; then
       if [[ "$key" == $'\n' || "$key" == "q" || "$key" == "Q" ]]; then
         break
+      fi
+      if [[ "$key" == "r" || "$key" == "R" ]]; then
+        continue
       fi
     fi
   done
