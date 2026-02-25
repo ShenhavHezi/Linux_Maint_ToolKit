@@ -55,6 +55,9 @@ sudo linux-maint run --skip inventory_export,backup_check
 sudo linux-maint run --plan
 sudo linux-maint run --plan --json
 
+# Interactive TUI menu (requires dialog/whiptail)
+sudo linux-maint menu
+
 # List monitors and config requirements
 sudo linux-maint list-monitors
 
