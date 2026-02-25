@@ -211,6 +211,24 @@ validate_monitor_list(){
 }
 
 detect_tui_backend(){
+  if [[ -n "${LM_TUI_BACKEND:-}" ]]; then
+    case "$LM_TUI_BACKEND" in
+      gum|dialog|whiptail)
+        if command -v "$LM_TUI_BACKEND" >/dev/null 2>&1; then
+          echo "$LM_TUI_BACKEND"
+          return 0
+        fi
+        return 1
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+  fi
+  if command -v gum >/dev/null 2>&1; then
+    echo "gum"
+    return 0
+  fi
   if command -v dialog >/dev/null 2>&1; then
     echo "dialog"
     return 0
@@ -225,7 +243,18 @@ detect_tui_backend(){
 tui_menu_prompt(){
   local prompt="$1"
   shift || true
-  if [[ "$TUI_BACKEND" == "dialog" ]]; then
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    local -a items=()
+    while [[ $# -gt 0 ]]; do
+      local tag="$1"
+      local desc="$2"
+      shift 2
+      items+=("${tag}: ${desc}")
+    done
+    gum style --border normal --padding "1 2" --margin "1 1" \
+      "Linux Maint ToolKit" "Interactive menu" >&2
+    gum choose --header "$prompt" "${items[@]}"
+  elif [[ "$TUI_BACKEND" == "dialog" ]]; then
     dialog --clear --backtitle "$TUI_BACKTITLE" --title "$TUI_TITLE" \
       --menu "$prompt" 20 78 12 "$@" 3>&1 1>&2 2>&3
   else
@@ -235,7 +264,10 @@ tui_menu_prompt(){
 
 tui_msgbox(){
   local msg="$1"
-  if [[ "$TUI_BACKEND" == "dialog" ]]; then
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    gum style --border normal --padding "1 2" --margin "1 1" "$msg" >&2
+    read -r -p "Press Enter to continue..." _ </dev/tty
+  elif [[ "$TUI_BACKEND" == "dialog" ]]; then
     dialog --clear --backtitle "$TUI_BACKTITLE" --title "$TUI_TITLE" \
       --msgbox "$msg" 10 70
   else
@@ -245,7 +277,9 @@ tui_msgbox(){
 
 tui_yesno(){
   local msg="$1"
-  if [[ "$TUI_BACKEND" == "dialog" ]]; then
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    gum confirm "$msg"
+  elif [[ "$TUI_BACKEND" == "dialog" ]]; then
     dialog --clear --backtitle "$TUI_BACKTITLE" --title "$TUI_TITLE" \
       --yesno "$msg" 10 70
   else
@@ -256,7 +290,10 @@ tui_yesno(){
 tui_textbox(){
   local title="$1"
   local file="$2"
-  if [[ "$TUI_BACKEND" == "dialog" ]]; then
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    gum style --bold "$title" >&2
+    gum pager < "$file"
+  elif [[ "$TUI_BACKEND" == "dialog" ]]; then
     dialog --clear --backtitle "$TUI_BACKTITLE" --title "$title" \
       --textbox "$file" 22 90
   else
@@ -288,7 +325,7 @@ run_menu(){
 
   TUI_BACKEND="$(detect_tui_backend || true)"
   if [[ -z "$TUI_BACKEND" ]]; then
-    echo "ERROR: install dialog or whiptail to use linux-maint menu" >&2
+    echo "ERROR: install gum, dialog, or whiptail to use linux-maint menu" >&2
     exit 1
   fi
 
@@ -318,6 +355,7 @@ run_menu(){
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
+    choice="${choice%%:*}"
     case "$choice" in
       run)
         if tui_yesno "Run full checks now?"; then
@@ -767,6 +805,7 @@ ${C_CYAN}Environment${C_RESET}:
   NO_COLOR=1            disable colored output
   LM_LOCAL_ONLY=true    force local-only mode (CI/testing)
   LM_DARK_SITE=true     enable conservative offline defaults
+  LM_TUI_BACKEND=gum    force menu UI backend (gum|dialog|whiptail)
 
 ${C_CYAN}Examples${C_RESET}:
   linux-maint run --group prod --parallel 10 --progress
