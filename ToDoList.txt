@@ -27,19 +27,24 @@ Primary users: operators, sysadmins, and SREs working in constrained or air-gapp
 
 ## P0 - Correctness and safety
 - Add a run concurrency lock (lockfile + timeout) so overlapping `linux-maint run` cannot corrupt logs; support `--allow-concurrent` override.
-- Introduce a stable `run_id` and `schema_version` across summary/status/report/metrics JSON; enforce in `lint-summary` and schemas.
+- Introduce a stable `run_id` and `schema_version` across summary/status/report/metrics JSON; enforce in schemas and `lint-summary`.
 - Make run-index and status writes fully atomic (write temp + rename), and skip/repair partial JSONL records on read.
 - Enforce config type validation (int/bool/list) with JSON-only error payloads in `--json` modes; extend tests for invalid types.
 - Add strict empty-monitor resolution checks: fail if `run --plan` or `run --only/--skip` resolves to zero monitors.
+- Add a defensive cap on summary line length and untrusted fields to avoid broken terminals or logs.
 
 ---
 
 ## P1 - Operator UX, docs, compatibility
+- Document `linux-maint menu` in `docs/reference.md` and `docs/README.md` (include prerequisites + examples).
+- Add TUI configuration knobs section (e.g., `LM_TUI_BACKEND`, `LM_TUI_DASH_REFRESH`) in docs.
 - Add `linux-maint config --diff-defaults` to show which effective values differ from shipped defaults.
 - Add a Custom Monitors guide (`docs/CUSTOM_MONITORS.md`) and a template generator (`tools/new_monitor.sh`).
 - Expand `list-monitors` to derive descriptions/required files from monitor headers to avoid drift.
 - Add `--output <path>` to `status`, `report`, and `trend` for atomic file writes.
 - Add a fleet quickstart example (SSH inventory, services, network targets) under `docs/examples/`.
+- Add a short “what to do next” hint screen at the end of TUI runs (success/failure actions).
+- Add a TUI “About / version” view (build info + install mode) to help operators.
 
 ---
 
@@ -49,6 +54,7 @@ Primary users: operators, sysadmins, and SREs working in constrained or air-gapp
 - Provide a minimal `sudoers` example for safe non-root use; document least-privilege setup.
 - Add optional GPG encryption for support bundles and document verification steps.
 - Add a configurable cap for run-index size/age that is enforced even without logrotate.
+- Add allowlist validation for `LM_SSH_OPTS` (deny weak ciphers) in strict mode.
 
 ---
 
@@ -58,6 +64,7 @@ Primary users: operators, sysadmins, and SREs working in constrained or air-gapp
 - Add contract tests for `run_id` propagation and lock behavior.
 - Add compatibility test for older bash (3.x) to ensure minimal features are used.
 - Add integration test that exercises a full run with `--only` plus `--progress` output stability.
+- Add golden fixtures for TUI report output (non-interactive capture) to lock formatting where feasible.
 
 ---
 
@@ -66,3 +73,4 @@ Primary users: operators, sysadmins, and SREs working in constrained or air-gapp
 - Add `make verify-release` to run `tools/verify_release.sh` plus notes/index checks.
 - Add a brief `docs/SECURITY_RESPONSE.md` to document responsible disclosure expectations.
 - Add `CODEOWNERS` and issue/PR templates to streamline maintenance.
+- Add a small “UI style guide” section for TUI colors/layout to keep changes consistent.
