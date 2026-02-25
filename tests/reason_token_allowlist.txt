@@ -1,0 +1,2 @@
+# Legacy reason tokens allowed (one per line).
+# Use sparingly and prefer adding to docs/REASONS.md instead.

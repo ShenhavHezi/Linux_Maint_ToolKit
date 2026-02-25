@@ -9,12 +9,37 @@ Validates:
 Input: wrapper logfile (full_health_monitor_*.log) or a file containing only monitor lines.
 """
 
+import os
 import re
 import sys
 from collections import defaultdict
 
 ALLOWED_STATUSES = {"OK", "WARN", "CRIT", "UNKNOWN", "SKIP"}
 REASON_RE = re.compile(r"^[a-z0-9_]+$")
+
+
+def load_allowed_reasons(repo_root):
+    reasons_path = os.path.join(repo_root, "docs", "REASONS.md")
+    allow_path = os.path.join(repo_root, "tests", "reason_token_allowlist.txt")
+    reasons = set()
+    try:
+        with open(reasons_path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                for m in re.findall(r"`([a-z0-9_]+)`", line):
+                    reasons.add(m)
+    except Exception:
+        pass
+
+    allow = set()
+    if os.path.exists(allow_path):
+        with open(allow_path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                allow.add(line)
+
+    return reasons, allow
 
 
 def parse_kv(line: str):
@@ -34,6 +59,8 @@ def parse_kv(line: str):
 
 
 def main(path: str) -> int:
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    allowed_reasons, allowlist_reasons = load_allowed_reasons(repo_root)
     txt = open(path, "r", encoding="utf-8", errors="ignore").read().splitlines()
 
     executed = []
@@ -77,6 +104,8 @@ def main(path: str) -> int:
     bad_reason = 0
     missing_required = 0
     dup_monitor_host = 0
+    bad_host = 0
+    missing_node = 0
     seen_monitor_host = {}
 
     for r in rows:
@@ -84,6 +113,12 @@ def main(path: str) -> int:
         if not r.get("monitor") or not r.get("host") or not st:
             missing_required += 1
             print(f"ERROR: monitor= line missing required keys: {r}")
+        if r.get("host") == "all":
+            bad_host += 1
+            print(f"ERROR: host=all is not allowed (use host=runner instead): {r}")
+        if not r.get("node"):
+            missing_node += 1
+            print(f"ERROR: monitor= line missing node=: {r}")
         if st not in ALLOWED_STATUSES:
             bad_status += 1
             print(f"ERROR: invalid status={st} line={r}")
@@ -100,6 +135,9 @@ def main(path: str) -> int:
             elif not REASON_RE.match(reason):
                 bad_reason += 1
                 print(f"ERROR: invalid reason token={reason!r} line={r}")
+            elif allowed_reasons and reason not in allowed_reasons and reason not in allowlist_reasons:
+                bad_reason += 1
+                print(f"ERROR: reason token not in docs/REASONS.md allowlist: {reason!r} line={r}")
 
     # monitor emission check
     mon_to_lines = defaultdict(int)
@@ -121,7 +159,7 @@ def main(path: str) -> int:
     if missing_reason:
         print(f"ERROR: {missing_reason} non-OK monitor= lines are missing reason=")
 
-    if bad_status or missing_monitor_lines or missing_required or malformed or missing_reason or bad_reason or dup_monitor_host:
+    if bad_status or missing_monitor_lines or missing_required or malformed or missing_reason or bad_reason or dup_monitor_host or bad_host or missing_node:
         return 2
     return 0
 

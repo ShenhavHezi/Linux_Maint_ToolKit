@@ -1,0 +1,2 @@
+# Optional exclude list for tests/summary_contract_monitor_list_test.sh
+# One monitor filename per line (e.g., legacy or intentionally excluded).

@@ -38,6 +38,7 @@ These are the most common operator-facing reasons. Use them for first-line triag
 - `timeout` — command timed out
 - `config_missing` — required config file missing
 - `baseline_missing` — baseline not found (expected on first run)
+- `unknown` — reason could not be determined (avoid if possible)
 - `security_updates_pending` — security updates available
 - `timer_missing` — systemd timer unit not installed
 
@@ -65,7 +66,10 @@ Suggested first actions:
 - `permission_denied` — permission problem reading state/logs/etc
 - `config_missing` — required config file missing
 - `config_invalid` — config present but invalid/unparseable
+- `config_validate_warn` — config validation warnings present
+- `config_validate_crit` — config validation critical errors present
 - `unsupported` — environment unsupported (distro/tooling)
+- `unsupported_pkg_mgr` — package manager unsupported by monitor
 - `baseline_created` — baseline created from current snapshot
 - `baseline_updated` — baseline updated to current snapshot
 - `baseline_exists` — baseline already present (no change)
@@ -75,11 +79,23 @@ Suggested first actions:
 - `timer_inactive` — systemd timer enabled but not active
 - `missing_last_run_log` — expected wrapper log not found
 - `stale_run` — wrapper log too old (run likely missed)
+- `already_running` — another instance of the monitor/wrapper is running
+- `collect_failed` — data collection failed
+- `log_dir_fallback` — wrapper log dir fallback was used
+- `summary_dir_fallback` — wrapper summary dir fallback was used
+- `state_dir_fallback` — wrapper state dir fallback was used
+- `log_write_failed` — wrapper failed to write log file
+- `summary_write_failed` — wrapper failed to write summary file
+- `summary_checksum_failed` — wrapper summary checksum mismatch
 
 ### Storage / disk
 - `disk_full` — hard threshold exceeded
 - `disk_growth` — growth forecast exceeded
+- `disk_trend_warn` — disk trend warning triggered
+- `disk_trend_crit` — disk trend critical triggered
 - `inode_high` — inode usage exceeded threshold
+- `inode_usage_warn` — inode usage warning triggered
+- `inode_usage_crit` — inode usage critical triggered
 - `filesystem_readonly` — filesystem remounted read-only
 - `smart_failed` — SMART indicates failure
 - `raid_degraded` — mdraid degraded
@@ -87,22 +103,27 @@ Suggested first actions:
 ### Time
 - `ntp_not_synced`
 - `ntp_drift_high`
+- `no_timesync_tool` — no supported time-sync tool detected
 
 ### Patching
 - `updates_pending`
 - `security_updates_pending`
 - `reboot_required`
+- `missing_targets_file` — required targets list missing for monitor
 
 ### Services / processes
 - `service_inactive`
 - `service_failed`
+- `failed_units` — systemd failed units detected
 - `high_load`
 - `high_mem`
+- `swap_thrash`
 
 ### Network
 - `ping_failed`
 - `tcp_failed`
 - `http_failed`
+- `no_df_output` — df output missing or unreadable
 
 ### Logs
 - `log_spike_warn` — log error rate above warn threshold
@@ -117,6 +138,14 @@ Suggested first actions:
 ### TLS/certs
 - `cert_expiring`
 - `cert_invalid`
+- `kernel_events_warn`
+- `kernel_events_crit`
+- `kernel_log_unreadable`
+- `ports_baseline_changed`
+- `config_drift_changed`
+- `user_anomalies`
+- `backup_failures`
+- `nfs_unhealthy`
 
 ## Adding new reasons
 

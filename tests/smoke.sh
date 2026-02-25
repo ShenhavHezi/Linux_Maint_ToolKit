@@ -66,8 +66,10 @@ run_required "lm_mktemp_fallback_test" bash "$ROOT_DIR/tests/lm_mktemp_fallback_
 
 # Monitor summary emission contract (each monitor must emit monitor= lines)
 run_required "monitor_summary_emission_test" bash "$ROOT_DIR/tests/monitor_summary_emission_test.sh"
+run_required "summary_contract_monitor_list_test" bash "$ROOT_DIR/tests/summary_contract_monitor_list_test.sh"
 run_required "summary_diff_canonicalization_test" bash "$ROOT_DIR/tests/summary_diff_canonicalization_test.sh"
 run_required "summary_fixture_per_monitor_test" bash "$ROOT_DIR/tests/summary_fixture_per_monitor_test.sh"
+run_required "skip_gate_reason_test" bash "$ROOT_DIR/tests/skip_gate_reason_test.sh"
 run_required "quick_check_make_target_test" bash "$ROOT_DIR/tests/quick_check_make_target_test.sh"
 run_required "wrapper_runtime_summary_test" bash "$ROOT_DIR/tests/wrapper_runtime_summary_test.sh"
 run_required "strict_run_validation_test" bash "$ROOT_DIR/tests/strict_run_validation_test.sh"
@@ -95,6 +97,7 @@ run_required "color_precedence_test" bash "$ROOT_DIR/tests/color_precedence_test
 run_required "progress_tty_test" bash "$ROOT_DIR/tests/progress_tty_test.sh"
 run_required "json_progress_guard_test" bash "$ROOT_DIR/tests/json_progress_guard_test.sh"
 run_required "json_output_clean_test" bash "$ROOT_DIR/tests/json_output_clean_test.sh"
+run_required "json_output_prefix_test" bash "$ROOT_DIR/tests/json_output_prefix_test.sh"
 
 # Security lint: forbid eval usage
 run_required "no_eval_lint" bash "$ROOT_DIR/tests/no_eval_lint.sh"
