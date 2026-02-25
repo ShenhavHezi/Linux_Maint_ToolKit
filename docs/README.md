@@ -28,7 +28,7 @@ Start here to navigate operator and contributor documentation.
 - Command contract checklist: `docs/COMMAND_CONTRACT_CHECKLIST.md`
 - Release checklist: `docs/RELEASE_CHECKLIST.md`
 - Release template: `docs/RELEASE_TEMPLATE.md`
-- Release notes (latest): `docs/release_notes/release_notes_v0.2.3.md`, `docs/release_notes/release_notes_v0.2.2.md`
+- Release notes (latest): `docs/release_notes/release_notes_v0.2.6.md`, `docs/release_notes/release_notes_v0.2.5.md`
 - Security policy: `SECURITY.md`
 - Security best practices report: `docs/security_best_practices_report.md`
 

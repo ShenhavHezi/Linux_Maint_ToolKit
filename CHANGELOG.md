@@ -6,6 +6,15 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 - (add changes here)
 
+## 2026-02-25
+
+- Release v0.2.6
+- Added `run --only/--skip` targeting and `check --json` for automation.
+- Added JSON redaction controls (`LM_REDACT_JSON`) across core outputs.
+- Hardened SSH/summary validation (strict allowlists, retries, known_hosts pinning).
+- Added inventory cache pruning, run tmpdir cleanup, and expanded fixtures/tests.
+- Expanded operator docs and compatibility/runbook coverage.
+
 ## 2026-02-24
 
 - Release v0.2.5
