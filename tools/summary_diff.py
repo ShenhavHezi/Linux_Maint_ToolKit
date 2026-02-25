@@ -106,9 +106,9 @@ def main(prev_path, cur_path, fmt='text'):
 
     if fmt=='json':
         out={
-            'new_failures':[{'monitor':k[0],'host':k[1],'prev':p,'cur':c} for k,p,c in new_fail],
-            'recovered':[{'monitor':k[0],'host':k[1],'prev':p,'cur':c} for k,p,c in recovered],
-            'still_bad':[{'monitor':k[0],'host':k[1],'cur':c} for k,c in still_bad],
+            'new_failures':[{'monitor':k[0],'host':k[1],'prev':prev,'cur':cur} for k, prev, cur in new_fail],
+            'recovered':[{'monitor':k[0],'host':k[1],'prev':prev,'cur':cur} for k, prev, cur in recovered],
+            'still_bad':[{'monitor':k[0],'host':k[1],'cur':cur} for k, cur in still_bad],
             'changed':changed,
         }
         print(json.dumps(out, indent=2, sort_keys=True))
@@ -130,24 +130,24 @@ def main(prev_path, cur_path, fmt='text'):
     if len(new_fail) > 0:
         new_label = c(new_label, "1;31")
     print(new_label)
-    for k,p,c in new_fail[:80]:
-        print(f"- {k[1]} {k[0]}: {brief(p)} -> {brief(c)}")
+    for k, prev, cur in new_fail[:80]:
+        print(f"- {k[1]} {k[0]}: {brief(prev)} -> {brief(cur)}")
 
     print("")
     rec_label = f"RECOVERED {len(recovered)}"
     if len(recovered) > 0:
         rec_label = c(rec_label, "1;32")
     print(rec_label)
-    for k,p,c in recovered[:80]:
-        print(f"- {k[1]} {k[0]}: {brief(p)} -> {brief(c)}")
+    for k, prev, cur in recovered[:80]:
+        print(f"- {k[1]} {k[0]}: {brief(prev)} -> {brief(cur)}")
 
     print("")
     still_label = f"STILL_BAD {len(still_bad)}"
     if len(still_bad) > 0:
         still_label = c(still_label, "1;33")
     print(still_label)
-    for k,c in still_bad[:120]:
-        print(f"- {k[1]} {k[0]}: {brief(c)}")
+    for k, cur in still_bad[:120]:
+        print(f"- {k[1]} {k[0]}: {brief(cur)}")
 
     return 0
 
