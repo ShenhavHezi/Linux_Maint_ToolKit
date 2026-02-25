@@ -34,4 +34,4 @@
 - Progress UI honors `LM_PROGRESS_MODE=plain` and `LM_PROGRESS_FORCE=1` for TUI runs.
 
 ## Checksums (if releasing a tarball)
-- SHA256SUMS: (not generated for this release)
+- SHA256SUMS: 78ba898bc3384f48d06ce9a900243efe6dedf9b7e32d6484fcbfa9fa2591e8b4  Linux_Maint_ToolKit-v0.2.8-95ceb30.tgz
