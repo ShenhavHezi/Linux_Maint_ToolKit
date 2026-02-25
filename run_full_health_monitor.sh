@@ -462,7 +462,11 @@ runtime_warn_count=0
 runtime_file="$TMPDIR/linux_maint_runtime.$$"
 
 progress_enabled=0
-if [[ -t 2 ]]; then
+progress_force=0
+case "${LM_PROGRESS_FORCE:-0}" in
+  1|true|TRUE|yes|YES|on|ON) progress_force=1 ;;
+esac
+if [[ -t 2 || "$progress_force" -eq 1 ]]; then
   progress_enabled=1
 fi
 case "${LM_PROGRESS:-1}" in
@@ -477,9 +481,10 @@ esac
 if [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]]; then
   progress_color_enabled=0
 fi
-if [[ "$progress_enabled" -ne 1 || ! -t 2 ]]; then
+if [[ "$progress_enabled" -ne 1 || ( ! -t 2 && "$progress_force" -eq 0 ) ]]; then
   progress_color_enabled=0
 fi
+progress_mode="${LM_PROGRESS_MODE:-inline}"
 if [[ "$progress_color_enabled" -eq 1 ]]; then
   P_C_RESET=$'\033[0m'
   P_C_BOLD=$'\033[1m'
@@ -530,15 +535,27 @@ progress_render() {
   else
     count="${idx}/${total}"
   fi
-  # Clear to end-of-line to avoid leftover text when monitor names shrink.
-  printf '\r%s [%s] %s %s %s\033[K' "$spin" "$bar" "$pct_str" "$count" "$label" >&2
+  if [[ "$progress_mode" == "plain" ]]; then
+    printf '%s [%s] %s %s %s\n' "$spin" "$bar" "$pct_str" "$count" "$label" >&2
+  else
+    # Clear to end-of-line to avoid leftover text when monitor names shrink.
+    printf '\r%s [%s] %s %s %s\033[K' "$spin" "$bar" "$pct_str" "$count" "$label" >&2
+  fi
 }
 progress_done() {
   [[ "$progress_enabled" -eq 1 ]] || return 0
   if [[ "$progress_color_enabled" -eq 1 ]]; then
-    printf '\r%s %s\033[K\n' "${P_C_GREEN}DONE${P_C_RESET}" "${P_C_DIM}100% - summary ready (run: linux-maint report)${P_C_RESET}" >&2
+    if [[ "$progress_mode" == "plain" ]]; then
+      printf '%s %s\n' "${P_C_GREEN}DONE${P_C_RESET}" "${P_C_DIM}100% - summary ready (run: linux-maint report)${P_C_RESET}" >&2
+    else
+      printf '\r%s %s\033[K\n' "${P_C_GREEN}DONE${P_C_RESET}" "${P_C_DIM}100% - summary ready (run: linux-maint report)${P_C_RESET}" >&2
+    fi
   else
-    printf '\rDONE 100%% - summary ready (run: linux-maint report)\033[K\n' >&2
+    if [[ "$progress_mode" == "plain" ]]; then
+      printf 'DONE 100%% - summary ready (run: linux-maint report)\n' >&2
+    else
+      printf '\rDONE 100%% - summary ready (run: linux-maint report)\033[K\n' >&2
+    fi
   fi
 }
 

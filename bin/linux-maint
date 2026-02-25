@@ -243,9 +243,19 @@ detect_tui_backend(){
 tui_gum_banner(){
   local title="${1:-Linux Maint ToolKit}"
   local subtitle="${2:-Interactive menu}"
-  gum style --border normal --border-foreground "#3b82f6" --foreground "#f9fafb" \
-    --padding "1 4" --margin "1 1" --align center --width 90 \
-    "$(gum style --bold --foreground "#f9fafb" "$title")" \
+  local logo
+  logo="$(cat <<'EOF'
+  __    _                 __  __       _       _
+ / /   (_)___  ___  _____/ /_/ /__  __| | ___ (_)
+/ /   / / __ \/ _ \/ ___/ __/ / _ \/ _` |/ _ \| |
+/ /___/ / / / /  __(__  ) /_/ /  __/ (_| | (_) | |
+\_____/_/_/ /_/\___/____/\__/_/\___|\__,_|\___/|_|
+EOF
+)"
+  gum style --border thick --border-foreground "#3b82f6" --foreground "#f9fafb" \
+    --padding "1 4" --margin "1 1" --align center --width 104 \
+    "$(gum style --bold --foreground "#f9fafb" "$logo")" \
+    "$(gum style --foreground "#e5e7eb" "$title")" \
     "$(gum style --foreground "#9ca3af" "$subtitle")" >&2
 }
 
@@ -353,8 +363,8 @@ PY
 
   body="$(gum join --vertical "$overall_line" "$totals_line" "$summary_line" "$context_line" "$log_block")"
 
-  gum style --border thick --border-foreground "$color" --padding "1 2" \
-    --margin "0 1" --width 90 "$body" >&2
+  gum style --border thick --border-foreground "$color" --padding "1 3" \
+    --margin "0 1" --width 104 "$body" >&2
 }
 
 tui_menu_prompt(){
@@ -370,7 +380,7 @@ tui_menu_prompt(){
     done
     tui_gum_banner "Linux Maint ToolKit" "$prompt"
     tui_gum_hint "Use arrows + Enter. Esc to go back."
-    gum choose --header "Select an option" --height 14 --cursor "> " \
+    gum choose --header "Select an option" --height 16 --cursor "> " \
       --cursor-prefix "> " --selected-prefix "* " --unselected-prefix "  " \
       --show-help=false "${items[@]}"
   elif [[ "$TUI_BACKEND" == "dialog" ]]; then
@@ -481,12 +491,12 @@ tui_run_live(){
   shift || true
   if [[ "$TUI_BACKEND" == "gum" ]]; then
     gum spin --spinner dot --title "$title" --show-output -- \
-      env LM_PROGRESS=0 "$@"
+      env LM_PROGRESS=1 LM_PROGRESS_MODE=plain LM_PROGRESS_FORCE=1 LM_PROGRESS_WIDTH=32 "$@"
     return $?
   fi
   if [[ "$TUI_BACKEND" == "dialog" ]]; then
     dialog --clear --backtitle "$TUI_BACKTITLE" --title "$title" \
-      --programbox "$title" 22 90 env NO_COLOR=1 LM_PROGRESS=0 "$@"
+      --programbox "$title" 22 90 env NO_COLOR=1 LM_PROGRESS=1 LM_PROGRESS_MODE=plain LM_PROGRESS_FORCE=1 LM_PROGRESS_WIDTH=32 "$@"
     return $?
   fi
   tui_run_cmd "$title" "$@"
