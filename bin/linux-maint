@@ -394,14 +394,22 @@ tui_menu_prompt(){
   if [[ "$TUI_BACKEND" == "gum" ]]; then
     local -a items=()
     local -a raw=()
+    local -a plain=()
     local max_len=0
     while [[ $# -gt 0 ]]; do
       local tag="$1"
       local desc="$2"
       shift 2
-      local line="${tag}: ${desc}"
+      local line
+      if [[ "$TUI_BACKEND" == "gum" ]]; then
+        line="$(gum style --bold "$tag"):${desc:+ }$desc"
+      else
+        line="${tag}: ${desc}"
+      fi
       raw+=("$line")
-      local len=${#line}
+      local plain_line="${tag}: ${desc}"
+      plain+=("$plain_line")
+      local len=${#plain_line}
       if [[ "$len" -gt "$max_len" ]]; then
         max_len="$len"
       fi
@@ -418,8 +426,15 @@ tui_menu_prompt(){
     [[ "$pad" -lt 0 ]] && pad=0
     local pad_str
     pad_str="$(printf '%*s' "$pad" '')"
+    local i=0
     for line in "${raw[@]}"; do
-      items+=("${pad_str}${line}")
+      local plain_line="${plain[$i]}"
+      local pad_len=$(( (banner_w - ${#plain_line}) / 2 ))
+      [[ "$pad_len" -lt 0 ]] && pad_len=0
+      local line_pad
+      line_pad="$(printf '%*s' "$pad_len" '')"
+      items+=("${line_pad}${line}")
+      i=$((i+1))
     done
     gum choose --header "" --height 16 --cursor "> " \
       --cursor-prefix "> " --selected-prefix "* " --unselected-prefix "  " \
