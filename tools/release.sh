@@ -6,13 +6,14 @@ cd "$ROOT_DIR"
 
 usage() {
   cat <<USAGE
-Usage: tools/release.sh <version> [--release] [--notes-out PATH] [--no-tag] [--no-commit] [--allow-dirty] [--dry-run]
+Usage: tools/release.sh <version> [--release] [--with-tarball] [--notes-out PATH] [--no-tag] [--no-commit] [--allow-dirty] [--dry-run]
 
 Automates:
   - VERSION bump
   - CHANGELOG entry (moves Unreleased into dated section)
   - release notes draft from docs/RELEASE_TEMPLATE.md
   - optional git tag and GitHub release
+  - optional tarball build + checksum injection into notes
 
 Examples:
   tools/release.sh 0.1.5
@@ -25,6 +26,7 @@ VERSION="${1:-}"
 shift || true
 
 DO_RELEASE=0
+WITH_TARBALL=0
 NO_TAG=0
 NO_COMMIT=0
 ALLOW_DIRTY=0
@@ -34,6 +36,7 @@ NOTES_OUT=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --release) DO_RELEASE=1; shift 1;;
+    --with-tarball) WITH_TARBALL=1; shift 1;;
     --notes-out) NOTES_OUT="$2"; shift 2;;
     --no-tag) NO_TAG=1; shift 1;;
     --no-commit) NO_COMMIT=1; shift 1;;
@@ -47,6 +50,10 @@ done
 if [[ -z "$VERSION" ]]; then
   usage >&2
   exit 2
+fi
+
+if [[ "$DO_RELEASE" -eq 1 ]]; then
+  WITH_TARBALL=1
 fi
 
 TAG="v${VERSION}"
@@ -78,6 +85,9 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "[dry-run] would update VERSION -> $VERSION"
   echo "[dry-run] would update CHANGELOG.md with date $DATE_UTC and tag $TAG"
   echo "[dry-run] would write notes: $NOTES_OUT"
+  if [[ "$WITH_TARBALL" -eq 1 ]]; then
+    echo "[dry-run] would build tarball and update checksum in notes"
+  fi
   echo "[dry-run] no git commit/tag/release"
   exit 0
 fi
@@ -161,13 +171,52 @@ if [[ "$NO_TAG" -ne 1 ]]; then
   git tag "${TAG}"
 fi
 
+tarball=""
+sums_file="dist/SHA256SUMS"
+checksum=""
+if [[ "$WITH_TARBALL" -eq 1 ]]; then
+  ./tools/make_tarball.sh
+  tarball="$(find dist -maxdepth 1 -type f -name "Linux_Maint_ToolKit-v${VERSION}-*.tgz" -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 | awk '{print $2}')"
+  if [[ -z "$tarball" ]]; then
+    echo "ERROR: tarball not found under dist/" >&2
+    exit 2
+  fi
+  if command -v sha256sum >/dev/null 2>&1; then
+    checksum="$(sha256sum "$tarball" | awk '{print $1}')"
+  fi
+  if [[ -n "$checksum" && -f "$NOTES_OUT" ]]; then
+    python3 - "$NOTES_OUT" "$checksum" "$(basename "$tarball")" <<'PY'
+import sys
+from pathlib import Path
+
+path, checksum, tarball = sys.argv[1:4]
+lines = Path(path).read_text().splitlines()
+out = []
+replaced = False
+for line in lines:
+    if line.strip().startswith("- SHA256SUMS:"):
+        out.append(f"- SHA256SUMS: {checksum}  {tarball}")
+        replaced = True
+    else:
+        out.append(line)
+if not replaced:
+    out.append(f"- SHA256SUMS: {checksum}  {tarball}")
+Path(path).write_text("\n".join(out).rstrip() + "\n")
+PY
+  fi
+fi
+
 if [[ "$DO_RELEASE" -eq 1 ]]; then
   if ! command -v gh >/dev/null 2>&1; then
     echo "ERROR: gh not found; install GitHub CLI or omit --release" >&2
     exit 2
   fi
   git push origin "${TAG}"
-  gh release create "${TAG}" --title "${TAG}" --notes-file "${NOTES_OUT}"
+  if [[ -n "$tarball" && -f "$tarball" && -f "$sums_file" ]]; then
+    gh release create "${TAG}" --title "${TAG}" --notes-file "${NOTES_OUT}" "$tarball" "$sums_file"
+  else
+    gh release create "${TAG}" --title "${TAG}" --notes-file "${NOTES_OUT}"
+  fi
 fi
 
 echo "Release prep complete."

@@ -5,9 +5,11 @@ Start here to navigate operator and contributor documentation.
 ## Operator docs
 
 - Quick reference (cheat-sheet): `docs/QUICK_REFERENCE.md`
+- Operator runbook (short): `docs/RUNBOOK.md`
 - Full reference (configuration, monitors, outputs): `docs/reference.md`
 - Configuration: `docs/configuration.md`
 - Installation: `docs/installation.md`
+- Compatibility matrix: `docs/COMPATIBILITY.md`
 - Troubleshooting: `docs/troubleshooting.md`
 - Dark-site / offline usage: `docs/DARK_SITE.md`
 - Reason tokens: `docs/REASONS.md`
@@ -15,6 +17,7 @@ Start here to navigate operator and contributor documentation.
 - Operations quickstart: `docs/OPERATIONS.md`
 - Upgrade and rollback: `docs/UPGRADE.md`
 - Artifacts and logs: `docs/ARTIFACTS.md`
+- Examples: `docs/examples/README.md`
 - Reasons quick reference: `docs/REASONS.md#top-10-reasons-quick-reference`
 - Short index (quick links): `docs/INDEX.md`
 

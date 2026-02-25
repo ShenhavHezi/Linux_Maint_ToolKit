@@ -25,55 +25,54 @@ Primary users: operators, sysadmins, and SREs working in constrained or air-gapp
 
 ---
 
-## P0 - Correctness and safety (next)
-- Enforce reason vocabulary: lint summary lines against docs/REASONS.md with explicit allowlist for legacy tokens.
-- Add lint to forbid host=all and require host=runner/localhost/target across all summary lines.
-- Add wrapper skip-gate tests to ensure SKIP reasons are stable and include missing=...
-- Extend config validation to detect duplicate keys across linux-maint.conf + conf.d and unknown keys.
-- Add a shared JSON-output guard test for all --json commands (no prefix/header contamination).
-- Add a summary contract lint to require node= present and non-empty on every monitor= line.
-- Add a duplicate monitor/host lint for wrapper summaries to prevent multiple rows per monitor/host.
-- Add a sync check that summary_contract.monitors matches monitors/ (allowlist only where justified).
+## P0 - Correctness and safety (done)
+- Enforced reason vocabulary lint against docs/REASONS.md with allowlist support.
+- Added lints for host=all and required node= on all summary lines.
+- Added wrapper skip-gate tests with stable SKIP reasons and missing=... details.
+- Extended config validation to detect duplicate and unknown keys across linux-maint.conf + conf.d.
+- Added JSON-output guard tests to prevent non-JSON contamination.
+- Added duplicate monitor/host lint for wrapper summaries.
+- Added summary_contract.monitors sync check with allowlist exceptions.
 
 ---
 
-## P1 - Operator UX, docs, compatibility (next)
-- Add `linux-maint run --only/--skip` CLI flags for focused runs (wrap LM_MONITORS).
-- Expand QUICK_REFERENCE with first-run workflow, baselines, expected SKIPs, and triage steps.
-- Add compatibility matrix doc (bash/Python versions, supported distros, required tools).
-- Improve `linux-maint explain reason` to include next_step guidance and common fixes.
-- Add `linux-maint check --json` for automation-friendly preflight + config status.
-- Add example outputs for report/trend/diff in docs (color + no-color).
-- Add a short operator runbook: initial install, first run, baseline creation, and day-2 checks.
+## P1 - Operator UX, docs, compatibility (done)
+- Added `linux-maint run --only/--skip` CLI flags for focused runs.
+- Expanded QUICK_REFERENCE with first-run workflow, baselines, expected SKIPs, and triage steps.
+- Added compatibility matrix doc (bash/Python versions, supported distros, required tools).
+- Improved `linux-maint explain reason` to include next_step guidance and common fixes.
+- Added `linux-maint check --json` for automation-friendly preflight + config status.
+- Added example outputs for report/trend/diff in docs (color + no-color).
+- Added a short operator runbook: initial install, first run, baseline creation, and day-2 checks.
 
 ---
 
-## P2 - Security, hardening, performance (soon)
-- Add `LM_SSH_ALLOWLIST_STRICT=1` to fail hard on blocked commands (instead of warn).
-- Add optional `LM_SSH_KNOWN_HOSTS_PIN_FILE` for pinned host keys and document usage.
-- Expand redaction coverage for known secret formats in report/pack-logs outputs.
-- Add inventory cache pruning (`LM_INVENTORY_CACHE_MAX`) to prevent unbounded growth.
-- Harden tempdir usage in wrapper (dedicated run dir + cleanup on signals).
-- Add optional `LM_REDACT_JSON=1` to redact secrets from JSON outputs.
-- Add `LM_SSH_RETRY` with small backoff for transient SSH failures.
+## P2 - Security, hardening, performance (done)
+- Added `LM_SSH_ALLOWLIST_STRICT=1` to fail hard on blocked commands.
+- Added `LM_SSH_KNOWN_HOSTS_PIN_FILE` for pinned host keys and documentation.
+- Expanded redaction coverage for known secret formats in report/pack-logs outputs.
+- Added inventory cache pruning (`LM_INVENTORY_CACHE_MAX`) to prevent unbounded growth.
+- Hardened tempdir usage in wrapper (dedicated run dir + cleanup on signals).
+- Added `LM_REDACT_JSON=1` to redact secrets from JSON outputs.
+- Added `LM_SSH_RETRY` with exponential backoff for transient SSH failures.
 
 ---
 
-## P3 - Observability, integrations, QA coverage (later)
-- Add Prometheus metrics for per-monitor runtime and host counts.
-- Add golden fixtures for report/trend/diff outputs to lock formatting regressions.
-- Add a JSON schema test for metrics fields to ensure numeric types are stable.
-- Add smoke test coverage for skip-gate reasons (config_missing/baseline_missing).
-- Add a contract test for LM_SUMMARY_ALLOWLIST behavior in strict mode.
-- Add trend cache tests to validate TTL behavior and filter-aware caching.
-- Add run_index retention tests for prune/keep edge cases.
+## P3 - Observability, integrations, QA coverage (done)
+- Added Prometheus metrics for per-monitor runtime and host counts.
+- Added golden fixtures for report/trend/diff outputs to lock formatting regressions.
+- Added JSON schema validation for metrics fields (numeric stability).
+- Added smoke test coverage for skip-gate reasons (config_missing/baseline_missing).
+- Added contract test for LM_SUMMARY_ALLOWLIST behavior in strict mode.
+- Added trend cache tests to validate TTL behavior and filter-aware caching.
+- Added run_index retention tests for prune/keep edge cases.
 
 ---
 
-## P4 - DX, release polish, community (later)
-- Automate release pipeline to build tarball, compute checksum, and attach to GitHub release.
-- Extend `make release` to tag, draft notes, and update checksums in release notes.
-- Add contributor guide section on summary contract and reason token policy.
-- Add a short security disclosure note and lifecycle/support policy.
-- Add DEB packaging plan or explicit statement of non-support in docs.
-- Add a minimal example pack under docs/examples for quick evaluation.
+## P4 - DX, release polish, community (done)
+- Automated release pipeline to build tarball, compute checksum, and attach to GitHub release.
+- Extended `make release` to tag, draft notes, and update checksums in release notes.
+- Added contributor guide section on summary contract and reason token policy.
+- Added security disclosure note and lifecycle/support policy.
+- Added DEB packaging note (non-support) in docs.
+- Added a minimal example pack under docs/examples for quick evaluation.

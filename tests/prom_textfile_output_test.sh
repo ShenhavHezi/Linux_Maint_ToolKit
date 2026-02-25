@@ -33,6 +33,7 @@ req_metrics=(
   "linux_maint_last_run_age_seconds"
   "linux_maint_summary_hosts_count"
   "linux_maint_monitor_status_count"
+  "linux_maint_monitor_host_count"
   "linux_maint_monitor_status"
   "linux_maint_reason_count"
   "linux_maint_monitor_runtime_ms"

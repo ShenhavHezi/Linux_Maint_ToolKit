@@ -65,6 +65,60 @@ tip_line() {
   fi
 }
 
+get_default_monitors(){
+  local file="$wrapper"
+  [[ -f "$file" ]] || return 1
+  awk '
+    BEGIN{in=0}
+    /^declare -a scripts=\(/ {in=1; next}
+    in==1 {
+      if ($0 ~ /\)/) {exit}
+      gsub(/#.*/, "", $0)
+      if ($0 ~ /"/) {
+        gsub(/"/, "", $0)
+        gsub(/^[ \t]+|[ \t]+$/, "", $0)
+        if ($0 != "") print $0
+      }
+    }
+  ' "$file"
+}
+
+normalize_monitor_list(){
+  local csv="$1"
+  echo "$csv" | tr ',' '\n' | awk '
+    {gsub(/^[ \t]+|[ \t]+$/, "", $0)}
+    $0=="" {next}
+    /\.sh$/ {print; next}
+    {print $0 ".sh"}
+  '
+}
+
+filter_monitors_only_skip(){
+  local only_csv="$1"
+  local skip_csv="$2"
+  local list
+
+  if [[ -n "$only_csv" ]]; then
+    list="$(normalize_monitor_list "$only_csv")"
+  else
+    list="$(get_default_monitors)"
+  fi
+
+  if [[ -n "$skip_csv" ]]; then
+    local skip_list
+    skip_list="$(normalize_monitor_list "$skip_csv")"
+    list="$(printf '%s\n' "$list" | awk -v skip="$skip_list" '
+      BEGIN{
+        n=split(skip, s, "\n")
+        for(i=1;i<=n;i++){ if(s[i]!="") skipset[s[i]]=1 }
+      }
+      {if(!skipset[$0]) print}
+    ')"
+  fi
+
+  printf '%s\n' "$list"
+}
+
 # If running from a git checkout, prefer repo paths automatically.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
@@ -192,6 +246,105 @@ expected_skips_text(){
   return 0
 }
 
+json_escape(){
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  printf '%s' "$s"
+}
+
+expected_skips_json(){
+  local cfg="${1:-/etc/linux_maint}"
+  local first=1
+  echo -n '['
+
+  add_skip(){
+    local mon="$1" missing="$2"
+    local mon_esc missing_esc
+    mon_esc="$(json_escape "$mon")"
+    missing_esc="$(json_escape "$missing")"
+    if [[ "$first" -eq 0 ]]; then echo -n ','; fi
+    first=0
+    printf '{"monitor":"%s","missing":"%s"}' "$mon_esc" "$missing_esc"
+  }
+
+  if [[ ! -s "$cfg/network_targets.txt" ]]; then add_skip "network_monitor" "$cfg/network_targets.txt"; fi
+  if [[ ! -s "$cfg/certs.txt" ]]; then add_skip "cert_monitor" "$cfg/certs.txt"; fi
+  if [[ ! -s "$cfg/ports_baseline.txt" ]]; then add_skip "ports_baseline_monitor" "$cfg/ports_baseline.txt"; fi
+  if [[ ! -s "$cfg/config_paths.txt" ]]; then add_skip "config_drift_monitor" "$cfg/config_paths.txt"; fi
+  if [[ ! -s "$cfg/baseline_users.txt" || ! -s "$cfg/baseline_sudoers.txt" ]]; then
+    local miss=()
+    [[ ! -s "$cfg/baseline_users.txt" ]] && miss+=("$cfg/baseline_users.txt")
+    [[ ! -s "$cfg/baseline_sudoers.txt" ]] && miss+=("$cfg/baseline_sudoers.txt")
+    local IFS=,
+    add_skip "user_monitor" "missing:${miss[*]}"
+  fi
+  if [[ ! -s "$cfg/backup_targets.csv" ]]; then add_skip "backup_check" "$cfg/backup_targets.csv"; fi
+
+  echo -n ']'
+}
+
+reason_next_steps(){
+  local tok="$1"
+  case "$tok" in
+    missing_dependency)
+      echo "Next steps:"
+      echo "- Install the required command on the runner/host."
+      echo "- See: linux-maint deps"
+      ;;
+    missing_optional_cmd)
+      echo "Next steps:"
+      echo "- Install the optional tool if you need this monitor."
+      echo "- Otherwise treat this as expected SKIP."
+      ;;
+    ssh_unreachable)
+      echo "Next steps:"
+      echo "- Verify DNS/keys/firewall and LM_SSH_OPTS."
+      echo "- Try: ssh <host> from the runner."
+      ;;
+    service_failed|failed_units)
+      echo "Next steps:"
+      echo "- Check: systemctl status <unit> and recent journal logs."
+      echo "- Restart or fix the failing unit."
+      ;;
+    service_inactive)
+      echo "Next steps:"
+      echo "- Enable/start the unit if it is expected to be active."
+      ;;
+    timeout|runtime_exceeded)
+      echo "Next steps:"
+      echo "- Increase MONITOR_TIMEOUT_SECS or per-monitor timeouts."
+      echo "- Re-run linux-maint run or the specific monitor."
+      ;;
+    config_missing)
+      echo "Next steps:"
+      echo "- Run: sudo linux-maint init"
+      echo "- Populate the missing config file and re-run."
+      ;;
+    baseline_missing)
+      echo "Next steps:"
+      echo "- Generate baseline: linux-maint baseline <ports|configs|users|sudoers> --update"
+      ;;
+    security_updates_pending|updates_pending)
+      echo "Next steps:"
+      echo "- Apply your distro update workflow, then re-check."
+      ;;
+    timer_missing|timer_disabled|timer_inactive)
+      echo "Next steps:"
+      echo "- Install/enable linux-maint.timer (installed mode)."
+      ;;
+    permission_denied)
+      echo "Next steps:"
+      echo "- Ensure the runner has access to logs/state and required commands."
+      ;;
+    *)
+      echo "Next steps:"
+      echo "- See docs/REASONS.md and docs/troubleshooting.md for guidance."
+      ;;
+  esac
+}
+
 
 # ---- run() flags parsing (CLI-first, env-compatible) ----
 # Maps:
@@ -201,6 +354,8 @@ expected_skips_text(){
 #   --parallel N     -> LM_MAX_PARALLEL
 #   --local-only     -> LM_LOCAL_ONLY=true
 #   --ssh-opts "..." -> LM_SSH_OPTS
+#   --only a,b       -> LM_MONITORS filtered list (by monitor name)
+#   --skip a,b       -> LM_MONITORS filtered list (exclude monitor name)
 #   --dry-run        -> print resolved hosts and exit
 #   --strict         -> fail if any monitor emits malformed summary lines
 #
@@ -225,6 +380,8 @@ parse_run_args(){
   DEBUG=0
   LIMIT=0
   SHUFFLE=0
+  RUN_ONLY=""
+  RUN_SKIP=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -240,6 +397,10 @@ parse_run_args(){
         LM_LOCAL_ONLY="true"; export LM_LOCAL_ONLY; shift 1;;
       --ssh-opts)
         LM_SSH_OPTS="$2"; export LM_SSH_OPTS; shift 2;;
+      --only)
+        RUN_ONLY="$2"; shift 2;;
+      --skip)
+        RUN_SKIP="$2"; shift 2;;
       --limit)
         LIMIT="$2"; shift 2;;
       --shuffle)
@@ -283,7 +444,7 @@ ${C_CYAN}Common commands${C_RESET}:
   self-check [flags]     Quick validation (safe without sudo)
   summary                One-line summary (cron/dashboards)
   metrics --json         Snapshot status+trend+runtimes in one JSON payload
-  check                  Run config_validate + preflight + show expected skips
+  check [--json]         Run config_validate + preflight + show expected skips
 
 ${C_CYAN}Analysis / reporting${C_RESET}:
   trend [flags]         Aggregate severity/reason trends
@@ -328,10 +489,13 @@ ${C_CYAN}Environment${C_RESET}:
 
 ${C_CYAN}Examples${C_RESET}:
   linux-maint run --group prod --parallel 10 --progress
+  linux-maint run --only service_monitor,ntp_drift_monitor
+  linux-maint run --skip inventory_export,backup_check
   NO_COLOR=1 linux-maint run --local-only --dry-run
   linux-maint status --only WARN --reasons 5
   linux-maint report --short --no-trend
   NO_COLOR=1 linux-maint report --compact
+  linux-maint check --json
   linux-maint trend --last 10
   NO_COLOR=1 linux-maint trend --last 10 --json
   linux-maint diff
@@ -361,12 +525,16 @@ Key flags:
   --parallel N         max parallel SSH
   --local-only         run checks locally only
   --ssh-opts "..."     override SSH options
+  --only a,b           run only selected monitors (names with/without _monitor)
+  --skip a,b           skip selected monitors
   --dry-run            print plan only (no execution)
   --strict             fail if any monitor emits malformed summary lines
   --progress|--no-progress  progress bar control
 
 Examples:
   linux-maint run --group prod --parallel 10 --progress
+  linux-maint run --only service_monitor,ntp_drift_monitor
+  linux-maint run --skip inventory_export,backup_check
   NO_COLOR=1 linux-maint run --local-only --dry-run
 EOF
       ;;
@@ -422,7 +590,7 @@ EOF
     self-check)
       echo "Usage: linux-maint self-check [--json] [--compact]";;
     check)
-      echo "Usage: linux-maint check";;
+      echo "Usage: linux-maint check [--json]";;
     history)
       cat <<'EOF'
 Usage: linux-maint history [flags]
@@ -539,6 +707,15 @@ case "$cmd" in
     parse_run_args "$@"
     validate_ssh_opts
 
+    if [[ -n "${RUN_ONLY:-}" || -n "${RUN_SKIP:-}" ]]; then
+      mapfile -t _monitors < <(filter_monitors_only_skip "${RUN_ONLY:-}" "${RUN_SKIP:-}")
+      if [[ "${#_monitors[@]}" -eq 0 ]]; then
+        echo "ERROR: monitor filter produced empty list" >&2
+        exit 2
+      fi
+      export LM_MONITORS="${_monitors[*]}"
+    fi
+
     if [[ "${DEBUG:-0}" -eq 1 ]]; then
       echo "=== linux-maint run debug ==="
       echo "MODE=${MODE}"
@@ -549,6 +726,7 @@ case "$cmd" in
       echo "LM_EXCLUDED=${LM_EXCLUDED:-}"
       echo "LM_MAX_PARALLEL=${LM_MAX_PARALLEL:-}"
       echo "LM_LOCAL_ONLY=${LM_LOCAL_ONLY:-}"
+      echo "LM_MONITORS=${LM_MONITORS:-}"
       echo "LM_SSH_OPTS=${LM_SSH_OPTS:-}"
       echo "LIMIT=${LIMIT:-0}"
       echo "SHUFFLE=${SHUFFLE:-0}"
@@ -753,7 +931,7 @@ case "$cmd" in
     fi
 
     LM_COLOR="$REPORT_COLOR" REPORT_COMPACT="$REPORT_COMPACT" REPORT_SHORT="$REPORT_SHORT" REPORT_TABLE="$REPORT_TABLE" REPORT_NO_TREND="$REPORT_NO_TREND" REPORT_NO_SLOW="$REPORT_NO_SLOW" REPORT_NO_REASONS="$REPORT_NO_REASONS" REPORT_NO_PROBLEMS="$REPORT_NO_PROBLEMS" REPORT_EXPECTED_SKIPS="$REPORT_EXPECTED_SKIPS" REPORT_REDACT="$REPORT_REDACT" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
-import json, os, sys
+import json, os, sys, re
 import re
 import builtins
 
@@ -769,6 +947,7 @@ no_reasons = os.environ.get("REPORT_NO_REASONS","0") == "1"
 no_problems = os.environ.get("REPORT_NO_PROBLEMS","0") == "1"
 expected_skips = os.environ.get("REPORT_EXPECTED_SKIPS","").strip()
 redact = os.environ.get("REPORT_REDACT","0") == "1"
+redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
 
 def redact_line(s: str) -> str:
     pats = [
@@ -778,6 +957,11 @@ def redact_line(s: str) -> str:
         (re.compile(r'\\b[0-9A-Za-z_-]{12,}\\.[0-9A-Za-z_-]{12,}\\.[0-9A-Za-z_-]{12,}\\b'), 'REDACTED_JWT'),
         (re.compile(r'\\bAKIA[0-9A-Z]{16}\\b'), 'AKIA_REDACTED'),
         (re.compile(r'\\bASIA[0-9A-Z]{16}\\b'), 'ASIA_REDACTED'),
+        (re.compile(r'\\bgh[pousr]_[A-Za-z0-9]{20,}\\b'), 'GH_REDACTED'),
+        (re.compile(r'\\bgithub_pat_[A-Za-z0-9_]{20,}\\b'), 'GH_PAT_REDACTED'),
+        (re.compile(r'\\bxox[baprs]-[A-Za-z0-9-]{10,}\\b'), 'SLACK_REDACTED'),
+        (re.compile(r'\\bAIza[0-9A-Za-z_-]{35}\\b'), 'GCP_REDACTED'),
+        (re.compile(r'\\bya29\\.[A-Za-z0-9_-]{10,}\\b'), 'OAUTH_REDACTED'),
         (re.compile(r'-----BEGIN [A-Z ]*PRIVATE KEY-----'), '-----BEGIN PRIVATE KEY-----'),
         (re.compile(r'-----END [A-Z ]*PRIVATE KEY-----'), '-----END PRIVATE KEY-----'),
     ]
@@ -785,6 +969,15 @@ def redact_line(s: str) -> str:
     for pat, rep in pats:
         out = pat.sub(rep, out)
     return out
+
+def redact_json_obj(obj):
+    if isinstance(obj, dict):
+        return {k: redact_json_obj(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [redact_json_obj(v) for v in obj]
+    if isinstance(obj, str):
+        return redact_line(obj)
+    return obj
 
 if redact and not json_mode:
     def print(*args, **kwargs):
@@ -843,6 +1036,8 @@ if json_mode:
         "trend": trend,
         "runtimes": runtimes,
     }
+    if redact_json:
+        out = redact_json_obj(out)
     print(json.dumps(out, indent=2, sort_keys=True))
     raise SystemExit(0)
 
@@ -1093,6 +1288,7 @@ PY
 import json, os, sys
 
 status_path, trend_path, runtimes_path = sys.argv[1:4]
+redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
 
 def read_json(p):
     try:
@@ -1100,6 +1296,36 @@ def read_json(p):
             return json.load(f)
     except Exception:
         return {}
+
+def redact_line(s: str) -> str:
+    pats = [
+        (re.compile(r'(?i)\b([A-Za-z0-9_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key|session([_-]?id)?|id[_-]?token|refresh[_-]?token|x[_-]?auth[_-]?token)[A-Za-z0-9_]*)=([^ \t]+)'), r'\1=REDACTED'),
+        (re.compile(r'(?i)\b(Authorization:|X-Auth-Token:)\s+[^ \t]+'), r'\1 REDACTED'),
+        (re.compile(r'(?i)\b(Bearer)\s+[A-Za-z0-9_.~+/-]+=*'), r'\1 REDACTED'),
+        (re.compile(r'\b[0-9A-Za-z_-]{12,}\.[0-9A-Za-z_-]{12,}\.[0-9A-Za-z_-]{12,}\b'), 'REDACTED_JWT'),
+        (re.compile(r'\bAKIA[0-9A-Z]{16}\b'), 'AKIA_REDACTED'),
+        (re.compile(r'\bASIA[0-9A-Z]{16}\b'), 'ASIA_REDACTED'),
+        (re.compile(r'\bgh[pousr]_[A-Za-z0-9]{20,}\b'), 'GH_REDACTED'),
+        (re.compile(r'\bgithub_pat_[A-Za-z0-9_]{20,}\b'), 'GH_PAT_REDACTED'),
+        (re.compile(r'\bxox[baprs]-[A-Za-z0-9-]{10,}\b'), 'SLACK_REDACTED'),
+        (re.compile(r'\bAIza[0-9A-Za-z_-]{35}\b'), 'GCP_REDACTED'),
+        (re.compile(r'\bya29\.[A-Za-z0-9_-]{10,}\b'), 'OAUTH_REDACTED'),
+        (re.compile(r'-----BEGIN [A-Z ]*PRIVATE KEY-----'), '-----BEGIN PRIVATE KEY-----'),
+        (re.compile(r'-----END [A-Z ]*PRIVATE KEY-----'), '-----END PRIVATE KEY-----'),
+    ]
+    out = s
+    for pat, rep in pats:
+        out = pat.sub(rep, out)
+    return out
+
+def redact_json_obj(obj):
+    if isinstance(obj, dict):
+        return {k: redact_json_obj(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [redact_json_obj(v) for v in obj]
+    if isinstance(obj, str):
+        return redact_line(obj)
+    return obj
 
 def parse_kv_line(line: str):
     d = {}
@@ -1194,6 +1420,8 @@ out = {
     "monitor_durations_ms": monitor_durations_ms,
 }
 
+if redact_json:
+    out = redact_json_obj(out)
 print(json.dumps(out, indent=2, sort_keys=True))
 PY
 
@@ -1409,6 +1637,17 @@ PY
       need_root_for check
     fi
 
+    CHECK_JSON=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --json) CHECK_JSON=1; shift 1;;
+        -h|--help)
+          command_usage check
+          exit 0;;
+        *) echo "Unknown check flag: $1" >&2; exit 2;;
+      esac
+    done
+
     print_check_status() {
       local label="$1" rc="$2" status color
       case "$rc" in
@@ -1423,28 +1662,53 @@ PY
         printf '%s: %s\n' "$label" "$status"
       fi
     }
+    rc_to_status() {
+      local rc="$1"
+      case "$rc" in
+        0) echo "OK" ;;
+        1) echo "WARN" ;;
+        2) echo "CRIT" ;;
+        *) echo "UNKNOWN" ;;
+      esac
+    }
 
-    section "config_validate"
     set +e
-    bash "$validate"
-    cv_rc=$?
+    if [[ "$CHECK_JSON" -eq 1 ]]; then
+      cv_out="$(bash "$validate" 2>&1)"
+      cv_rc=$?
+      pf_out="$(bash "$preflight" 2>&1)"
+      pf_rc=$?
+    else
+      section "config_validate"
+      bash "$validate"
+      cv_rc=$?
+      print_check_status "config_validate" "$cv_rc"
+      echo ""
+      section "preflight"
+      bash "$preflight"
+      pf_rc=$?
+      print_check_status "preflight" "$pf_rc"
+      echo ""
+    fi
     set -e
-    print_check_status "config_validate" "$cv_rc"
-    echo ""
-    section "preflight"
-    set +e
-    bash "$preflight"
-    pf_rc=$?
-    set -e
-    print_check_status "preflight" "$pf_rc"
-    echo ""
 
     cfg_dir="/etc/linux_maint"
     if [[ "$MODE" == "repo" ]]; then
       cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
       mkdir -p "$cfg_dir" 2>/dev/null || true
     fi
-    expected_skips "$cfg_dir"
+    if [[ "$CHECK_JSON" -eq 1 ]]; then
+      ok="false"
+      [[ "$cv_rc" -eq 0 && "$pf_rc" -eq 0 ]] && ok="true"
+      printf '{'
+      printf '"config_validate":{"status":"%s","exit_code":%s},' "$(rc_to_status "$cv_rc")" "$cv_rc"
+      printf '"preflight":{"status":"%s","exit_code":%s},' "$(rc_to_status "$pf_rc")" "$pf_rc"
+      printf '"expected_skips":%s,' "$(expected_skips_json "$cfg_dir")"
+      printf '"ok":%s' "$ok"
+      printf '}\n'
+    else
+      expected_skips "$cfg_dir"
+    fi
     ;;
 
   history)
@@ -2240,6 +2504,7 @@ import json, os, re, sys
 mode, status_path, summary_path, only, limit, host_filter, monitor_filter, match_mode, reasons_limit = sys.argv[1:10]
 limit=int(limit)
 reasons_limit=int(reasons_limit)
+redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
 
 def read_kv(path):
     d={}
@@ -2257,6 +2522,36 @@ def read_kv(path):
 def get_kv(line, key):
     m=re.search(rf"\b{re.escape(key)}=([^ ]+)", line)
     return m.group(1) if m else None
+
+def redact_line(s: str) -> str:
+    pats = [
+        (re.compile(r'(?i)\b([A-Za-z0-9_]*(password|passwd|token|api[_-]?key|secret|access[_-]?key|private[_-]?key|session([_-]?id)?|id[_-]?token|refresh[_-]?token|x[_-]?auth[_-]?token)[A-Za-z0-9_]*)=([^ \t]+)'), r'\1=REDACTED'),
+        (re.compile(r'(?i)\b(Authorization:|X-Auth-Token:)\s+[^ \t]+'), r'\1 REDACTED'),
+        (re.compile(r'(?i)\b(Bearer)\s+[A-Za-z0-9_.~+/-]+=*'), r'\1 REDACTED'),
+        (re.compile(r'\b[0-9A-Za-z_-]{12,}\.[0-9A-Za-z_-]{12,}\.[0-9A-Za-z_-]{12,}\b'), 'REDACTED_JWT'),
+        (re.compile(r'\bAKIA[0-9A-Z]{16}\b'), 'AKIA_REDACTED'),
+        (re.compile(r'\bASIA[0-9A-Z]{16}\b'), 'ASIA_REDACTED'),
+        (re.compile(r'\bgh[pousr]_[A-Za-z0-9]{20,}\b'), 'GH_REDACTED'),
+        (re.compile(r'\bgithub_pat_[A-Za-z0-9_]{20,}\b'), 'GH_PAT_REDACTED'),
+        (re.compile(r'\bxox[baprs]-[A-Za-z0-9-]{10,}\b'), 'SLACK_REDACTED'),
+        (re.compile(r'\bAIza[0-9A-Za-z_-]{35}\b'), 'GCP_REDACTED'),
+        (re.compile(r'\bya29\.[A-Za-z0-9_-]{10,}\b'), 'OAUTH_REDACTED'),
+        (re.compile(r'-----BEGIN [A-Z ]*PRIVATE KEY-----'), '-----BEGIN PRIVATE KEY-----'),
+        (re.compile(r'-----END [A-Z ]*PRIVATE KEY-----'), '-----END PRIVATE KEY-----'),
+    ]
+    out = s
+    for pat, rep in pats:
+        out = pat.sub(rep, out)
+    return out
+
+def redact_json_obj(obj):
+    if isinstance(obj, dict):
+        return {k: redact_json_obj(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [redact_json_obj(v) for v in obj]
+    if isinstance(obj, str):
+        return redact_line(obj)
+    return obj
 
 def matched(value, flt):
     if not flt:
@@ -2324,6 +2619,8 @@ out={
 if reasons_limit > 0:
     rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
     out['reason_rollup']=[{'reason':r,'count':c} for r,c in rollup[:reasons_limit]]
+if redact_json:
+    out = redact_json_obj(out)
 print(json.dumps(out, indent=2, sort_keys=True))
 PY
       exit 0
@@ -2873,6 +3170,7 @@ json_mode = json_mode == '1'
 csv_mode = csv_mode == '1'
 color = os.environ.get("LM_COLOR","1") == "1"
 redact = os.environ.get("TREND_REDACT","0") == "1"
+redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
 cache_enabled = os.environ.get("TREND_CACHE","0") == "1"
 cache_ttl = int(os.environ.get("TREND_CACHE_TTL","60") or "60")
 cache_file = os.environ.get("TREND_CACHE_FILE","")
@@ -2885,6 +3183,11 @@ def redact_line(s: str) -> str:
         (re.compile(r'\\b[0-9A-Za-z_-]{12,}\\.[0-9A-Za-z_-]{12,}\\.[0-9A-Za-z_-]{12,}\\b'), 'REDACTED_JWT'),
         (re.compile(r'\\bAKIA[0-9A-Z]{16}\\b'), 'AKIA_REDACTED'),
         (re.compile(r'\\bASIA[0-9A-Z]{16}\\b'), 'ASIA_REDACTED'),
+        (re.compile(r'\\bgh[pousr]_[A-Za-z0-9]{20,}\\b'), 'GH_REDACTED'),
+        (re.compile(r'\\bgithub_pat_[A-Za-z0-9_]{20,}\\b'), 'GH_PAT_REDACTED'),
+        (re.compile(r'\\bxox[baprs]-[A-Za-z0-9-]{10,}\\b'), 'SLACK_REDACTED'),
+        (re.compile(r'\\bAIza[0-9A-Za-z_-]{35}\\b'), 'GCP_REDACTED'),
+        (re.compile(r'\\bya29\\.[A-Za-z0-9_-]{10,}\\b'), 'OAUTH_REDACTED'),
         (re.compile(r'-----BEGIN [A-Z ]*PRIVATE KEY-----'), '-----BEGIN PRIVATE KEY-----'),
         (re.compile(r'-----END [A-Z ]*PRIVATE KEY-----'), '-----END PRIVATE KEY-----'),
     ]
@@ -2892,6 +3195,15 @@ def redact_line(s: str) -> str:
     for pat, rep in pats:
         out = pat.sub(rep, out)
     return out
+
+def redact_json_obj(obj):
+    if isinstance(obj, dict):
+        return {k: redact_json_obj(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [redact_json_obj(v) for v in obj]
+    if isinstance(obj, str):
+        return redact_line(obj)
+    return obj
 
 if redact and not json_mode and not csv_mode:
     def print(*args, **kwargs):
@@ -3025,6 +3337,8 @@ if not cache_hit:
 rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
 if json_mode:
     out={'trend_json_contract_version': 1, 'runs':runs, 'totals':overall, 'reasons':[{'reason':r,'count':c} for r,c in rollup]}
+    if redact_json:
+        out = redact_json_obj(out)
     print(json.dumps(out, indent=2, sort_keys=True))
 elif csv_mode:
     print("file,CRIT,WARN,UNKNOWN,SKIP,OK")
@@ -3217,6 +3531,7 @@ import json, os, re, sys
 mode = sys.argv[1]
 csv_mode = sys.argv[2] == "1"
 status_path, summary_path, summary_json_path, log_path = sys.argv[3:7]
+redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
 
 def read_kv(path):
     d={}
@@ -3250,6 +3565,12 @@ def redact_value(val: str) -> str:
         return "REDACTED"
     if val.count(".") == 2 and all(len(p) >= 12 for p in val.split(".")):
         return "REDACTED_JWT"
+    if re.match(r'^(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})$', val):
+        return "REDACTED"
+    if re.match(r'^AIza[0-9A-Za-z_-]{35}$', val):
+        return "GCP_REDACTED"
+    if re.match(r'^ya29\.[A-Za-z0-9_-]{10,}$', val):
+        return "OAUTH_REDACTED"
     return val
 
 def redact_kv_map(row):
@@ -3341,7 +3662,7 @@ def derive_hosts(rows):
     return counts
 
 rows, meta = read_rows()
-if os.environ.get("LM_REDACT_LOGS","0") in ("1","true","TRUE","yes","YES"):
+if os.environ.get("LM_REDACT_LOGS","0") in ("1","true","TRUE","yes","YES") or redact_json:
     rows = [redact_kv_map(r) for r in rows]
     if meta:
         meta = redact_kv_map(meta)
@@ -3365,6 +3686,8 @@ if not summary_hosts:
 last_status = read_kv(status_path)
 if allow:
     last_status = filter_map(last_status, allow)
+if redact_json:
+    last_status = redact_kv_map(last_status)
 
 if csv_mode:
     import csv
@@ -3725,7 +4048,7 @@ PY
         fi
         # Look for a bullet line that contains `- token — ...` under any section.
         # Print the matching line(s) plus the section header immediately above.
-        awk -v tok="$token" '
+        if awk -v tok="$token" '
           BEGIN{sec=""; found=0}
           /^### /{sec=$0}
           $0 ~ "- `"tok"`" {
@@ -3734,7 +4057,11 @@ PY
             found=1
           }
           END{exit(found?0:1)}
-        ' "$f" && exit 0
+        ' "$f"; then
+          echo ""
+          reason_next_steps "$token"
+          exit 0
+        fi
 
         # Fallback: substring search
         if grep -n -i -F "$token" "$f" >/dev/null 2>&1; then

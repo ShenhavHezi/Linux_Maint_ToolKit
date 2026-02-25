@@ -67,6 +67,13 @@ monitor=<name> host=<target> status=<OK|WARN|CRIT|UNKNOWN|SKIP> node=<runner> [r
   - `docs/reference.md` (full contract)
   - `docs/REASONS.md` (reason vocabulary)
 
+## Reason token policy
+
+- Prefer existing tokens in `docs/REASONS.md` before introducing a new one.
+- New tokens must be lower_snake_case and stable (avoid renames).
+- If you add a token, update `docs/REASONS.md` and run the summary contract lint/tests.
+- Use `reason=unknown` only as a last resort.
+
 ## Exit codes
 
 Project standard:

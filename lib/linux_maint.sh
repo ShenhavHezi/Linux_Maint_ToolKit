@@ -30,6 +30,7 @@ if [[ -z "${LM_STATE_DIR:-}" ]]; then
 fi
 
 : "${LM_SSH_KNOWN_HOSTS_MODE:=accept-new}"
+: "${LM_SSH_KNOWN_HOSTS_PIN_FILE:=}"
 case "${LM_SSH_KNOWN_HOSTS_MODE}" in
   accept-new|strict) ;;
   *)
@@ -37,6 +38,10 @@ case "${LM_SSH_KNOWN_HOSTS_MODE}" in
     LM_SSH_KNOWN_HOSTS_MODE="accept-new"
     ;;
 esac
+if [[ -n "${LM_SSH_KNOWN_HOSTS_PIN_FILE:-}" ]]; then
+  LM_SSH_KNOWN_HOSTS_MODE="strict"
+  LM_SSH_KNOWN_HOSTS_FILE="$LM_SSH_KNOWN_HOSTS_PIN_FILE"
+fi
 if [[ "${LM_SSH_KNOWN_HOSTS_MODE}" == "strict" ]]; then
   _LM_SSH_STRICT="yes"
 else
@@ -45,6 +50,7 @@ fi
 : "${LM_SSH_KNOWN_HOSTS_FILE:=${LM_STATE_DIR:-/var/lib/linux_maint}/known_hosts}"
 : "${LM_SSH_OPTS:=-o BatchMode=yes -o ConnectTimeout=7 -o ServerAliveInterval=10 -o ServerAliveCountMax=2 -o ForwardAgent=no -o StrictHostKeyChecking=${_LM_SSH_STRICT} -o UserKnownHostsFile=${LM_SSH_KNOWN_HOSTS_FILE} -o GlobalKnownHostsFile=/dev/null}"
 : "${LM_SSH_TIMEOUT:=0}"
+: "${LM_SSH_RETRY:=0}"
 
 : "${LM_EMAIL_ENABLED:=true}"      # scripts can set LM_EMAIL_ENABLED=false to suppress email
 : "${LM_MAX_PARALLEL:=0}"          # 0 = sequential
@@ -252,6 +258,11 @@ lm_redact_line() {
     -e 's/\b[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}\b/REDACTED_JWT/g' \
     -e 's/\b(AKIA[0-9A-Z]{16})\b/AKIA_REDACTED/g' \
     -e 's/\b(ASIA[0-9A-Z]{16})\b/ASIA_REDACTED/g' \
+    -e 's/\b(gh[pousr]_[A-Za-z0-9]{20,})\b/GH_REDACTED/g' \
+    -e 's/\b(github_pat_[A-Za-z0-9_]{20,})\b/GH_PAT_REDACTED/g' \
+    -e 's/\b(xox[baprs]-[A-Za-z0-9-]{10,})\b/SLACK_REDACTED/g' \
+    -e 's/\b(AIza[0-9A-Za-z_-]{35})\b/GCP_REDACTED/g' \
+    -e 's/\b(ya29\.[A-Za-z0-9_-]{10,})\b/OAUTH_REDACTED/g' \
     -e 's/-----BEGIN [A-Z ]*PRIVATE KEY-----/-----BEGIN PRIVATE KEY-----/g' \
     -e 's/-----END [A-Z ]*PRIVATE KEY-----/-----END PRIVATE KEY-----/g' \
   )"
@@ -271,6 +282,11 @@ lm_redact_kv_line() {
     -e 's/\b[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}\b/REDACTED_JWT/g' \
     -e 's/\b(AKIA[0-9A-Z]{16})\b/AKIA_REDACTED/g' \
     -e 's/\b(ASIA[0-9A-Z]{16})\b/ASIA_REDACTED/g' \
+    -e 's/\b(gh[pousr]_[A-Za-z0-9]{20,})\b/GH_REDACTED/g' \
+    -e 's/\b(github_pat_[A-Za-z0-9_]{20,})\b/GH_PAT_REDACTED/g' \
+    -e 's/\b(xox[baprs]-[A-Za-z0-9-]{10,})\b/SLACK_REDACTED/g' \
+    -e 's/\b(AIza[0-9A-Za-z_-]{35})\b/GCP_REDACTED/g' \
+    -e 's/\b(ya29\.[A-Za-z0-9_-]{10,})\b/OAUTH_REDACTED/g' \
     -e 's/-----BEGIN [A-Z ]*PRIVATE KEY-----/-----BEGIN PRIVATE KEY-----/g' \
     -e 's/-----END [A-Z ]*PRIVATE KEY-----/-----END PRIVATE KEY-----/g' \
   )"
@@ -408,7 +424,11 @@ lm_ssh() {
   if [[ -n "${LM_SSH_ALLOWLIST:-}" ]]; then
     local cmdline="$*"
     if ! lm_ssh_allowed_cmd "$cmdline"; then
-      lm_warn "SSH command blocked by LM_SSH_ALLOWLIST"
+      if [[ "${LM_SSH_ALLOWLIST_STRICT:-0}" == "1" || "${LM_SSH_ALLOWLIST_STRICT:-}" == "true" ]]; then
+        lm_err "SSH command blocked by LM_SSH_ALLOWLIST (strict mode)"
+      else
+        lm_warn "SSH command blocked by LM_SSH_ALLOWLIST"
+      fi
       return 2
     fi
   fi
@@ -430,11 +450,28 @@ lm_ssh() {
     # shellcheck disable=SC2206
     _ssh_opts=(${LM_SSH_OPTS:-})
     # shellcheck disable=SC2029
-    if [[ "${LM_SSH_TIMEOUT:-0}" -gt 0 ]] && command -v timeout >/dev/null 2>&1; then
-      timeout "${LM_SSH_TIMEOUT}" ssh "${_ssh_opts[@]}" "$host" "$@" 2>/dev/null
-    else
-      ssh "${_ssh_opts[@]}" "$host" "$@" 2>/dev/null
+    local attempts=1
+    if [[ "${LM_SSH_RETRY:-0}" =~ ^[0-9]+$ ]] && [[ "${LM_SSH_RETRY}" -gt 0 ]]; then
+      attempts=$((LM_SSH_RETRY + 1))
     fi
+    local try=1
+    local rc=0
+    while [[ "$try" -le "$attempts" ]]; do
+      if [[ "${LM_SSH_TIMEOUT:-0}" -gt 0 ]] && command -v timeout >/dev/null 2>&1; then
+        timeout "${LM_SSH_TIMEOUT}" ssh "${_ssh_opts[@]}" "$host" "$@" 2>/dev/null
+      else
+        ssh "${_ssh_opts[@]}" "$host" "$@" 2>/dev/null
+      fi
+      rc=$?
+      if [[ "$rc" -eq 0 ]]; then
+        return 0
+      fi
+      if [[ "$try" -lt "$attempts" ]]; then
+        sleep "$((2 ** (try - 1)))"
+      fi
+      try=$((try + 1))
+    done
+    return "$rc"
   fi
 }
 # quick reachability probe (0=ok)

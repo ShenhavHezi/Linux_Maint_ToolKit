@@ -26,6 +26,9 @@ sudo linux-maint status --verbose
 # Status in JSON (automation)
 sudo linux-maint status --json
 
+# Status JSON with redaction
+LM_REDACT_JSON=1 sudo linux-maint status --json
+
 # Status as Prometheus textfile metrics
 sudo linux-maint status --prom
 
@@ -39,6 +42,13 @@ sudo linux-maint report --redact
 
 # Preflight + validate + expected SKIPs
 sudo linux-maint check
+sudo linux-maint check --json
+
+# Run only selected monitors (names with or without _monitor)
+sudo linux-maint run --only service_monitor,ntp_drift_monitor
+
+# Skip selected monitors
+sudo linux-maint run --skip inventory_export,backup_check
 
 # Initialize config templates (won't overwrite unless --force)
 sudo linux-maint init
@@ -113,6 +123,9 @@ sudo linux-maint runtimes --last 3 --json
 
 # Export a unified JSON payload
 sudo linux-maint export --json
+
+# Export JSON with redaction
+LM_REDACT_JSON=1 sudo linux-maint export --json
 
 # Metrics snapshot (status + trend + runtimes)
 sudo linux-maint metrics --json
@@ -193,11 +206,87 @@ sudo linux-maint run --group prod --parallel 10
 sudo linux-maint run --hosts server-a,server-b --exclude server-c
 ```
 
+## First-run workflow (installed mode)
+
+1. `sudo linux-maint init`
+2. `sudo linux-maint run`
+3. `sudo linux-maint status`
+4. Review expected SKIPs: `sudo linux-maint status --expected-skips`
+
+## Baselines (one-time)
+
+```bash
+sudo linux-maint baseline ports --update
+sudo linux-maint baseline configs --update
+sudo linux-maint baseline users --update
+sudo linux-maint baseline sudoers --update
+```
+
 ## What to check when something is wrong
 
 1. `sudo linux-maint status --verbose`
 2. `sudo linux-maint logs 200`
 3. `sudo linux-maint doctor`
+
+## Example outputs (truncated)
+
+Color output (report):
+
+```text
+=== linux-maint report ===
+Status: \x1b[32mOK\x1b[0m  (OK=18 WARN=1 CRIT=0 SKIP=2 UNKNOWN=0)
+Top problems:
+- service_monitor host=db-01 status=\x1b[33mWARN\x1b[0m reason=service_inactive unit=postgresql
+Next steps:
+- check systemctl status postgresql
+```
+
+No-color output (report):
+
+```text
+=== linux-maint report ===
+Status: OK  (OK=18 WARN=1 CRIT=0 SKIP=2 UNKNOWN=0)
+Top problems:
+- service_monitor host=db-01 status=WARN reason=service_inactive unit=postgresql
+Next steps:
+- check systemctl status postgresql
+```
+
+Color output (trend):
+
+```text
+=== linux-maint trend ===
+Last 10 runs: WARN=3 CRIT=1
+Top reasons:
+- \x1b[31msecurity_updates_pending\x1b[0m 3
+- \x1b[33mservice_inactive\x1b[0m 2
+```
+
+No-color output (trend):
+
+```text
+=== linux-maint trend ===
+Last 10 runs: WARN=3 CRIT=1
+Top reasons:
+- security_updates_pending 3
+- service_inactive 2
+```
+
+Color output (diff):
+
+```text
+=== linux-maint diff ===
++ service_monitor host=db-01 status=\x1b[33mWARN\x1b[0m reason=service_inactive unit=postgresql
+- ntp_drift_monitor host=web-02 status=\x1b[33mWARN\x1b[0m reason=ntp_drift_high offset_ms=412
+```
+
+No-color output (diff):
+
+```text
+=== linux-maint diff ===
++ service_monitor host=db-01 status=WARN reason=service_inactive unit=postgresql
+- ntp_drift_monitor host=web-02 status=WARN reason=ntp_drift_high offset_ms=412
+```
 
 ## Troubleshooting decision tree
 

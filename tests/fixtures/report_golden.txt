@@ -1,0 +1,11 @@
+=== linux-maint report (short) ===
+mode=repo overall=CRIT exit_code=2
+totals: CRIT=1 WARN=1 UNKNOWN=0 SKIP=0 OK=1
+
+problems (top 5):
+CRIT network_monitor host=web-2 reason=http_failed
+WARN service_monitor host=web-1 reason=service_inactive
+
+next_steps:
+  - run: linux-maint doctor
+  - run: linux-maint status --verbose

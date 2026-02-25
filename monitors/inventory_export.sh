@@ -51,9 +51,13 @@ OUTPUT_DIR="${LM_INVENTORY_OUTPUT_DIR:-/var/log/inventory}"
 DETAILS_DIR="${OUTPUT_DIR}/details"
 : "${LM_INVENTORY_CACHE:=0}"    # 1|true to reuse recent inventory data
 : "${LM_INVENTORY_CACHE_TTL:=3600}"  # seconds (opt-in cache age)
+: "${LM_INVENTORY_CACHE_MAX:=0}" # max cache entries to retain (0=unlimited)
 CACHE_DIR="${LM_INVENTORY_CACHE_DIR:-$OUTPUT_DIR/cache}"
 if [[ ! "${LM_INVENTORY_CACHE_TTL}" =~ ^[0-9]+$ ]]; then
   LM_INVENTORY_CACHE_TTL=3600
+fi
+if [[ ! "${LM_INVENTORY_CACHE_MAX}" =~ ^[0-9]+$ ]]; then
+  LM_INVENTORY_CACHE_MAX=0
 fi
 
 # Email (optional): send a short summary when the run finishes
@@ -91,6 +95,28 @@ cache_fresh(){
   local age
   age="$(cache_age_seconds "$file")" || return 1
   [[ "$age" -le "$ttl" ]]
+}
+
+prune_cache(){
+  local max="$1"
+  [[ "$max" -gt 0 ]] || return 0
+  [ -d "$CACHE_DIR" ] || return 0
+
+  local files=()
+  while IFS= read -r f; do
+    files+=("$f")
+  done < <(find "$CACHE_DIR" -maxdepth 1 -type f \( -name '*.kv' -o -name '*.details.txt' \) -printf '%T@ %p\n' 2>/dev/null | sort -nr | awk '{print $2}')
+
+  local count="${#files[@]}"
+  if [[ "$count" -le "$max" ]]; then
+    return 0
+  fi
+
+  local idx="$max"
+  while [[ "$idx" -lt "$count" ]]; do
+    rm -f "${files[$idx]}" 2>/dev/null || true
+    idx=$((idx + 1))
+  done
 }
 
 # ---- CSV header + append with flock (safe under parallelism) ----
@@ -331,6 +357,11 @@ lm_for_each_host_rc run_for_host
 worst=$?
 # Continue to write summary and optionally mail; exit with worst at end
 
+case "${LM_INVENTORY_CACHE:-0}" in
+  1|true|TRUE|yes|YES)
+    prune_cache "$LM_INVENTORY_CACHE_MAX"
+    ;;
+esac
 
 # One-line summary to stdout (for wrapper logs)
 today_csv="$OUTPUT_DIR/inventory_$(date +%F).csv"

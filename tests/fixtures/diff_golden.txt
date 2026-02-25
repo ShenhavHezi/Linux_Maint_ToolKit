@@ -1,0 +1,11 @@
+diff_state_dir=<STATE>
+diff_prev=<PREV>
+diff_cur=<CUR>
+
+NEW_FAILURES 2
+- backup-1 backup_check: OK -> CRIT reason=backup_failures
+- web-1 service_monitor: OK -> WARN reason=service_inactive
+
+RECOVERED 0
+
+STILL_BAD 0

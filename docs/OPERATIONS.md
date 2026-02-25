@@ -70,6 +70,12 @@ sudo /usr/local/libexec/linux_maint/seed_known_hosts.sh --hosts-file /etc/linux_
 echo "LM_SSH_KNOWN_HOSTS_MODE=strict" | sudo tee -a /etc/linux_maint/linux-maint.conf >/dev/null
 ```
 
+Pinned known_hosts file (stronger pinning):
+
+```bash
+echo "LM_SSH_KNOWN_HOSTS_PIN_FILE=/var/lib/linux_maint/known_hosts.pinned" | sudo tee -a /etc/linux_maint/linux-maint.conf >/dev/null
+```
+
 Optional verification (detect key changes):
 
 ```bash

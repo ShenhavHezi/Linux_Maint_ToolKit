@@ -10,7 +10,7 @@ help:
 	@echo "  make install-githooks - install executable hooks from .githooks/ into .git/hooks"
 	@echo "  make release-tarball - build offline release tarball (./dist)"
 	@echo "  make make-tarball - alias for release-tarball"
-	@echo "  make release VERSION=x.y.z - bump version/changelog and tag (tools/release.sh)"
+	@echo "  make release VERSION=x.y.z - bump version/changelog, tag, and build tarball (tools/release.sh)"
 	@echo "  make release-prep VERSION=x.y.z - bump version/changelog and draft notes (tools/release_prep.sh)"
 	@echo "  make release-check - validate docs/schemas/release notes (tools/release_check.sh)"
 	@echo "  make verify-release - verify tarball checksums (linux-maint verify-release)"
@@ -64,7 +64,7 @@ release:
 	@if [ -z "$(VERSION)" ]; then echo "VERSION is required (e.g., make release VERSION=0.1.5)"; exit 2; fi
 	@$(MAKE) lint
 	@$(MAKE) test
-	@./tools/release.sh "$(VERSION)" $(RELEASE_ARGS)
+	@./tools/release.sh "$(VERSION)" --with-tarball $(RELEASE_ARGS)
 
 release-prep:
 	@if [ -z "$(VERSION)" ]; then echo "VERSION is required (e.g., make release-prep VERSION=0.1.5)"; exit 2; fi

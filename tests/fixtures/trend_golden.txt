@@ -1,0 +1,13 @@
+=== linux-maint trend ===
+trend_runs=2 source_dir=<LOG_DIR>
+totals: CRIT=1 WARN=2 UNKNOWN=1 SKIP=1 OK=1
+
+runs:
+- full_health_monitor_summary_9999-12-31_235959.log: CRIT=0 WARN=1 UNKNOWN=1 SKIP=1 OK=0
+- full_health_monitor_summary_9999-12-30_235958.log: CRIT=1 WARN=1 UNKNOWN=0 SKIP=0 OK=1
+
+reasons:
+failed_units=2
+http_down=1
+missing_targets_file=1
+ssh_unreachable=1

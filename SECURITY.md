@@ -6,6 +6,10 @@ This repository is maintained on a best-effort basis.
 
 If you are running this in production, prefer pinned releases/tarballs and test changes in a staging environment first.
 
+Lifecycle/support policy:
+- Best-effort support for the latest minor release series.
+- Security fixes are prioritized; non-security bugs may be deferred based on maintainer availability.
+
 ## Reporting a Vulnerability
 
 If you believe you have found a security issue:
@@ -19,6 +23,10 @@ If you believe you have found a security issue:
    - expected vs actual behavior
 
 We will respond as soon as practical.
+
+Disclosure note:
+- Please allow a reasonable window for remediation before public disclosure.
+- We will coordinate a fix/release if the issue is confirmed.
 
 ## Minimal-privilege guidance
 

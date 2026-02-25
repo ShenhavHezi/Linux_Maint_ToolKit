@@ -139,7 +139,7 @@ chmod 0755 "$LOG_DIR" 2>/dev/null || true
 
 logfile="$LOG_DIR/full_health_monitor_$(lm_now_stamp).log"
 
-# Resolve temp dir (for wrapper temp files) with fallback chain.
+# Resolve temp dir (base) with fallback chain.
 TMPDIR_REQUESTED="${TMPDIR:-/tmp}"
 if command -v lm_pick_writable_dir >/dev/null 2>&1; then
   TMPDIR="$(lm_pick_writable_dir "tmp" "$TMPDIR_REQUESTED" "/var/tmp" "/tmp" 2>/dev/null || echo "/tmp")"
@@ -148,9 +148,7 @@ else
 fi
 mkdir -p "$TMPDIR" 2>/dev/null || true
 export TMPDIR
-
-tmp_report="$TMPDIR/full_health_monitor_report.$$"
-tmp_summary="$TMPDIR/full_health_monitor_summary.$$"
+TMPDIR_BASE="$TMPDIR"
 
 # Optional: write machine-parseable summaries to a separate file
 # Defaults to /var/log/health/full_health_monitor_summary_latest.log
@@ -158,7 +156,7 @@ SUMMARY_DIR_REQUESTED="${SUMMARY_DIR:-$LOG_DIR}"
 SUMMARY_DIR_FALLBACK_FROM=""
 SUMMARY_DIR_FALLBACK_TO=""
 if command -v lm_pick_writable_dir >/dev/null 2>&1; then
-  if SUMMARY_DIR_CHOSEN="$(lm_pick_writable_dir "summary" "$SUMMARY_DIR_REQUESTED" "/var/tmp/linux_maint/logs" "/tmp/linux_maint/logs" "${TMPDIR:-/tmp}/linux_maint/logs")"; then
+  if SUMMARY_DIR_CHOSEN="$(lm_pick_writable_dir "summary" "$SUMMARY_DIR_REQUESTED" "/var/tmp/linux_maint/logs" "/tmp/linux_maint/logs" "${TMPDIR_BASE:-/tmp}/linux_maint/logs")"; then
     SUMMARY_DIR="$SUMMARY_DIR_CHOSEN"
     if [[ "$SUMMARY_DIR_CHOSEN" != "$SUMMARY_DIR_REQUESTED" ]]; then
       SUMMARY_DIR_FALLBACK_FROM="$SUMMARY_DIR_REQUESTED"
@@ -179,7 +177,23 @@ SUMMARY_JSON_FILE="${SUMMARY_JSON_FILE:-$SUMMARY_DIR/full_health_monitor_summary
 PROM_DIR="${PROM_DIR:-/var/lib/node_exporter/textfile_collector}"
 PROM_FILE="${PROM_FILE:-$PROM_DIR/linux_maint.prom}"
 SUMMARY_FILE="${SUMMARY_FILE:-$SUMMARY_DIR/full_health_monitor_summary_$(lm_now_stamp).log}"
-trap 'rm -f "$tmp_summary"' EXIT
+
+# Dedicated run temp dir (cleanup on exit/signals).
+RUN_TMP_DIR="$(mktemp -d -p "$TMPDIR_BASE" linux_maint_run.XXXXXX 2>/dev/null || true)"
+if [[ -z "$RUN_TMP_DIR" || ! -d "$RUN_TMP_DIR" ]]; then
+  RUN_TMP_DIR="${TMPDIR_BASE}/linux_maint_run.$$"
+  mkdir -p "$RUN_TMP_DIR" 2>/dev/null || true
+fi
+TMPDIR="$RUN_TMP_DIR"
+export TMPDIR
+
+tmp_report="$TMPDIR/full_health_monitor_report.$$"
+tmp_summary="$TMPDIR/full_health_monitor_summary.$$"
+
+cleanup_tmpdir() {
+  rm -rf "$RUN_TMP_DIR" 2>/dev/null || true
+}
+trap cleanup_tmpdir EXIT INT TERM
 
 # Minimal config (local mode)
 # Minimal config (local mode)
@@ -966,6 +980,16 @@ if prom_file and rows:
             f.write("# TYPE linux_maint_monitor_status_count gauge\n")
             for st in ("OK","WARN","CRIT","UNKNOWN","SKIP"):
                 f.write(f"linux_maint_monitor_status_count{{status=\"{st.lower()}\"}} {counts.get(st,0)}\n")
+
+            monitor_counts = {}
+            for r in prom_rows:
+                mon = r.get("monitor","unknown")
+                monitor_counts[mon] = monitor_counts.get(mon, 0) + 1
+            f.write("\n# HELP linux_maint_monitor_host_count Count of host results per monitor (deduped by monitor+host)\n")
+            f.write("# TYPE linux_maint_monitor_host_count gauge\n")
+            for mon, cnt in sorted(monitor_counts.items()):
+                esc_mon=str(mon).replace("\\","\\\\").replace("\"","\\\"")
+                f.write(f"linux_maint_monitor_host_count{{monitor=\"{esc_mon}\"}} {cnt}\n")
 
             f.write("\n# HELP linux_maint_reason_count Count of non-OK monitor results by reason token (deduped by monitor+host; top N reasons)\n")
             f.write("# TYPE linux_maint_reason_count gauge\n")

@@ -13,8 +13,8 @@
 - [ ] Note breaking changes explicitly in release notes.
 
 ## Build
-- [ ] Build release tarball: `./tools/make_tarball.sh`.
-- [ ] Generate checksums: `sha256sum dist/Linux_Maint_ToolKit-*.tgz > dist/SHA256SUMS`.
+- [ ] Build release tarball + checksums: `make release VERSION=x.y.z` (includes `--with-tarball`).
+- [ ] Optional manual build: `./tools/make_tarball.sh` (writes `dist/SHA256SUMS`).
 - [ ] (Optional) Sign tarball if using GPG.
 
 ## Verify

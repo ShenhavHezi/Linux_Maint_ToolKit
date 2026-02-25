@@ -66,6 +66,13 @@ redact_file() {
     -e 's/(authorization:|x-auth-token:).*/\1 REDACTED/gI' \
     -e 's/(bearer)[[:space:]]+[[:alnum:]._~+\/-]+=*/\1 REDACTED/gI' \
     -e 's/[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}\.[[:alnum:]_-]{12,}/REDACTED_JWT/g' \
+    -e 's/\bgh[pousr]_[A-Za-z0-9]{20,}\b/GH_REDACTED/g' \
+    -e 's/\bgithub_pat_[A-Za-z0-9_]{20,}\b/GH_PAT_REDACTED/g' \
+    -e 's/\bxox[baprs]-[A-Za-z0-9-]{10,}\b/SLACK_REDACTED/g' \
+    -e 's/\bAIza[0-9A-Za-z_-]{35}\b/GCP_REDACTED/g' \
+    -e 's/\bya29\.[A-Za-z0-9_-]{10,}\b/OAUTH_REDACTED/g' \
+    -e 's/-----BEGIN [A-Z ]*PRIVATE KEY-----/-----BEGIN PRIVATE KEY-----/g' \
+    -e 's/-----END [A-Z ]*PRIVATE KEY-----/-----END PRIVATE KEY-----/g' \
     "$in" > "$out" 2>/dev/null || cp -f "$in" "$out"
 }
 

@@ -294,6 +294,7 @@ When `LM_DISK_TREND_INODES=1|true`, `disk_trend_monitor` also emits compact inod
 - `LM_INVENTORY_CACHE` = `0` (set to `1` to reuse recent inventory data)
 - `LM_INVENTORY_CACHE_TTL` = `3600` (seconds)
 - `LM_INVENTORY_CACHE_DIR` = `"${OUTPUT_DIR}/cache"`
+- `LM_INVENTORY_CACHE_MAX` = `0` (max cached entries to retain; `0` = unlimited)
 - `MAIL_ON_RUN` = `"false"`
 
 
@@ -442,6 +443,8 @@ After installation, use the `linux-maint` CLI as the primary interface.
 
 - `linux-maint run` *(root required)*: run the full wrapper (`run_full_health_monitor.sh`).
   - `--progress|--no-progress`: enable/disable the run progress bar (overrides `LM_PROGRESS`).
+  - `--only a,b`: run only selected monitors (names with or without `_monitor`).
+  - `--skip a,b`: skip selected monitors.
   - `--strict`: fail the run if any monitor emits malformed summary lines (adds `reason=summary_invalid`).
 
 - `linux-maint init [--minimal] [--force]` *(root required)*: install `/etc/linux_maint` templates from the repo checkout.
@@ -452,6 +455,7 @@ After installation, use the `linux-maint` CLI as the primary interface.
 
 - `linux-maint status` *(root required)*: show last run metadata plus a compact, severity-sorted problems summary by default. Use `--verbose` for raw summary lines.
 - `linux-maint check` *(root required)*: run config validation + preflight and show a short OK/WARN/CRIT summary.
+  - `--json`: emit machine-friendly summary and expected SKIPs.
 
 Status flags (installed mode):
 
@@ -719,6 +723,7 @@ Example (`export --json`):
 - `LM_REDACT_LOGS=1` — redact common secret patterns from logs and summary lines (best-effort). When enabled, values like `password=...`, `token=...`, and JWT-like blobs are replaced with `REDACTED` in emitted log/summary lines.
 - `LM_REDACT_LOGS=1` also redacts values in `linux-maint export --json` output.
 - `LM_REDACT_LOGS=1` also redacts log content inside `linux-maint pack-logs` bundles.
+- `LM_REDACT_JSON=1` — redact common secret patterns in JSON outputs (status/report/trend/export/metrics).
 - `LM_EXPORT_ALLOWLIST=monitor,host,status,reason,...` — restrict keys emitted for each row in `linux-maint export --json`.
 - `LM_PACK_LOGS_HASH=1` — include `meta/bundle_hashes.txt` (SHA256 per file) in pack-logs bundles.
 - `LM_PROGRESS=0` — disable progress bars (run, pack-logs, baseline update).
@@ -732,6 +737,8 @@ Example (`export --json`):
 - `LM_SUMMARY_ALLOWLIST=key1,key2,...` — optional allowlist of summary keys to keep; extra keys are dropped with a warning.
 - `LM_SUMMARY_STRICT=1` — enforce required summary fields and valid statuses at emission time (tests/CI).
 - `LM_SSH_ALLOWLIST=pattern1,pattern2` — optional regex allowlist for commands sent via SSH; non-matching commands are blocked.
+- `LM_SSH_ALLOWLIST_STRICT=1` — treat allowlist violations as hard errors (emits ERROR and returns rc=2).
+- `LM_SSH_RETRY=N` — retry failed SSH commands up to N times with exponential backoff.
 - `LM_LOG_FORMAT=json` — emit JSON logs from `lm_log` (one JSON object per line).
 
 
@@ -755,6 +762,7 @@ Notes:
 - This project intentionally splits `LM_SSH_OPTS` into ssh argv. Avoid shell metacharacters; prefer only `-o Key=Value` style options.
 - If you enable strict host key verification in your environment, pre-populate the dedicated known_hosts file used by `UserKnownHostsFile`.
 - `LM_SSH_KNOWN_HOSTS_MODE=strict|accept-new` toggles `StrictHostKeyChecking` when `LM_SSH_OPTS` is not explicitly set.
+- `LM_SSH_KNOWN_HOSTS_PIN_FILE=/path/known_hosts` pins to a specific file and forces strict host key checking.
 
 Seeding `known_hosts` for strict mode:
 
