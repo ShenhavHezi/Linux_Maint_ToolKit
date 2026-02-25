@@ -449,7 +449,6 @@ lm_ssh() {
     local -a _ssh_opts=()
     # shellcheck disable=SC2206
     _ssh_opts=(${LM_SSH_OPTS:-})
-    # shellcheck disable=SC2029
     local attempts=1
     if [[ "${LM_SSH_RETRY:-0}" =~ ^[0-9]+$ ]] && [[ "${LM_SSH_RETRY}" -gt 0 ]]; then
       attempts=$((LM_SSH_RETRY + 1))
@@ -458,8 +457,10 @@ lm_ssh() {
     local rc=0
     while [[ "$try" -le "$attempts" ]]; do
       if [[ "${LM_SSH_TIMEOUT:-0}" -gt 0 ]] && command -v timeout >/dev/null 2>&1; then
+        # shellcheck disable=SC2029
         timeout "${LM_SSH_TIMEOUT}" ssh "${_ssh_opts[@]}" "$host" "$@" 2>/dev/null
       else
+        # shellcheck disable=SC2029
         ssh "${_ssh_opts[@]}" "$host" "$@" 2>/dev/null
       fi
       rc=$?
