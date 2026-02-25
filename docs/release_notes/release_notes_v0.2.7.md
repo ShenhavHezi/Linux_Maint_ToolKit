@@ -37,4 +37,4 @@
 - `LM_REDACT_JSON_STRICT=1` redacts sensitive fields in JSON outputs more aggressively.
 
 ## Checksums (if releasing a tarball)
-- SHA256SUMS: (not generated for this release)
+- SHA256SUMS: 6d15e7c25be5ca427e8f1a73f261add64b50e7baf794616a6663420017a978f5  Linux_Maint_ToolKit-v0.2.7-3211e4a.tgz
