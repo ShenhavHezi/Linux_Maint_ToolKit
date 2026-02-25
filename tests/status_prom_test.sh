@@ -46,6 +46,7 @@ SUM
 cat > "$STATUS_FILE" <<'STAT'
 overall=CRIT
 exit_code=2
+timestamp=2026-02-24T00:00:00Z
 STAT
 
 out="$(bash "$LM" status --prom 2>/dev/null || true)"
@@ -78,6 +79,24 @@ printf '%s\n' "$out" | grep -q 'linux_maint_status_count{status="unknown"} 1' ||
 }
 printf '%s\n' "$out" | grep -q 'linux_maint_status_count{status="skip"} 1' || {
   echo "status --prom missing SKIP count" >&2
+  echo "$out" >&2
+  exit 1
+}
+
+printf '%s\n' "$out" | grep -q 'linux_maint_last_run_exit_code 2' || {
+  echo "status --prom missing last_run_exit_code" >&2
+  echo "$out" >&2
+  exit 1
+}
+
+expected_ts="$(python3 - <<'PY'
+from datetime import datetime, timezone
+dt = datetime.strptime("2026-02-24T00:00:00Z", "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+print(int(dt.timestamp()))
+PY
+)"
+printf '%s\n' "$out" | grep -q "linux_maint_last_run_timestamp ${expected_ts}" || {
+  echo "status --prom missing last_run_timestamp" >&2
   echo "$out" >&2
   exit 1
 }

@@ -18,7 +18,10 @@
 #LM_LOCAL_ONLY=false
 #LM_SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=5"
 #LM_SSH_KNOWN_HOSTS_MODE="accept-new"   # set to "strict" for strict host key checking
+#LM_SSH_KNOWN_HOSTS_PIN_FILE=""         # pin to a specific known_hosts file (forces strict)
 #LM_SSH_ALLOWLIST="^bash -lc |^command -v |^df |^ss |^netstat |^systemctl |^ping |^nc |^curl |^timeout |^chronyc |^ntpq |^timedatectl |^mountpoint |^stat |^uname "
+#LM_SSH_ALLOWLIST_STRICT=0              # treat allowlist violations as hard errors
+#LM_SSH_RETRY=0                         # retry SSH commands N times with backoff
 
 # ---- Wrapper runtime ----
 #LOG_DIR="/var/log/health"
@@ -30,6 +33,8 @@
 #LM_LAST_RUN_LOG_DIR="/var/log/health"
 #LM_FS_RO_EXCLUDE_RE='^(proc|sysfs|devtmpfs|tmpfs|devpts|cgroup2?|cgroup|debugfs|tracefs|mqueue|hugetlbfs|pstore|squashfs|overlay|rpc_pipefs|autofs|fuse\\..*|binfmt_misc)$'
 #LM_FS_RO_EXCLUDE_MOUNTS_RE='^/(boot|boot/efi|usr|etc)$'
+#LM_REDACT_JSON=0               # redact common secret patterns in JSON outputs
+#LM_REDACT_JSON_STRICT=0        # redact all string values in JSON outputs
 # Optional: per-monitor timeout overrides (format: monitor_name=seconds)
 #MONITOR_TIMEOUTS_FILE="/etc/linux_maint/monitor_timeouts.conf"
 

@@ -28,6 +28,7 @@ sudo linux-maint status --json
 
 # Status JSON with redaction
 LM_REDACT_JSON=1 sudo linux-maint status --json
+LM_REDACT_JSON_STRICT=1 sudo linux-maint status --json
 
 # Status as Prometheus textfile metrics
 sudo linux-maint status --prom
@@ -49,6 +50,16 @@ sudo linux-maint run --only service_monitor,ntp_drift_monitor
 
 # Skip selected monitors
 sudo linux-maint run --skip inventory_export,backup_check
+
+# Plan only (no execution)
+sudo linux-maint run --plan
+sudo linux-maint run --plan --json
+
+# List monitors and config requirements
+sudo linux-maint list-monitors
+
+# Lint a summary file
+sudo linux-maint lint-summary /var/log/health/full_health_monitor_summary_latest.log
 
 # Initialize config templates (won't overwrite unless --force)
 sudo linux-maint init
@@ -129,6 +140,7 @@ LM_REDACT_JSON=1 sudo linux-maint export --json
 
 # Metrics snapshot (status + trend + runtimes)
 sudo linux-maint metrics --json
+sudo linux-maint metrics --prom
 
 # Export JSON with row allowlist
 LM_EXPORT_ALLOWLIST=monitor,host,status,reason sudo linux-maint export --json
@@ -197,7 +209,7 @@ sudo linux-maint pack-logs --out /tmp --no-redact
 
 ```bash
 # Plan only (no execution)
-sudo linux-maint run --group prod --dry-run
+sudo linux-maint run --group prod --plan
 
 # Run group with parallelism
 sudo linux-maint run --group prod --parallel 10

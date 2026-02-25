@@ -66,6 +66,13 @@ assert_json "runtimes --json" bash "$LM" runtimes --last 1 --json
 assert_json "export --json" bash "$LM" export --json
 assert_json "metrics --json" bash "$LM" metrics --json
 assert_json "config --json" bash "$LM" config --json
+cfg_empty="$workdir/empty_cfg"
+mkdir -p "$cfg_empty"
+assert_json "config --json (missing)" bash -c "LM_CFG_DIR=\"$cfg_empty\" \"$LM\" config --json"
+cfg_invalid="$workdir/invalid_cfg"
+mkdir -p "$cfg_invalid"
+printf '%s\n' 'not_a_key line' > "$cfg_invalid/linux-maint.conf"
+assert_json "config --json (invalid)" bash -c "LM_CFG_DIR=\"$cfg_invalid\" \"$LM\" config --json"
 assert_json "doctor --json" bash "$LM" doctor --json
 assert_json "self-check --json" bash "$LM" self-check --json
 assert_json "history --json" bash "$LM" history --json

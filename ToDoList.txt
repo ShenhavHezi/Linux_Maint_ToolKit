@@ -1,4 +1,4 @@
-# Linux_Maint_ToolKit - Roadmap and Backlog (2026-02-24)
+# Linux_Maint_ToolKit - Roadmap and Backlog (2026-02-25)
 
 ## Project brief
 Linux_Maint_ToolKit is a lightweight, offline-first Linux health toolkit for fleet and single-host checks.
@@ -25,54 +25,39 @@ Primary users: operators, sysadmins, and SREs working in constrained or air-gapp
 
 ---
 
-## P0 - Correctness and safety (done)
-- Enforced reason vocabulary lint against docs/REASONS.md with allowlist support.
-- Added lints for host=all and required node= on all summary lines.
-- Added wrapper skip-gate tests with stable SKIP reasons and missing=... details.
-- Extended config validation to detect duplicate and unknown keys across linux-maint.conf + conf.d.
-- Added JSON-output guard tests to prevent non-JSON contamination.
-- Added duplicate monitor/host lint for wrapper summaries.
-- Added summary_contract.monitors sync check with allowlist exceptions.
+## P0 - Correctness and safety
+- Validate monitor selection (`--only`/`--skip`/`LM_MONITORS`) against available scripts; fail fast on unknown names and show suggestions.
+- Add `linux-maint lint-summary <file> [--json]` to validate summary files using existing contract lint; wire into tests.
+- Ensure all `--json` outputs remain JSON-only even on parse errors (extend tests to cover invalid config lines + missing files).
+- Add contract test to guarantee monitor ordering is stable for default runs (wrapper order and `--only` ordering behavior).
 
 ---
 
-## P1 - Operator UX, docs, compatibility (done)
-- Added `linux-maint run --only/--skip` CLI flags for focused runs.
-- Expanded QUICK_REFERENCE with first-run workflow, baselines, expected SKIPs, and triage steps.
-- Added compatibility matrix doc (bash/Python versions, supported distros, required tools).
-- Improved `linux-maint explain reason` to include next_step guidance and common fixes.
-- Added `linux-maint check --json` for automation-friendly preflight + config status.
-- Added example outputs for report/trend/diff in docs (color + no-color).
-- Added a short operator runbook: initial install, first run, baseline creation, and day-2 checks.
+## P1 - Operator UX, docs, compatibility
+- Add `linux-maint list-monitors` (name, optional/required config, and short description); document in QUICK_REFERENCE.
+- Add `linux-maint run --plan` to show resolved host list + monitor list without executing; include `--json` output.
+- Add a “Monitors Matrix” doc mapping each monitor to config inputs, outputs, and common actions.
+- Add `docs/FAQ.md` covering common WARN/SKIP reasons and quick fixes; link from README.
 
 ---
 
-## P2 - Security, hardening, performance (done)
-- Added `LM_SSH_ALLOWLIST_STRICT=1` to fail hard on blocked commands.
-- Added `LM_SSH_KNOWN_HOSTS_PIN_FILE` for pinned host keys and documentation.
-- Expanded redaction coverage for known secret formats in report/pack-logs outputs.
-- Added inventory cache pruning (`LM_INVENTORY_CACHE_MAX`) to prevent unbounded growth.
-- Hardened tempdir usage in wrapper (dedicated run dir + cleanup on signals).
-- Added `LM_REDACT_JSON=1` to redact secrets from JSON outputs.
-- Added `LM_SSH_RETRY` with exponential backoff for transient SSH failures.
+## P2 - Security, hardening, performance
+- Warn/CRIT on world-writable config/known_hosts files when strict modes are enabled (`LM_SSH_ALLOWLIST_STRICT`, pinned known_hosts).
+- Validate `LM_SSH_KNOWN_HOSTS_PIN_FILE` presence/permissions; emit clear error + hint when invalid.
+- Add optional `LM_REDACT_JSON_STRICT` to redact all string values (full scrub) for high-security environments.
+- Add support bundle integrity metadata (size + sha256 per file) in `pack-logs` for tamper detection.
 
 ---
 
-## P3 - Observability, integrations, QA coverage (done)
-- Added Prometheus metrics for per-monitor runtime and host counts.
-- Added golden fixtures for report/trend/diff outputs to lock formatting regressions.
-- Added JSON schema validation for metrics fields (numeric stability).
-- Added smoke test coverage for skip-gate reasons (config_missing/baseline_missing).
-- Added contract test for LM_SUMMARY_ALLOWLIST behavior in strict mode.
-- Added trend cache tests to validate TTL behavior and filter-aware caching.
-- Added run_index retention tests for prune/keep edge cases.
+## P3 - Observability, integrations, QA coverage
+- Emit Prometheus metrics for last run exit code and last run timestamp; add schema + tests.
+- Add `linux-maint metrics --prom` to output textfile format on stdout for scraping.
+- Add golden fixtures for `report --short` and `status --table` to lock formatting stability.
+- Add integration test for `run --only/--skip` that executes a minimal monitor subset end-to-end.
 
 ---
 
-## P4 - DX, release polish, community (done)
-- Automated release pipeline to build tarball, compute checksum, and attach to GitHub release.
-- Extended `make release` to tag, draft notes, and update checksums in release notes.
-- Added contributor guide section on summary contract and reason token policy.
-- Added security disclosure note and lifecycle/support policy.
-- Added DEB packaging note (non-support) in docs.
-- Added a minimal example pack under docs/examples for quick evaluation.
+## P4 - DX, release polish, community
+- Add `tools/verify_release.sh` to validate tarball contents, checksum, and BUILD_INFO vs tag.
+- Add `make ci-local` target that runs smoke + key contract tests with a clear summary.
+- Add `CONTRIBUTORS.md` with contribution flow, testing expectations, and release checklist shortcuts.

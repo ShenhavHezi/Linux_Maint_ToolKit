@@ -87,6 +87,7 @@ Suggested first actions:
 - `log_write_failed` — wrapper failed to write log file
 - `summary_write_failed` — wrapper failed to write summary file
 - `summary_checksum_failed` — wrapper summary checksum mismatch
+- `missing_inventory_targets_file` — inventory export target list missing
 
 ### Storage / disk
 - `disk_full` — hard threshold exceeded

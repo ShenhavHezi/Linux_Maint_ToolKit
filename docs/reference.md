@@ -479,6 +479,7 @@ Status flags (installed mode):
 Note: when optional config/baselines are missing, `status`/`report` show an `Expected SKIPs` banner by default (suppressed in compact/summary output). Use `--expected-skips` for the explicit list.
 
 - `linux-maint metrics --json` *(root required)*: emit a single JSON snapshot with status + trends + runtimes for automation.
+- `linux-maint metrics --prom` *(root required)*: emit Prometheus textfile metrics to stdout (same contract as `status --prom`).
 - `linux-maint run-index` *(root required)*: show stats for `run_index.jsonl` and optionally prune with `--keep N`.
 
 
@@ -715,6 +716,8 @@ Example (`export --json`):
 - `linux-maint make-tarball`: build an offline tarball (see below).
 
 - `linux-maint deps`: print an offline dependency manifest by monitor (required vs optional commands + local availability counters).
+- `linux-maint list-monitors`: list monitors with config requirements and short descriptions.
+- `linux-maint lint-summary <file>`: validate summary/monitor lines against the contract (exit non-zero on violations).
 
 
 
@@ -724,8 +727,10 @@ Example (`export --json`):
 - `LM_REDACT_LOGS=1` also redacts values in `linux-maint export --json` output.
 - `LM_REDACT_LOGS=1` also redacts log content inside `linux-maint pack-logs` bundles.
 - `LM_REDACT_JSON=1` — redact common secret patterns in JSON outputs (status/report/trend/export/metrics).
+- `LM_REDACT_JSON_STRICT=1` — redact all string values in JSON outputs (full scrub).
 - `LM_EXPORT_ALLOWLIST=monitor,host,status,reason,...` — restrict keys emitted for each row in `linux-maint export --json`.
 - `LM_PACK_LOGS_HASH=1` — include `meta/bundle_hashes.txt` (SHA256 per file) in pack-logs bundles.
+- pack-logs also writes `meta/bundle_integrity.txt` (SHA256 + size per file) when `sha256sum` and `stat` are available.
 - `LM_PROGRESS=0` — disable progress bars (run, pack-logs, baseline update).
 - `LM_PROGRESS_WIDTH=24` — progress bar width in characters.
 - `LM_HOST_PROGRESS=1` — show per-host progress in host loops (used by baseline updates).
@@ -1345,3 +1350,4 @@ CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).
 - `linux-maint pack-logs [--out DIR]`: create a support bundle (progress can be toggled with `--progress|--no-progress`).
   - `--redact|--no-redact`: override `LM_REDACT_LOGS` for this bundle only.
   - `--hash`: include `meta/bundle_hashes.txt` (SHA256 per file) in the bundle.
+  - `meta/bundle_integrity.txt` is always included when `sha256sum` and `stat` are available.

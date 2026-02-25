@@ -50,6 +50,41 @@ line="$(grep -E "[[:space:]]${base}$" "$SUMS_FILE" || true)"
 
 echo "checksum verification ok: $base"
 
+tar_version=""
+tar_sha=""
+if [[ "$base" =~ Linux_Maint_ToolKit-(v[0-9]+\.[0-9]+\.[0-9]+)-([0-9a-f]+)\.tgz$ ]]; then
+  tar_version="${BASH_REMATCH[1]}"
+  tar_sha="${BASH_REMATCH[2]}"
+fi
+
+build_info="$(tar -xOf "$TARBALL" BUILD_INFO 2>/dev/null || true)"
+version_file="$(tar -xOf "$TARBALL" VERSION 2>/dev/null || true)"
+if [[ -z "$build_info" || -z "$version_file" ]]; then
+  echo "ERROR: tarball missing BUILD_INFO or VERSION" >&2
+  exit 1
+fi
+
+build_version="$(printf '%s\n' "$build_info" | awk -F= '$1=="version"{print $2}' | head -n 1)"
+build_commit="$(printf '%s\n' "$build_info" | awk -F= '$1=="commit"{print $2}' | head -n 1)"
+version_file="$(printf '%s' "$version_file" | head -n 1)"
+
+if [[ -n "$tar_version" && "$build_version" != "$tar_version" ]]; then
+  echo "ERROR: BUILD_INFO version mismatch (tar=$tar_version build=$build_version)" >&2
+  exit 1
+fi
+if [[ -n "$tar_version" ]]; then
+  expected_version="${tar_version#v}"
+  if [[ "$version_file" != "$expected_version" ]]; then
+    echo "ERROR: VERSION file mismatch (tar=$expected_version file=$version_file)" >&2
+    exit 1
+  fi
+fi
+if [[ -n "$tar_sha" && -n "$build_commit" && "$build_commit" != "$tar_sha" ]]; then
+  echo "ERROR: BUILD_INFO commit mismatch (tar=$tar_sha build=$build_commit)" >&2
+  exit 1
+fi
+echo "tarball metadata verification ok"
+
 if [[ -n "$SIG_FILE" ]]; then
   [[ -f "$SIG_FILE" ]] || { echo "ERROR: signature file not found: $SIG_FILE" >&2; exit 1; }
   command -v gpg >/dev/null 2>&1 || { echo "ERROR: gpg required for signature verification" >&2; exit 1; }

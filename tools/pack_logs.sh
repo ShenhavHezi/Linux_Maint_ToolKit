@@ -52,6 +52,10 @@ hash_enabled=0
 case "${LM_PACK_LOGS_HASH:-0}" in
   1|true|TRUE|yes|YES) hash_enabled=1 ;;
 esac
+integrity_enabled=0
+if command -v sha256sum >/dev/null 2>&1 && command -v stat >/dev/null 2>&1; then
+  integrity_enabled=1
+fi
 
 # Redaction is intentionally simple and conservative.
 # We only redact common key patterns in *.conf and *.txt.
@@ -155,6 +159,9 @@ progress_total=$(( ${#log_files[@]} + ${#cfg_files[@]} + ${#meta_files[@]} + ${#
 if [[ "$hash_enabled" -eq 1 ]]; then
   progress_total=$((progress_total + 1))
 fi
+if [[ "$integrity_enabled" -eq 1 ]]; then
+  progress_total=$((progress_total + 1))
+fi
 
 mkdir -p "$OUTDIR"
 workdir="$(mktemp -d -p "$TMPDIR")"
@@ -224,6 +231,22 @@ if [[ "${#state_files[@]}" -gt 0 ]]; then
     copy_log "$f" "$bundle_root/state"
     progress_step "state:$(basename -- "$f")"
   done
+fi
+
+# --- Bundle integrity manifest (size + sha256 per file) ---
+if [[ "$integrity_enabled" -eq 1 ]]; then
+  integrity_file="$bundle_root/meta/bundle_integrity.txt"
+  (cd "$bundle_root" && \
+    find . -type f ! -path './meta/bundle_integrity.txt' -print0 2>/dev/null | \
+    sort -z | while IFS= read -r -d '' f; do
+      size="$(stat -c %s "$f" 2>/dev/null || echo 0)"
+      sum="$(sha256sum "$f" 2>/dev/null | awk '{print $1}')"
+      rel="${f#./}"
+      printf '%s  %s  %s\n' "$sum" "$size" "$rel"
+    done) > "$integrity_file" 2>/dev/null || true
+  progress_step "integrity"
+else
+  echo "WARN: sha256sum/stat not found; integrity manifest skipped" >&2
 fi
 
 # --- Bundle hashes (optional) ---

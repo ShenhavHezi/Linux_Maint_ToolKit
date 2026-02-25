@@ -1,0 +1,35 @@
+=== linux-maint status === health=CRIT exit_code=2
+=== Mode ===
+repo
+repo_root: <REPO_ROOT>
+linux_maint_lib: <REPO_ROOT>/lib/linux_maint.sh
+logs: <REPO_ROOT>/.logs
+
+=== Last run status ===
+overall=CRIT
+exit_code=2
+timestamp=2026-02-24T00:00:00Z
+logfile=/var/log/health/full_health_monitor_latest.log
+
+=== Summary (compact) ===
+Tip: Use --verbose to show raw monitor lines
+(from: <REPO_ROOT>/.logs/full_health_monitor_summary_latest.log)
+totals
+totals:
+  STATUS  COUNT
+  CRIT    1
+  WARN    1
+  UNKNOWN 0
+  SKIP    0
+  OK      1
+
+problems (top 2):
+STATUS MONITOR         HOST  REASON
+CRIT   network_monitor web-2 http_failed
+WARN   service_monitor web-1 service_inactive
+
+tip: run 'linux-maint doctor' for fix suggestions
+
+reasons (top 5):
+http_failed=1
+service_inactive=1

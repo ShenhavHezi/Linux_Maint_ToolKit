@@ -25,6 +25,7 @@ lm_require_cmd "config_validate" "localhost" head || exit $?
 lm_require_cmd "config_validate" "localhost" mkdir || exit $?
 lm_require_cmd "config_validate" "localhost" paste || exit $?
 lm_require_cmd "config_validate" "localhost" sort || exit $?
+lm_require_cmd "config_validate" "localhost" stat || exit $?
 lm_require_cmd "config_validate" "localhost" tee || exit $?
 
 
@@ -163,6 +164,83 @@ validate(){
     fi
     if [ "${#unknown_keys[@]}" -gt 0 ]; then
       wa "config has unknown keys (not in template): $(printf '%s\n' "${unknown_keys[@]}" | sort -u | paste -sd ',' -)"
+    fi
+  fi
+
+  trim_ws(){
+    local s="$1"
+    s="${s#"${s%%[![:space:]]*}"}"
+    s="${s%"${s##*[![:space:]]}"}"
+    printf '%s' "$s"
+  }
+
+  cfg_get_value(){
+    local key="$1"
+    local val=""
+    local line
+    for f in "${conf_files[@]}"; do
+      while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%%#*}"
+        line="$(trim_ws "$line")"
+        [ -z "$line" ] && continue
+        case "$line" in
+          "$key="*)
+            val="${line#*=}"
+            val="$(trim_ws "$val")"
+            val="${val%\"}"; val="${val#\"}"
+            val="${val%\'}"; val="${val#\'}"
+            ;;
+        esac
+      done < "$f"
+    done
+    printf '%s' "$val"
+  }
+
+  is_truthy(){
+    case "$1" in
+      1|true|TRUE|yes|YES|on|ON) return 0 ;;
+      *) return 1 ;;
+    esac
+  }
+
+  is_world_writable(){
+    local path="$1"
+    local perm world
+    perm="$(stat -c %a "$path" 2>/dev/null || echo "")"
+    [ -z "$perm" ] && return 1
+    world=$((perm % 10))
+    (( world & 2 ))
+  }
+
+  strict_allowlist="$(cfg_get_value LM_SSH_ALLOWLIST_STRICT)"
+  strict_hosts_mode="$(cfg_get_value LM_SSH_KNOWN_HOSTS_MODE)"
+  pin_file="$(cfg_get_value LM_SSH_KNOWN_HOSTS_PIN_FILE)"
+  strict_enabled=0
+  if is_truthy "$strict_allowlist"; then
+    strict_enabled=1
+  fi
+  if [ "$strict_hosts_mode" = "strict" ] || [ -n "$pin_file" ]; then
+    strict_enabled=1
+  fi
+
+  if [ "$strict_enabled" -eq 1 ]; then
+    for f in "${conf_files[@]}"; do
+      if is_world_writable "$f"; then
+        wa "config file is world-writable under strict modes: $f"
+      fi
+    done
+  fi
+
+  if [ -n "$pin_file" ]; then
+    if [ ! -f "$pin_file" ]; then
+      cr "LM_SSH_KNOWN_HOSTS_PIN_FILE not found: $pin_file"
+    else
+      if is_world_writable "$pin_file"; then
+        cr "pinned known_hosts file is world-writable: $pin_file"
+      fi
+      if [ ! -r "$pin_file" ]; then
+        cr "pinned known_hosts file is not readable: $pin_file"
+      fi
     fi
   fi
 

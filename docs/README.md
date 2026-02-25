@@ -7,12 +7,14 @@ Start here to navigate operator and contributor documentation.
 - Quick reference (cheat-sheet): `docs/QUICK_REFERENCE.md`
 - Operator runbook (short): `docs/RUNBOOK.md`
 - Full reference (configuration, monitors, outputs): `docs/reference.md`
+- Monitors matrix: `docs/MONITORS_MATRIX.md`
 - Configuration: `docs/configuration.md`
 - Installation: `docs/installation.md`
 - Compatibility matrix: `docs/COMPATIBILITY.md`
 - Troubleshooting: `docs/troubleshooting.md`
 - Dark-site / offline usage: `docs/DARK_SITE.md`
 - Reason tokens: `docs/REASONS.md`
+- FAQ: `docs/FAQ.md`
 - Day-2 ops: `docs/DAY2.md`
 - Operations quickstart: `docs/OPERATIONS.md`
 - Upgrade and rollback: `docs/UPGRADE.md`
@@ -24,6 +26,7 @@ Start here to navigate operator and contributor documentation.
 ## Contributor docs
 
 - Contributing: `CONTRIBUTING.md`
+- Contributors guide: `CONTRIBUTORS.md`
 - Development notes: `docs/development.md`
 - Command contract checklist: `docs/COMMAND_CONTRACT_CHECKLIST.md`
 - Release checklist: `docs/RELEASE_CHECKLIST.md`

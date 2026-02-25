@@ -35,3 +35,17 @@ if echo "$out" | grep -q 'ghp_ABCDEFGHIJKLMNOPQRSTUVWX'; then
 fi
 
 echo "json redaction ok"
+
+out_strict="$(LM_REDACT_JSON_STRICT=1 bash "$LM" export --json)"
+if echo "$out_strict" | grep -q 'custom_monitor'; then
+  echo "expected strict JSON redaction to scrub strings" >&2
+  echo "$out_strict" >&2
+  exit 1
+fi
+if ! echo "$out_strict" | grep -q 'REDACTED'; then
+  echo "expected strict JSON redaction to include REDACTED markers" >&2
+  echo "$out_strict" >&2
+  exit 1
+fi
+
+echo "json strict redaction ok"

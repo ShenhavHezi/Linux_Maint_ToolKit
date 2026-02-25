@@ -69,9 +69,9 @@ get_default_monitors(){
   local file="$wrapper"
   [[ -f "$file" ]] || return 1
   awk '
-    BEGIN{in=0}
-    /^declare -a scripts=\(/ {in=1; next}
-    in==1 {
+    BEGIN{in_block=0}
+    /^declare -a scripts=\(/ {in_block=1; next}
+    in_block==1 {
       if ($0 ~ /\)/) {exit}
       gsub(/#.*/, "", $0)
       if ($0 ~ /"/) {
@@ -130,6 +130,105 @@ filter_monitors_only_skip(){
   fi
 
   printf '%s\n' "$list"
+}
+
+available_monitors(){
+  local scripts_dir=""
+  if [[ "$MODE" == "repo" && -d "$REPO_MONITORS" ]]; then
+    scripts_dir="$REPO_MONITORS"
+  elif [[ -d "$LIBEXEC" ]]; then
+    scripts_dir="$LIBEXEC"
+  elif [[ -d "$REPO_MONITORS" ]]; then
+    scripts_dir="$REPO_MONITORS"
+  fi
+  [[ -n "$scripts_dir" ]] || return 1
+  find "$scripts_dir" -maxdepth 1 -type f -name '*.sh' -printf '%f\n' 2>/dev/null | sort
+}
+
+suggest_monitors(){
+  local needle="$1"
+  local avail="$2"
+  if command -v python3 >/dev/null 2>&1; then
+    MONITORS_LIST="$avail" python3 - "$needle" <<'PY'
+import difflib
+import os
+import sys
+
+needle = sys.argv[1].strip().lower()
+choices = [l.strip() for l in os.environ.get("MONITORS_LIST","").splitlines() if l.strip()]
+choices_base = [c[:-3] if c.endswith(".sh") else c for c in choices]
+uniq = []
+seen = set()
+for c in choices_base:
+    if c not in seen:
+        uniq.append(c)
+        seen.add(c)
+
+matches = difflib.get_close_matches(needle, uniq, n=5, cutoff=0.45)
+for m in matches:
+    print(m)
+PY
+  else
+    printf '%s\n' "$avail" | awk -v n="$needle" 'BEGIN{IGNORECASE=1} index($0,n){print $0}' | head -n 5
+  fi
+}
+
+validate_monitor_list(){
+  local list="$1"
+  local avail
+  avail="$(available_monitors 2>/dev/null || true)"
+  [[ -n "$avail" ]] || return 0
+
+  local -A known=()
+  while IFS= read -r m; do
+    [[ -n "$m" ]] || continue
+    known["$m"]=1
+    known["${m%.sh}"]=1
+  done <<< "$avail"
+
+  local missing=()
+  while IFS= read -r m; do
+    [[ -n "$m" ]] || continue
+    if [[ -z "${known[$m]:-}" && -z "${known[${m%.sh}]:-}" ]]; then
+      missing+=("$m")
+    fi
+  done <<< "$list"
+
+  if [[ "${#missing[@]}" -gt 0 ]]; then
+    echo "ERROR: unknown monitor(s): ${missing[*]}" >&2
+    echo "Available monitors:" >&2
+    printf '%s\n' "$avail" | sed 's/^/  - /' >&2
+    for m in "${missing[@]}"; do
+      local sug
+      sug="$(suggest_monitors "$m" "$avail" | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+      if [[ -n "$sug" ]]; then
+        echo "Did you mean (for $m): $sug" >&2
+      fi
+    done
+    return 2
+  fi
+  return 0
+}
+
+resolve_run_hosts(){
+  local -a _hosts=()
+  if [[ -f "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" ]]; then
+    # shellcheck disable=SC1090
+    . "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" >/dev/null 2>&1 || true
+    if command -v lm_hosts >/dev/null 2>&1; then
+      mapfile -t _hosts < <(lm_hosts)
+    fi
+  fi
+  if [[ "${#_hosts[@]}" -eq 0 ]]; then
+    _hosts=("localhost")
+  fi
+  if [[ "${SHUFFLE:-0}" -eq 1 ]]; then
+    mapfile -t _hosts < <(printf '%s\n' "${_hosts[@]}" | shuf)
+  fi
+  if [[ "${LIMIT:-0}" -gt 0 ]]; then
+    mapfile -t _hosts < <(printf '%s\n' "${_hosts[@]}" | head -n "${LIMIT}")
+  fi
+  printf '%s\n' "${_hosts[@]}"
 }
 
 # If running from a git checkout, prefer repo paths automatically.
@@ -275,10 +374,10 @@ expected_skips_json(){
   echo -n '['
 
   add_skip(){
-    local mon="$1" missing="$2"
+    local mon="$1" missing_val="$2"
     local mon_esc missing_esc
     mon_esc="$(json_escape "$mon")"
-    missing_esc="$(json_escape "$missing")"
+    missing_esc="$(json_escape "$missing_val")"
     if [[ "$first" -eq 0 ]]; then echo -n ','; fi
     first=0
     printf '{"monitor":"%s","missing":"%s"}' "$mon_esc" "$missing_esc"
@@ -397,6 +496,8 @@ parse_run_args(){
   SHUFFLE=0
   RUN_ONLY=""
   RUN_SKIP=""
+  PLAN_ONLY=0
+  RUN_JSON=0
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -416,6 +517,10 @@ parse_run_args(){
         RUN_ONLY="$2"; shift 2;;
       --skip)
         RUN_SKIP="$2"; shift 2;;
+      --plan)
+        PLAN_ONLY=1; shift 1;;
+      --json)
+        RUN_JSON=1; shift 1;;
       --limit)
         LIMIT="$2"; shift 2;;
       --shuffle)
@@ -427,7 +532,7 @@ parse_run_args(){
       --debug|--print-env)
         DEBUG=1; shift 1;;
       --dry-run)
-        DRY_RUN=1; shift 1;;
+        DRY_RUN=1; PLAN_ONLY=1; shift 1;;
       --strict)
         LM_STRICT=1; export LM_STRICT; shift 1;;
       -h|--help)
@@ -453,12 +558,14 @@ ${C_CYAN}Quick start${C_RESET}:
 
 ${C_CYAN}Common commands${C_RESET}:
   run [flags]            Run the full wrapper
+  list-monitors [flags]  List available monitors and config requirements
+  lint-summary <file>    Validate summary/monitor lines against contract
   status [flags]         Show last run status and summary
   report [flags]         Unified report (status + trend + runtimes)
   doctor [flags]         Diagnose installation/config/state
   self-check [flags]     Quick validation (safe without sudo)
   summary                One-line summary (cron/dashboards)
-  metrics --json         Snapshot status+trend+runtimes in one JSON payload
+  metrics --json|--prom  Snapshot status+trend+runtimes (JSON) or Prometheus text
   check [--json]         Run config_validate + preflight + show expected skips
 
 ${C_CYAN}Analysis / reporting${C_RESET}:
@@ -506,7 +613,8 @@ ${C_CYAN}Examples${C_RESET}:
   linux-maint run --group prod --parallel 10 --progress
   linux-maint run --only service_monitor,ntp_drift_monitor
   linux-maint run --skip inventory_export,backup_check
-  NO_COLOR=1 linux-maint run --local-only --dry-run
+  NO_COLOR=1 linux-maint run --local-only --plan
+  NO_COLOR=1 linux-maint run --local-only --plan --json
   linux-maint status --only WARN --reasons 5
   linux-maint report --short --no-trend
   NO_COLOR=1 linux-maint report --compact
@@ -516,6 +624,8 @@ ${C_CYAN}Examples${C_RESET}:
   linux-maint diff
   NO_COLOR=1 linux-maint diff --json
   linux-maint pack-logs --out /tmp --redact
+  linux-maint list-monitors
+  linux-maint lint-summary /var/log/health/full_health_monitor_summary_latest.log
 
 ${C_CYAN}Tips${C_RESET}:
   See docs/README.md for full docs and flag details
@@ -542,7 +652,9 @@ Key flags:
   --ssh-opts "..."     override SSH options
   --only a,b           run only selected monitors (names with/without _monitor)
   --skip a,b           skip selected monitors
-  --dry-run            print plan only (no execution)
+  --plan               show resolved hosts/monitors without executing
+  --json               with --plan, emit JSON
+  --dry-run            alias for --plan
   --strict             fail if any monitor emits malformed summary lines
   --progress|--no-progress  progress bar control
 
@@ -550,9 +662,14 @@ Examples:
   linux-maint run --group prod --parallel 10 --progress
   linux-maint run --only service_monitor,ntp_drift_monitor
   linux-maint run --skip inventory_export,backup_check
-  NO_COLOR=1 linux-maint run --local-only --dry-run
+  NO_COLOR=1 linux-maint run --local-only --plan
+  NO_COLOR=1 linux-maint run --local-only --plan --json
 EOF
       ;;
+    list-monitors)
+      echo "Usage: linux-maint list-monitors [--json]";;
+    lint-summary)
+      echo "Usage: linux-maint lint-summary <summary_or_log_file> [--json]";;
     status)
       cat <<'EOF'
 Usage: linux-maint status [flags]
@@ -597,7 +714,7 @@ Examples:
 EOF
       ;;
     metrics)
-      echo "Usage: linux-maint metrics --json";;
+      echo "Usage: linux-maint metrics --json|--prom";;
     config)
       echo "Usage: linux-maint config [--json] [--sources] [--lint]";;
     doctor)
@@ -722,6 +839,13 @@ case "$cmd" in
     parse_run_args "$@"
     validate_ssh_opts
 
+    if [[ -n "${RUN_ONLY:-}" ]]; then
+      validate_monitor_list "$(normalize_monitor_list "$RUN_ONLY")" || exit $?
+    fi
+    if [[ -n "${RUN_SKIP:-}" ]]; then
+      validate_monitor_list "$(normalize_monitor_list "$RUN_SKIP")" || exit $?
+    fi
+
     if [[ -n "${RUN_ONLY:-}" || -n "${RUN_SKIP:-}" ]]; then
       mapfile -t _monitors < <(filter_monitors_only_skip "${RUN_ONLY:-}" "${RUN_SKIP:-}")
       if [[ "${#_monitors[@]}" -eq 0 ]]; then
@@ -729,6 +853,14 @@ case "$cmd" in
         exit 2
       fi
       export LM_MONITORS="${_monitors[*]}"
+    fi
+    if [[ -n "${LM_MONITORS:-}" ]]; then
+      read -r -a _lm_list <<< "${LM_MONITORS}"
+      validate_monitor_list "$(printf '%s\n' "${_lm_list[@]}")" || exit $?
+    fi
+    if [[ "${RUN_JSON:-0}" -eq 1 && "${PLAN_ONLY:-0}" -ne 1 ]]; then
+      echo "ERROR: --json is only supported with --plan/--dry-run" >&2
+      exit 2
     fi
 
     if [[ "${DEBUG:-0}" -eq 1 ]]; then
@@ -745,41 +877,80 @@ case "$cmd" in
       echo "LM_SSH_OPTS=${LM_SSH_OPTS:-}"
       echo "LIMIT=${LIMIT:-0}"
       echo "SHUFFLE=${SHUFFLE:-0}"
+      echo "PLAN_ONLY=${PLAN_ONLY:-0}"
       echo "DRY_RUN=${DRY_RUN:-0}"
+      echo "RUN_JSON=${RUN_JSON:-0}"
       echo "============================="
     fi
 
-    if [[ "${DRY_RUN:-0}" -eq 1 ]]; then
+    if [[ "${PLAN_ONLY:-0}" -eq 1 ]]; then
       if [[ -n "${LM_GROUP:-}" ]]; then
         gf="${LM_HOSTS_DIR:-/etc/linux_maint/hosts.d}/${LM_GROUP}.txt"
         [[ -f "$gf" ]] || echo "NOTE: LM_GROUP=$LM_GROUP but group file not found: $gf (will fall back)" >&2
       fi
 
-      # best-effort host resolution using library if available
-      if [[ -f "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" ]]; then
-        # shellcheck disable=SC1090
-        . "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" >/dev/null 2>&1 || true
-        if command -v lm_hosts >/dev/null 2>&1; then
-          mapfile -t _hosts < <(lm_hosts)
-          if [[ "${SHUFFLE:-0}" -eq 1 ]]; then
-            mapfile -t _hosts < <(printf '%s\n' "${_hosts[@]}" | shuf)
-          fi
-          if [[ "${LIMIT:-0}" -gt 0 ]]; then
-            mapfile -t _hosts < <(printf '%s\n' "${_hosts[@]}" | head -n "${LIMIT}")
-          fi
-
-          if [[ -t 1 ]]; then
-            section "run plan"
-            echo "mode=${MODE} local_only=${LM_LOCAL_ONLY:-false} parallel=${LM_MAX_PARALLEL:-0}"
-            [[ -n "${LM_GROUP:-}" ]] && echo "group=${LM_GROUP}"
-            echo ""
-          fi
-          echo "Resolved hosts (${#_hosts[@]}):"
-          printf '%s\n' "${_hosts[@]}"
-          exit 0
+      mapfile -t _hosts < <(resolve_run_hosts)
+      local_monitors=""
+      if [[ -n "${LM_MONITORS:-}" ]]; then
+        read -r -a _lm_list <<< "${LM_MONITORS}"
+        local_monitors="$(printf '%s\n' "${_lm_list[@]}")"
+      else
+        local_monitors="$(get_default_monitors 2>/dev/null || true)"
+        if [[ -z "$local_monitors" ]]; then
+          local_monitors="$(available_monitors 2>/dev/null || true)"
         fi
       fi
-      echo "DRY RUN requested, but cannot resolve hosts (library not available)." >&2
+
+      if [[ "${RUN_JSON:-0}" -eq 1 ]]; then
+        printf '{'
+        printf '"mode":"%s",' "$MODE"
+        if [[ "${LM_LOCAL_ONLY:-false}" == "true" ]]; then
+          printf '"local_only":true,'
+        else
+          printf '"local_only":false,'
+        fi
+        printf '"parallel":%s,' "${LM_MAX_PARALLEL:-0}"
+        if [[ -n "${LM_GROUP:-}" ]]; then
+          printf '"group":"%s",' "$(json_escape "$LM_GROUP")"
+        else
+          printf '"group":null,'
+        fi
+        printf '"limit":%s,' "${LIMIT:-0}"
+        printf '"shuffle":%s,' "$([[ "${SHUFFLE:-0}" -eq 1 ]] && echo true || echo false)"
+        printf '"hosts":['
+        first=1
+        for h in "${_hosts[@]}"; do
+          [[ "$first" -eq 0 ]] && printf ','
+          first=0
+          printf '"%s"' "$(json_escape "$h")"
+        done
+        printf '],"monitors":['
+        first=1
+        while IFS= read -r m; do
+          [[ -z "$m" ]] && continue
+          [[ "$first" -eq 0 ]] && printf ','
+          first=0
+          printf '"%s"' "$(json_escape "$m")"
+        done <<< "$local_monitors"
+        printf ']}\n'
+        exit 0
+      fi
+
+      if [[ -t 1 ]]; then
+        section "run plan"
+        echo "mode=${MODE} local_only=${LM_LOCAL_ONLY:-false} parallel=${LM_MAX_PARALLEL:-0}"
+        [[ -n "${LM_GROUP:-}" ]] && echo "group=${LM_GROUP}"
+        echo ""
+      fi
+      echo "Resolved hosts (${#_hosts[@]}):"
+      printf '%s\n' "${_hosts[@]}"
+      if [[ -t 1 ]]; then
+        echo ""
+        echo "Monitors ($(printf '%s\n' "$local_monitors" | sed '/^$/d' | wc -l | tr -d ' ')):"
+      fi
+      if [[ -n "$local_monitors" ]]; then
+        printf '%s\n' "$local_monitors"
+      fi
       exit 0
     fi
 
@@ -805,6 +976,290 @@ case "$cmd" in
       echo "If WARN/CRIT: linux-maint doctor"
     fi
     exit $rc
+    ;;
+
+  list-monitors)
+    LIST_JSON=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --json) LIST_JSON=1; shift 1;;
+        -h|--help)
+          command_usage list-monitors
+          exit 0;;
+        *) echo "Unknown list-monitors flag: $1" >&2; exit 2;;
+      esac
+    done
+    avail="$(available_monitors 2>/dev/null || true)"
+    if [[ -z "$avail" ]]; then
+      echo "ERROR: monitors directory not found" >&2
+      exit 1
+    fi
+    MONITORS_LIST="$avail" python3 - "$LIST_JSON" <<'PY'
+import json
+import os
+import sys
+
+json_mode = sys.argv[1] == "1"
+monitors = [l.strip() for l in os.environ.get("MONITORS_LIST", "").splitlines() if l.strip()]
+
+meta = {
+    "preflight_check": ("Preflight readiness checks (deps/SSH/config).", [] , False),
+    "config_validate": ("Validate config file formats and hygiene.", ["linux-maint.conf"], False),
+    "health_monitor": ("Core host health (cpu/mem/disk/load).", [], False),
+    "filesystem_readonly_monitor": ("Detect read-only filesystems.", [], False),
+    "resource_monitor": ("Process resource hotspots (CPU/mem).", [], False),
+    "inode_monitor": ("Inode usage checks.", [], False),
+    "disk_trend_monitor": ("Disk growth trend check.", [], False),
+    "network_monitor": ("Network reachability/latency checks.", ["network_targets.txt"], True),
+    "service_monitor": ("Service status checks.", ["services.txt"], False),
+    "timer_monitor": ("systemd timer status checks.", [], False),
+    "last_run_age_monitor": ("Age of last run (wrapper status).", [], False),
+    "ntp_drift_monitor": ("NTP drift checks.", [], False),
+    "patch_monitor": ("Security updates check.", [], False),
+    "storage_health_monitor": ("Storage health (SMART/bad blocks).", [], False),
+    "kernel_events_monitor": ("Kernel error/oom events scan.", [], False),
+    "log_spike_monitor": ("Log spike detection.", [], False),
+    "cert_monitor": ("Certificate expiry checks.", ["certs.txt"], True),
+    "nfs_mount_monitor": ("NFS mount presence/health.", [], False),
+    "ports_baseline_monitor": ("Open ports baseline drift.", ["ports_baseline.txt"], True),
+    "config_drift_monitor": ("Config drift vs baseline.", ["config_paths.txt"], True),
+    "user_monitor": ("User/sudoers baseline drift.", ["baseline_users.txt","baseline_sudoers.txt"], True),
+    "backup_check": ("Backup target freshness checks.", ["backup_targets.csv"], True),
+    "inventory_export": ("Inventory snapshot exporter.", [], False),
+}
+
+rows = []
+for m in monitors:
+    name = m[:-3] if m.endswith(".sh") else m
+    desc, cfg, optional = meta.get(name, ("(no description)", [], False))
+    rows.append({
+        "monitor": name,
+        "description": desc,
+        "config_files": cfg,
+        "config_optional": bool(optional),
+    })
+
+if json_mode:
+    print(json.dumps({"monitors": rows}, indent=2, sort_keys=True))
+    raise SystemExit(0)
+
+mon_w = max(len(r["monitor"]) for r in rows) if rows else 7
+cfg_w = max(len(",".join(r["config_files"])) for r in rows) if rows else 6
+print(f"{'MONITOR':<{mon_w}} {'CONFIG':<{cfg_w}} REQUIRED DESCRIPTION")
+for r in rows:
+    cfg = ",".join(r["config_files"])
+    req = "no" if r["config_optional"] else ("yes" if cfg else "no")
+    print(f"{r['monitor']:<{mon_w}} {cfg:<{cfg_w}} {req:<8} {r['description']}")
+PY
+    ;;
+
+  lint-summary)
+    summary_path="${1:-}"
+    shift || true
+    LINT_JSON=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --json) LINT_JSON=1; shift 1;;
+        -h|--help)
+          command_usage lint-summary
+          exit 0;;
+        *) echo "Unknown lint-summary flag: $1" >&2; exit 2;;
+      esac
+    done
+    if [[ -z "$summary_path" ]]; then
+      command_usage lint-summary >&2
+      exit 2
+    fi
+    if [[ ! -f "$summary_path" ]]; then
+      echo "ERROR: summary file not found: $summary_path" >&2
+      exit 1
+    fi
+    REPO_ROOT="$REPO_ROOT" SHARE="$SHARE" python3 - "$summary_path" "$LINT_JSON" <<'PY'
+import json
+import os
+import re
+import sys
+from collections import defaultdict
+
+path = sys.argv[1]
+json_mode = sys.argv[2] == "1"
+
+ALLOWED_STATUSES = {"OK", "WARN", "CRIT", "UNKNOWN", "SKIP"}
+REASON_RE = re.compile(r"^[a-z0-9_]+$")
+
+def find_repo_root():
+    env_root = os.environ.get("REPO_ROOT")
+    if env_root and os.path.exists(env_root):
+        return env_root
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+def load_allowed_reasons():
+    repo_root = find_repo_root()
+    candidates = [
+        os.path.join(repo_root, "docs", "REASONS.md"),
+        os.path.join(os.environ.get("SHARE", ""), "docs", "REASONS.md"),
+        os.path.join(os.environ.get("SHARE", ""), "REASONS.md"),
+    ]
+    allow_candidates = [
+        os.path.join(repo_root, "tests", "reason_token_allowlist.txt"),
+    ]
+    reasons = set()
+    for p in candidates:
+        if not p or not os.path.exists(p):
+            continue
+        try:
+            with open(p, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    for m in re.findall(r"`([a-z0-9_]+)`", line):
+                        reasons.add(m)
+        except Exception:
+            pass
+        if reasons:
+            break
+
+    allow = set()
+    for p in allow_candidates:
+        if not p or not os.path.exists(p):
+            continue
+        with open(p, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                allow.add(line)
+    return reasons, allow
+
+def parse_kv(line: str):
+    parts = line.strip().split()
+    d = {}
+    dup_keys = []
+    bad_tokens = []
+    for p in parts:
+        if "=" in p:
+            k, v = p.split("=", 1)
+            if k in d:
+                dup_keys.append(k)
+            d[k] = v
+        else:
+            bad_tokens.append(p)
+    return d, dup_keys, bad_tokens
+
+allowed_reasons, allowlist_reasons = load_allowed_reasons()
+txt = open(path, "r", encoding="utf-8", errors="ignore").read().splitlines()
+
+executed = []
+monitor_lines = []
+run_re = re.compile(r"==== Running monitor: (?:.*/)?([A-Za-z0-9_\\-]+)\\.sh")
+
+for line in txt:
+    m = run_re.search(line)
+    if m:
+        executed.append(m.group(1))
+    if "monitor=" in line:
+        m2 = re.search(r"(^|\s)(monitor=[^\n]+)$", line)
+        if m2:
+            ml = m2.group(2)
+            if ml.startswith("monitor= ") or ml.startswith("monitor=lines") or ml.startswith("monitor= lines"):
+                continue
+            monitor_lines.append(ml)
+
+errors = []
+if not monitor_lines:
+    errors.append(f"no monitor= lines found in {path}")
+
+rows = []
+malformed = 0
+for l in monitor_lines:
+    row, dup_keys, bad_tokens = parse_kv(l)
+    if bad_tokens:
+        malformed += 1
+        errors.append(f"malformed monitor= line (non key=value tokens): {l}")
+    if dup_keys:
+        malformed += 1
+        errors.append(f"duplicate keys {dup_keys} in monitor= line: {l}")
+    rows.append(row)
+
+bad_status = 0
+missing_reason = 0
+bad_reason = 0
+missing_required = 0
+dup_monitor_host = 0
+bad_host = 0
+missing_node = 0
+seen_monitor_host = {}
+
+for r in rows:
+    st = r.get("status", "")
+    if not r.get("monitor") or not r.get("host") or not st:
+        missing_required += 1
+        errors.append(f"monitor= line missing required keys: {r}")
+    if r.get("host") == "all":
+        bad_host += 1
+        errors.append(f"host=all is not allowed (use host=runner instead): {r}")
+    if not r.get("node"):
+        missing_node += 1
+        errors.append(f"monitor= line missing node=: {r}")
+    if st not in ALLOWED_STATUSES:
+        bad_status += 1
+        errors.append(f"invalid status={st} line={r}")
+    if r.get("monitor") and r.get("host"):
+        key = (r.get("monitor"), r.get("host"))
+        seen_monitor_host[key] = seen_monitor_host.get(key, 0) + 1
+        if seen_monitor_host[key] > 1:
+            dup_monitor_host += 1
+            errors.append(f"duplicate monitor/host entries for {key}")
+    reason = r.get("reason", "")
+    if st in {"WARN", "CRIT", "UNKNOWN", "SKIP"}:
+        if "reason" not in r or reason == "":
+            missing_reason += 1
+        elif not REASON_RE.match(reason):
+            bad_reason += 1
+            errors.append(f"invalid reason token={reason!r} line={r}")
+        elif allowed_reasons and reason not in allowed_reasons and reason not in allowlist_reasons:
+            bad_reason += 1
+            errors.append(f"reason token not in docs/REASONS.md allowlist: {reason!r} line={r}")
+
+mon_to_lines = defaultdict(int)
+for r in rows:
+    mon = r.get("monitor")
+    if mon:
+        mon_to_lines[mon] += 1
+
+missing_monitor_lines = []
+for m in executed:
+    if mon_to_lines.get(m, 0) == 0:
+        missing_monitor_lines.append(m)
+if missing_monitor_lines:
+    errors.append("executed monitors missing monitor= output: " + ", ".join(missing_monitor_lines))
+
+if missing_reason:
+    errors.append(f"{missing_reason} non-OK monitor= lines are missing reason=")
+
+ok = not errors
+if json_mode:
+    out = {
+        "summary_lint_contract_version": 1,
+        "ok": ok,
+        "errors": errors,
+        "counts": {
+            "malformed": malformed,
+            "missing_required": missing_required,
+            "bad_status": bad_status,
+            "missing_reason": missing_reason,
+            "bad_reason": bad_reason,
+            "dup_monitor_host": dup_monitor_host,
+            "bad_host": bad_host,
+            "missing_node": missing_node,
+        },
+        "missing_monitor_lines": missing_monitor_lines,
+    }
+    print(json.dumps(out, indent=2, sort_keys=True))
+    raise SystemExit(0 if ok else 2)
+
+for e in errors:
+    print(f"ERROR: {e}")
+raise SystemExit(0 if ok else 2)
+PY
     ;;
 
 
@@ -963,6 +1418,7 @@ no_problems = os.environ.get("REPORT_NO_PROBLEMS","0") == "1"
 expected_skips = os.environ.get("REPORT_EXPECTED_SKIPS","").strip()
 redact = os.environ.get("REPORT_REDACT","0") == "1"
 redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
+redact_json_strict = os.environ.get("LM_REDACT_JSON_STRICT","0") in ("1","true","TRUE","yes","YES")
 
 def redact_line(s: str) -> str:
     pats = [
@@ -991,6 +1447,8 @@ def redact_json_obj(obj):
     if isinstance(obj, list):
         return [redact_json_obj(v) for v in obj]
     if isinstance(obj, str):
+        if redact_json_strict:
+            return "REDACTED"
         return redact_line(obj)
     return obj
 
@@ -1051,7 +1509,7 @@ if json_mode:
         "trend": trend,
         "runtimes": runtimes,
     }
-    if redact_json:
+    if redact_json or redact_json_strict:
         out = redact_json_obj(out)
     print(json.dumps(out, indent=2, sort_keys=True))
     raise SystemExit(0)
@@ -1276,9 +1734,11 @@ PY
     fi
 
     METRICS_JSON=0
+    METRICS_PROM=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) METRICS_JSON=1; shift 1;;
+        --prom) METRICS_PROM=1; shift 1;;
         -h|--help)
           command_usage metrics
           exit 0;;
@@ -1286,8 +1746,16 @@ PY
       esac
     done
 
+    if [[ "$METRICS_JSON" -eq 1 && "$METRICS_PROM" -eq 1 ]]; then
+      echo "ERROR: choose only one output format (--json or --prom)" >&2
+      exit 2
+    fi
+    if [[ "$METRICS_PROM" -eq 1 ]]; then
+      "$0" status --prom
+      exit 0
+    fi
     if [[ "$METRICS_JSON" -ne 1 ]]; then
-      echo "ERROR: metrics output is JSON-only (use --json)" >&2
+      echo "ERROR: metrics output is JSON-only (use --json) or --prom" >&2
       exit 2
     fi
 
@@ -1300,10 +1768,11 @@ PY
     "$0" runtimes --last 1 --json >"$tmp_runtimes" 2>/dev/null || printf '{}' >"$tmp_runtimes"
 
     python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" <<'PY'
-import json, os, sys
+import json, os, sys, re
 
 status_path, trend_path, runtimes_path = sys.argv[1:4]
 redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
+redact_json_strict = os.environ.get("LM_REDACT_JSON_STRICT","0") in ("1","true","TRUE","yes","YES")
 
 def read_json(p):
     try:
@@ -1339,6 +1808,8 @@ def redact_json_obj(obj):
     if isinstance(obj, list):
         return [redact_json_obj(v) for v in obj]
     if isinstance(obj, str):
+        if redact_json_strict:
+            return "REDACTED"
         return redact_line(obj)
     return obj
 
@@ -1435,7 +1906,7 @@ out = {
     "monitor_durations_ms": monitor_durations_ms,
 }
 
-if redact_json:
+if redact_json or redact_json_strict:
     out = redact_json_obj(out)
 print(json.dumps(out, indent=2, sort_keys=True))
 PY
@@ -1582,7 +2053,10 @@ if lint_mode:
 
 keys = extract_keys(files)
 if not keys:
-    print(f"No config keys found in {cfg_dir}")
+    if json_mode:
+        print(json.dumps({"error": "no_keys", "cfg_dir": cfg_dir, "sources": files}, indent=2, sort_keys=True))
+    else:
+        print(f"No config keys found in {cfg_dir}")
     sys.exit(1)
 
 src_cmd = "set -a; " + " ".join(f". {shlex.quote(p)};" for p in files) + " env"
@@ -2228,6 +2702,7 @@ PY
 
       python3 - "$status_file" "$summary_file" <<'PY'
 import os, sys, re
+from datetime import datetime, timezone
 
 status_path, summary_path = sys.argv[1:3]
 
@@ -2250,6 +2725,29 @@ def get_kv(line, key):
 
 status = read_kv(status_path)
 overall = status.get("overall", "UNKNOWN")
+exit_code_raw = status.get("exit_code", "")
+timestamp_raw = status.get("timestamp", "")
+
+def parse_exit_code(val):
+    try:
+        return int(val)
+    except Exception:
+        return -1
+
+def parse_timestamp(ts):
+    if not ts:
+        return -1
+    try:
+        if ts.endswith("Z"):
+            dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        else:
+            dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S%z")
+        return int(dt.timestamp())
+    except Exception:
+        return -1
+
+exit_code = parse_exit_code(exit_code_raw)
+run_epoch = parse_timestamp(timestamp_raw)
 
 counts = {k:0 for k in ["OK","WARN","CRIT","UNKNOWN","SKIP"]}
 if summary_path and os.path.exists(summary_path):
@@ -2274,6 +2772,12 @@ print("# HELP linux_maint_status_count Count of monitor results by status")
 print("# TYPE linux_maint_status_count gauge")
 for st in ["OK","WARN","CRIT","UNKNOWN","SKIP"]:
     print(f"linux_maint_status_count{{status=\"{st.lower()}\"}} {counts.get(st,0)}")
+print("# HELP linux_maint_last_run_exit_code Exit code of last run (wrapper)")
+print("# TYPE linux_maint_last_run_exit_code gauge")
+print(f"linux_maint_last_run_exit_code {exit_code}")
+print("# HELP linux_maint_last_run_timestamp Last run timestamp as epoch seconds (wrapper)")
+print("# TYPE linux_maint_last_run_timestamp gauge")
+print(f"linux_maint_last_run_timestamp {run_epoch}")
 PY
       exit 0
     fi
@@ -2525,6 +3029,7 @@ mode, status_path, summary_path, only, limit, host_filter, monitor_filter, match
 limit=int(limit)
 reasons_limit=int(reasons_limit)
 redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
+redact_json_strict = os.environ.get("LM_REDACT_JSON_STRICT","0") in ("1","true","TRUE","yes","YES")
 
 def read_kv(path):
     d={}
@@ -2570,6 +3075,8 @@ def redact_json_obj(obj):
     if isinstance(obj, list):
         return [redact_json_obj(v) for v in obj]
     if isinstance(obj, str):
+        if redact_json_strict:
+            return "REDACTED"
         return redact_line(obj)
     return obj
 
@@ -2639,7 +3146,7 @@ out={
 if reasons_limit > 0:
     rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
     out['reason_rollup']=[{'reason':r,'count':c} for r,c in rollup[:reasons_limit]]
-if redact_json:
+if redact_json or redact_json_strict:
     out = redact_json_obj(out)
 print(json.dumps(out, indent=2, sort_keys=True))
 PY
@@ -3191,6 +3698,7 @@ csv_mode = csv_mode == '1'
 color = os.environ.get("LM_COLOR","1") == "1"
 redact = os.environ.get("TREND_REDACT","0") == "1"
 redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
+redact_json_strict = os.environ.get("LM_REDACT_JSON_STRICT","0") in ("1","true","TRUE","yes","YES")
 cache_enabled = os.environ.get("TREND_CACHE","0") == "1"
 cache_ttl = int(os.environ.get("TREND_CACHE_TTL","60") or "60")
 cache_file = os.environ.get("TREND_CACHE_FILE","")
@@ -3222,6 +3730,8 @@ def redact_json_obj(obj):
     if isinstance(obj, list):
         return [redact_json_obj(v) for v in obj]
     if isinstance(obj, str):
+        if redact_json_strict:
+            return "REDACTED"
         return redact_line(obj)
     return obj
 
@@ -3357,7 +3867,7 @@ if not cache_hit:
 rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
 if json_mode:
     out={'trend_json_contract_version': 1, 'runs':runs, 'totals':overall, 'reasons':[{'reason':r,'count':c} for r,c in rollup]}
-    if redact_json:
+    if redact_json or redact_json_strict:
         out = redact_json_obj(out)
     print(json.dumps(out, indent=2, sort_keys=True))
 elif csv_mode:
@@ -3552,6 +4062,7 @@ mode = sys.argv[1]
 csv_mode = sys.argv[2] == "1"
 status_path, summary_path, summary_json_path, log_path = sys.argv[3:7]
 redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
+redact_json_strict = os.environ.get("LM_REDACT_JSON_STRICT","0") in ("1","true","TRUE","yes","YES")
 
 def read_kv(path):
     d={}
@@ -3596,6 +4107,9 @@ def redact_value(val: str) -> str:
 def redact_kv_map(row):
     out = {}
     for k,v in row.items():
+        if redact_json_strict:
+            out[k] = "REDACTED"
+            continue
         kl = k.lower()
         if any(x in kl for x in ("password","passwd","token","api_key","apikey","secret","access_key","private_key","session","id_token","refresh_token","x_auth_token")):
             out[k] = "REDACTED"
@@ -3706,7 +4220,7 @@ if not summary_hosts:
 last_status = read_kv(status_path)
 if allow:
     last_status = filter_map(last_status, allow)
-if redact_json:
+if redact_json or redact_json_strict:
     last_status = redact_kv_map(last_status)
 
 if csv_mode:

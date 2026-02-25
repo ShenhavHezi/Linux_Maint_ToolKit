@@ -944,6 +944,21 @@ if prom_file and rows:
                 reason=r.get("reason")
                 if reason:
                     reason_counts[reason]=reason_counts.get(reason,0)+1
+        def last_run_epoch_seconds():
+            try:
+                if run_epoch and str(run_epoch).isdigit():
+                    return int(run_epoch)
+            except Exception:
+                pass
+            ts = meta.get("timestamp")
+            if not ts:
+                return -1
+            try:
+                dt = datetime.fromisoformat(ts)
+                return int(dt.timestamp())
+            except Exception:
+                return -1
+
         def last_run_age_seconds():
             # Prefer current run epoch if provided (close to 0), fallback to status file timestamp.
             try:
@@ -969,6 +984,12 @@ if prom_file and rows:
             f.write("\n# HELP linux_maint_last_run_age_seconds Seconds since the last wrapper run timestamp\n")
             f.write("# TYPE linux_maint_last_run_age_seconds gauge\n")
             f.write(f"linux_maint_last_run_age_seconds {last_run_age_seconds()}\n")
+            f.write("\n# HELP linux_maint_last_run_exit_code Exit code of last wrapper run\n")
+            f.write("# TYPE linux_maint_last_run_exit_code gauge\n")
+            f.write(f"linux_maint_last_run_exit_code {exit_code}\n")
+            f.write("\n# HELP linux_maint_last_run_timestamp Last wrapper run timestamp as epoch seconds\n")
+            f.write("# TYPE linux_maint_last_run_timestamp gauge\n")
+            f.write(f"linux_maint_last_run_timestamp {last_run_epoch_seconds()}\n")
             f.write("\n# HELP linux_maint_summary_hosts_count Fleet counters derived from monitor= lines\n")
             f.write("# TYPE linux_maint_summary_hosts_count gauge\n")
             f.write(f"linux_maint_summary_hosts_count{{status=\"ok\"}} {hosts_ok}\n")
