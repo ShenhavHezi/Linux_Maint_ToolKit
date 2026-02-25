@@ -249,7 +249,7 @@ tui_gum_banner(){
     2) accent="#34d399" ;;
   esac
   gum style --border thick --border-foreground "#3b82f6" --foreground "#f9fafb" \
-    --padding "1 4" --margin "1 1" --align center --width 104 \
+    --padding "1 4" --margin "1 1" --align center --width 110 \
     "$(gum style --bold --foreground "#60a5fa" "Linux-Maint")" \
     "$(gum style --foreground "#e5e7eb" "$title")" \
     "$(gum style --foreground "$accent" "$subtitle")" >&2
@@ -264,7 +264,7 @@ tui_gum_header(){
   local title="${1:-Linux Maint ToolKit}"
   local subtitle="${2:-Menu}"
   gum style --border normal --border-foreground "#1f2937" --foreground "#f9fafb" \
-    --padding "0 2" --margin "1 1" --align left --width 104 \
+    --padding "0 2" --margin "1 1" --align left --width 110 \
     "$(gum style --bold --foreground "#f9fafb" "$title")" \
     "$(gum style --foreground "#9ca3af" "$subtitle")" >&2
 }
@@ -365,7 +365,7 @@ PY
   body="$(gum join --vertical "$overall_line" "$totals_line")"
 
   gum style --border thick --border-foreground "$color" --padding "1 3" \
-    --margin "0 1" --width 104 "$body" >&2
+    --margin "0 1" --width 110 "$body" >&2
 }
 
 tui_menu_prompt(){
@@ -427,7 +427,7 @@ tui_textbox(){
   local file="$2"
   if [[ "$TUI_BACKEND" == "gum" ]]; then
     gum style --bold --foreground "#f9fafb" "$title" >&2
-    gum pager < "$file"
+    gum pager < "$file" || true
   elif [[ "$TUI_BACKEND" == "dialog" ]]; then
     dialog --clear --backtitle "$TUI_BACKTITLE" --title "$title" \
       --textbox "$file" 22 90
@@ -472,8 +472,10 @@ tui_run_cmd(){
   shift || true
   local out
   out="$(mktemp -p "$TMPDIR" linux_maint_menu.XXXXXX)"
+  set +e
   NO_COLOR=1 "$@" >"$out" 2>&1
   local rc=$?
+  set -e
   local label="$title"
   local view_file="$out"
   if [[ $rc -ne 0 ]]; then
@@ -498,13 +500,16 @@ tui_run_live(){
     clear
     tui_gum_header "Linux Maint ToolKit" "$title"
     tui_gum_hint "Live output. Press Ctrl+C to stop."
+    set +e
     env LM_PROGRESS=1 LM_PROGRESS_MODE=plain LM_PROGRESS_FORCE=1 LM_PROGRESS_WIDTH=32 "$@"
-    return $?
+    local rc=$?
+    set -e
+    return $rc
   fi
   if [[ "$TUI_BACKEND" == "dialog" ]]; then
     dialog --clear --backtitle "$TUI_BACKTITLE" --title "$title" \
-      --programbox "$title" 22 90 env NO_COLOR=1 LM_PROGRESS=1 LM_PROGRESS_MODE=plain LM_PROGRESS_FORCE=1 LM_PROGRESS_WIDTH=32 "$@"
-    return $?
+      --programbox "$title" 22 90 env NO_COLOR=1 LM_PROGRESS=1 LM_PROGRESS_MODE=plain LM_PROGRESS_FORCE=1 LM_PROGRESS_WIDTH=32 "$@" || true
+    return 0
   fi
   tui_run_cmd "$title" "$@"
 }
@@ -518,7 +523,7 @@ tui_tail_logs(){
   fi
   if [[ "$TUI_BACKEND" == "dialog" ]]; then
     dialog --clear --backtitle "$TUI_BACKTITLE" --title "Live log tail" \
-      --tailbox "$log_file" 22 90
+      --tailbox "$log_file" 22 90 || true
     return 0
   fi
   if [[ "$TUI_BACKEND" == "gum" ]]; then
@@ -528,7 +533,9 @@ tui_tail_logs(){
   else
     echo "Press Ctrl+C to stop tail and return."
   fi
+  set +e
   tail -n 200 -f "$log_file"
+  set -e
 }
 
 tui_gum_dashboard(){
@@ -767,10 +774,6 @@ run_menu(){
 
   TUI_ANIM_TICK=0
   while true; do
-    if [[ "$TUI_BACKEND" == "gum" ]]; then
-      clear
-      tui_gum_status_overview
-    fi
     TUI_MENU_STYLE="full"
     choice="$(tui_menu_prompt "Select an action" \
       run "Run / plan" \

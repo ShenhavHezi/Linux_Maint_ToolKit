@@ -536,7 +536,8 @@ progress_render() {
     count="${idx}/${total}"
   fi
   if [[ "$progress_mode" == "plain" ]]; then
-    printf '%s [%s] %s %s %s\n' "$spin" "$bar" "$pct_str" "$count" "$label" >&2
+    spin=""
+    printf '%s[%s] %s %s %s\n' "$spin" "$bar" "$pct_str" "$count" "$label" >&2
   else
     # Clear to end-of-line to avoid leftover text when monitor names shrink.
     printf '\r%s [%s] %s %s %s\033[K' "$spin" "$bar" "$pct_str" "$count" "$label" >&2
