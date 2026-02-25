@@ -395,24 +395,37 @@ tui_menu_prompt(){
     local -a items=()
     local -a raw=()
     local -a plain=()
+    local -a tags=()
+    local -a descs=()
     local max_len=0
+    local max_tag=0
     while [[ $# -gt 0 ]]; do
       local tag="$1"
       local desc="$2"
       shift 2
-      local line
-      if [[ "$TUI_BACKEND" == "gum" ]]; then
-        line="$(gum style --bold "$tag"):${desc:+ }$desc"
-      else
-        line="${tag}: ${desc}"
+      tags+=("$tag")
+      descs+=("$desc")
+      local tag_len=${#tag}
+      if [[ "$tag_len" -gt "$max_tag" ]]; then
+        max_tag="$tag_len"
       fi
-      raw+=("$line")
-      local plain_line="${tag}: ${desc}"
+    done
+    for i in "${!tags[@]}"; do
+      local tag="${tags[$i]}"
+      local desc="${descs[$i]}"
+      local padded_tag
+      padded_tag="$(printf '%-*s' "$max_tag" "$tag")"
+      local plain_line="${padded_tag}: ${desc}"
       plain+=("$plain_line")
       local len=${#plain_line}
       if [[ "$len" -gt "$max_len" ]]; then
         max_len="$len"
       fi
+      local color
+      color="$(tui_tag_color "$tag")"
+      local colored_tag
+      colored_tag="$(gum style --bold --foreground "$color" "$padded_tag")"
+      raw+=("${colored_tag}: ${desc}")
     done
     if [[ "${TUI_MENU_STYLE:-full}" == "full" ]]; then
       tui_gum_banner
@@ -422,10 +435,6 @@ tui_menu_prompt(){
     printf '\n' >&2
     tui_gum_hint "Use arrows + Enter. Esc to go back."
     local banner_w="${TUI_BANNER_WIDTH:-100}"
-    local pad=$(( (banner_w - max_len) / 2 ))
-    [[ "$pad" -lt 0 ]] && pad=0
-    local pad_str
-    pad_str="$(printf '%*s' "$pad" '')"
     local i=0
     for line in "${raw[@]}"; do
       local plain_line="${plain[$i]}"
@@ -440,8 +449,30 @@ tui_menu_prompt(){
       --cursor-prefix "> " --selected-prefix "* " --unselected-prefix "  " \
       --show-help=false "${items[@]}"
   elif [[ "$TUI_BACKEND" == "dialog" ]]; then
+    local -a menu_items=()
+    local max_tag=0
+    local -a tags=()
+    local -a descs=()
+    while [[ $# -gt 0 ]]; do
+      local tag="$1"
+      local desc="$2"
+      shift 2
+      tags+=("$tag")
+      descs+=("$desc")
+      local tag_len=${#tag}
+      if [[ "$tag_len" -gt "$max_tag" ]]; then
+        max_tag="$tag_len"
+      fi
+    done
+    for i in "${!tags[@]}"; do
+      local tag="${tags[$i]}"
+      local desc="${descs[$i]}"
+      local padded_tag
+      padded_tag="$(printf '%-*s' "$max_tag" "$tag")"
+      menu_items+=("$padded_tag" "$desc")
+    done
     dialog --clear --backtitle "$TUI_BACKTITLE" --title "$TUI_TITLE" \
-      --menu "$prompt" 20 78 12 "$@" 3>&1 1>&2 2>&3
+      --menu "$prompt" 20 78 12 "${menu_items[@]}" 3>&1 1>&2 2>&3
   else
     whiptail --title "$TUI_TITLE" --menu "$prompt" 20 78 12 "$@" 3>&1 1>&2 2>&3
   fi
@@ -459,6 +490,19 @@ tui_menu_prompt_safe(){
   TUI_MENU_RC="$rc"
   printf '%s' "$out"
   return 0
+}
+
+tui_tag_color(){
+  case "$1" in
+    run) echo "#22c55e" ;;
+    reports|report|trend|runtimes|status|dashboard) echo "#60a5fa" ;;
+    tools|check|summary|diff|history|runindex|metrics_prom|metrics_json|pack_logs) echo "#38bdf8" ;;
+    diagnostics|doctor|selfcheck|logslive|logs) echo "#f59e0b" ;;
+    config|monitors) echo "#a78bfa" ;;
+    help|quickref|faq|reasons|monitors_matrix|explain_reason|explain_monitor|explain_status) echo "#93c5fd" ;;
+    exit|back) echo "#9ca3af" ;;
+    *) echo "#93c5fd" ;;
+  esac
 }
 
 tui_input(){
