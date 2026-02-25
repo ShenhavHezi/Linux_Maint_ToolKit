@@ -248,18 +248,9 @@ tui_gum_banner(){
     1) accent="#60a5fa" ;;
     2) accent="#34d399" ;;
   esac
-  local logo
-  logo="$(cat <<'EOF'
- _     _                __  __       _       _
-| |   (_)___  ___  __  / / / /__  __| | ___ (_)
-| |  / / __ \/ _ \/ / / / / / _ \/ _` |/ _ \| |
-| |_/ / / / /  __/ /_/ / / /  __/ (_| | (_) | |
-|____/_/_/ /_/\___/\____/ /_/\___|\__,_|\___/|_|
-EOF
-)"
   gum style --border thick --border-foreground "#3b82f6" --foreground "#f9fafb" \
     --padding "1 4" --margin "1 1" --align center --width 104 \
-    "$(gum style --bold --foreground "#f9fafb" "$logo")" \
+    "$(gum style --bold --foreground "#60a5fa" "Linux-Maint")" \
     "$(gum style --foreground "#e5e7eb" "$title")" \
     "$(gum style --foreground "$accent" "$subtitle")" >&2
 }
@@ -368,14 +359,10 @@ PY
     log_lines="  (no log yet: $log_file)"
   fi
 
-  local overall_line totals_line summary_line context_line log_block body
+  local overall_line totals_line body
   overall_line="$(gum style --bold --foreground "$color" "Overall: $overall")"
   totals_line="$(gum style --foreground "#e5e7eb" "OK:$ok  WARN:$warn  CRIT:$crit  UNKNOWN:$unk  SKIP:$skip")"
-  summary_line="$(gum style --foreground "#9ca3af" "Summary: ${summary_file:-none}")"
-  context_line="$(gum style --foreground "#9ca3af" "Mode: $MODE    Backend: $TUI_BACKEND")"
-  log_block="$(gum style --foreground "#d1d5db" "Recent log:"$'\n'"$log_lines")"
-
-  body="$(gum join --vertical "$overall_line" "$totals_line" "$summary_line" "$context_line" "$log_block")"
+  body="$(gum join --vertical "$overall_line" "$totals_line")"
 
   gum style --border thick --border-foreground "$color" --padding "1 3" \
     --margin "0 1" --width 104 "$body" >&2
