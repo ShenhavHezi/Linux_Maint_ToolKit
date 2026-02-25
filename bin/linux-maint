@@ -435,15 +435,12 @@ tui_menu_prompt(){
     printf '\n' >&2
     tui_gum_hint "Use arrows + Enter. Esc to go back."
     local banner_w="${TUI_BANNER_WIDTH:-100}"
-    local i=0
+    local pad_len=$(( (banner_w - max_len) / 2 ))
+    [[ "$pad_len" -lt 0 ]] && pad_len=0
+    local line_pad
+    line_pad="$(printf '%*s' "$pad_len" '')"
     for line in "${raw[@]}"; do
-      local plain_line="${plain[$i]}"
-      local pad_len=$(( (banner_w - ${#plain_line}) / 2 ))
-      [[ "$pad_len" -lt 0 ]] && pad_len=0
-      local line_pad
-      line_pad="$(printf '%*s' "$pad_len" '')"
       items+=("${line_pad}${line}")
-      i=$((i+1))
     done
     gum choose --header "" --height 16 --cursor "> " \
       --cursor-prefix "> " --selected-prefix "* " --unselected-prefix "  " \
