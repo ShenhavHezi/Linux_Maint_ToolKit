@@ -1460,12 +1460,17 @@ PY
     fi
 
     if [[ "${#conf_files[@]}" -eq 0 ]]; then
-      if color_enabled; then
-        echo "${C_RED}No config files found in ${CFG_DIR}${C_RESET}"
+      if [[ "$CFG_JSON" -eq 1 ]]; then
+        printf '{\n  "error": "no_config",\n  "cfg_dir": "%s",\n  "message": "No config files found"\n}\n' "$CFG_DIR"
+        echo "Hint: sudo linux-maint init" >&2
       else
-        echo "No config files found in $CFG_DIR"
+        if color_enabled; then
+          echo "${C_RED}No config files found in ${CFG_DIR}${C_RESET}"
+        else
+          echo "No config files found in $CFG_DIR"
+        fi
+        hint_line "sudo linux-maint init"
       fi
-      hint_line "sudo linux-maint init"
       exit 1
     fi
 
