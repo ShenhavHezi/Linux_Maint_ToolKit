@@ -514,7 +514,10 @@ normalize_menu_choice(){
   local c="$1"
   c="$(printf '%s' "$c" | strip_ansi)"
   c="${c#"${c%%[! ]*}"}"
+  c="${c%"${c##*[! ]}"}"
   c="${c%%:*}"
+  c="${c#"${c%%[! ]*}"}"
+  c="${c%"${c##*[! ]}"}"
   printf '%s' "$c"
 }
 
