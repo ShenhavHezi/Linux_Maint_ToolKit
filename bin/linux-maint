@@ -101,7 +101,20 @@ filter_monitors_only_skip(){
   if [[ -n "$only_csv" ]]; then
     list="$(normalize_monitor_list "$only_csv")"
   else
-    list="$(get_default_monitors)"
+    list="$(get_default_monitors 2>/dev/null || true)"
+    if [[ -z "$list" ]]; then
+      local scripts_dir=""
+      if [[ "$MODE" == "repo" && -d "$REPO_MONITORS" ]]; then
+        scripts_dir="$REPO_MONITORS"
+      elif [[ -d "$LIBEXEC" ]]; then
+        scripts_dir="$LIBEXEC"
+      elif [[ -d "$REPO_MONITORS" ]]; then
+        scripts_dir="$REPO_MONITORS"
+      fi
+      if [[ -n "$scripts_dir" ]]; then
+        list="$(find "$scripts_dir" -maxdepth 1 -type f -name '*.sh' -printf '%f\n' 2>/dev/null | sort)"
+      fi
+    fi
   fi
 
   if [[ -n "$skip_csv" ]]; then
@@ -250,6 +263,8 @@ json_escape(){
   local s="$1"
   s="${s//\\/\\\\}"
   s="${s//\"/\\\"}"
+  s="${s//$'\r'/\\r}"
+  s="${s//$'\t'/\\t}"
   s="${s//$'\n'/\\n}"
   printf '%s' "$s"
 }
