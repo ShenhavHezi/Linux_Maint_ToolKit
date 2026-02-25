@@ -317,6 +317,139 @@ tui_run_cmd(){
   return $rc
 }
 
+tui_run_live(){
+  local title="$1"
+  shift || true
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    gum spin --spinner dot --title "$title" --show-output -- env NO_COLOR=1 "$@"
+    return $?
+  fi
+  if [[ "$TUI_BACKEND" == "dialog" ]]; then
+    dialog --clear --backtitle "$TUI_BACKTITLE" --title "$title" \
+      --programbox "$title" 22 90 env NO_COLOR=1 "$@"
+    return $?
+  fi
+  tui_run_cmd "$title" "$@"
+}
+
+run_menu_run(){
+  while true; do
+    local choice
+    choice="$(tui_menu_prompt "Run actions" \
+      run "Run full checks (live output)" \
+      plan "Plan only (no execution)" \
+      back "Back")"
+    local rc=$?
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="${choice%%:*}"
+    case "$choice" in
+      run)
+        if tui_yesno "Run full checks now?"; then
+          tui_run_live "linux-maint run" "$0" run
+        fi
+        ;;
+      plan)
+        tui_run_cmd "linux-maint run --plan" "$0" run --plan
+        ;;
+      back)
+        break
+        ;;
+    esac
+  done
+}
+
+run_menu_reports(){
+  while true; do
+    local choice
+    choice="$(tui_menu_prompt "Reports" \
+      status "Show status (table)" \
+      report "Show report (short)" \
+      trend "Show trend (last 10)" \
+      runtimes "Show runtimes (last 10)" \
+      back "Back")"
+    local rc=$?
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="${choice%%:*}"
+    case "$choice" in
+      status)
+        tui_run_cmd "linux-maint status --table" "$0" status --table
+        ;;
+      report)
+        tui_run_cmd "linux-maint report --short --no-trend" "$0" report --short --no-trend
+        ;;
+      trend)
+        tui_run_cmd "linux-maint trend --last 10" "$0" trend --last 10
+        ;;
+      runtimes)
+        tui_run_cmd "linux-maint runtimes --last 10" "$0" runtimes --last 10
+        ;;
+      back)
+        break
+        ;;
+    esac
+  done
+}
+
+run_menu_diagnostics(){
+  while true; do
+    local choice
+    choice="$(tui_menu_prompt "Diagnostics" \
+      logs "Tail latest log" \
+      doctor "Doctor (diagnose)" \
+      selfcheck "Self-check (safe)" \
+      back "Back")"
+    local rc=$?
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="${choice%%:*}"
+    case "$choice" in
+      logs)
+        tui_run_cmd "linux-maint logs 200" "$0" logs 200
+        ;;
+      doctor)
+        tui_run_cmd "linux-maint doctor" "$0" doctor
+        ;;
+      selfcheck)
+        tui_run_cmd "linux-maint self-check" "$0" self-check
+        ;;
+      back)
+        break
+        ;;
+    esac
+  done
+}
+
+run_menu_config(){
+  while true; do
+    local choice
+    choice="$(tui_menu_prompt "Config & inventory" \
+      config "Show config" \
+      monitors "List monitors" \
+      back "Back")"
+    local rc=$?
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="${choice%%:*}"
+    case "$choice" in
+      config)
+        tui_run_cmd "linux-maint config" "$0" config
+        ;;
+      monitors)
+        tui_run_cmd "linux-maint list-monitors" "$0" list-monitors
+        ;;
+      back)
+        break
+        ;;
+    esac
+  done
+}
+
 run_menu(){
   if ! [[ -t 1 && -t 2 ]]; then
     echo "ERROR: linux-maint menu requires an interactive TTY" >&2
@@ -338,17 +471,10 @@ run_menu(){
 
   while true; do
     choice="$(tui_menu_prompt "Select an action" \
-      run "Run full checks" \
-      plan "Plan only (no execution)" \
-      status "Show status (table)" \
-      report "Show report (short)" \
-      trend "Show trend" \
-      runtimes "Show runtimes" \
-      logs "Tail latest log" \
-      doctor "Doctor (diagnose)" \
-      selfcheck "Self-check (safe)" \
-      config "Show config" \
-      monitors "List monitors" \
+      run "Run / plan" \
+      reports "Status / report / trend / runtimes" \
+      diagnostics "Logs / doctor / self-check" \
+      config "Config / monitors" \
       help "Show help tips" \
       exit "Exit")"
     rc=$?
@@ -358,39 +484,16 @@ run_menu(){
     choice="${choice%%:*}"
     case "$choice" in
       run)
-        if tui_yesno "Run full checks now?"; then
-          tui_run_cmd "linux-maint run" "$0" run
-        fi
+        run_menu_run
         ;;
-      plan)
-        tui_run_cmd "linux-maint run --plan" "$0" run --plan
+      reports)
+        run_menu_reports
         ;;
-      status)
-        tui_run_cmd "linux-maint status --table" "$0" status --table
-        ;;
-      report)
-        tui_run_cmd "linux-maint report --short --no-trend" "$0" report --short --no-trend
-        ;;
-      trend)
-        tui_run_cmd "linux-maint trend --last 10" "$0" trend --last 10
-        ;;
-      runtimes)
-        tui_run_cmd "linux-maint runtimes --last 10" "$0" runtimes --last 10
-        ;;
-      logs)
-        tui_run_cmd "linux-maint logs 200" "$0" logs 200
-        ;;
-      doctor)
-        tui_run_cmd "linux-maint doctor" "$0" doctor
-        ;;
-      selfcheck)
-        tui_run_cmd "linux-maint self-check" "$0" self-check
+      diagnostics)
+        run_menu_diagnostics
         ;;
       config)
-        tui_run_cmd "linux-maint config" "$0" config
-        ;;
-      monitors)
-        tui_run_cmd "linux-maint list-monitors" "$0" list-monitors
+        run_menu_config
         ;;
       help)
         tui_msgbox "Use arrows/Enter to select. Output is shown in a scrollable view.\nTip: run as root for full checks.\nDocs: docs/README.md"
