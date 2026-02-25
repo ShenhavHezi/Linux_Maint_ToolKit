@@ -5,6 +5,7 @@ set -euo pipefail
 
 # Prefer a writable temp dir when creating tmp files.
 TMPDIR="${TMPDIR:-/tmp}"
+TUI_MENU_RC=0
 
 # If any command requests JSON, disable color and progress globally.
 for arg in "$@"; do
@@ -208,6 +209,917 @@ validate_monitor_list(){
     return 2
   fi
   return 0
+}
+
+detect_tui_backend(){
+  if [[ -n "${LM_TUI_BACKEND:-}" ]]; then
+    case "$LM_TUI_BACKEND" in
+      gum|dialog|whiptail)
+        if command -v "$LM_TUI_BACKEND" >/dev/null 2>&1; then
+          echo "$LM_TUI_BACKEND"
+          return 0
+        fi
+        return 1
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+  fi
+  if command -v gum >/dev/null 2>&1; then
+    echo "gum"
+    return 0
+  fi
+  if command -v dialog >/dev/null 2>&1; then
+    echo "dialog"
+    return 0
+  fi
+  if command -v whiptail >/dev/null 2>&1; then
+    echo "whiptail"
+    return 0
+  fi
+  return 1
+}
+
+tui_gum_banner(){
+  TUI_BANNER_WIDTH="${TUI_BANNER_WIDTH:-100}"
+  local accent="#9ca3af"
+  case "${TUI_ANIM_TICK:-0}" in
+    1) accent="#60a5fa" ;;
+    2) accent="#34d399" ;;
+  esac
+  local logo
+  logo="$(cat <<'EOF'
++--------------------------------------------------------------------------------------------------+
+|                                                                                                  |
+|      _     _                  __  __       _       _                                             |
+|     | |   (_)_ __  _   ___  _|  \/  | __ _(_)_ __ | |_                                           |
+|     | |   | | '_ \| | | \ \/ / |\/| |/ _` | | '_ \| __|                                          |
+|     | |___| | | | | |_| |>  <| |  | | (_| | | | | | |_                                           |
+|     |_____|_|_| |_|\__,_/_/\_\_|  |_|\__,_|_|_| |_|\__|                                          |
+|                                                                                 .--.             |
+|                                                                                |o_o |            |
+|                                                                                |:_/ |            |
+|                                                                               //   \ \           |
+|                                                                              (|     | )          |
+|                                                                             /'\_   _/`\          |
+|                                                                             \___)=(___/          |
+|                                                                                                  |
+|                           LinuxMaint • System Automation & Health Framework                      |
+|                                                                                                  |
++--------------------------------------------------------------------------------------------------+
+EOF
+)"
+  gum style --border none --foreground "#60a5fa" \
+    --padding "0 0" --margin "1 1" --align center \
+    "$logo" >&2
+}
+
+tui_gum_hint(){
+  local msg="${1:-Use arrows + Enter. Esc to go back.}"
+  gum style --foreground "#9ca3af" --margin "0 2" "$msg" >&2
+}
+
+tui_gum_header(){
+  local title="${1:-Linux Maint ToolKit}"
+  local subtitle="${2:-Menu}"
+  gum style --border normal --border-foreground "#1f2937" --foreground "#f9fafb" \
+    --padding "0 2" --margin "1 1" --align left --width 110 \
+    "$(gum style --bold --foreground "#f9fafb" "$title")" \
+    "$(gum style --foreground "#9ca3af" "$subtitle")" >&2
+}
+
+tui_latest_log_path(){
+  if [[ "$MODE" == "repo" ]]; then
+    echo "$REPO_LATEST_LOG"
+  else
+    echo "/var/log/health/full_health_monitor_latest.log"
+  fi
+}
+
+tui_gum_status_overview(){
+  local status_json overall ok warn crit unk skip summary_file
+  status_json="$(NO_COLOR=1 "$0" status --json 2>/dev/null || true)"
+  overall="UNKNOWN"
+  ok=0; warn=0; crit=0; unk=0; skip=0; summary_file=""
+  if [[ -n "$status_json" ]]; then
+    while IFS='=' read -r k v; do
+      case "$k" in
+        overall) overall="$v" ;;
+        ok) ok="$v" ;;
+        warn) warn="$v" ;;
+        crit) crit="$v" ;;
+        unknown) unk="$v" ;;
+        skip) skip="$v" ;;
+        summary) summary_file="$v" ;;
+      esac
+    done < <(STATUS_JSON="$status_json" python3 - <<'PY'
+import json
+import os
+import sys
+
+raw = os.environ.get("STATUS_JSON", "")
+if not raw:
+    sys.exit(0)
+try:
+    data = json.loads(raw)
+except Exception:
+    sys.exit(0)
+
+totals = data.get("totals", {}) or {}
+def g(k):
+    try:
+        return int(totals.get(k, 0) or 0)
+    except Exception:
+        return 0
+
+ok = g("OK")
+warn = g("WARN")
+crit = g("CRIT")
+unk = g("UNKNOWN")
+skip = g("SKIP")
+
+if crit > 0:
+    overall = "CRIT"
+elif warn > 0:
+    overall = "WARN"
+elif unk > 0:
+    overall = "UNKNOWN"
+elif ok > 0:
+    overall = "OK"
+else:
+    overall = "UNKNOWN"
+
+summary = data.get("summary_file") or ""
+
+print(f"overall={overall}")
+print(f"ok={ok}")
+print(f"warn={warn}")
+print(f"crit={crit}")
+print(f"unknown={unk}")
+print(f"skip={skip}")
+print(f"summary={summary}")
+PY
+    )
+  fi
+
+  local color="#60a5fa"
+  case "$overall" in
+    CRIT) color="#ef4444" ;;
+    WARN) color="#f59e0b" ;;
+    OK) color="#22c55e" ;;
+    UNKNOWN) color="#93c5fd" ;;
+  esac
+
+  local log_file log_lines
+  log_file="$(tui_latest_log_path)"
+  if [[ -f "$log_file" ]]; then
+    log_lines="$(tail -n 3 "$log_file" 2>/dev/null | sed 's/^/  /')"
+  else
+    log_lines="  (no log yet: $log_file)"
+  fi
+
+  local overall_line totals_line body
+  overall_line="$(gum style --bold --foreground "$color" "Overall: $overall")"
+  totals_line="$(gum style --foreground "#e5e7eb" "OK:$ok  WARN:$warn  CRIT:$crit  UNKNOWN:$unk  SKIP:$skip")"
+  body="$(gum join --vertical "$overall_line" "$totals_line")"
+
+  gum style --border thick --border-foreground "$color" --padding "1 3" \
+    --margin "0 1" --width 110 "$body" >&2
+}
+
+tui_menu_prompt(){
+  local prompt="$1"
+  shift || true
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    local -a items=()
+    local -a raw=()
+    local -a plain=()
+    local -a tags=()
+    local -a descs=()
+    local max_len=0
+    local max_tag=0
+    while [[ $# -gt 0 ]]; do
+      local tag="$1"
+      local desc="$2"
+      shift 2
+      tags+=("$tag")
+      descs+=("$desc")
+      local tag_len=${#tag}
+      if [[ "$tag_len" -gt "$max_tag" ]]; then
+        max_tag="$tag_len"
+      fi
+    done
+    for i in "${!tags[@]}"; do
+      local tag="${tags[$i]}"
+      local desc="${descs[$i]}"
+      local padded_tag
+      padded_tag="$(printf '%-*s' "$max_tag" "$tag")"
+      local plain_line="${padded_tag}: ${desc}"
+      plain+=("$plain_line")
+      local len=${#plain_line}
+      if [[ "$len" -gt "$max_len" ]]; then
+        max_len="$len"
+      fi
+      local color
+      color="$(tui_tag_color "$tag")"
+      local colored_tag
+      colored_tag="$(gum style --bold --foreground "$color" "$padded_tag")"
+      raw+=("${colored_tag}: ${desc}|${tag}")
+    done
+    if [[ "${TUI_MENU_STYLE:-full}" == "full" ]]; then
+      tui_gum_banner
+    else
+      tui_gum_header "Linux Maint ToolKit" "$prompt"
+    fi
+    printf '\n' >&2
+    tui_gum_hint "Use arrows + Enter. Esc to go back."
+    local banner_w="${TUI_BANNER_WIDTH:-100}"
+    local pad_len=$(( (banner_w - max_len) / 2 ))
+    [[ "$pad_len" -lt 0 ]] && pad_len=0
+    local line_pad
+    line_pad="$(printf '%*s' "$pad_len" '')"
+    for line in "${raw[@]}"; do
+      items+=("${line_pad}${line}")
+    done
+    gum choose --header "" --height 16 --cursor "> " --label-delimiter "|" \
+      --cursor-prefix "> " --selected-prefix "* " --unselected-prefix "  " \
+      --show-help=false "${items[@]}"
+  elif [[ "$TUI_BACKEND" == "dialog" ]]; then
+    local -a menu_items=()
+    local max_tag=0
+    local -a tags=()
+    local -a descs=()
+    while [[ $# -gt 0 ]]; do
+      local tag="$1"
+      local desc="$2"
+      shift 2
+      tags+=("$tag")
+      descs+=("$desc")
+      local tag_len=${#tag}
+      if [[ "$tag_len" -gt "$max_tag" ]]; then
+        max_tag="$tag_len"
+      fi
+    done
+    for i in "${!tags[@]}"; do
+      local tag="${tags[$i]}"
+      local desc="${descs[$i]}"
+      local padded_tag
+      padded_tag="$(printf '%-*s' "$max_tag" "$tag")"
+      menu_items+=("$padded_tag" "$desc")
+    done
+    dialog --clear --backtitle "$TUI_BACKTITLE" --title "$TUI_TITLE" \
+      --menu "$prompt" 20 78 12 "${menu_items[@]}" 3>&1 1>&2 2>&3
+  else
+    whiptail --title "$TUI_TITLE" --menu "$prompt" 20 78 12 "$@" 3>&1 1>&2 2>&3
+  fi
+}
+
+tui_menu_prompt_safe(){
+  local prompt="$1"
+  shift || true
+  local out rc
+  TUI_MENU_RC=0
+  set +e
+  out="$(tui_menu_prompt "$prompt" "$@")"
+  rc=$?
+  set -e
+  TUI_MENU_RC="$rc"
+  printf '%s' "$out"
+  return 0
+}
+
+tui_tag_color(){
+  case "$1" in
+    run) echo "#22c55e" ;;
+    reports|report|trend|runtimes|status|dashboard) echo "#60a5fa" ;;
+    tools|check|summary|diff|history|runindex|metrics_prom|metrics_json|pack_logs) echo "#38bdf8" ;;
+    diagnostics|doctor|selfcheck|logslive|logs) echo "#f59e0b" ;;
+    config|monitors) echo "#a78bfa" ;;
+    help|quickref|faq|reasons|monitors_matrix|explain_reason|explain_monitor|explain_status) echo "#93c5fd" ;;
+    exit|back) echo "#9ca3af" ;;
+    *) echo "#93c5fd" ;;
+  esac
+}
+
+strip_ansi(){
+  python3 - <<'PY'
+import re, sys
+s = sys.stdin.read()
+print(re.sub(r'\x1b\[[0-9;]*[A-Za-z]', '', s), end='')
+PY
+}
+
+normalize_menu_choice(){
+  python3 - "$1" <<'PY'
+import re
+import sys
+
+s = sys.argv[1]
+s = re.sub(r'\x1b\[[0-9;]*[A-Za-z]', '', s)
+m = re.search(r'[A-Za-z0-9_-]+', s)
+if m:
+    print(m.group(0), end="")
+PY
+}
+
+tui_input(){
+  local prompt="$1"
+  local placeholder="${2:-}"
+  local out rc
+  TUI_INPUT_RC=0
+  set +e
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    out="$(gum input --prompt "$prompt: " --placeholder "$placeholder")"
+    rc=$?
+  elif [[ "$TUI_BACKEND" == "dialog" ]]; then
+    out="$(dialog --clear --backtitle "$TUI_BACKTITLE" --title "$TUI_TITLE" \
+      --inputbox "$prompt" 10 70 "$placeholder" 3>&1 1>&2 2>&3)"
+    rc=$?
+  else
+    out="$(whiptail --title "$TUI_TITLE" --inputbox "$prompt" 10 70 "$placeholder" 3>&1 1>&2 2>&3)"
+    rc=$?
+  fi
+  set -e
+  TUI_INPUT_RC="$rc"
+  printf '%s' "$out"
+  return 0
+}
+
+tui_view_file(){
+  local title="$1"
+  local file="$2"
+  if [[ -f "$file" ]]; then
+    tui_textbox "$title" "$file"
+  else
+    tui_msgbox "File not found: $file"
+  fi
+}
+
+tui_msgbox(){
+  local msg="$1"
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    gum style --border normal --border-foreground "#3b82f6" --padding "1 3" --margin "1 1" \
+      --foreground "#f9fafb" "$msg" >&2
+    read -r -p "Press Enter to continue..." _ </dev/tty
+  elif [[ "$TUI_BACKEND" == "dialog" ]]; then
+    dialog --clear --backtitle "$TUI_BACKTITLE" --title "$TUI_TITLE" \
+      --msgbox "$msg" 10 70
+  else
+    whiptail --title "$TUI_TITLE" --msgbox "$msg" 10 70
+  fi
+}
+
+tui_yesno(){
+  local msg="$1"
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    gum confirm "$msg"
+  elif [[ "$TUI_BACKEND" == "dialog" ]]; then
+    dialog --clear --backtitle "$TUI_BACKTITLE" --title "$TUI_TITLE" \
+      --yesno "$msg" 10 70
+  else
+    whiptail --title "$TUI_TITLE" --yesno "$msg" 10 70
+  fi
+}
+
+tui_textbox(){
+  local title="$1"
+  local file="$2"
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    gum style --bold --foreground "#f9fafb" "$title" >&2
+    gum pager < "$file" || true
+  elif [[ "$TUI_BACKEND" == "dialog" ]]; then
+    dialog --clear --backtitle "$TUI_BACKTITLE" --title "$title" \
+      --textbox "$file" 22 90
+  else
+    whiptail --title "$title" --textbox "$file" 22 90
+  fi
+}
+
+tui_colorize_file(){
+  local in="$1"
+  local out="$2"
+  python3 - "$in" "$out" <<'PY'
+import re
+import sys
+
+src, dst = sys.argv[1:3]
+colors = {
+    "CRIT": "\033[31m",
+    "WARN": "\033[33m",
+    "OK": "\033[32m",
+    "UNKNOWN": "\033[34m",
+    "SKIP": "\033[90m",
+}
+reset = "\033[0m"
+status_re = re.compile(r"\b(CRIT|WARN|OK|UNKNOWN|SKIP)\b")
+error_re = re.compile(r"^\s*ERROR\b", re.IGNORECASE)
+warn_re = re.compile(r"^\s*WARN\b", re.IGNORECASE)
+
+with open(src, "r", encoding="utf-8", errors="ignore") as f, open(dst, "w", encoding="utf-8") as o:
+    for line in f:
+        line = status_re.sub(lambda m: colors.get(m.group(1), "") + m.group(1) + reset, line)
+        if error_re.search(line):
+            line = "\033[31m" + line.rstrip("\n") + reset + "\n"
+        elif warn_re.search(line):
+            line = "\033[33m" + line.rstrip("\n") + reset + "\n"
+        o.write(line)
+PY
+}
+
+tui_run_cmd(){
+  local title="$1"
+  shift || true
+  local out
+  out="$(mktemp -p "$TMPDIR" linux_maint_menu.XXXXXX)"
+  set +e
+  NO_COLOR=1 "$@" >"$out" 2>&1
+  local rc=$?
+  set -e
+  local label="$title"
+  local view_file="$out"
+  if [[ $rc -ne 0 ]]; then
+    label="$title (exit $rc)"
+  fi
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    local colored
+    colored="$(mktemp -p "$TMPDIR" linux_maint_menu_color.XXXXXX)"
+    tui_colorize_file "$out" "$colored"
+    view_file="$colored"
+  fi
+  tui_textbox "$label" "$view_file"
+  rm -f "$out"
+  [[ -n "${colored:-}" ]] && rm -f "$colored"
+  return $rc
+}
+
+tui_run_live(){
+  local title="$1"
+  shift || true
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    clear
+    tui_gum_header "Linux Maint ToolKit" "$title"
+    tui_gum_hint "Live output. Press Ctrl+C to stop."
+    set +e
+    env LM_PROGRESS=1 LM_PROGRESS_MODE=plain LM_PROGRESS_FORCE=1 LM_PROGRESS_WIDTH=32 "$@"
+    local rc=$?
+    set -e
+    return $rc
+  fi
+  if [[ "$TUI_BACKEND" == "dialog" ]]; then
+    dialog --clear --backtitle "$TUI_BACKTITLE" --title "$title" \
+      --programbox "$title" 22 90 env NO_COLOR=1 LM_PROGRESS=1 LM_PROGRESS_MODE=plain LM_PROGRESS_FORCE=1 LM_PROGRESS_WIDTH=32 "$@" || true
+    return 0
+  fi
+  tui_run_cmd "$title" "$@"
+}
+
+tui_tail_logs(){
+  local log_file
+  log_file="$(tui_latest_log_path)"
+  if [[ ! -f "$log_file" ]]; then
+    tui_msgbox "No log yet: $log_file"
+    return 1
+  fi
+  if [[ "$TUI_BACKEND" == "dialog" ]]; then
+    dialog --clear --backtitle "$TUI_BACKTITLE" --title "Live log tail" \
+      --tailbox "$log_file" 22 90 || true
+    return 0
+  fi
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    clear
+    tui_gum_header "Linux Maint ToolKit" "Live log tail"
+    tui_gum_hint "Press Ctrl+C to stop tail and return."
+  else
+    echo "Press Ctrl+C to stop tail and return."
+  fi
+  set +e
+  tail -n 200 -f "$log_file"
+  set -e
+}
+
+tui_gum_dashboard(){
+  local refresh_secs="${LM_TUI_DASH_REFRESH:-0}"
+  [[ "$refresh_secs" =~ ^[0-9]+$ ]] || refresh_secs=0
+  while true; do
+    local status_json
+    status_json="$(NO_COLOR=1 "$0" status --json --problems 8 --reasons 6 2>/dev/null || true)"
+    clear
+    tui_gum_header "Linux Maint ToolKit" "Dashboard"
+    tui_gum_status_overview
+
+    local problems_csv reasons_csv
+    problems_csv="$(STATUS_JSON="$status_json" python3 - <<'PY'
+import json, os, sys
+raw = os.environ.get("STATUS_JSON", "")
+if not raw:
+    sys.exit(0)
+try:
+    data = json.loads(raw)
+except Exception:
+    sys.exit(0)
+rows = data.get("problems") or []
+for row in rows[:8]:
+    status = row.get("status","")
+    monitor = row.get("monitor","")
+    host = row.get("host","")
+    reason = row.get("reason","")
+    for v in (status, monitor, host, reason):
+        if v is None:
+            v = ""
+    reason = str(reason).replace("|","/").replace("\n"," ")
+    monitor = str(monitor).replace("|","/")
+    host = str(host).replace("|","/")
+    status = str(status).replace("|","/")
+    print(f"{status}|{monitor}|{host}|{reason}")
+PY
+)"
+
+    reasons_csv="$(STATUS_JSON="$status_json" python3 - <<'PY'
+import json, os, sys
+raw = os.environ.get("STATUS_JSON", "")
+if not raw:
+    sys.exit(0)
+try:
+    data = json.loads(raw)
+except Exception:
+    sys.exit(0)
+rows = data.get("reason_rollup") or []
+for row in rows[:6]:
+    reason = row.get("reason","")
+    count = row.get("count","")
+    if reason is None:
+        reason = ""
+    reason = str(reason).replace("|","/").replace("\n"," ")
+    print(f"{reason}|{count}")
+PY
+)"
+
+    local problems_table reasons_table
+    if [[ -n "$problems_csv" ]]; then
+      problems_table="$(printf '%s\n' "$problems_csv" | gum table --separator "|" \
+        --columns "Status,Monitor,Host,Reason" --border rounded --print \
+        --border.foreground "#1f2937" --header.foreground "#93c5fd")"
+    else
+      problems_table="$(gum style --foreground "#9ca3af" "No problems detected.")"
+    fi
+    if [[ -n "$reasons_csv" ]]; then
+      reasons_table="$(printf '%s\n' "$reasons_csv" | gum table --separator "|" \
+        --columns "Reason,Count" --border rounded --print \
+        --border.foreground "#1f2937" --header.foreground "#93c5fd")"
+    else
+      reasons_table="$(gum style --foreground "#9ca3af" "No top reasons yet.")"
+    fi
+
+    gum style --bold --foreground "#f9fafb" --margin "1 2" "Top problems" >&2
+    echo "$problems_table" >&2
+    gum style --bold --foreground "#f9fafb" --margin "1 2" "Top reasons" >&2
+    echo "$reasons_table" >&2
+
+    if [[ "$refresh_secs" -gt 0 ]]; then
+      tui_gum_hint "Press r to refresh, q/Enter to return. Auto-refresh: ${refresh_secs}s."
+    else
+      tui_gum_hint "Press r to refresh, q/Enter to return. Auto-refresh: off."
+    fi
+    if [[ "$refresh_secs" -gt 0 ]]; then
+      read -r -t "$refresh_secs" -n 1 key </dev/tty || true
+    else
+      read -r -n 1 key </dev/tty
+    fi
+    if [[ -n "${key:-}" ]]; then
+      if [[ "$key" == $'\n' || "$key" == "q" || "$key" == "Q" || "$key" == $'\e' ]]; then
+        break
+      fi
+      if [[ "$key" == "r" || "$key" == "R" ]]; then
+        continue
+      fi
+    fi
+  done
+}
+
+run_menu_run(){
+  while true; do
+    local choice
+    choice="$(tui_menu_prompt_safe "Run actions" \
+      run "Run full checks (live output)" \
+      plan "Plan only (no execution)" \
+      back "Back to main")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="$(normalize_menu_choice "$choice")"
+    case "$choice" in
+      run)
+        if tui_yesno "Run full checks now?"; then
+          tui_run_live "linux-maint run" "$0" run
+        fi
+        ;;
+      plan)
+        tui_run_cmd "linux-maint run --plan" "$0" run --plan
+        ;;
+      back)
+        break
+        ;;
+    esac
+  done
+}
+
+run_menu_reports(){
+  while true; do
+    local choice
+    choice="$(tui_menu_prompt_safe "Reports" \
+      dashboard "Styled status overview" \
+      status "Show status (table)" \
+      report "Show report (short)" \
+      trend "Show trend (last 10)" \
+      runtimes "Show runtimes (last 10)" \
+      back "Back to main")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="$(normalize_menu_choice "$choice")"
+    case "$choice" in
+      dashboard)
+        if [[ "$TUI_BACKEND" == "gum" ]]; then
+          tui_gum_dashboard
+        else
+          tui_run_cmd "linux-maint status --table" "$0" status --table
+        fi
+        ;;
+      status)
+        tui_run_cmd "linux-maint status --table" "$0" status --table
+        ;;
+      report)
+        tui_run_cmd "linux-maint report --short --no-trend" "$0" report --short --no-trend
+        ;;
+      trend)
+        tui_run_cmd "linux-maint trend --last 10" "$0" trend --last 10
+        ;;
+      runtimes)
+        tui_run_cmd "linux-maint runtimes --last 10" "$0" runtimes --last 10
+        ;;
+      back)
+        break
+        ;;
+    esac
+  done
+}
+
+run_menu_tools(){
+  while true; do
+    local choice
+    choice="$(tui_menu_prompt_safe "Tools & automation" \
+      check "Preflight + validate + expected SKIPs" \
+      summary "One-line summary" \
+      diff "Diff since last run" \
+      history "Run history (table)" \
+      runindex "Run index stats" \
+      metrics_prom "Metrics (Prometheus text)" \
+      metrics_json "Metrics (JSON)" \
+      pack_logs "Support bundle (redacted)" \
+      back "Back to main")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="$(normalize_menu_choice "$choice")"
+    case "$choice" in
+      check)
+        tui_run_cmd "linux-maint check" "$0" check
+        ;;
+      summary)
+        tui_run_cmd "linux-maint summary" "$0" summary --no-color
+        ;;
+      diff)
+        tui_run_cmd "linux-maint diff" "$0" diff
+        ;;
+      history)
+        tui_run_cmd "linux-maint history --table" "$0" history --table
+        ;;
+      runindex)
+        tui_run_cmd "linux-maint run-index --stats" "$0" run-index --stats
+        ;;
+      metrics_prom)
+        tui_run_cmd "linux-maint metrics --prom" "$0" metrics --prom
+        ;;
+      metrics_json)
+        tui_run_cmd "linux-maint metrics --json" "$0" metrics --json
+        ;;
+      pack_logs)
+        if tui_yesno "Create redacted support bundle in /tmp?"; then
+          tui_run_cmd "linux-maint pack-logs --out /tmp --redact" "$0" pack-logs --out /tmp --redact
+        fi
+        ;;
+      back)
+        break
+        ;;
+    esac
+  done
+}
+
+run_menu_help(){
+  while true; do
+    local choice
+    choice="$(tui_menu_prompt_safe "Help & docs" \
+      quickref "Quick reference" \
+      faq "FAQ" \
+      reasons "Reasons catalog" \
+      monitors "Monitors matrix" \
+      explain_reason "Explain reason token" \
+      explain_monitor "Explain monitor" \
+      explain_status "Explain status" \
+      back "Back to main")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="$(normalize_menu_choice "$choice")"
+    case "$choice" in
+      quickref)
+        tui_view_file "Quick reference" "$REPO_ROOT/docs/QUICK_REFERENCE.md"
+        ;;
+      faq)
+        tui_view_file "FAQ" "$REPO_ROOT/docs/FAQ.md"
+        ;;
+      reasons)
+        tui_view_file "Reasons" "$REPO_ROOT/docs/REASONS.md"
+        ;;
+      monitors)
+        tui_view_file "Monitors matrix" "$REPO_ROOT/docs/MONITORS_MATRIX.md"
+        ;;
+      explain_reason)
+        local token
+        token="$(tui_input "Reason token" "e.g. disk_full")"
+        if [[ "$TUI_INPUT_RC" -eq 0 && -n "$token" ]]; then
+          tui_run_cmd "linux-maint explain reason $token" "$0" explain reason "$token"
+        fi
+        ;;
+      explain_monitor)
+        local mon
+        mon="$(tui_input "Monitor name" "e.g. service_monitor")"
+        if [[ "$TUI_INPUT_RC" -eq 0 && -n "$mon" ]]; then
+          tui_run_cmd "linux-maint explain monitor $mon" "$0" explain monitor "$mon"
+        fi
+        ;;
+      explain_status)
+        local s
+        s="$(tui_menu_prompt_safe "Pick status" \
+          OK "Healthy" \
+          WARN "Warning" \
+          CRIT "Critical" \
+          UNKNOWN "Unknown" \
+          SKIP "Skipped" \
+          back "Back")"
+        if [[ "$TUI_MENU_RC" -eq 0 && -n "$s" ]]; then
+          s="$(normalize_menu_choice "$s")"
+          if [[ "$s" != "back" ]]; then
+            tui_run_cmd "linux-maint explain status $s" "$0" explain status "$s"
+          fi
+        fi
+        ;;
+      back)
+        break
+        ;;
+    esac
+  done
+}
+
+run_menu_diagnostics(){
+  while true; do
+    local choice
+    choice="$(tui_menu_prompt_safe "Diagnostics" \
+      logslive "Live log tail (stream)" \
+      logs "Tail latest log" \
+      doctor "Doctor (diagnose)" \
+      selfcheck "Self-check (safe)" \
+      back "Back to main")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="$(normalize_menu_choice "$choice")"
+    case "$choice" in
+      logslive)
+        tui_tail_logs
+        ;;
+      logs)
+        tui_run_cmd "linux-maint logs 200" "$0" logs 200
+        ;;
+      doctor)
+        tui_run_cmd "linux-maint doctor" "$0" doctor
+        ;;
+      selfcheck)
+        tui_run_cmd "linux-maint self-check" "$0" self-check
+        ;;
+      back)
+        break
+        ;;
+    esac
+  done
+}
+
+run_menu_config(){
+  while true; do
+    local choice
+    choice="$(tui_menu_prompt_safe "Config & inventory" \
+      config "Show config" \
+      monitors "List monitors" \
+      back "Back to main")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="${choice#"${choice%%[! ]*}"}"
+    choice="${choice%%:*}"
+    case "$choice" in
+      config)
+        tui_run_cmd "linux-maint config" "$0" config
+        ;;
+      monitors)
+        tui_run_cmd "linux-maint list-monitors" "$0" list-monitors
+        ;;
+      back)
+        break
+        ;;
+    esac
+  done
+}
+
+run_menu(){
+  if ! [[ -t 1 && -t 2 ]]; then
+    echo "ERROR: linux-maint menu requires an interactive TTY" >&2
+    exit 1
+  fi
+
+  TUI_BACKEND="$(detect_tui_backend || true)"
+  if [[ -z "$TUI_BACKEND" ]]; then
+    echo "ERROR: install gum, dialog, or whiptail to use linux-maint menu" >&2
+    exit 1
+  fi
+
+  TUI_TITLE="linux-maint menu"
+  TUI_BACKTITLE="Linux Maint ToolKit"
+
+  if [[ "$MODE" == "installed" && $EUID -ne 0 ]]; then
+    tui_msgbox "Some actions (run/doctor/summary) require root.\nRe-run with: sudo linux-maint menu"
+  fi
+
+  TUI_ANIM_TICK=0
+  while true; do
+    TUI_MENU_STYLE="full"
+    choice="$(tui_menu_prompt_safe "Select an action" \
+      run "Run / plan" \
+      reports "Status / report / trend / runtimes" \
+      tools "Tools & automation" \
+      diagnostics "Logs / doctor / self-check" \
+      config "Config / monitors" \
+      help "Help & docs" \
+      exit "Exit")"
+    rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="${choice#"${choice%%[! ]*}"}"
+    choice="${choice%%:*}"
+    case "$choice" in
+      run)
+        TUI_MENU_STYLE="compact"
+        run_menu_run
+        ;;
+      reports)
+        TUI_MENU_STYLE="compact"
+        run_menu_reports
+        ;;
+      tools)
+        TUI_MENU_STYLE="compact"
+        run_menu_tools
+        ;;
+      diagnostics)
+        TUI_MENU_STYLE="compact"
+        run_menu_diagnostics
+        ;;
+      config)
+        TUI_MENU_STYLE="compact"
+        run_menu_config
+        ;;
+      help)
+        TUI_MENU_STYLE="compact"
+        run_menu_help
+        ;;
+      exit)
+        break
+        ;;
+    esac
+    if [[ "$TUI_BACKEND" == "gum" ]]; then
+      TUI_ANIM_TICK=$(( (TUI_ANIM_TICK + 1) % 3 ))
+    fi
+  done
+
+  if [[ "$TUI_BACKEND" == "dialog" ]]; then
+    clear
+  fi
 }
 
 resolve_run_hosts(){
@@ -558,6 +1470,7 @@ ${C_CYAN}Quick start${C_RESET}:
 
 ${C_CYAN}Common commands${C_RESET}:
   run [flags]            Run the full wrapper
+  menu                   Interactive terminal UI (TUI)
   list-monitors [flags]  List available monitors and config requirements
   lint-summary <file>    Validate summary/monitor lines against contract
   status [flags]         Show last run status and summary
@@ -608,6 +1521,7 @@ ${C_CYAN}Environment${C_RESET}:
   NO_COLOR=1            disable colored output
   LM_LOCAL_ONLY=true    force local-only mode (CI/testing)
   LM_DARK_SITE=true     enable conservative offline defaults
+  LM_TUI_BACKEND=gum    force menu UI backend (gum|dialog|whiptail)
 
 ${C_CYAN}Examples${C_RESET}:
   linux-maint run --group prod --parallel 10 --progress
@@ -626,6 +1540,7 @@ ${C_CYAN}Examples${C_RESET}:
   linux-maint pack-logs --out /tmp --redact
   linux-maint list-monitors
   linux-maint lint-summary /var/log/health/full_health_monitor_summary_latest.log
+  linux-maint menu
 
 ${C_CYAN}Tips${C_RESET}:
   See docs/README.md for full docs and flag details
@@ -666,6 +1581,8 @@ Examples:
   NO_COLOR=1 linux-maint run --local-only --plan --json
 EOF
       ;;
+    menu)
+      echo "Usage: linux-maint menu";;
     list-monitors)
       echo "Usage: linux-maint list-monitors [--json]";;
     lint-summary)
@@ -830,6 +1747,10 @@ case "$cmd" in
     else
       usage
     fi
+    ;;
+
+  menu)
+    run_menu
     ;;
 
   run)
