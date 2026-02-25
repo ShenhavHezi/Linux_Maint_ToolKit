@@ -17,27 +17,14 @@ monitor=service_monitor host=web-1 status=WARN reason=failed_units
 S
 
 json1="$(LOG_DIR="$log_dir" LM_TREND_CACHE=1 LM_TREND_CACHE_TTL=999 LM_TREND_CACHE_FILE="$cache_file" bash "$LM" trend --last 1 --json)"
-
-python3 - <<'PY' <<<"$json1"
-import json,sys
-obj=json.load(sys.stdin)
-assert len(obj.get("runs",[]))==1
-PY
+printf '%s' "$json1" | python3 -c 'import json,sys; obj=json.load(sys.stdin); assert len(obj.get("runs",[]))==1'
 
 rm -f "$f1"
 
 json2="$(LOG_DIR="$log_dir" LM_TREND_CACHE=1 LM_TREND_CACHE_TTL=999 LM_TREND_CACHE_FILE="$cache_file" bash "$LM" trend --last 1 --json)"
-python3 - <<'PY' <<<"$json2"
-import json,sys
-obj=json.load(sys.stdin)
-assert len(obj.get("runs",[]))==1, obj
-PY
+printf '%s' "$json2" | python3 -c 'import json,sys; obj=json.load(sys.stdin); assert len(obj.get("runs",[]))==1, obj'
 
 json3="$(LOG_DIR="$log_dir" LM_TREND_CACHE=1 LM_TREND_CACHE_TTL=0 LM_TREND_CACHE_FILE="$cache_file" bash "$LM" trend --last 1 --json)"
-python3 - <<'PY' <<<"$json3"
-import json,sys
-obj=json.load(sys.stdin)
-assert len(obj.get("runs",[]))==0, obj
-PY
+printf '%s' "$json3" | python3 -c 'import json,sys; obj=json.load(sys.stdin); assert len(obj.get("runs",[]))==0, obj'
 
 echo "trend cache ttl ok"

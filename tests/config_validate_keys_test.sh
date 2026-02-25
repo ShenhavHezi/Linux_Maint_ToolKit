@@ -57,7 +57,8 @@ cat > "$cfg_dir/ports_baseline.txt" <<'EOF_PB'
 EOF_PB
 
 set +e
-out="$(LM_CFG_DIR="$cfg_dir" LM_LOGFILE="$LM_LOG_DIR/config_validate_keys.log" bash "$ROOT_DIR/monitors/config_validate.sh" 2>&1)"
+log_file="$LM_LOG_DIR/config_validate_keys.log"
+out="$(LM_CFG_DIR="$cfg_dir" LM_LOGFILE="$log_file" bash "$ROOT_DIR/monitors/config_validate.sh" 2>&1)"
 rc=$?
 set -e
 
@@ -71,14 +72,14 @@ printf '%s\n' "$out" | grep -q "reason=config_validate_crit" || {
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q "duplicate keys" || {
+grep -q "duplicate keys" "$log_file" || {
   echo "expected duplicate keys warning" >&2
-  echo "$out" >&2
+  cat "$log_file" >&2 || true
   exit 1
 }
-printf '%s\n' "$out" | grep -q "unknown keys" || {
+grep -q "unknown keys" "$log_file" || {
   echo "expected unknown keys warning" >&2
-  echo "$out" >&2
+  cat "$log_file" >&2 || true
   exit 1
 }
 [ "$rc" -eq 2 ] || {
