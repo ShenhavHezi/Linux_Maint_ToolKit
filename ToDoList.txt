@@ -26,39 +26,43 @@ Primary users: operators, sysadmins, and SREs working in constrained or air-gapp
 ---
 
 ## P0 - Correctness and safety
-- Add a summary schema version field (e.g. `summary_schema_version`) to all summary emitters; enforce in `lint-summary` and tests.
-- Define and implement a consistent run exit policy via `LM_RUN_FAIL_ON` (e.g. `crit|warn|any`) and document exit-code behavior.
-- Tighten config parsing: detect duplicate keys, invalid types, and emit JSON-only errors for `--json` modes with tests.
-- Ensure `run --plan` and `run --only/--skip` fail clearly when the resolved monitor set is empty; add tests.
+- Add a run concurrency lock (lockfile + timeout) so overlapping `linux-maint run` cannot corrupt logs; support `--allow-concurrent` override.
+- Introduce a stable `run_id` and `schema_version` across summary/status/report/metrics JSON; enforce in `lint-summary` and schemas.
+- Make run-index and status writes fully atomic (write temp + rename), and skip/repair partial JSONL records on read.
+- Enforce config type validation (int/bool/list) with JSON-only error payloads in `--json` modes; extend tests for invalid types.
+- Add strict empty-monitor resolution checks: fail if `run --plan` or `run --only/--skip` resolves to zero monitors.
 
 ---
 
 ## P1 - Operator UX, docs, compatibility
-- Add `linux-maint explain <reason>` to surface a reason’s meaning and quick fix from `docs/REASONS.md`.
-- Add `docs/UPGRADE.md` with version-to-version notes and common upgrade gotchas.
-- Expand `docs/QUICK_REFERENCE.md` with SSH examples and `run --plan` usage.
-- Add a short “day-2 ops” checklist (rotations, timers, log locations) in docs.
+- Add `linux-maint config --diff-defaults` to show which effective values differ from shipped defaults.
+- Add a Custom Monitors guide (`docs/CUSTOM_MONITORS.md`) and a template generator (`tools/new_monitor.sh`).
+- Expand `list-monitors` to derive descriptions/required files from monitor headers to avoid drift.
+- Add `--output <path>` to `status`, `report`, and `trend` for atomic file writes.
+- Add a fleet quickstart example (SSH inventory, services, network targets) under `docs/examples/`.
 
 ---
 
 ## P2 - Security, hardening, performance
-- Add `pack-logs --redact` to scrub common secret patterns from text logs before bundling.
-- Validate `LM_STATE_DIR` and log directories are not world-writable; warn or fail in strict modes.
-- Add optional support-bundle encryption (GPG) and document safe handling in air-gapped workflows.
-- Add a cap for run-index growth (`LM_RUN_INDEX_KEEP`) in all environments and document defaults.
+- Add `pack-logs --redact` to scrub secrets from text logs and configs before bundling.
+- Add `doctor` checks for group/world-writable `LOG_DIR`, `SUMMARY_DIR`, `STATE_DIR`, and `LM_CFG_DIR` (warn or fail in strict mode).
+- Provide a minimal `sudoers` example for safe non-root use; document least-privilege setup.
+- Add optional GPG encryption for support bundles and document verification steps.
+- Add a configurable cap for run-index size/age that is enforced even without logrotate.
 
 ---
 
 ## P3 - Observability, integrations, QA coverage
-- Add `metrics --prom --output <file>` for Prometheus textfile collectors with atomic writes.
-- Add contract tests for `report --short` and `trend` colorized output to lock formatting stability.
-- Add a simple JSON schema for `metrics --json` and validate outputs in tests.
-- Add compatibility test for older bash (e.g. bash 3.x) to ensure minimal features are used.
+- Add `metrics --prom --output <file>` with atomic write for Prometheus textfile collector.
+- Add Prometheus gauges for per-monitor durations (seconds) and per-monitor host counts.
+- Add contract tests for `run_id` propagation and lock behavior.
+- Add compatibility test for older bash (3.x) to ensure minimal features are used.
+- Add integration test that exercises a full run with `--only` plus `--progress` output stability.
 
 ---
 
 ## P4 - DX, release polish, community
-- Add a `tools/release.sh` wrapper to bump version, update notes, and run release checks.
-- Add a `make verify-release` target to run `tools/verify_release.sh` plus notes index checks.
-- Add a `docs/ARCHITECTURE.md` overview (data flow, contracts, directories, run index format).
-- Add a `docs/OPERATIONS.md` runbook for common incidents and recovery steps.
+- Extend `tools/release.sh` to bump VERSION, update notes, generate checksums, and tag in one flow.
+- Add `make verify-release` to run `tools/verify_release.sh` plus notes/index checks.
+- Add a brief `docs/SECURITY_RESPONSE.md` to document responsible disclosure expectations.
+- Add `CODEOWNERS` and issue/PR templates to streamline maintenance.
