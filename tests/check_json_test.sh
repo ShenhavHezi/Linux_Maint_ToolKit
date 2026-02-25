@@ -6,7 +6,7 @@ LM="$ROOT_DIR/bin/linux-maint"
 
 out="$(bash "$LM" check --json 2>&1)"
 
-python3 - <<PY
+python3 - <<'PY' <<<"$out"
 import json, sys
 text = sys.stdin.read()
 try:
@@ -20,6 +20,4 @@ for key in ("config_validate","preflight","expected_skips","ok"):
         print(f"missing key: {key}", file=sys.stderr)
         sys.exit(1)
 print("check json ok")
-PY <<'IN'
-$out
-IN
+PY

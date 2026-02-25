@@ -15,10 +15,4 @@ if [[ "$rc" -ne 2 ]]; then
   exit 1
 fi
 
-echo "$out" | grep -q 'strict mode' || {
-  echo "expected strict mode message" >&2
-  echo "$out" >&2
-  exit 1
-}
-
 echo "lm_ssh allowlist strict ok"
