@@ -421,6 +421,37 @@ tui_textbox(){
   fi
 }
 
+tui_colorize_file(){
+  local in="$1"
+  local out="$2"
+  python3 - "$in" "$out" <<'PY'
+import re
+import sys
+
+src, dst = sys.argv[1:3]
+colors = {
+    "CRIT": "\033[31m",
+    "WARN": "\033[33m",
+    "OK": "\033[32m",
+    "UNKNOWN": "\033[34m",
+    "SKIP": "\033[90m",
+}
+reset = "\033[0m"
+status_re = re.compile(r"\b(CRIT|WARN|OK|UNKNOWN|SKIP)\b")
+error_re = re.compile(r"^\s*ERROR\b", re.IGNORECASE)
+warn_re = re.compile(r"^\s*WARN\b", re.IGNORECASE)
+
+with open(src, "r", encoding="utf-8", errors="ignore") as f, open(dst, "w", encoding="utf-8") as o:
+    for line in f:
+        line = status_re.sub(lambda m: colors.get(m.group(1), "") + m.group(1) + reset, line)
+        if error_re.search(line):
+            line = "\033[31m" + line.rstrip("\n") + reset + "\n"
+        elif warn_re.search(line):
+            line = "\033[33m" + line.rstrip("\n") + reset + "\n"
+        o.write(line)
+PY
+}
+
 tui_run_cmd(){
   local title="$1"
   shift || true
@@ -429,11 +460,19 @@ tui_run_cmd(){
   NO_COLOR=1 "$@" >"$out" 2>&1
   local rc=$?
   local label="$title"
+  local view_file="$out"
   if [[ $rc -ne 0 ]]; then
     label="$title (exit $rc)"
   fi
-  tui_textbox "$label" "$out"
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    local colored
+    colored="$(mktemp -p "$TMPDIR" linux_maint_menu_color.XXXXXX)"
+    tui_colorize_file "$out" "$colored"
+    view_file="$colored"
+  fi
+  tui_textbox "$label" "$view_file"
   rm -f "$out"
+  [[ -n "${colored:-}" ]] && rm -f "$colored"
   return $rc
 }
 
@@ -442,7 +481,7 @@ tui_run_live(){
   shift || true
   if [[ "$TUI_BACKEND" == "gum" ]]; then
     gum spin --spinner dot --title "$title" --show-output -- \
-      env NO_COLOR=1 LM_PROGRESS=0 "$@"
+      env LM_PROGRESS=0 "$@"
     return $?
   fi
   if [[ "$TUI_BACKEND" == "dialog" ]]; then
@@ -451,6 +490,107 @@ tui_run_live(){
     return $?
   fi
   tui_run_cmd "$title" "$@"
+}
+
+tui_tail_logs(){
+  local log_file
+  log_file="$(tui_latest_log_path)"
+  if [[ ! -f "$log_file" ]]; then
+    tui_msgbox "No log yet: $log_file"
+    return 1
+  fi
+  if [[ "$TUI_BACKEND" == "dialog" ]]; then
+    dialog --clear --backtitle "$TUI_BACKTITLE" --title "Live log tail" \
+      --tailbox "$log_file" 22 90
+    return 0
+  fi
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    clear
+    tui_gum_banner "Live log tail" "$log_file"
+    tui_gum_hint "Press Ctrl+C to stop tail and return."
+  else
+    echo "Press Ctrl+C to stop tail and return."
+  fi
+  tail -n 200 -f "$log_file"
+}
+
+tui_gum_dashboard(){
+  local status_json
+  status_json="$(NO_COLOR=1 "$0" status --json --problems 8 --reasons 6 2>/dev/null || true)"
+  clear
+  tui_gum_banner "Linux Maint ToolKit" "Dashboard"
+  tui_gum_status_overview
+
+  local problems_csv reasons_csv
+  problems_csv="$(STATUS_JSON="$status_json" python3 - <<'PY'
+import json, os, sys
+raw = os.environ.get("STATUS_JSON", "")
+if not raw:
+    sys.exit(0)
+try:
+    data = json.loads(raw)
+except Exception:
+    sys.exit(0)
+rows = data.get("problems") or []
+for row in rows[:8]:
+    status = row.get("status","")
+    monitor = row.get("monitor","")
+    host = row.get("host","")
+    reason = row.get("reason","")
+    for v in (status, monitor, host, reason):
+        if v is None:
+            v = ""
+    reason = str(reason).replace("|","/").replace("\n"," ")
+    monitor = str(monitor).replace("|","/")
+    host = str(host).replace("|","/")
+    status = str(status).replace("|","/")
+    print(f"{status}|{monitor}|{host}|{reason}")
+PY
+)"
+
+  reasons_csv="$(STATUS_JSON="$status_json" python3 - <<'PY'
+import json, os, sys
+raw = os.environ.get("STATUS_JSON", "")
+if not raw:
+    sys.exit(0)
+try:
+    data = json.loads(raw)
+except Exception:
+    sys.exit(0)
+rows = data.get("reason_rollup") or []
+for row in rows[:6]:
+    reason = row.get("reason","")
+    count = row.get("count","")
+    if reason is None:
+        reason = ""
+    reason = str(reason).replace("|","/").replace("\n"," ")
+    print(f"{reason}|{count}")
+PY
+)"
+
+  local problems_table reasons_table
+  if [[ -n "$problems_csv" ]]; then
+    problems_table="$(printf '%s\n' "$problems_csv" | gum table --separator "|" \
+      --columns "Status,Monitor,Host,Reason" --border rounded --print \
+      --border.foreground "#1f2937" --header.foreground "#93c5fd")"
+  else
+    problems_table="$(gum style --foreground "#9ca3af" "No problems detected.")"
+  fi
+  if [[ -n "$reasons_csv" ]]; then
+    reasons_table="$(printf '%s\n' "$reasons_csv" | gum table --separator "|" \
+      --columns "Reason,Count" --border rounded --print \
+      --border.foreground "#1f2937" --header.foreground "#93c5fd")"
+  else
+    reasons_table="$(gum style --foreground "#9ca3af" "No top reasons yet.")"
+  fi
+
+  gum style --bold --foreground "#f9fafb" --margin "1 2" "Top problems" >&2
+  echo "$problems_table" >&2
+  gum style --bold --foreground "#f9fafb" --margin "1 2" "Top reasons" >&2
+  echo "$reasons_table" >&2
+
+  tui_gum_hint "Press Enter to return."
+  read -r _ </dev/tty
 }
 
 run_menu_run(){
@@ -485,6 +625,7 @@ run_menu_reports(){
   while true; do
     local choice
     choice="$(tui_menu_prompt "Reports" \
+      dashboard "Styled status overview" \
       status "Show status (table)" \
       report "Show report (short)" \
       trend "Show trend (last 10)" \
@@ -496,6 +637,13 @@ run_menu_reports(){
     fi
     choice="${choice%%:*}"
     case "$choice" in
+      dashboard)
+        if [[ "$TUI_BACKEND" == "gum" ]]; then
+          tui_gum_dashboard
+        else
+          tui_run_cmd "linux-maint status --table" "$0" status --table
+        fi
+        ;;
       status)
         tui_run_cmd "linux-maint status --table" "$0" status --table
         ;;
@@ -519,6 +667,7 @@ run_menu_diagnostics(){
   while true; do
     local choice
     choice="$(tui_menu_prompt "Diagnostics" \
+      logslive "Live log tail (stream)" \
       logs "Tail latest log" \
       doctor "Doctor (diagnose)" \
       selfcheck "Self-check (safe)" \
@@ -529,6 +678,9 @@ run_menu_diagnostics(){
     fi
     choice="${choice%%:*}"
     case "$choice" in
+      logslive)
+        tui_tail_logs
+        ;;
       logs)
         tui_run_cmd "linux-maint logs 200" "$0" logs 200
         ;;
