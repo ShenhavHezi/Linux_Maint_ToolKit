@@ -502,6 +502,22 @@ tui_tag_color(){
   esac
 }
 
+strip_ansi(){
+  python3 - <<'PY'
+import re, sys
+s = sys.stdin.read()
+print(re.sub(r'\x1b\[[0-9;]*[A-Za-z]', '', s), end='')
+PY
+}
+
+normalize_menu_choice(){
+  local c="$1"
+  c="$(printf '%s' "$c" | strip_ansi)"
+  c="${c#"${c%%[! ]*}"}"
+  c="${c%%:*}"
+  printf '%s' "$c"
+}
+
 tui_input(){
   local prompt="$1"
   local placeholder="${2:-}"
@@ -787,8 +803,7 @@ run_menu_run(){
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
-    choice="${choice#"${choice%%[! ]*}"}"
-    choice="${choice%%:*}"
+    choice="$(normalize_menu_choice "$choice")"
     case "$choice" in
       run)
         if tui_yesno "Run full checks now?"; then
@@ -819,8 +834,7 @@ run_menu_reports(){
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
-    choice="${choice#"${choice%%[! ]*}"}"
-    choice="${choice%%:*}"
+    choice="$(normalize_menu_choice "$choice")"
     case "$choice" in
       dashboard)
         if [[ "$TUI_BACKEND" == "gum" ]]; then
@@ -865,8 +879,7 @@ run_menu_tools(){
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
-    choice="${choice#"${choice%%[! ]*}"}"
-    choice="${choice%%:*}"
+    choice="$(normalize_menu_choice "$choice")"
     case "$choice" in
       check)
         tui_run_cmd "linux-maint check" "$0" check
@@ -917,8 +930,7 @@ run_menu_help(){
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
-    choice="${choice#"${choice%%[! ]*}"}"
-    choice="${choice%%:*}"
+    choice="$(normalize_menu_choice "$choice")"
     case "$choice" in
       quickref)
         tui_view_file "Quick reference" "$REPO_ROOT/docs/QUICK_REFERENCE.md"
@@ -956,8 +968,7 @@ run_menu_help(){
           SKIP "Skipped" \
           back "Back")"
         if [[ "$TUI_MENU_RC" -eq 0 && -n "$s" ]]; then
-          s="${s#"${s%%[! ]*}"}"
-          s="${s%%:*}"
+          s="$(normalize_menu_choice "$s")"
           if [[ "$s" != "back" ]]; then
             tui_run_cmd "linux-maint explain status $s" "$0" explain status "$s"
           fi
@@ -983,8 +994,7 @@ run_menu_diagnostics(){
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
-    choice="${choice#"${choice%%[! ]*}"}"
-    choice="${choice%%:*}"
+    choice="$(normalize_menu_choice "$choice")"
     case "$choice" in
       logslive)
         tui_tail_logs
