@@ -36,4 +36,4 @@
 - If you enable `LM_REDACT_JSON=1`, fields matching known secret patterns are redacted in JSON outputs.
 
 ## Checksums (if releasing a tarball)
-- SHA256SUMS: (not generated for this release)
+- SHA256SUMS: 3c3908a763dbd6469af3222645dc4034f8456f427717630596323e8168a193ff  Linux_Maint_ToolKit-v0.2.6-af0da20.tgz
