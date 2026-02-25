@@ -249,6 +249,11 @@ tui_gum_banner(){
     "$(gum style --foreground "#9ca3af" "$subtitle")" >&2
 }
 
+tui_gum_hint(){
+  local msg="${1:-Use arrows + Enter. Esc to go back.}"
+  gum style --foreground "#9ca3af" --margin "0 2" "$msg" >&2
+}
+
 tui_menu_prompt(){
   local prompt="$1"
   shift || true
@@ -261,7 +266,10 @@ tui_menu_prompt(){
       items+=("${tag}: ${desc}")
     done
     tui_gum_banner "Linux Maint ToolKit" "$prompt"
-    gum choose --header "Select an option" --height 12 --cursor ">" "${items[@]}"
+    tui_gum_hint "Use arrows + Enter. Esc to go back."
+    gum choose --header "Select an option" --height 12 --cursor "> " \
+      --cursor-prefix "> " --selected-prefix "* " --unselected-prefix "  " \
+      --show-help=false "${items[@]}"
   elif [[ "$TUI_BACKEND" == "dialog" ]]; then
     dialog --clear --backtitle "$TUI_BACKTITLE" --title "$TUI_TITLE" \
       --menu "$prompt" 20 78 12 "$@" 3>&1 1>&2 2>&3
@@ -330,12 +338,13 @@ tui_run_live(){
   local title="$1"
   shift || true
   if [[ "$TUI_BACKEND" == "gum" ]]; then
-    gum spin --spinner dot --title "$title" --show-output -- env NO_COLOR=1 "$@"
+    gum spin --spinner dot --title "$title" --show-output -- \
+      env NO_COLOR=1 LM_PROGRESS=0 "$@"
     return $?
   fi
   if [[ "$TUI_BACKEND" == "dialog" ]]; then
     dialog --clear --backtitle "$TUI_BACKTITLE" --title "$title" \
-      --programbox "$title" 22 90 env NO_COLOR=1 "$@"
+      --programbox "$title" 22 90 env NO_COLOR=1 LM_PROGRESS=0 "$@"
     return $?
   fi
   tui_run_cmd "$title" "$@"
