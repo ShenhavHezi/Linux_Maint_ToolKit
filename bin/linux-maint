@@ -425,7 +425,7 @@ tui_menu_prompt(){
       color="$(tui_tag_color "$tag")"
       local colored_tag
       colored_tag="$(gum style --bold --foreground "$color" "$padded_tag")"
-      raw+=("${colored_tag}: ${desc}")
+      raw+=("${tag}|${colored_tag}: ${desc}")
     done
     if [[ "${TUI_MENU_STYLE:-full}" == "full" ]]; then
       tui_gum_banner
@@ -442,7 +442,7 @@ tui_menu_prompt(){
     for line in "${raw[@]}"; do
       items+=("${line_pad}${line}")
     done
-    gum choose --header "" --height 16 --cursor "> " \
+    gum choose --header "" --height 16 --cursor "> " --label-delimiter "|" \
       --cursor-prefix "> " --selected-prefix "* " --unselected-prefix "  " \
       --show-help=false "${items[@]}"
   elif [[ "$TUI_BACKEND" == "dialog" ]]; then
