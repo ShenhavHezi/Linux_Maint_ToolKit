@@ -425,7 +425,7 @@ tui_menu_prompt(){
       color="$(tui_tag_color "$tag")"
       local colored_tag
       colored_tag="$(gum style --bold --foreground "$color" "$padded_tag")"
-      raw+=("${tag}|${colored_tag}: ${desc}")
+      raw+=("${colored_tag}: ${desc}|${tag}")
     done
     if [[ "${TUI_MENU_STYLE:-full}" == "full" ]]; then
       tui_gum_banner
