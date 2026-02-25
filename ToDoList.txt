@@ -26,38 +26,39 @@ Primary users: operators, sysadmins, and SREs working in constrained or air-gapp
 ---
 
 ## P0 - Correctness and safety
-- Validate monitor selection (`--only`/`--skip`/`LM_MONITORS`) against available scripts; fail fast on unknown names and show suggestions.
-- Add `linux-maint lint-summary <file> [--json]` to validate summary files using existing contract lint; wire into tests.
-- Ensure all `--json` outputs remain JSON-only even on parse errors (extend tests to cover invalid config lines + missing files).
-- Add contract test to guarantee monitor ordering is stable for default runs (wrapper order and `--only` ordering behavior).
+- Add a summary schema version field (e.g. `summary_schema_version`) to all summary emitters; enforce in `lint-summary` and tests.
+- Define and implement a consistent run exit policy via `LM_RUN_FAIL_ON` (e.g. `crit|warn|any`) and document exit-code behavior.
+- Tighten config parsing: detect duplicate keys, invalid types, and emit JSON-only errors for `--json` modes with tests.
+- Ensure `run --plan` and `run --only/--skip` fail clearly when the resolved monitor set is empty; add tests.
 
 ---
 
 ## P1 - Operator UX, docs, compatibility
-- Add `linux-maint list-monitors` (name, optional/required config, and short description); document in QUICK_REFERENCE.
-- Add `linux-maint run --plan` to show resolved host list + monitor list without executing; include `--json` output.
-- Add a “Monitors Matrix” doc mapping each monitor to config inputs, outputs, and common actions.
-- Add `docs/FAQ.md` covering common WARN/SKIP reasons and quick fixes; link from README.
+- Add `linux-maint explain <reason>` to surface a reason’s meaning and quick fix from `docs/REASONS.md`.
+- Add `docs/UPGRADE.md` with version-to-version notes and common upgrade gotchas.
+- Expand `docs/QUICK_REFERENCE.md` with SSH examples and `run --plan` usage.
+- Add a short “day-2 ops” checklist (rotations, timers, log locations) in docs.
 
 ---
 
 ## P2 - Security, hardening, performance
-- Warn/CRIT on world-writable config/known_hosts files when strict modes are enabled (`LM_SSH_ALLOWLIST_STRICT`, pinned known_hosts).
-- Validate `LM_SSH_KNOWN_HOSTS_PIN_FILE` presence/permissions; emit clear error + hint when invalid.
-- Add optional `LM_REDACT_JSON_STRICT` to redact all string values (full scrub) for high-security environments.
-- Add support bundle integrity metadata (size + sha256 per file) in `pack-logs` for tamper detection.
+- Add `pack-logs --redact` to scrub common secret patterns from text logs before bundling.
+- Validate `LM_STATE_DIR` and log directories are not world-writable; warn or fail in strict modes.
+- Add optional support-bundle encryption (GPG) and document safe handling in air-gapped workflows.
+- Add a cap for run-index growth (`LM_RUN_INDEX_KEEP`) in all environments and document defaults.
 
 ---
 
 ## P3 - Observability, integrations, QA coverage
-- Emit Prometheus metrics for last run exit code and last run timestamp; add schema + tests.
-- Add `linux-maint metrics --prom` to output textfile format on stdout for scraping.
-- Add golden fixtures for `report --short` and `status --table` to lock formatting stability.
-- Add integration test for `run --only/--skip` that executes a minimal monitor subset end-to-end.
+- Add `metrics --prom --output <file>` for Prometheus textfile collectors with atomic writes.
+- Add contract tests for `report --short` and `trend` colorized output to lock formatting stability.
+- Add a simple JSON schema for `metrics --json` and validate outputs in tests.
+- Add compatibility test for older bash (e.g. bash 3.x) to ensure minimal features are used.
 
 ---
 
 ## P4 - DX, release polish, community
-- Add `tools/verify_release.sh` to validate tarball contents, checksum, and BUILD_INFO vs tag.
-- Add `make ci-local` target that runs smoke + key contract tests with a clear summary.
-- Add `CONTRIBUTORS.md` with contribution flow, testing expectations, and release checklist shortcuts.
+- Add a `tools/release.sh` wrapper to bump version, update notes, and run release checks.
+- Add a `make verify-release` target to run `tools/verify_release.sh` plus notes index checks.
+- Add a `docs/ARCHITECTURE.md` overview (data flow, contracts, directories, run index format).
+- Add a `docs/OPERATIONS.md` runbook for common incidents and recovery steps.
