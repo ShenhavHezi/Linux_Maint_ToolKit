@@ -250,12 +250,11 @@ tui_gum_banner(){
   esac
   local logo
   logo="$(cat <<'EOF'
- _      _                    __  __       _       _
+_      _                    __  __       _       _
 | |    (_)___  ___  _____   / / / /__  __| | ___ (_)
 | |   / / __ \/ _ \/ ___/  / / / / _ \/ _` |/ _ \| |
 | |__/ / / / /  __(__  )  / /_/ /  __/ (_| | (_) | |
 |____/_/_/ /_/\___/____/  \____/\___|\__,_|\___/|_|
-           Linux-Maint
 EOF
 )"
   gum style --border thick --border-foreground "#3b82f6" --foreground "#f9fafb" \
