@@ -8,6 +8,13 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-02-25
 
+- Release v0.2.8
+- Added interactive TUI menu (`linux-maint menu`) with gum/dialog/whiptail and sub-menus.
+- Added dashboard + tools/help menus, live log tail, and live run output views.
+- Added plain progress mode support for cleaner TUI runs.
+
+## 2026-02-25
+
 - Release v0.2.7
 - Added `run --plan` (table + JSON) and monitor discovery helpers (`list-monitors`, `lint-summary`).
 - Added Prometheus last-run metrics plus stricter config/summary validations.

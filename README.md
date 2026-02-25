@@ -24,6 +24,7 @@ Target: RHEL 9. Offline/dark-site friendly.
 - Optional Prometheus textfile output and JSON outputs for tooling.
 - Built-in self-checks and doctor workflow for setup validation.
 - Human-friendly CLI with `status`, `summary`, `report`, and `diff` views.
+- Optional interactive TUI menu (`linux-maint menu`) via gum/dialog/whiptail.
 - Offline/dark-site friendly (no runtime network dependency).
 
 ## Quickstart
@@ -44,6 +45,7 @@ sudo ./install.sh --with-user --with-timer --with-logrotate
 sudo linux-maint init --minimal
 sudo linux-maint run
 sudo linux-maint status
+sudo linux-maint menu
 ```
 
 For installed mode and timers, see `docs/installation.md`.
