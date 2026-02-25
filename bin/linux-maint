@@ -431,6 +431,19 @@ tui_menu_prompt(){
   fi
 }
 
+tui_menu_prompt_safe(){
+  local prompt="$1"
+  shift || true
+  local out rc
+  set +e
+  out="$(tui_menu_prompt "$prompt" "$@")"
+  rc=$?
+  set -e
+  TUI_MENU_RC="$rc"
+  printf '%s' "$out"
+  return 0
+}
+
 tui_msgbox(){
   local msg="$1"
   if [[ "$TUI_BACKEND" == "gum" ]]; then
@@ -675,11 +688,11 @@ PY
 run_menu_run(){
   while true; do
     local choice
-    choice="$(tui_menu_prompt "Run actions" \
+    choice="$(tui_menu_prompt_safe "Run actions" \
       run "Run full checks (live output)" \
       plan "Plan only (no execution)" \
       back "Back to main")"
-    local rc=$?
+    local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
@@ -704,14 +717,14 @@ run_menu_run(){
 run_menu_reports(){
   while true; do
     local choice
-    choice="$(tui_menu_prompt "Reports" \
+    choice="$(tui_menu_prompt_safe "Reports" \
       dashboard "Styled status overview" \
       status "Show status (table)" \
       report "Show report (short)" \
       trend "Show trend (last 10)" \
       runtimes "Show runtimes (last 10)" \
       back "Back to main")"
-    local rc=$?
+    local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
@@ -747,13 +760,13 @@ run_menu_reports(){
 run_menu_diagnostics(){
   while true; do
     local choice
-    choice="$(tui_menu_prompt "Diagnostics" \
+    choice="$(tui_menu_prompt_safe "Diagnostics" \
       logslive "Live log tail (stream)" \
       logs "Tail latest log" \
       doctor "Doctor (diagnose)" \
       selfcheck "Self-check (safe)" \
       back "Back to main")"
-    local rc=$?
+    local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
@@ -782,11 +795,11 @@ run_menu_diagnostics(){
 run_menu_config(){
   while true; do
     local choice
-    choice="$(tui_menu_prompt "Config & inventory" \
+    choice="$(tui_menu_prompt_safe "Config & inventory" \
       config "Show config" \
       monitors "List monitors" \
       back "Back to main")"
-    local rc=$?
+    local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
@@ -828,14 +841,14 @@ run_menu(){
   TUI_ANIM_TICK=0
   while true; do
     TUI_MENU_STYLE="full"
-    choice="$(tui_menu_prompt "Select an action" \
+    choice="$(tui_menu_prompt_safe "Select an action" \
       run "Run / plan" \
       reports "Status / report / trend / runtimes" \
       diagnostics "Logs / doctor / self-check" \
       config "Config / monitors" \
       help "Show help tips" \
       exit "Exit")"
-    rc=$?
+    rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
