@@ -5,6 +5,7 @@ set -euo pipefail
 
 # Prefer a writable temp dir when creating tmp files.
 TMPDIR="${TMPDIR:-/tmp}"
+TUI_MENU_RC=0
 
 # If any command requests JSON, disable color and progress globally.
 for arg in "$@"; do
@@ -435,6 +436,7 @@ tui_menu_prompt_safe(){
   local prompt="$1"
   shift || true
   local out rc
+  TUI_MENU_RC=0
   set +e
   out="$(tui_menu_prompt "$prompt" "$@")"
   rc=$?
