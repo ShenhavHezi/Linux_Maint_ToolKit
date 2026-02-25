@@ -29,7 +29,7 @@ summary="$logdir/full_health_monitor_summary_latest.log"
 
 expect_reason() {
   local monitor="$1" reason="$2" missing="$3"
-  if ! grep -q "monitor=${monitor} .* status=SKIP .* reason=${reason} .* missing=${missing}" "$summary"; then
+  if ! grep -F "monitor=${monitor} " "$summary" | grep -F " status=SKIP " | grep -F " reason=${reason} " | grep -F " missing=${missing}" >/dev/null; then
     echo "Expected ${monitor} SKIP reason=${reason} missing=${missing}" >&2
     echo "--- summary ---" >&2
     cat "$summary" >&2
