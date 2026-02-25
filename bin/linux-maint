@@ -241,6 +241,7 @@ detect_tui_backend(){
 }
 
 tui_gum_banner(){
+  TUI_BANNER_WIDTH="${TUI_BANNER_WIDTH:-100}"
   local accent="#9ca3af"
   case "${TUI_ANIM_TICK:-0}" in
     1) accent="#60a5fa" ;;
@@ -391,11 +392,18 @@ tui_menu_prompt(){
   shift || true
   if [[ "$TUI_BACKEND" == "gum" ]]; then
     local -a items=()
+    local -a raw=()
+    local max_len=0
     while [[ $# -gt 0 ]]; do
       local tag="$1"
       local desc="$2"
       shift 2
-      items+=("${tag}: ${desc}")
+      local line="${tag}: ${desc}"
+      raw+=("$line")
+      local len=${#line}
+      if [[ "$len" -gt "$max_len" ]]; then
+        max_len="$len"
+      fi
     done
     if [[ "${TUI_MENU_STYLE:-full}" == "full" ]]; then
       tui_gum_banner
@@ -403,6 +411,14 @@ tui_menu_prompt(){
       tui_gum_header "Linux Maint ToolKit" "$prompt"
     fi
     tui_gum_hint "Use arrows + Enter. Esc to go back."
+    local banner_w="${TUI_BANNER_WIDTH:-100}"
+    local pad=$(( (banner_w - max_len) / 2 ))
+    [[ "$pad" -lt 0 ]] && pad=0
+    local pad_str
+    pad_str="$(printf '%*s' "$pad" '')"
+    for line in "${raw[@]}"; do
+      items+=("${pad_str}${line}")
+    done
     gum choose --header "" --height 16 --cursor "> " \
       --cursor-prefix "> " --selected-prefix "* " --unselected-prefix "  " \
       --show-help=false "${items[@]}"
@@ -652,6 +668,7 @@ run_menu_run(){
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
+    choice="${choice#"${choice%%[! ]*}"}"
     choice="${choice%%:*}"
     case "$choice" in
       run)
@@ -683,6 +700,7 @@ run_menu_reports(){
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
+    choice="${choice#"${choice%%[! ]*}"}"
     choice="${choice%%:*}"
     case "$choice" in
       dashboard)
@@ -724,6 +742,7 @@ run_menu_diagnostics(){
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
+    choice="${choice#"${choice%%[! ]*}"}"
     choice="${choice%%:*}"
     case "$choice" in
       logslive)
@@ -756,6 +775,7 @@ run_menu_config(){
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
+    choice="${choice#"${choice%%[! ]*}"}"
     choice="${choice%%:*}"
     case "$choice" in
       config)
@@ -804,6 +824,7 @@ run_menu(){
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
+    choice="${choice#"${choice%%[! ]*}"}"
     choice="${choice%%:*}"
     case "$choice" in
       run)
