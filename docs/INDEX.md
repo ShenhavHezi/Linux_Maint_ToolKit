@@ -24,6 +24,7 @@ Quick links:
 - [`docs/RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md)
 - [`docs/RELEASE_TEMPLATE.md`](RELEASE_TEMPLATE.md)
 - [`docs/security_best_practices_report.md`](security_best_practices_report.md)
+- [`docs/release_notes/release_notes_v0.2.7.md`](release_notes/release_notes_v0.2.7.md)
 - [`docs/release_notes/release_notes_v0.2.6.md`](release_notes/release_notes_v0.2.6.md)
 - [`docs/release_notes/release_notes_v0.2.5.md`](release_notes/release_notes_v0.2.5.md)
 - [`docs/release_notes/release_notes_v0.2.4.md`](release_notes/release_notes_v0.2.4.md)

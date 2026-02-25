@@ -8,6 +8,14 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-02-25
 
+- Release v0.2.7
+- Added `run --plan` (table + JSON) and monitor discovery helpers (`list-monitors`, `lint-summary`).
+- Added Prometheus last-run metrics plus stricter config/summary validations.
+- Added tarball integrity metadata and release verification checks.
+- Expanded operator docs, FAQs, and monitoring matrix plus new test coverage.
+
+## 2026-02-25
+
 - Release v0.2.6
 - Added `run --only/--skip` targeting and `check --json` for automation.
 - Added JSON redaction controls (`LM_REDACT_JSON`) across core outputs.
