@@ -4196,7 +4196,7 @@ def derive_hosts(rows):
     return counts
 
 rows, meta = read_rows()
-if os.environ.get("LM_REDACT_LOGS","0") in ("1","true","TRUE","yes","YES") or redact_json:
+if os.environ.get("LM_REDACT_LOGS","0") in ("1","true","TRUE","yes","YES") or redact_json or redact_json_strict:
     rows = [redact_kv_map(r) for r in rows]
     if meta:
         meta = redact_kv_map(meta)
