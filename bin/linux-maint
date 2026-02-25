@@ -241,8 +241,6 @@ detect_tui_backend(){
 }
 
 tui_gum_banner(){
-  local title="${1:-Linux Maint ToolKit}"
-  local subtitle="${2:-Interactive menu}"
   local accent="#9ca3af"
   case "${TUI_ANIM_TICK:-0}" in
     1) accent="#60a5fa" ;;
@@ -250,23 +248,22 @@ tui_gum_banner(){
   esac
   local logo
   logo="$(cat <<'EOF'
-      .--.
-     |o_o |
-     |:_/ |
-    //   \ \
-   (|     | )
-  /'\_   _/`\
-  \___)=(___/
+.--.
+|o_o |
+|:_/ |
+//   \ \
+(|     | )
+/'\_   _/`\
+\___)=(___/
 
-  [ LINUX MAINT TOOLKIT ]
-  System Automation & Health Framework
+[ LINUX MAINT TOOLKIT ]
+System Automation & Health Framework
 EOF
 )"
   gum style --border thick --border-foreground "#3b82f6" --foreground "#f9fafb" \
     --padding "1 4" --margin "1 1" --align center --width 110 \
     "$(gum style --bold --foreground "#60a5fa" "$logo")" \
-    "$(gum style --foreground "#e5e7eb" "$title")" \
-    "$(gum style --foreground "$accent" "$subtitle")" >&2
+    "$(gum style --foreground "$accent" "")" >&2
 }
 
 tui_gum_hint(){
@@ -394,12 +391,12 @@ tui_menu_prompt(){
       items+=("${tag}: ${desc}")
     done
     if [[ "${TUI_MENU_STYLE:-full}" == "full" ]]; then
-      tui_gum_banner "Linux Maint ToolKit" "$prompt"
+      tui_gum_banner
     else
       tui_gum_header "Linux Maint ToolKit" "$prompt"
     fi
     tui_gum_hint "Use arrows + Enter. Esc to go back."
-    gum choose --header "Select an option" --height 16 --cursor "> " \
+    gum choose --header "" --height 16 --cursor "> " \
       --cursor-prefix "> " --selected-prefix "* " --unselected-prefix "  " \
       --show-help=false "${items[@]}"
   elif [[ "$TUI_BACKEND" == "dialog" ]]; then
@@ -542,7 +539,7 @@ tui_tail_logs(){
   fi
   if [[ "$TUI_BACKEND" == "gum" ]]; then
     clear
-    tui_gum_banner "Live log tail" "$log_file"
+    tui_gum_header "Linux Maint ToolKit" "Live log tail"
     tui_gum_hint "Press Ctrl+C to stop tail and return."
   else
     echo "Press Ctrl+C to stop tail and return."
@@ -557,7 +554,7 @@ tui_gum_dashboard(){
     local status_json
     status_json="$(NO_COLOR=1 "$0" status --json --problems 8 --reasons 6 2>/dev/null || true)"
     clear
-    tui_gum_banner "Linux Maint ToolKit" "Dashboard (auto-refresh)"
+    tui_gum_header "Linux Maint ToolKit" "Dashboard (auto-refresh)"
     tui_gum_status_overview
 
     local problems_csv reasons_csv
