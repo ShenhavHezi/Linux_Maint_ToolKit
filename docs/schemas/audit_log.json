@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint audit-log --json",
+  "type": "object",
+  "required": ["audit_contract_version", "file", "events"],
+  "properties": {
+    "audit_contract_version": { "type": "integer" },
+    "file": { "type": "string" },
+    "events": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true }
+    }
+  },
+  "additionalProperties": true
+}

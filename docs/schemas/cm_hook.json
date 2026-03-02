@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint cm-hook --json",
+  "type": "object",
+  "required": ["cm_hook_contract_version", "provider", "target", "dry_run", "executed", "rc", "cmd"],
+  "properties": {
+    "cm_hook_contract_version": { "type": "integer" },
+    "provider": { "type": "string", "enum": ["ansible", "puppet", "salt"] },
+    "target": { "type": "string" },
+    "dry_run": { "type": "boolean" },
+    "executed": { "type": "boolean" },
+    "rc": { "type": "integer" },
+    "cmd": { "type": "string" }
+  },
+  "additionalProperties": true
+}

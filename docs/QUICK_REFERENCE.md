@@ -60,6 +60,11 @@ sudo linux-maint run --strategy quorum --quorum-percent 80
 sudo linux-maint run --drain-file /etc/linux_maint/hosts_drain.txt --plan
 # Resume a previous interrupted run (explicit id or latest from history)
 sudo linux-maint run --resume latest
+# Optional monitor privilege policy (in cfg dir)
+cat >/etc/linux_maint/monitor_privilege_policy.conf <<'EOF'
+health_monitor=requires_root
+service_monitor=no_sudo
+EOF
 
 # Interactive TUI menu (uses gum if installed, else dialog/whiptail)
 sudo linux-maint menu
@@ -127,14 +132,41 @@ linux-maint gate --policy policy.conf --json
 
 # Plugin baseline
 linux-maint plugin list
+linux-maint plugin search --index plugins/index.json --strict
+linux-maint plugin lint-index --index plugins/index.json --strict
+linux-maint plugin verify-index --index plugins/index.json --strict
+LM_PLUGIN_REQUIRE_ATTEST=1 linux-maint plugin verify-index --index plugins/index.json --strict
+LM_PLUGIN_TRUST_POLICY_FILE=/etc/linux_maint/plugin_trust_policy.json linux-maint plugin verify-index --index plugins/index.json --strict
+LM_PLUGIN_REQUIRE_TRUST_POLICY=1 LM_PLUGIN_TRUST_POLICY_FILE=/etc/linux_maint/plugin_trust_policy.json linux-maint plugin verify-index --index plugins/index.json --strict
+LM_PLUGIN_REQUIRE_ATTEST=1 LM_PLUGIN_REQUIRE_TRUST_POLICY=1 LM_PLUGIN_TRUST_POLICY_FILE=/etc/linux_maint/plugin_trust_policy.json linux-maint plugin provenance-report --index plugins/index.json --json --strict
+LM_PLUGIN_REQUIRE_ATTEST=1 LM_PLUGIN_REQUIRE_TRUST_POLICY=1 LM_PLUGIN_TRUST_POLICY_FILE=/etc/linux_maint/plugin_trust_policy.json linux-maint plugin provenance-report --index plugins/index.json --out ./plugin_provenance_report.json --strict
 linux-maint plugin init my_plugin --out .
 linux-maint plugin install ./my-plugin
+linux-maint plugin update my-plugin --source ./my-plugin
 linux-maint plugin verify my-plugin
+LM_PLUGIN_TRUST_POLICY_FILE=/etc/linux_maint/plugin_trust_policy.json linux-maint plugin verify my-plugin
 linux-maint plugin remove my-plugin
+
+# Audit stream integrity
+linux-maint audit-log --last 20
+linux-maint audit-log --verify
+linux-maint audit-log --verify --json
 
 # Notification test helpers
 linux-maint notify --provider webhook --url https://example.invalid/hook --message "test" --dry-run
 linux-maint notify --provider email --to ops@example.com --subject "linux-maint" --message "test" --dry-run
+linux-maint notify --provider pagerduty --routing-key <ROUTING_KEY> --severity warning --message "test" --dry-run
+
+# Ticketing adapters (dry-run)
+linux-maint ticket --provider jira --url https://example.invalid/jira --title "Host unhealthy" --body "See linux-maint report" --project OPS --issue-type Task --dry-run
+linux-maint ticket --provider servicenow --url https://example.invalid/snow --title "Host unhealthy" --body "See linux-maint report" --dry-run
+# Config management hooks (dry-run)
+linux-maint cm-hook --provider ansible --target web1,web2 --module ping --dry-run
+linux-maint cm-hook --provider puppet --dry-run
+linux-maint cm-hook --provider salt --target minion1 --args test.ping --dry-run
+# Audit stream
+linux-maint audit-log --last 50
+linux-maint audit-log --json --last 200
 
 # Advanced optional modules (disabled by default; opt-in command usage)
 linux-maint serve --host 127.0.0.1 --port 9910
@@ -173,6 +205,8 @@ sudo linux-maint trend --last 10
 sudo linux-maint trend --last 10 --json
 sudo linux-maint trend --last 10 --csv
 sudo linux-maint trend --since 2026-02-01 --until 2026-02-24
+# Trend anomaly detection (z-score over recent baseline window)
+sudo linux-maint trend --last 20 --anomaly --anomaly-window 7 --anomaly-z 2.0
 
 # Monitor runtimes from wrapper logs
 sudo linux-maint runtimes
@@ -180,6 +214,9 @@ sudo linux-maint runtimes --last 3 --json
 
 # Export a unified JSON payload
 sudo linux-maint export --json
+
+# Export newline-delimited JSON rows (JSONL)
+sudo linux-maint export --jsonl
 
 # Export JSON with redaction
 LM_REDACT_JSON=1 sudo linux-maint export --json

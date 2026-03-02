@@ -1,0 +1,14 @@
+{
+  "sha256": {
+    "trusted_digests": [],
+    "revoked_digests": []
+  },
+  "gpg": {
+    "trusted_fingerprints": [],
+    "revoked_fingerprints": []
+  },
+  "cosign": {
+    "trusted_key_sha256": [],
+    "revoked_key_sha256": []
+  }
+}

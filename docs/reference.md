@@ -497,6 +497,8 @@ Prerequisites (any one):
   - `--respect-maintenance`: skip run outside configured maintenance window file (`maintenance_windows.conf`).
   - `--allow-concurrent`: allow overlapping runs (skip lock).
   - `--lock-timeout N`: wait up to `N` seconds for the run lock (default 60).
+  - Optional monitor privilege policy file: `${LM_MONITOR_PRIV_POLICY_FILE:-<cfg_dir>/monitor_privilege_policy.conf}`.
+    - Format: `monitor=requires_root|allow_sudo|no_sudo`.
 
 - `linux-maint menu`: interactive TUI menu for common actions (requires gum/dialog/whiptail).
 
@@ -723,6 +725,9 @@ Example (`doctor --json`):
   - `--since`/`--until` accept `YYYY-MM-DD` or `YYYY-MM-DD_HHMMSS` (local time).
   - `--csv` emits a stable CSV table for imports.
   - `--redact` applies best-effort redaction to human output only (not JSON/CSV).
+  - `--anomaly` enables z-score anomaly detection on latest run totals vs previous baseline window.
+  - `--anomaly-z N` sets anomaly z-score threshold (default `2.0`).
+  - `--anomaly-window N` sets baseline run window size (default `5`, minimum `2`).
   - Optional cache: `LM_TREND_CACHE=1` and `LM_TREND_CACHE_TTL=60` to reuse recent computations.
 
 Example (`trend --json`):
@@ -747,6 +752,7 @@ Schema:
 - `docs/schemas/trend.json` — JSON schema for `linux-maint trend --json`.
 
 - `linux-maint export --json` *(root required)*: export a single JSON payload containing summary_result/summary_hosts plus raw `monitor=` rows (best for external ingestion).
+- `linux-maint export --jsonl` *(root required)*: export newline-delimited JSON monitor rows (best for stream ingestion pipelines).
 - `linux-maint export --csv` *(root required)*: export `monitor,host,status,reason` rows as CSV (easy to import).
 - `linux-maint self-check [--json] [--strict]`: quick validation for config/paths/deps (safe in repo mode).
   - `--strict`: return non-zero when required config/deps/path checks fail.
@@ -766,16 +772,50 @@ Schema:
 
 - `linux-maint plugin <subcommand>`:
   - `list [--json]`: show installed plugins from local registry.
-  - `search [--index FILE] [--json]`: list candidate plugins from a local index file.
+  - `search [--index FILE] [--json] [--strict]`: list candidate plugins from a local index file and optionally enforce index schema validity.
+  - `lint-index [--index FILE] [--json] [--strict]`: validate plugin marketplace index metadata.
+  - `verify-index [--index FILE] [--json] [--strict]`: verify marketplace index attestation metadata/signature (sha256/gpg/cosign).
+  - `provenance-report [--index FILE] [--out FILE] [--json] [--strict]`: produce consolidated plugin provenance report (index attestation + policy context + installed plugin verify outcomes).
   - `init <name> [--out DIR]`: create a plugin scaffold (manifest + README).
   - `install <source_dir> [--name NAME] [--force]`: install plugin directory into plugin root and register it.
-  - `verify <name> [--json]`: verify plugin directory/manifest/registry entry.
+  - `update <name> [--source DIR] [--index FILE] [--force]`: refresh an installed plugin from explicit source, registry source, or index source.
+  - `verify <name> [--json]`: verify plugin directory/manifest/registry entry plus trust/compatibility/signature checks.
+    - supports SHA-256 verification when plugin manifest includes:
+      - `signature.type=sha256`
+      - `signature.target=<relative file path>` (optional; default `plugin.json`)
+      - `signature.value=<sha256 hex>`
+    - also supports:
+      - `signature.type=gpg` with signature file (optional `signature.file`, default `<target>.asc`)
+      - `signature.type=cosign` with signature file (optional `signature.file`, default `<target>.sig`) and `signature.key`
+    - trust policy checks apply to signature verification when `LM_PLUGIN_TRUST_POLICY_FILE` is configured (including revoked lists)
+  - strict index attestation policy:
+    - top-level index `attestation` supports `sha256`, `gpg`, and `cosign`
+    - `LM_PLUGIN_REQUIRE_ATTEST=1` requires attestation presence in strict flows
+    - `LM_PLUGIN_TRUST_POLICY_FILE=/etc/linux_maint/plugin_trust_policy.json` applies trusted/revoked signer policy in strict flows
+    - `LM_PLUGIN_REQUIRE_TRUST_POLICY=1` fails strict flows when trust policy file is missing
   - `remove <name>`: uninstall plugin and remove registry entry.
 
 - `linux-maint notify --provider ...`:
-  - providers: `webhook`, `slack`, `teams`, `email`.
+  - providers: `webhook`, `slack`, `teams`, `email`, `pagerduty`.
   - use `--dry-run` to validate payload/arguments without sending.
   - intended as integration smoke test before wiring automation hooks.
+
+- `linux-maint ticket --provider ... [--json]`:
+  - providers: `jira`, `servicenow`.
+  - requires `--url`, `--title`, `--body`.
+  - use `--dry-run` to validate payload/arguments before connecting real endpoints.
+  - `--json` emits a stable machine-readable contract.
+
+- `linux-maint cm-hook --provider ... [--json]`:
+  - providers: `ansible`, `puppet`, `salt`.
+  - supports `--dry-run` to render target command without executing.
+  - `--json` emits command/render/rc fields for automation.
+  - intended as adapter baseline for config-management orchestration.
+
+- `linux-maint audit-log [--last N] [--json] [--verify]`:
+  - reads append-only audit events for critical actions (`run`, `doctor --fix`, `pack-logs`, plugin install/update/remove).
+  - `--verify` validates chained `prev_hash`/`chain_hash` integrity and exits non-zero on tamper/parse failures.
+  - override path with `LM_AUDIT_LOG`.
 
 - `linux-maint serve [--host H] [--port N]`:
   - starts a local HTTP service exposing `GET /health`, `/status`, `/report`, `/metrics`, `/history`.
@@ -797,13 +837,15 @@ Schema:
 - `linux-maint ai-assist [--json]`:
   - local heuristic hints from recent status artifacts (`reason_rollup` + `overall`).
   - no external model/API calls; local-first behavior.
+  - includes a confidence block to indicate heuristic strength.
 
 - `linux-maint predict [--last N] [--json]`:
   - computes a simple risk score from recent history totals.
+  - emits confidence level + recommended action (`observe`, `schedule_investigation`, `open_incident`).
   - intended as directional signal, not deterministic failure prediction.
 
 Export allowlist:
-- `LM_EXPORT_ALLOWLIST=monitor,host,status,reason,...` filters **row keys** in `export --json` output (core identity fields are always included).
+- `LM_EXPORT_ALLOWLIST=monitor,host,status,reason,...` filters **row keys** in `export --json` and `export --jsonl` output (core identity fields are always included).
 
 ### Advanced optional module boundaries (P4)
 
@@ -827,6 +869,12 @@ Risk boundaries:
 
 Schema:
 - `docs/schemas/export.json` — JSON schema for `linux-maint export --json`.
+- `docs/schemas/export_jsonl_row.json` — JSON schema for each line emitted by `linux-maint export --jsonl`.
+- `docs/schemas/ticket.json` — JSON schema for `linux-maint ticket --json`.
+- `docs/schemas/cm_hook.json` — JSON schema for `linux-maint cm-hook --json`.
+- `docs/schemas/audit_log.json` — JSON schema for `linux-maint audit-log --json`.
+- `docs/schemas/plugin_verify_index.json` — JSON schema for `linux-maint plugin verify-index --json`.
+- `docs/schemas/plugin_verify.json` — JSON schema for `linux-maint plugin verify <name> --json`.
 
 Example (`export --json`):
 
@@ -864,11 +912,14 @@ Example (`export --json`):
 ### Environment
 
 - `LM_REDACT_LOGS=1` — redact common secret patterns from logs and summary lines (best-effort). When enabled, values like `password=...`, `token=...`, and JWT-like blobs are replaced with `REDACTED` in emitted log/summary lines.
-- `LM_REDACT_LOGS=1` also redacts values in `linux-maint export --json` output.
+- `LM_REDACT_LOGS=1` also redacts values in `linux-maint export --json` and `linux-maint export --jsonl` output.
 - `LM_REDACT_LOGS=1` also redacts log content inside `linux-maint pack-logs` bundles.
 - `LM_REDACT_JSON=1` — redact common secret patterns in JSON outputs (status/report/trend/export/metrics).
 - `LM_REDACT_JSON_STRICT=1` — redact all string values in JSON outputs (full scrub).
-- `LM_EXPORT_ALLOWLIST=monitor,host,status,reason,...` — restrict keys emitted for each row in `linux-maint export --json`.
+- `LM_EXPORT_ALLOWLIST=monitor,host,status,reason,...` — restrict keys emitted for each row in `linux-maint export --json` and `linux-maint export --jsonl`.
+- `LM_PLUGIN_TRUST_POLICY_FILE=/etc/linux_maint/plugin_trust_policy.json` — trust policy for plugin index attestation signer/digest checks in strict plugin index flows.
+- `LM_PLUGIN_REQUIRE_TRUST_POLICY=1` — require trust policy presence for strict plugin index verification/search/lint.
+- `LM_PLUGIN_REQUIRE_ATTEST=1` — require attestation block presence for strict plugin index verification/search/lint.
 - `LM_PACK_LOGS_HASH=1` — include `meta/bundle_hashes.txt` (SHA256 per file) in pack-logs bundles.
 - `LM_PACK_LOGS_GPG=1` — encrypt pack-logs bundle with GPG (requires `LM_PACK_LOGS_GPG_RECIPIENT`).
 - `LM_PACK_LOGS_GPG_RECIPIENT=<email|keyid>` — GPG recipient for encrypted bundles.

@@ -153,3 +153,34 @@ sudo ./bin/linux-maint status
 - Offline/dark‑site guide: `docs/DARK_SITE.md`
 - Upgrade and rollback: `docs/UPGRADE.md`
 - Reasons quick reference (top 10): `docs/REASONS.md#top-10-reasons-quick-reference`
+
+## 13) CI deploy gate (block on health regression)
+
+Create `policy.conf`:
+
+```bash
+max_crit=0
+max_warn=5
+max_unknown=10
+max_skip=200
+require_overall=
+```
+
+Pipeline sequence:
+
+```bash
+sudo linux-maint run
+linux-maint gate --policy policy.conf
+```
+
+If the gate fails (`exit 2`), block deployment and attach:
+
+```bash
+linux-maint gate --policy policy.conf --json
+sudo linux-maint report --short
+sudo linux-maint pack-logs --out /tmp
+```
+
+Recommended CI behavior:
+- gate pass (`0`): continue deploy stage.
+- gate fail (`2`): mark pipeline failed and open ticket/incident with report + bundle.

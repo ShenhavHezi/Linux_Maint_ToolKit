@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint ticket --json",
+  "type": "object",
+  "required": ["ticket_contract_version", "provider", "url", "dry_run", "submitted"],
+  "properties": {
+    "ticket_contract_version": { "type": "integer" },
+    "provider": { "type": "string", "enum": ["jira", "servicenow"] },
+    "url": { "type": "string" },
+    "dry_run": { "type": "boolean" },
+    "submitted": { "type": "boolean" },
+    "payload": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": true
+}

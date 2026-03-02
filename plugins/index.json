@@ -4,7 +4,15 @@
       "name": "minimal_example",
       "version": "0.1.0",
       "description": "Minimal plugin example",
-      "source": "plugins/examples/minimal"
+      "source": "plugins/examples/minimal",
+      "trust": "community",
+      "compatibility": {
+        "min_cli_version": "0.3.0"
+      },
+      "signature": {
+        "type": "none",
+        "value": ""
+      }
     }
   ]
 }

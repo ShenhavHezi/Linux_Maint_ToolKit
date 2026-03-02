@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint export --jsonl row",
+  "type": "object",
+  "required": ["monitor", "host", "status"],
+  "properties": {
+    "monitor": { "type": "string" },
+    "host": { "type": "string" },
+    "status": { "type": "string" },
+    "reason": { "type": "string" }
+  },
+  "additionalProperties": true
+}

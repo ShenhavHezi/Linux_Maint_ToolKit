@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint plugin verify-index --json",
+  "type": "object",
+  "required": ["plugin_contract_version", "index", "strict", "ok", "attestation", "errors"],
+  "properties": {
+    "plugin_contract_version": { "type": "integer" },
+    "index": { "type": "string" },
+    "strict": { "type": "boolean" },
+    "ok": { "type": "boolean" },
+    "attestation": { "type": "object", "additionalProperties": true },
+    "require_attestation": { "type": "boolean" },
+    "trust_policy_file": { "type": ["string", "null"] },
+    "require_trust_policy": { "type": "boolean" },
+    "trust_policy_applied": { "type": "boolean" },
+    "errors": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": true
+}

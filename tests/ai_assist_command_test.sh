@@ -11,6 +11,10 @@ assert obj["ai_assist_contract_version"] == 1
 assert isinstance(obj.get("hints"), list)
 assert len(obj["hints"]) >= 1
 assert "overall" in obj
+conf = obj.get("confidence") or {}
+assert conf.get("level") in ("low", "medium", "high")
+assert conf.get("basis") == "reason_rollup_size"
+assert "risk_note" in obj
 PY
 
 echo "ai-assist command ok"

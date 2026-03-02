@@ -9,11 +9,14 @@ Last updated: 2026-03-02
 
 ## Current session checkpoint
 - Completed this session:
-  - P4 command baseline: `serve`, `agent`, `policy`, `federate`, `ai-assist`, `predict`.
-  - Added tests for above commands and wired into smoke.
-  - Added docs for advanced optional modules and risk boundaries.
+  - P2 analytics export depth: `export --jsonl` + schema/tests.
+  - P3 integration contracts: JSON outputs + schemas/tests for `ticket`, `cm-hook`, `audit-log`.
+  - P3 hardening: index attestation verification (`plugin verify-index`) with `sha256|gpg|cosign`.
+  - P1 audit hardening: `audit-log --verify` tamper detection + tests.
+  - P3 trust lifecycle baseline: trust policy enforcement (`LM_PLUGIN_TRUST_POLICY_FILE`, `LM_PLUGIN_REQUIRE_TRUST_POLICY`) for index and plugin verification.
+  - P3 provenance reporting: `plugin provenance-report` with strict gating and artifact output.
 - Resume-from-next-session:
-  - Finish remaining `PARTIAL` and `NEXT` items below in order: P3 hardening -> P2 analytics depth -> P1 security hardening gaps.
+  - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 
 ## P0 - Reliability and safety foundation
 - `DONE` Strict command contract coverage baseline for key CLI outputs.
@@ -44,8 +47,13 @@ Last updated: 2026-03-02
   - Some release verification tooling exists; full signing workflow hardening remains.
 - `PARTIAL` Secrets policy engine.
   - Redaction exists; dedicated denylist+entropy+context policy engine not fully implemented.
-- `NEXT` Per-monitor privilege policy (`requires_root`, `allow_sudo`, `no_sudo`).
-- `NEXT` Immutable audit log stream for critical actions.
+- `PARTIAL` Per-monitor privilege policy (`requires_root`, `allow_sudo`, `no_sudo`).
+  - Baseline enforcement in `linux-maint run` via `monitor_privilege_policy.conf`.
+  - Missing: immutable/audited policy decisions in run artifacts and remote host privilege telemetry.
+- `PARTIAL` Immutable audit log stream for critical actions.
+  - Baseline append-only audit stream added (`linux-maint audit-log`), with chained hashes and events for `run`, `doctor --fix`, `pack-logs`, plugin install/update/remove.
+  - Added tamper verification command: `linux-maint audit-log --verify` (validates chain integrity).
+  - Missing: write-once filesystem controls and external attestation export.
 - `NEXT` Optional FIPS-friendly crypto mode checks.
 - `DONE` Security posture report command.
   - Proof: `linux-maint security-profile`, `tests/security_profile_command_test.sh`.
@@ -61,21 +69,31 @@ Last updated: 2026-03-02
 ## P2 - Data and analytics
 - `DONE` Run history SQLite prototype (`history --sqlite`).
   - Proof: `tests/history_sqlite_test.sh`.
-- `NEXT` Trend anomaly detection (z-score / rolling baseline).
+- `DONE` Trend anomaly detection (z-score / rolling baseline) baseline.
+  - Proof: `linux-maint trend --anomaly --anomaly-window N --anomaly-z N`, `tests/trend_anomaly_test.sh`.
 - `PARTIAL` Diff intelligence/root-cause hints.
 - `DONE` Runtime profiling and slow-monitor warning baseline.
 - `PARTIAL` Export pipeline depth.
-  - JSON and CSV exist; JSONL and richer OpenMetrics histograms still pending.
-- `NEXT` 100k+ record performance validation for `history`/`trend`.
+  - JSON/JSONL/CSV exports are implemented with tests.
+  - Missing: richer OpenMetrics histogram buckets/percentiles.
+- `DONE` 100k+ record performance validation baseline for `history`/`trend`.
+  - Proof: `tests/history_large_index_perf_test.sh`, `tests/trend_large_fixture_perf_test.sh`.
+  - Note: this is a fixture-level baseline, not a full multi-node production load benchmark.
 
 ## P3 - Plugin and extension ecosystem
 - `DONE` Plugin SDK baseline docs and examples.
   - Proof: `docs/PLUGIN_SDK.md`, `plugins/`.
 - `PARTIAL` Marketplace index format.
-  - Local index format exists; signing/trust-level compatibility validation is incomplete.
+  - Local index format now has trust/compatibility/signature metadata checks via `plugin search --strict` / `plugin lint-index --strict`.
+  - Added cryptographic index attestation verification via `plugin verify-index` (`sha256|gpg|cosign`) and strict enforcement hooks.
+  - Added trust policy lifecycle baseline (`LM_PLUGIN_TRUST_POLICY_FILE`, revoked/trusted lists, required-policy enforcement).
+  - Added consolidated provenance artifact command: `plugin provenance-report` (index attestation + policy context + plugin verify outcomes).
+  - Missing: managed remote keyring distribution/provenance service integration.
 - `PARTIAL` Plugin lifecycle commands.
-  - Implemented: `search/install/remove/list/verify/init`.
-  - Missing: robust `update` workflow and full trust verification.
+  - Implemented: `search/lint-index/install/update/remove/list/verify/init`.
+  - Added baseline cryptographic checks: `plugin verify` validates `signature.type=sha256|gpg|cosign`.
+  - Added trust-policy enforcement hooks for `plugin verify` and index attestation validation.
+  - Missing: remote source update adapters and managed provenance service integration.
 - `PARTIAL` Monitor scaffolding generator.
   - Plugin scaffold exists; full monitor scaffold with test/doc templates still pending.
 - `NEXT` Plugin sandbox mode (resource/syscall/network restrictions).
@@ -83,15 +101,20 @@ Last updated: 2026-03-02
 
 ## P3 - Integrations and automation
 - `PARTIAL` Notification providers.
-  - Implemented baseline: webhook/slack/teams/email test sender.
-  - Missing: PagerDuty and production-grade provider adapters/config validation.
-- `NEXT` Ticketing integrations (Jira, ServiceNow).
-- `NEXT` Config management hooks (Ansible, Puppet, Salt).
+  - Implemented baseline: webhook/slack/teams/email/pagerduty test sender.
+  - Missing: production-grade provider adapters/config validation and incident routing templates.
+- `PARTIAL` Ticketing integrations (Jira, ServiceNow).
+  - Baseline adapters implemented via `linux-maint ticket --provider jira|servicenow` (`--dry-run` friendly).
+  - Missing: auth flows, field mapping templates, retries/backoff, and production policy integration.
+- `PARTIAL` Config management hooks (Ansible, Puppet, Salt).
+  - Baseline command added: `linux-maint cm-hook --provider ansible|puppet|salt` (with `--dry-run`).
+  - Missing: authenticated remote execution profiles, result ingestion, and policy-driven retries.
 - `DONE` CI quality gate command.
   - Proof: `linux-maint gate --policy`, `tests/gate_command_test.sh`.
 - `DONE` REST API service mode baseline.
   - Proof: `linux-maint serve`, `tests/serve_command_test.sh`.
-- `NEXT` Pipeline deployment-block acceptance flow documented end-to-end.
+- `DONE` Pipeline deployment-block acceptance flow documented end-to-end.
+  - Proof: `docs/OPERATIONS.md` section "CI deploy gate (block on health regression)".
 
 ## P4 - Advanced capabilities
 - `DONE` Optional lightweight agent baseline.
@@ -105,12 +128,16 @@ Last updated: 2026-03-02
 - `DONE` Predictive score baseline (`predict`).
   - Proof: `tests/predict_command_test.sh`.
 - `PARTIAL` Advanced acceptance closure:
-  - modules are optional and docs include risk boundaries,
-  - but model depth/accuracy and production hardening are still pending.
+  - modules are optional and docs include risk boundaries.
+  - confidence outputs added to `ai-assist` and `predict`.
+  - remaining gaps: calibration quality, feedback loops, and production hardening.
 
 ## Cross-cutting quality bar
 - `PARTIAL` CLI help/docs updates are consistently done for most new features.
 - `PARTIAL` JSON schema coverage is incomplete for some newly added commands.
+  - Added schema coverage for `export --jsonl` rows and `ticket/cm-hook/audit-log` JSON contracts.
+  - Added schema coverage for `plugin verify-index --json` and `plugin verify --json`.
+  - Remaining: extend schemas to all advanced optional command JSON outputs.
 - `PARTIAL` cancellation-path tests are not present for every new feature.
 - `NEXT` Release-note entry automation for each merged feature batch.
 - `NEXT` Security review checklist updates for every auth/exec/secrets-touching change.
@@ -120,9 +147,8 @@ Last updated: 2026-03-02
   - flaky test detector/quarantine workflow.
 
 ## Next implementation queue (strict order)
-1. P3 hardening: plugin `update`, plugin trust/signature validation, marketplace schema hardening.
-2. P3 integrations: PagerDuty adapter, then Jira/ServiceNow minimal adapters.
-3. P2 analytics: anomaly detection + history/trend performance fixtures.
-4. P1 security: per-monitor privilege policy + immutable audit log stream.
-5. P4 depth: improve predict/ai-assist quality and confidence outputs.
-
+1. P1 security: promote audit stream to WORM-capable storage/export attestation workflow.
+2. P1 security: enrich per-monitor privilege telemetry in run artifacts and reports.
+3. P2 UX: interactive remediator queue (host-by-host confirm/deny with safe defaults).
+4. P4 depth: calibration/feedback loop for `ai-assist` and `predict` confidence outputs.
+5. P3 hardening (final): managed remote keyring distribution + signed provenance service integration.

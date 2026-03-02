@@ -1,5 +1,13 @@
 {
   "name": "minimal_example",
   "version": "0.1.0",
-  "description": "Example plugin manifest for linux-maint plugin install"
+  "description": "Example plugin manifest for linux-maint plugin install",
+  "trust": "community",
+  "compatibility": {
+    "min_cli_version": "0.3.0"
+  },
+  "signature": {
+    "type": "none",
+    "value": ""
+  }
 }

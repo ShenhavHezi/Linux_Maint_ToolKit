@@ -4,7 +4,12 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## Unreleased
 
-- (add changes here)
+- Release v0.3.2
+- Added plugin marketplace attestation verification (`plugin verify-index`) with `sha256|gpg|cosign`.
+- Added trust-policy lifecycle enforcement for index/plugin verification (`LM_PLUGIN_TRUST_POLICY_FILE`, revoked/trusted lists, required-policy gate).
+- Added plugin provenance compliance artifact command (`plugin provenance-report`).
+- Added audit hash-chain tamper verification (`audit-log --verify`).
+- Added `export --jsonl` plus expanded JSON contract/schema coverage for integrations.
 
 ## 2026-03-02
 

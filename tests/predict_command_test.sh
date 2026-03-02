@@ -11,6 +11,8 @@ assert obj["predict_contract_version"] == 1
 assert "runs_considered" in obj
 assert "risk_score" in obj
 assert obj.get("risk_level") in ("low", "medium", "high")
+assert obj.get("confidence_level") in ("low", "medium", "high")
+assert obj.get("recommended_action") in ("observe", "schedule_investigation", "open_incident")
 tot = obj.get("totals") or {}
 assert "crit" in tot and "warn" in tot and "unknown" in tot
 PY

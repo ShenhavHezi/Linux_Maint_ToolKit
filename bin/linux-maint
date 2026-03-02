@@ -1038,6 +1038,7 @@ tui_gum_dashboard(){
     local problems_csv reasons_csv
     problems_csv="$(STATUS_JSON="$status_json" python3 - <<'PY'
 import json, os, sys
+from collections import deque
 raw = os.environ.get("STATUS_JSON", "")
 if not raw:
     sys.exit(0)
@@ -2369,11 +2370,86 @@ raise SystemExit(0 if inside else 2)
 PY
 }
 
+resolve_run_monitors_text(){
+  local local_monitors=""
+  if [[ -n "${LM_MONITORS:-}" ]]; then
+    read -r -a _lm_list <<< "${LM_MONITORS}"
+    local_monitors="$(printf '%s\n' "${_lm_list[@]}")"
+  else
+    local_monitors="$(get_default_monitors 2>/dev/null || true)"
+    if [[ -z "$local_monitors" ]]; then
+      local_monitors="$(available_monitors 2>/dev/null || true)"
+    fi
+  fi
+  printf '%s\n' "$local_monitors" | sed '/^$/d'
+}
+
+enforce_monitor_privilege_policy(){
+  local monitors_text="$1"
+  local cfg_dir="$2"
+  local policy_file="${LM_MONITOR_PRIV_POLICY_FILE:-$cfg_dir/monitor_privilege_policy.conf}"
+  [[ -f "$policy_file" ]] || return 0
+  MONITORS_TEXT="$monitors_text" POLICY_FILE="$policy_file" python3 - <<'PY'
+import json, os, re, sys
+
+policy_file = os.environ.get("POLICY_FILE", "")
+monitors = [m.strip() for m in os.environ.get("MONITORS_TEXT", "").splitlines() if m.strip()]
+
+policy = {}
+errors = []
+allowed = {"requires_root", "allow_sudo", "no_sudo"}
+try:
+    with open(policy_file, "r", encoding="utf-8", errors="ignore") as f:
+        for ln, raw in enumerate(f, start=1):
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                errors.append(f"{policy_file}:{ln}: missing '='")
+                continue
+            k, v = line.split("=", 1)
+            key = k.strip()
+            key = key[:-3] if key.endswith(".sh") else key
+            mode = v.strip()
+            if mode not in allowed:
+                errors.append(f"{policy_file}:{ln}: invalid mode '{mode}' for monitor '{key}'")
+                continue
+            policy[key] = mode
+except FileNotFoundError:
+    raise SystemExit(0)
+
+if errors:
+    for e in errors:
+        print(f"ERROR: {e}", file=sys.stderr)
+    raise SystemExit(2)
+
+is_root = (os.geteuid() == 0)
+violations = []
+for m in monitors:
+    key = m[:-3] if m.endswith(".sh") else m
+    mode = policy.get(key)
+    if not mode:
+        continue
+    if mode == "requires_root" and not is_root:
+        violations.append(f"{key}: requires_root but current user is non-root")
+    elif mode == "no_sudo" and is_root:
+        violations.append(f"{key}: no_sudo but current user is root")
+
+if violations:
+    print(f"ERROR: monitor privilege policy violations ({policy_file}):", file=sys.stderr)
+    for v in violations:
+        print(f"- {v}", file=sys.stderr)
+    raise SystemExit(2)
+PY
+}
+
 plugin_root_dir(){
-  if [[ "$MODE" == "repo" ]]; then
+  if [[ -n "${LM_PLUGIN_DIR:-}" ]]; then
+    printf '%s' "$LM_PLUGIN_DIR"
+  elif [[ "$MODE" == "repo" ]]; then
     printf '%s/plugins' "$REPO_ROOT"
   else
-    printf '%s' "${LM_PLUGIN_DIR:-/var/lib/linux_maint/plugins}"
+    printf '%s' "/var/lib/linux_maint/plugins"
   fi
 }
 
@@ -2381,6 +2457,82 @@ plugin_registry_file(){
   local root
   root="$(plugin_root_dir)"
   printf '%s/registry.json' "$root"
+}
+
+audit_log_path(){
+  if [[ -n "${LM_AUDIT_LOG:-}" ]]; then
+    printf '%s' "$LM_AUDIT_LOG"
+    return 0
+  fi
+  if [[ "$MODE" == "repo" ]]; then
+    local state_dir="${LM_STATE_DIR:-$REPO_LOG_DIR}"
+    printf '%s/audit.log' "$state_dir"
+  else
+    local state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
+    printf '%s/audit.log' "$state_dir"
+  fi
+}
+
+audit_log_append(){
+  local action="${1:-unknown}"
+  local status="${2:-info}"
+  shift 2 || true
+  local details="${*:-}"
+  case "${LM_AUDIT_DISABLE:-0}" in
+    1|true|TRUE|yes|YES|on|ON) return 0 ;;
+  esac
+  local file
+  file="$(audit_log_path)"
+  MODE="$MODE" ACTION="$action" STATUS="$status" DETAILS="$details" AUDIT_FILE="$file" python3 - <<'PY' >/dev/null 2>&1 || true
+import datetime, getpass, hashlib, json, os, socket
+
+mode = os.environ.get("MODE", "")
+action = os.environ.get("ACTION", "unknown")
+status = os.environ.get("STATUS", "info")
+details = os.environ.get("DETAILS", "")
+path = os.environ.get("AUDIT_FILE", "")
+if not path:
+    raise SystemExit(0)
+os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+
+prev_hash = ""
+if os.path.exists(path):
+    try:
+        with open(path, "rb") as f:
+            data = f.read().splitlines()
+        if data:
+            last = data[-1]
+            try:
+                obj = json.loads(last.decode("utf-8", "ignore"))
+                prev_hash = str(obj.get("chain_hash", "") or "")
+            except Exception:
+                prev_hash = hashlib.sha256(last).hexdigest()
+    except Exception:
+        prev_hash = ""
+
+evt = {
+    "ts_utc": datetime.datetime.utcnow().isoformat() + "Z",
+    "action": action,
+    "status": status,
+    "details": details,
+    "mode": mode,
+    "user": getpass.getuser(),
+    "uid": os.getuid(),
+    "euid": os.geteuid(),
+    "pid": os.getpid(),
+    "host": socket.gethostname(),
+    "cwd": os.getcwd(),
+}
+material = (prev_hash + "|" + json.dumps(evt, sort_keys=True, separators=(",", ":"))).encode("utf-8", "ignore")
+evt["prev_hash"] = prev_hash
+evt["chain_hash"] = hashlib.sha256(material).hexdigest()
+
+fd = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
+try:
+    os.write(fd, (json.dumps(evt, sort_keys=True) + "\n").encode("utf-8"))
+finally:
+    os.close(fd)
+PY
 }
 
 
@@ -2408,8 +2560,11 @@ ${C_CYAN}Common commands${C_RESET}:
   metrics --json|--prom  Snapshot status+trend+runtimes (JSON) or Prometheus text
   check [--json]         Run config_validate + preflight + show expected skips
   gate --policy FILE     Evaluate health policy thresholds for automation gates
-  plugin <subcommand>    Manage local plugins (list/install/verify/remove/search)
+  plugin <subcommand>    Manage local plugins (list/search/install/update/verify/remove)
   notify [flags]         Send test notifications (webhook/slack/teams/email)
+  ticket [flags]         Create Jira/ServiceNow ticket payloads (dry-run supported)
+  cm-hook [flags]        Trigger config-management hooks (ansible/puppet/salt)
+  audit-log [flags]      Show append-only audit events for critical actions
   serve [flags]          Local REST API (status/report/metrics/history)
   agent [flags]          Optional loop runner for scheduled checks
   policy <subcommand>    Policy-as-code helpers (init/lint/eval)
@@ -2420,7 +2575,7 @@ ${C_CYAN}Common commands${C_RESET}:
 ${C_CYAN}Analysis / reporting${C_RESET}:
   trend [flags]         Aggregate severity/reason trends
   runtimes [flags]      Show per-monitor runtimes
-  export --json|--csv   Export a single payload (summary_result/hosts + rows)
+  export --json|--csv|--jsonl   Export summary payload/rows for external ingestion
   history [flags]       Show recent runs (run index; faster than log scan)
   run-index [flags]     Inspect or prune the run index
   logs [n]              Tail latest wrapper log (default n=200)
@@ -2516,6 +2671,9 @@ Key flags:
   --resume RUN_ID      resume an interrupted run_id (or use 'latest')
   --allow-concurrent   allow overlapping runs (skip lock)
   --lock-timeout N     wait up to N seconds for run lock (default: 60)
+  # Optional privilege policy file:
+  #   ${LM_MONITOR_PRIV_POLICY_FILE:-<cfg_dir>/monitor_privilege_policy.conf}
+  #   lines: monitor=requires_root|allow_sudo|no_sudo
   --progress|--no-progress  progress bar control
 
 Examples:
@@ -2615,24 +2773,62 @@ Usage: linux-maint plugin <subcommand> [flags]
 
 Subcommands:
   list [--json]
-  search [--index FILE] [--json]
+  search [--index FILE] [--json] [--strict]
+  lint-index [--index FILE] [--json] [--strict]
+  verify-index [--index FILE] [--json] [--strict]
+  provenance-report [--index FILE] [--out FILE] [--json] [--strict]
   init <name> [--out DIR]
   install <source_dir> [--name NAME] [--force]
+  update <name> [--source DIR] [--index FILE] [--force]
   verify <name> [--json]
   remove <name>
 EOF
       ;;
     notify)
       cat <<'EOF'
-Usage: linux-maint notify --provider <webhook|slack|teams|email> [flags]
+Usage: linux-maint notify --provider <webhook|slack|teams|email|pagerduty> [flags]
 
 Flags:
   --provider P
   --url URL            required for webhook/slack/teams
   --to ADDR            required for email
+  --routing-key KEY    required for pagerduty
+  --severity S         pagerduty severity (critical|error|warning|info; default: warning)
+  --source TEXT        pagerduty source (default: linux-maint)
   --subject TEXT       optional (email default: linux-maint notification)
   --message TEXT       message body (default: linux-maint test notification)
   --dry-run            print payload only (no send)
+EOF
+      ;;
+    ticket)
+      cat <<'EOF'
+Usage: linux-maint ticket --provider <jira|servicenow> --url URL --title TEXT --body TEXT [flags]
+
+Flags:
+  --provider P
+  --url URL
+  --title TEXT
+  --body TEXT
+  --project KEY        required for jira (default: OPS)
+  --issue-type TYPE    jira issue type (default: Task)
+  --json               machine JSON output
+  --dry-run            print payload only (no send)
+EOF
+      ;;
+    audit-log)
+      echo "Usage: linux-maint audit-log [--last N] [--json] [--verify]";;
+    cm-hook)
+      cat <<'EOF'
+Usage: linux-maint cm-hook --provider <ansible|puppet|salt> [flags]
+
+Flags:
+  --provider P
+  --target HOSTS        comma-separated target hosts (default: localhost)
+  --playbook PATH       ansible playbook path (ansible only)
+  --module NAME         ansible module (default: ping)
+  --args TEXT           module/action args
+  --json                machine JSON output
+  --dry-run             print command only (no execution)
 EOF
       ;;
     serve)
@@ -2674,15 +2870,21 @@ EOF
       cat <<'EOF'
 Usage: linux-maint trend [--last N] [--since DATE] [--until DATE] [--json|--csv|--export csv|json] [--redact] [--output PATH]
 
+Anomaly options:
+  --anomaly                  enable anomaly detection against recent baseline
+  --anomaly-z N              z-score threshold (default: 2.0)
+  --anomaly-window N         baseline run window size (default: 5, min: 2)
+
 Examples:
   linux-maint trend --last 10
+  linux-maint trend --last 20 --anomaly --anomaly-window 7
   NO_COLOR=1 linux-maint trend --last 10 --json
 EOF
       ;;
     runtimes)
       echo "Usage: linux-maint runtimes [--last N] [--json]";;
     export)
-      echo "Usage: linux-maint export --json|--csv";;
+      echo "Usage: linux-maint export --json|--csv|--jsonl";;
     init)
       echo "Usage: linux-maint init [--minimal] [--force]";;
     tune)
@@ -2827,6 +3029,16 @@ case "$subcmd" in
       read -r -a _lm_list <<< "${LM_MONITORS}"
       validate_monitor_list "$(printf '%s\n' "${_lm_list[@]}")" || exit $?
     fi
+    cfg_dir="/etc/linux_maint"
+    if [[ "$MODE" == "repo" ]]; then
+      cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+    fi
+    local_monitors="$(resolve_run_monitors_text)"
+    if [[ -z "$local_monitors" ]]; then
+      echo "ERROR: no monitors resolved for run" >&2
+      exit 2
+    fi
+    enforce_monitor_privilege_policy "$local_monitors" "$cfg_dir"
     if [[ "${RUN_JSON:-0}" -eq 1 && "${PLAN_ONLY:-0}" -ne 1 ]]; then
       echo "ERROR: --json is only supported with --plan/--dry-run" >&2
       exit 2
@@ -2867,20 +3079,6 @@ case "$subcmd" in
       fi
 
       mapfile -t _hosts < <(resolve_run_hosts)
-      local_monitors=""
-      if [[ -n "${LM_MONITORS:-}" ]]; then
-        read -r -a _lm_list <<< "${LM_MONITORS}"
-        local_monitors="$(printf '%s\n' "${_lm_list[@]}")"
-      else
-        local_monitors="$(get_default_monitors 2>/dev/null || true)"
-        if [[ -z "$local_monitors" ]]; then
-          local_monitors="$(available_monitors 2>/dev/null || true)"
-        fi
-      fi
-      if [[ -z "$local_monitors" ]]; then
-        echo "ERROR: no monitors resolved for plan" >&2
-        exit 2
-      fi
 
       if [[ "${RUN_JSON:-0}" -eq 1 ]]; then
         printf '{'
@@ -2951,12 +3149,14 @@ case "$subcmd" in
     fi
 
     # Run wrapper (installed or repo mode) and print a short footer when interactive.
+    audit_log_append "run" "start" "wrapper=$wrapper local_only=${LM_LOCAL_ONLY:-false} group=${LM_GROUP:-} strategy=${LM_EXEC_STRATEGY:-fail-soft}"
     if [[ "$wrapper" == "$SBIN"/* ]]; then
       "$wrapper"
     else
       bash "$wrapper"
     fi
     rc=$?
+    audit_log_append "run" "$([[ "$rc" -eq 0 ]] && echo success || echo failure)" "rc=$rc wrapper=$wrapper"
     if [[ -t 1 ]]; then
       echo ""
       echo "Run complete (exit_code=$rc)"
@@ -4671,43 +4871,587 @@ PY
 
       search)
         PLUG_JSON=0
+        PLUG_STRICT=0
         idx_file="${LM_PLUGIN_INDEX:-$REPO_ROOT/plugins/index.json}"
         while [[ $# -gt 0 ]]; do
           case "$1" in
             --json) PLUG_JSON=1; shift 1;;
+            --strict) PLUG_STRICT=1; shift 1;;
             --index) idx_file="$2"; shift 2;;
             -h|--help) command_usage plugin; exit 0;;
             *) echo "Unknown plugin search flag: $1" >&2; exit 2;;
           esac
         done
-        python3 - "$idx_file" "$PLUG_JSON" <<'PY'
-import json, os, sys
-idx, json_mode = sys.argv[1:3]
+        python3 - "$idx_file" "$PLUG_JSON" "$PLUG_STRICT" <<'PY'
+import hashlib, json, os, re, shutil, subprocess, sys
+idx, json_mode, strict = sys.argv[1:4]
 json_mode = json_mode == "1"
+strict = strict == "1"
 plugins = []
+errors = []
+attestation = None
+policy = None
+policy_path = os.environ.get("LM_PLUGIN_TRUST_POLICY_FILE", "").strip()
+if not policy_path:
+    cfg_dir = os.environ.get("LM_CFG_DIR", "/etc/linux_maint")
+    policy_path = os.path.join(cfg_dir, "plugin_trust_policy.json")
+allowed_trust = {"official", "verified", "community", "experimental", "untrusted"}
 if os.path.exists(idx):
     try:
         with open(idx, "r", encoding="utf-8") as f:
             data = json.load(f)
         if isinstance(data, dict):
             plugins = data.get("plugins") or []
+            attestation = data.get("attestation")
         elif isinstance(data, list):
             plugins = data
     except Exception:
+        errors.append("invalid_json")
         plugins = []
+else:
+    errors.append("index_missing")
+
+if os.path.exists(policy_path):
+    try:
+        with open(policy_path, "r", encoding="utf-8") as f:
+            policy = json.load(f)
+        if not isinstance(policy, dict):
+            errors.append("trust_policy: must be object")
+            policy = {}
+    except Exception:
+        errors.append("trust_policy: invalid_json")
+        policy = {}
+else:
+    policy = {}
+
+def validate_entry(i, p):
+    if not isinstance(p, dict):
+        errors.append(f"plugins[{i}]: must be object")
+        return
+    name = str(p.get("name", "")).strip()
+    ver = str(p.get("version", "")).strip()
+    src = str(p.get("source", "")).strip()
+    if not name:
+        errors.append(f"plugins[{i}]: missing name")
+    elif not re.match(r"^[A-Za-z0-9._-]+$", name):
+        errors.append(f"plugins[{i}]: invalid name")
+    if not ver:
+        errors.append(f"plugins[{i}]: missing version")
+    if not src:
+        errors.append(f"plugins[{i}]: missing source")
+    trust = str(p.get("trust", "")).strip()
+    if trust and trust not in allowed_trust:
+        errors.append(f"plugins[{i}]: invalid trust '{trust}'")
+    comp = p.get("compatibility")
+    if comp is not None and not isinstance(comp, dict):
+        errors.append(f"plugins[{i}]: compatibility must be object")
+    sig = p.get("signature")
+    if sig is not None:
+        if not isinstance(sig, dict):
+            errors.append(f"plugins[{i}]: signature must be object")
+        else:
+            st = str(sig.get("type", "")).strip()
+            sv = str(sig.get("value", "")).strip()
+            tg = sig.get("target", None)
+            sf = sig.get("file", None)
+            sk = sig.get("key", None)
+            if st and st not in ("none", "sha256", "gpg", "cosign"):
+                errors.append(f"plugins[{i}]: unsupported signature.type '{st}'")
+            if st in ("sha256", "gpg", "cosign") and not sv:
+                errors.append(f"plugins[{i}]: signature.value required when signature.type is set")
+            if tg is not None and not isinstance(tg, str):
+                errors.append(f"plugins[{i}]: signature.target must be string when provided")
+            if sf is not None and not isinstance(sf, str):
+                errors.append(f"plugins[{i}]: signature.file must be string when provided")
+            if sk is not None and not isinstance(sk, str):
+                errors.append(f"plugins[{i}]: signature.key must be string when provided")
+
+for i, p in enumerate(plugins):
+    validate_entry(i, p)
+
+def verify_attestation(att, index_path):
+    out = {
+        "present": False,
+        "type": "",
+        "verified": False,
+        "issues": []
+    }
+    if att is None:
+        out["issues"].append("attestation_missing")
+        return out
+    out["present"] = True
+    if not isinstance(att, dict):
+        out["issues"].append("attestation must be object")
+        return out
+    st = str(att.get("type", "")).strip()
+    out["type"] = st
+    if st not in ("none", "sha256", "gpg", "cosign"):
+        out["issues"].append(f"unsupported attestation.type '{st}'")
+        return out
+    if st == "none":
+        out["verified"] = True
+        return out
+
+    index_dir = os.path.dirname(os.path.abspath(index_path))
+    target_rel = str(att.get("target", "plugins.json") or "plugins.json").strip()
+    target_path = os.path.join(index_dir, target_rel)
+    if not os.path.isfile(target_path):
+        out["issues"].append(f"attestation target not found: {target_rel}")
+        return out
+
+    if st == "sha256":
+        expected = str(att.get("value", "")).strip().lower()
+        if not expected:
+            out["issues"].append("attestation.value required for sha256")
+            return out
+        try:
+            h = hashlib.sha256()
+            with open(target_path, "rb") as f:
+                for chunk in iter(lambda: f.read(65536), b""):
+                    h.update(chunk)
+            actual = h.hexdigest().lower()
+            if actual != expected:
+                out["issues"].append(f"attestation sha256 mismatch: expected={expected} actual={actual}")
+                return out
+            out["verified"] = True
+            out["digest"] = actual
+            return out
+        except Exception as e:
+            out["issues"].append(f"attestation sha256 verification failed: {e}")
+            return out
+
+    sig_default = f"{target_rel}.asc" if st == "gpg" else f"{target_rel}.sig"
+    sig_rel = str(att.get("file", sig_default) or sig_default).strip()
+    sig_path = os.path.join(index_dir, sig_rel)
+    if not os.path.isfile(sig_path):
+        out["issues"].append(f"attestation signature file not found: {sig_rel}")
+        return out
+
+    if st == "gpg":
+        if shutil.which("gpg") is None:
+            out["issues"].append("gpg command not found for attestation verification")
+            return out
+        proc = subprocess.run(
+            ["gpg", "--status-fd", "1", "--verify", sig_path, target_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        if proc.returncode != 0:
+            out["issues"].append(f"gpg attestation verification failed for {target_rel}")
+            return out
+        signer = ""
+        for line in (proc.stdout or "").splitlines():
+            if "VALIDSIG " in line:
+                parts = line.split()
+                if "VALIDSIG" in parts:
+                    i = parts.index("VALIDSIG")
+                    if i + 1 < len(parts):
+                        signer = parts[i + 1].strip()
+                        break
+        if signer:
+            out["signer_fingerprint"] = signer
+        out["verified"] = True
+        return out
+
+    key_rel = str(att.get("key", "") or "").strip()
+    key_path = os.path.join(index_dir, key_rel) if key_rel else ""
+    if not key_path or not os.path.isfile(key_path):
+        out["issues"].append("attestation key file missing for cosign (set attestation.key)")
+        return out
+    try:
+        h = hashlib.sha256()
+        with open(key_path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        out["key_sha256"] = h.hexdigest().lower()
+    except Exception as e:
+        out["issues"].append(f"cosign key hash failed: {e}")
+        return out
+    if shutil.which("cosign") is None:
+        out["issues"].append("cosign command not found for attestation verification")
+        return out
+    proc = subprocess.run(
+        ["cosign", "verify-blob", "--signature", sig_path, "--key", key_path, target_path],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if proc.returncode != 0:
+        out["issues"].append(f"cosign attestation verification failed for {target_rel}")
+        return out
+    out["verified"] = True
+    return out
+
+att = verify_attestation(attestation, idx)
+require_attest = os.environ.get("LM_PLUGIN_REQUIRE_ATTEST", "0").lower() in ("1", "true", "yes")
+require_policy = os.environ.get("LM_PLUGIN_REQUIRE_TRUST_POLICY", "0").lower() in ("1", "true", "yes")
+policy_applied = False
+if strict and require_policy and not os.path.exists(policy_path):
+    errors.append(f"trust_policy required by LM_PLUGIN_REQUIRE_TRUST_POLICY but missing: {policy_path}")
+
+def as_set(v):
+    if isinstance(v, list):
+        return {str(x).strip().lower() for x in v if str(x).strip()}
+    return set()
+
+if strict and att.get("present") and att.get("verified"):
+    if not isinstance(policy, dict):
+        policy = {}
+    st = str(att.get("type", "")).strip()
+    sec = policy.get(st, {})
+    if sec is None:
+        sec = {}
+    if not isinstance(sec, dict):
+        errors.append(f"trust_policy: section '{st}' must be object")
+        sec = {}
+    policy_applied = bool(sec)
+    if st == "sha256":
+        digest = str(att.get("digest", "")).strip().lower()
+        trusted = as_set(sec.get("trusted_digests"))
+        revoked = as_set(sec.get("revoked_digests"))
+        if digest and digest in revoked:
+            errors.append(f"attestation: digest revoked by trust policy: {digest}")
+        if trusted and digest not in trusted:
+            errors.append("attestation: digest not present in trust policy trusted_digests")
+    elif st == "gpg":
+        fp = str(att.get("signer_fingerprint", "")).strip().lower()
+        trusted = as_set(sec.get("trusted_fingerprints"))
+        revoked = as_set(sec.get("revoked_fingerprints"))
+        if fp and fp in revoked:
+            errors.append(f"attestation: signer fingerprint revoked by trust policy: {fp}")
+        if trusted and fp not in trusted:
+            errors.append("attestation: signer fingerprint not present in trust policy trusted_fingerprints")
+    elif st == "cosign":
+        key_hash = str(att.get("key_sha256", "")).strip().lower()
+        trusted = as_set(sec.get("trusted_key_sha256"))
+        revoked = as_set(sec.get("revoked_key_sha256"))
+        if key_hash and key_hash in revoked:
+            errors.append(f"attestation: cosign key hash revoked by trust policy: {key_hash}")
+        if trusted and key_hash not in trusted:
+            errors.append("attestation: cosign key hash not present in trust policy trusted_key_sha256")
+
+if strict and require_attest and not att.get("present"):
+    errors.append("attestation required by LM_PLUGIN_REQUIRE_ATTEST but missing")
+if strict and att.get("present") and not att.get("verified"):
+    for issue in att.get("issues") or []:
+        errors.append(f"attestation: {issue}")
+
+ok = len(errors) == 0
 if json_mode:
-    print(json.dumps({"plugin_contract_version": 1, "index": idx, "plugins": plugins}, indent=2, sort_keys=True))
-    raise SystemExit(0)
+    print(json.dumps({
+        "plugin_contract_version": 1,
+        "index": idx,
+        "strict": strict,
+        "attestation": att,
+        "require_attestation": require_attest,
+        "trust_policy_file": policy_path,
+        "require_trust_policy": require_policy,
+        "trust_policy_applied": policy_applied,
+        "ok": ok,
+        "errors": errors,
+        "plugins": plugins
+    }, indent=2, sort_keys=True))
+    raise SystemExit(0 if (ok or not strict) else 2)
 print("=== linux-maint plugin search ===")
 print(f"index={idx}")
+print(f"attestation={att.get('type') or 'none'} verified={att.get('verified')}")
+print(f"trust_policy_file={policy_path}")
+print(f"trust_policy_applied={str(policy_applied).lower()}")
+if errors:
+    print("index_validation=FAIL")
+    for e in errors[:20]:
+        print(f"- {e}")
+    if strict:
+        raise SystemExit(2)
+else:
+    print("index_validation=OK")
 if not plugins:
     print("no plugins found")
     raise SystemExit(0)
 w = max(len(str(p.get("name",""))) for p in plugins)
-print(f"{'NAME':<{w}} VERSION DESCRIPTION")
+print(f"{'NAME':<{w}} VERSION TRUST DESCRIPTION")
 for p in plugins:
-    print(f"{p.get('name',''):<{w}} {p.get('version','-')} {p.get('description','-')}")
+    print(f"{p.get('name',''):<{w}} {p.get('version','-')} {p.get('trust','-')} {p.get('description','-')}")
 PY
+        ;;
+
+      lint-index)
+        PLUG_JSON=0
+        PLUG_STRICT=0
+        idx_file="${LM_PLUGIN_INDEX:-$REPO_ROOT/plugins/index.json}"
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            --json) PLUG_JSON=1; shift 1;;
+            --strict) PLUG_STRICT=1; shift 1;;
+            --index) idx_file="$2"; shift 2;;
+            -h|--help) command_usage plugin; exit 0;;
+            *) echo "Unknown plugin lint-index flag: $1" >&2; exit 2;;
+          esac
+        done
+        args=(plugin search --index "$idx_file")
+        [[ "$PLUG_JSON" -eq 1 ]] && args+=(--json)
+        [[ "$PLUG_STRICT" -eq 1 ]] && args+=(--strict)
+        exec "$0" "${args[@]}"
+        ;;
+
+      verify-index)
+        PLUG_JSON=0
+        PLUG_STRICT=0
+        idx_file="${LM_PLUGIN_INDEX:-$REPO_ROOT/plugins/index.json}"
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            --json) PLUG_JSON=1; shift 1;;
+            --strict) PLUG_STRICT=1; shift 1;;
+            --index) idx_file="$2"; shift 2;;
+            -h|--help) command_usage plugin; exit 0;;
+            *) echo "Unknown plugin verify-index flag: $1" >&2; exit 2;;
+          esac
+        done
+        args=(plugin search --index "$idx_file" --json)
+        [[ "$PLUG_STRICT" -eq 1 ]] && args+=(--strict)
+        set +e
+        out="$("$0" "${args[@]}" 2>/dev/null)"
+        rc=$?
+        set -e
+        if [[ -z "$out" ]]; then
+          echo "ERROR: unable to read plugin index: $idx_file" >&2
+          exit 2
+        fi
+        if [[ "$PLUG_JSON" -eq 1 ]]; then
+          python3 - "$out" <<'PY'
+import json, sys
+o = json.loads(sys.argv[1])
+a = o.get("attestation") or {}
+print(json.dumps({
+  "plugin_contract_version": 1,
+  "index": o.get("index"),
+  "strict": o.get("strict"),
+  "ok": bool(o.get("ok", False)),
+  "attestation": a,
+  "require_attestation": bool(o.get("require_attestation", False)),
+  "trust_policy_file": o.get("trust_policy_file"),
+  "require_trust_policy": bool(o.get("require_trust_policy", False)),
+  "trust_policy_applied": bool(o.get("trust_policy_applied", False)),
+  "errors": o.get("errors") or []
+}, indent=2, sort_keys=True))
+PY
+          exit "$rc"
+        fi
+        python3 - "$out" <<'PY'
+import json, sys
+o = json.loads(sys.argv[1])
+a = o.get("attestation") or {}
+print("=== linux-maint plugin verify-index ===")
+print(f"index={o.get('index')}")
+print(f"strict={o.get('strict')}")
+print(f"attestation_type={a.get('type') or 'none'}")
+print(f"attestation_present={a.get('present')}")
+print(f"attestation_verified={a.get('verified')}")
+issues = a.get("issues") or []
+if issues:
+    for i in issues:
+        print(f"- {i}")
+errs = o.get("errors") or []
+if errs:
+    print("errors:")
+    for e in errs[:20]:
+        print(f"- {e}")
+print(f"result={'OK' if o.get('ok') else 'FAIL'}")
+PY
+        exit "$rc"
+        ;;
+
+      provenance-report)
+        PLUG_JSON=0
+        PLUG_STRICT=0
+        idx_file="${LM_PLUGIN_INDEX:-$REPO_ROOT/plugins/index.json}"
+        out_file=""
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            --json) PLUG_JSON=1; shift 1;;
+            --strict) PLUG_STRICT=1; shift 1;;
+            --index) idx_file="$2"; shift 2;;
+            --out) out_file="$2"; shift 2;;
+            -h|--help) command_usage plugin; exit 0;;
+            *) echo "Unknown plugin provenance-report flag: $1" >&2; exit 2;;
+          esac
+        done
+        tmp_dir="$(mktemp -d)"
+        idx_out="$tmp_dir/index.json"
+        list_out="$tmp_dir/list.json"
+        ver_dir="$tmp_dir/verifies"
+        mkdir -p "$ver_dir"
+
+        idx_args=(plugin verify-index --index "$idx_file" --json)
+        [[ "$PLUG_STRICT" -eq 1 ]] && idx_args+=(--strict)
+        set +e
+        "$0" "${idx_args[@]}" > "$idx_out" 2>/dev/null
+        idx_rc=$?
+        "$0" plugin list --json > "$list_out" 2>/dev/null
+        list_rc=$?
+        set -e
+
+        python3 - "$list_out" "$ver_dir" "$0" <<'PY'
+import json, os, subprocess, sys
+list_path, out_dir, cli = sys.argv[1:4]
+names = []
+if os.path.exists(list_path):
+    try:
+        with open(list_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for p in (data.get("plugins") or []):
+            if isinstance(p, dict):
+                n = str(p.get("name", "")).strip()
+                if n:
+                    names.append(n)
+    except Exception:
+        pass
+for n in names:
+    proc = subprocess.run([cli, "plugin", "verify", n, "--json"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    with open(os.path.join(out_dir, f"{n}.json"), "w", encoding="utf-8") as f:
+        f.write(proc.stdout or "")
+    with open(os.path.join(out_dir, f"{n}.rc"), "w", encoding="utf-8") as f:
+        f.write(str(proc.returncode))
+PY
+
+        report_json="$tmp_dir/provenance_report.json"
+        python3 - "$idx_out" "$idx_rc" "$list_out" "$list_rc" "$ver_dir" "$idx_file" "$out_file" "$PLUG_STRICT" "$report_json" <<'PY'
+import datetime, hashlib, json, os, sys, tempfile
+idx_path, idx_rc, list_path, list_rc, ver_dir, idx_file, out_file, strict_mode, out_report = sys.argv[1:10]
+idx_rc = int(idx_rc)
+list_rc = int(list_rc)
+strict_mode = strict_mode == "1"
+
+policy_file = os.environ.get("LM_PLUGIN_TRUST_POLICY_FILE", "").strip()
+if not policy_file:
+    cfg_dir = os.environ.get("LM_CFG_DIR", "/etc/linux_maint")
+    policy_file = os.path.join(cfg_dir, "plugin_trust_policy.json")
+
+policy_sha = ""
+if os.path.isfile(policy_file):
+    try:
+        h = hashlib.sha256()
+        with open(policy_file, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        policy_sha = h.hexdigest()
+    except Exception:
+        policy_sha = ""
+
+index_ver = {}
+index_parse_error = False
+if os.path.exists(idx_path):
+    try:
+        with open(idx_path, "r", encoding="utf-8") as f:
+            index_ver = json.load(f)
+    except Exception:
+        index_parse_error = True
+
+names = []
+if os.path.exists(list_path):
+    try:
+        with open(list_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for p in (data.get("plugins") or []):
+            if isinstance(p, dict):
+                n = str(p.get("name", "")).strip()
+                if n:
+                    names.append(n)
+    except Exception:
+        pass
+
+plugins = []
+ok_plugins = 0
+for n in names:
+    p = {"name": n, "rc": 2, "ok": False, "verify": {}}
+    try:
+        with open(os.path.join(ver_dir, f"{n}.rc"), "r", encoding="utf-8") as f:
+            p["rc"] = int((f.read() or "2").strip())
+    except Exception:
+        p["rc"] = 2
+    try:
+        with open(os.path.join(ver_dir, f"{n}.json"), "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        p["verify"] = payload
+        p["ok"] = bool(payload.get("ok", False)) and p["rc"] == 0
+    except Exception:
+        p["verify"] = {"parse_error": True}
+        p["ok"] = False
+    if p["ok"]:
+        ok_plugins += 1
+    plugins.append(p)
+
+index_ok = bool(index_ver.get("ok", False)) and idx_rc == 0 and not index_parse_error
+summary = {
+    "plugins_total": len(plugins),
+    "plugins_ok": ok_plugins,
+    "plugins_failed": max(len(plugins) - ok_plugins, 0),
+    "index_ok": index_ok
+}
+overall_ok = summary["index_ok"] and summary["plugins_failed"] == 0 and list_rc == 0
+
+report = {
+    "plugin_provenance_contract_version": 1,
+    "generated_at_utc": datetime.datetime.utcnow().isoformat() + "Z",
+    "index_file": idx_file,
+    "strict": strict_mode,
+    "policy_file": policy_file,
+    "policy_file_exists": os.path.isfile(policy_file),
+    "policy_file_sha256": policy_sha,
+    "list_rc": list_rc,
+    "index_verify_rc": idx_rc,
+    "index_parse_error": index_parse_error,
+    "index_verification": index_ver,
+    "plugins": plugins,
+    "summary": summary,
+    "overall_ok": overall_ok
+}
+
+with open(out_report, "w", encoding="utf-8") as f:
+    json.dump(report, f, indent=2, sort_keys=True)
+
+if out_file:
+    os.makedirs(os.path.dirname(out_file) or ".", exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".plugin_provenance.", dir=os.path.dirname(out_file) or ".")
+    os.close(fd)
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2, sort_keys=True)
+        f.write("\n")
+    os.replace(tmp, out_file)
+PY
+
+        if [[ "$PLUG_JSON" -eq 1 ]]; then
+          cat "$report_json"
+        else
+          python3 - "$report_json" "$out_file" <<'PY'
+import json, sys
+path, out_file = sys.argv[1:3]
+o = json.load(open(path, "r", encoding="utf-8"))
+s = o.get("summary") or {}
+print("=== linux-maint plugin provenance-report ===")
+print(f"index_file={o.get('index_file')}")
+print(f"policy_file={o.get('policy_file')}")
+print(f"policy_file_exists={o.get('policy_file_exists')}")
+print(f"index_ok={s.get('index_ok')}")
+print(f"plugins_total={s.get('plugins_total')}")
+print(f"plugins_ok={s.get('plugins_ok')}")
+print(f"plugins_failed={s.get('plugins_failed')}")
+print(f"overall_ok={o.get('overall_ok')}")
+if out_file:
+    print(f"out={out_file}")
+PY
+        fi
+        if [[ "$PLUG_STRICT" -eq 1 ]]; then
+          python3 - "$report_json" <<'PY'
+import json, sys
+o = json.load(open(sys.argv[1], "r", encoding="utf-8"))
+raise SystemExit(0 if bool(o.get("overall_ok")) else 2)
+PY
+          rc=$?
+          rm -rf "$tmp_dir"
+          exit "$rc"
+        fi
+        rm -rf "$tmp_dir"
         ;;
 
       init)
@@ -4782,6 +5526,7 @@ EOF
         plug_root="$(plugin_root_dir)"
         reg_file="$(plugin_registry_file)"
         mkdir -p "$plug_root" 2>/dev/null || true
+        audit_log_append "plugin-install" "start" "source=$src name=${pname:-auto} root=$plug_root force=$force"
         python3 - "$src" "$plug_root" "$reg_file" "$pname" "$force" <<'PY'
 import datetime, json, os, shutil, sys, tempfile
 src, root, reg_file, pname, force = sys.argv[1:6]
@@ -4832,6 +5577,71 @@ with open(reg_file, "w", encoding="utf-8") as f:
     json.dump(registry, f, indent=2, sort_keys=True)
 print(f"installed plugin {name} -> {dest}")
 PY
+        audit_log_append "plugin-install" "success" "source=$src name=${pname:-auto} root=$plug_root"
+        ;;
+
+      update)
+        name="${1:-}"
+        shift || true
+        [[ -n "$name" ]] || { echo "ERROR: plugin update requires <name>" >&2; exit 2; }
+        src=""
+        idx_file="${LM_PLUGIN_INDEX:-$REPO_ROOT/plugins/index.json}"
+        force=1
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            --source) src="$2"; shift 2;;
+            --index) idx_file="$2"; shift 2;;
+            --force) force=1; shift 1;;
+            -h|--help) command_usage plugin; exit 0;;
+            *) echo "Unknown plugin update flag: $1" >&2; exit 2;;
+          esac
+        done
+        plug_root="$(plugin_root_dir)"
+        reg_file="$(plugin_registry_file)"
+        if [[ -z "$src" ]]; then
+          src="$(python3 - "$name" "$reg_file" "$idx_file" <<'PY'
+import json, os, sys
+name, reg_file, idx_file = sys.argv[1:4]
+src = ""
+if os.path.exists(reg_file):
+    try:
+        with open(reg_file, "r", encoding="utf-8") as f:
+            reg = json.load(f)
+        for p in (reg.get("plugins") or []):
+            if str(p.get("name","")) == name and str(p.get("source","")).strip():
+                src = str(p.get("source","")).strip()
+                break
+    except Exception:
+        pass
+if (not src) and os.path.exists(idx_file):
+    try:
+        with open(idx_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            lst = data.get("plugins") or []
+        elif isinstance(data, list):
+            lst = data
+        else:
+            lst = []
+        for p in lst:
+            if isinstance(p, dict) and str(p.get("name","")) == name and str(p.get("source","")).strip():
+                src = str(p.get("source","")).strip()
+                break
+    except Exception:
+        pass
+print(src, end="")
+PY
+)"
+        fi
+        [[ -n "$src" ]] || { echo "ERROR: unable to resolve source for plugin '$name' (use --source or --index)" >&2; exit 2; }
+        [[ -d "$src" ]] || { echo "ERROR: plugin source directory not found: $src" >&2; exit 2; }
+        audit_log_append "plugin-update" "start" "name=$name source=$src index=$idx_file"
+        set +e
+        "$0" plugin install "$src" --name "$name" --force
+        rc=$?
+        set -e
+        audit_log_append "plugin-update" "$([[ "$rc" -eq 0 ]] && echo success || echo failure)" "name=$name source=$src rc=$rc"
+        exit "$rc"
         ;;
 
       verify)
@@ -4848,15 +5658,16 @@ PY
         done
         plug_root="$(plugin_root_dir)"
         reg_file="$(plugin_registry_file)"
-        python3 - "$name" "$plug_root" "$reg_file" "$PLUG_JSON" <<'PY'
-import json, os, sys
-name, root, reg_file, json_mode = sys.argv[1:5]
+        python3 - "$name" "$plug_root" "$reg_file" "$PLUG_JSON" "$REPO_ROOT/VERSION" <<'PY'
+import hashlib, json, os, shutil, subprocess, sys
+name, root, reg_file, json_mode, version_file = sys.argv[1:6]
 json_mode = json_mode == "1"
 dest = os.path.join(root, name)
 exists = os.path.isdir(dest)
 manifest = os.path.join(dest, "plugin.json")
 manifest_ok = False
 meta = {}
+issues = []
 if os.path.exists(manifest):
     try:
         with open(manifest, "r", encoding="utf-8") as f:
@@ -4867,6 +5678,26 @@ if os.path.exists(manifest):
     except Exception:
         manifest_ok = False
 registry_has = False
+registry_entry = {}
+policy_path = os.environ.get("LM_PLUGIN_TRUST_POLICY_FILE", "").strip()
+if not policy_path:
+    cfg_dir = os.environ.get("LM_CFG_DIR", "/etc/linux_maint")
+    policy_path = os.path.join(cfg_dir, "plugin_trust_policy.json")
+require_policy = os.environ.get("LM_PLUGIN_REQUIRE_TRUST_POLICY", "0").lower() in ("1", "true", "yes")
+policy = {}
+policy_applied = False
+if os.path.exists(policy_path):
+    try:
+        with open(policy_path, "r", encoding="utf-8") as f:
+            loaded = json.load(f)
+        if isinstance(loaded, dict):
+            policy = loaded
+        else:
+            issues.append("trust_policy: must be object")
+    except Exception:
+        issues.append("trust_policy: invalid_json")
+elif require_policy:
+    issues.append(f"trust_policy required by LM_PLUGIN_REQUIRE_TRUST_POLICY but missing: {policy_path}")
 if os.path.exists(reg_file):
     try:
         with open(reg_file, "r", encoding="utf-8") as f:
@@ -4874,10 +5705,195 @@ if os.path.exists(reg_file):
         for p in (reg.get("plugins") or []):
             if str(p.get("name","")) == name:
                 registry_has = True
+                registry_entry = p if isinstance(p, dict) else {}
                 break
     except Exception:
         pass
-ok = exists and manifest_ok and registry_has
+# Optional compatibility check.
+cli_version = ""
+if os.path.exists(version_file):
+    try:
+        cli_version = open(version_file, "r", encoding="utf-8").read().strip()
+    except Exception:
+        cli_version = ""
+compat = meta.get("compatibility") if isinstance(meta, dict) else None
+compat_ok = True
+if isinstance(compat, dict):
+    min_v = str(compat.get("min_cli_version", "")).strip()
+    max_v = str(compat.get("max_cli_version", "")).strip()
+    if cli_version and min_v and cli_version < min_v:
+        compat_ok = False
+        issues.append(f"cli_version {cli_version} < min_cli_version {min_v}")
+    if cli_version and max_v and cli_version > max_v:
+        compat_ok = False
+        issues.append(f"cli_version {cli_version} > max_cli_version {max_v}")
+
+trust = str(meta.get("trust") or registry_entry.get("trust") or "").strip()
+if trust and trust not in ("official", "verified", "community", "experimental", "untrusted"):
+    issues.append(f"invalid trust '{trust}'")
+
+sig = meta.get("signature")
+signature_ok = True
+sig_type = ""
+sig_digest = ""
+signer_fingerprint = ""
+cosign_key_sha256 = ""
+if sig is not None:
+    if not isinstance(sig, dict):
+        signature_ok = False
+        issues.append("signature must be object")
+    else:
+        st = str(sig.get("type", "")).strip()
+        sig_type = st
+        sv = str(sig.get("value", "")).strip()
+        if st in ("sha256", "gpg", "cosign") and not sv:
+            signature_ok = False
+            issues.append("signature.value required for configured signature.type")
+        if st and st not in ("none", "sha256", "gpg", "cosign"):
+            signature_ok = False
+            issues.append(f"unsupported signature.type '{st}'")
+        target = str(sig.get("target", "plugin.json") or "plugin.json").strip()
+        target_path = os.path.join(dest, target)
+        if st == "sha256" and exists:
+            if not os.path.isfile(target_path):
+                signature_ok = False
+                issues.append(f"sha256 target not found: {target}")
+            else:
+                try:
+                    import hashlib
+                    h = hashlib.sha256()
+                    with open(target_path, "rb") as f:
+                        for chunk in iter(lambda: f.read(65536), b""):
+                            h.update(chunk)
+                    actual = h.hexdigest()
+                    sig_digest = actual.lower()
+                    if actual.lower() != sv.lower():
+                        signature_ok = False
+                        issues.append(f"sha256 mismatch for {target}: expected={sv} actual={actual}")
+                except Exception as e:
+                    signature_ok = False
+                    issues.append(f"sha256 verification failed for {target}: {e}")
+        elif st == "gpg" and exists:
+            sig_file = str(sig.get("file", f"{target}.asc") or f"{target}.asc").strip()
+            sig_path = os.path.join(dest, sig_file)
+            if not os.path.isfile(target_path):
+                signature_ok = False
+                issues.append(f"gpg target not found: {target}")
+            elif not os.path.isfile(sig_path):
+                signature_ok = False
+                issues.append(f"gpg signature file not found: {sig_file}")
+            else:
+                import shutil, subprocess
+                if shutil.which("gpg") is None:
+                    signature_ok = False
+                    issues.append("gpg command not found for signature verification")
+                else:
+                    try:
+                        proc = subprocess.run(
+                            ["gpg", "--status-fd", "1", "--verify", sig_path, target_path],
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL,
+                            text=True,
+                        )
+                        if proc.returncode != 0:
+                            signature_ok = False
+                            issues.append(f"gpg verification failed for {target}")
+                        else:
+                            for line in (proc.stdout or "").splitlines():
+                                if "VALIDSIG " in line:
+                                    parts = line.split()
+                                    if "VALIDSIG" in parts:
+                                        i = parts.index("VALIDSIG")
+                                        if i + 1 < len(parts):
+                                            signer_fingerprint = parts[i + 1].strip().lower()
+                                            break
+                    except Exception as e:
+                        signature_ok = False
+                        issues.append(f"gpg verification error for {target}: {e}")
+        elif st == "cosign" and exists:
+            sig_file = str(sig.get("file", f"{target}.sig") or f"{target}.sig").strip()
+            sig_path = os.path.join(dest, sig_file)
+            key_file = str(sig.get("key", "") or "").strip()
+            key_path = os.path.join(dest, key_file) if key_file else ""
+            if not os.path.isfile(target_path):
+                signature_ok = False
+                issues.append(f"cosign target not found: {target}")
+            elif not os.path.isfile(sig_path):
+                signature_ok = False
+                issues.append(f"cosign signature file not found: {sig_file}")
+            elif not key_path or not os.path.isfile(key_path):
+                signature_ok = False
+                issues.append("cosign key file missing (set signature.key)")
+            else:
+                try:
+                    h = hashlib.sha256()
+                    with open(key_path, "rb") as f:
+                        for chunk in iter(lambda: f.read(65536), b""):
+                            h.update(chunk)
+                    cosign_key_sha256 = h.hexdigest().lower()
+                except Exception as e:
+                    signature_ok = False
+                    issues.append(f"cosign key hash failed: {e}")
+                if shutil.which("cosign") is None:
+                    signature_ok = False
+                    issues.append("cosign command not found for signature verification")
+                else:
+                    try:
+                        proc = subprocess.run(
+                            ["cosign", "verify-blob", "--signature", sig_path, "--key", key_path, target_path],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+                        if proc.returncode != 0:
+                            signature_ok = False
+                            issues.append(f"cosign verification failed for {target}")
+                    except Exception as e:
+                        signature_ok = False
+                        issues.append(f"cosign verification error for {target}: {e}")
+
+def as_set(v):
+    if isinstance(v, list):
+        return {str(x).strip().lower() for x in v if str(x).strip()}
+    return set()
+
+if signature_ok and sig_type in ("sha256", "gpg", "cosign"):
+    sec = policy.get(sig_type, {})
+    if sec is None:
+        sec = {}
+    if not isinstance(sec, dict):
+        issues.append(f"trust_policy: section '{sig_type}' must be object")
+        signature_ok = False
+        sec = {}
+    policy_applied = bool(sec)
+    if sig_type == "sha256":
+        trusted = as_set(sec.get("trusted_digests"))
+        revoked = as_set(sec.get("revoked_digests"))
+        if sig_digest and sig_digest in revoked:
+            signature_ok = False
+            issues.append(f"signature digest revoked by trust policy: {sig_digest}")
+        if trusted and sig_digest not in trusted:
+            signature_ok = False
+            issues.append("signature digest not present in trust policy trusted_digests")
+    elif sig_type == "gpg":
+        trusted = as_set(sec.get("trusted_fingerprints"))
+        revoked = as_set(sec.get("revoked_fingerprints"))
+        if signer_fingerprint and signer_fingerprint in revoked:
+            signature_ok = False
+            issues.append(f"signature signer fingerprint revoked by trust policy: {signer_fingerprint}")
+        if trusted and signer_fingerprint not in trusted:
+            signature_ok = False
+            issues.append("signature signer fingerprint not present in trust policy trusted_fingerprints")
+    elif sig_type == "cosign":
+        trusted = as_set(sec.get("trusted_key_sha256"))
+        revoked = as_set(sec.get("revoked_key_sha256"))
+        if cosign_key_sha256 and cosign_key_sha256 in revoked:
+            signature_ok = False
+            issues.append(f"cosign key hash revoked by trust policy: {cosign_key_sha256}")
+        if trusted and cosign_key_sha256 not in trusted:
+            signature_ok = False
+            issues.append("cosign key hash not present in trust policy trusted_key_sha256")
+
+ok = exists and manifest_ok and registry_has and compat_ok and signature_ok and len(issues) == 0
 out = {
     "plugin_contract_version": 1,
     "name": name,
@@ -4885,13 +5901,26 @@ out = {
     "exists": exists,
     "manifest_ok": manifest_ok,
     "registry_has": registry_has,
+    "compat_ok": compat_ok,
+    "signature_ok": signature_ok,
+    "signature_type": sig_type,
+    "signature_digest": sig_digest,
+    "signer_fingerprint": signer_fingerprint,
+    "cosign_key_sha256": cosign_key_sha256,
+    "trust_policy_file": policy_path,
+    "require_trust_policy": require_policy,
+    "trust_policy_applied": policy_applied,
+    "trust": trust,
+    "issues": issues,
     "ok": ok,
     "manifest": meta,
 }
 if json_mode:
     print(json.dumps(out, indent=2, sort_keys=True))
 else:
-    print(f"plugin={name} exists={exists} manifest_ok={manifest_ok} registry_has={registry_has} ok={ok}")
+    print(f"plugin={name} exists={exists} manifest_ok={manifest_ok} registry_has={registry_has} compat_ok={compat_ok} signature_ok={signature_ok} trust={trust or '-'} ok={ok}")
+    for i in issues:
+        print(f"- {i}")
 raise SystemExit(0 if ok else 2)
 PY
         ;;
@@ -4905,6 +5934,7 @@ PY
         fi
         plug_root="$(plugin_root_dir)"
         reg_file="$(plugin_registry_file)"
+        audit_log_append "plugin-remove" "start" "name=$name root=$plug_root"
         python3 - "$name" "$plug_root" "$reg_file" <<'PY'
 import json, os, shutil, sys
 name, root, reg_file = sys.argv[1:4]
@@ -4927,6 +5957,7 @@ with open(reg_file, "w", encoding="utf-8") as f:
     json.dump(registry, f, indent=2, sort_keys=True)
 print(f"removed plugin {name}")
 PY
+        audit_log_append "plugin-remove" "success" "name=$name root=$plug_root"
         ;;
 
       ""|-h|--help)
@@ -4944,6 +5975,9 @@ PY
     NP_PROVIDER=""
     NP_URL=""
     NP_TO=""
+    NP_ROUTING_KEY=""
+    NP_SEVERITY="warning"
+    NP_SOURCE="linux-maint"
     NP_SUBJECT="linux-maint notification"
     NP_MESSAGE="linux-maint test notification"
     NP_DRY_RUN=0
@@ -4952,6 +5986,9 @@ PY
         --provider) NP_PROVIDER="$2"; shift 2;;
         --url) NP_URL="$2"; shift 2;;
         --to) NP_TO="$2"; shift 2;;
+        --routing-key) NP_ROUTING_KEY="$2"; shift 2;;
+        --severity) NP_SEVERITY="$2"; shift 2;;
+        --source) NP_SOURCE="$2"; shift 2;;
         --subject) NP_SUBJECT="$2"; shift 2;;
         --message) NP_MESSAGE="$2"; shift 2;;
         --dry-run) NP_DRY_RUN=1; shift 1;;
@@ -4960,9 +5997,9 @@ PY
       esac
     done
     case "$NP_PROVIDER" in
-      webhook|slack|teams|email) ;;
+      webhook|slack|teams|email|pagerduty) ;;
       *)
-        echo "ERROR: --provider must be one of webhook|slack|teams|email" >&2
+        echo "ERROR: --provider must be one of webhook|slack|teams|email|pagerduty" >&2
         exit 2
         ;;
     esac
@@ -4983,10 +6020,40 @@ PY
       echo "notification sent via email"
       exit 0
     fi
-    if [[ -z "$NP_URL" ]]; then
-      echo "ERROR: --url is required for provider=$NP_PROVIDER" >&2
-      exit 2
+    if [[ "$NP_PROVIDER" == "pagerduty" ]]; then
+      [[ -n "$NP_ROUTING_KEY" ]] || { echo "ERROR: --routing-key is required for provider=pagerduty" >&2; exit 2; }
+      case "$NP_SEVERITY" in
+        critical|error|warning|info) ;;
+        *) echo "ERROR: --severity must be one of critical|error|warning|info" >&2; exit 2;;
+      esac
+      NP_URL="${NP_URL:-https://events.pagerduty.com/v2/enqueue}"
+      payload="$(python3 - "$NP_ROUTING_KEY" "$NP_MESSAGE" "$NP_SOURCE" "$NP_SEVERITY" <<'PY'
+import json, sys
+routing_key, summary, source, severity = sys.argv[1:5]
+print(json.dumps({
+  "routing_key": routing_key,
+  "event_action": "trigger",
+  "payload": {
+    "summary": summary,
+    "source": source,
+    "severity": severity
+  }
+}))
+PY
+)"
+      if [[ "$NP_DRY_RUN" -eq 1 ]]; then
+        echo "DRY_RUN provider=$NP_PROVIDER url=$NP_URL payload=$payload"
+        exit 0
+      fi
+      if ! command -v curl >/dev/null 2>&1; then
+        echo "ERROR: curl command not found" >&2
+        exit 2
+      fi
+      curl -fsS -X POST -H 'Content-Type: application/json' --data "$payload" "$NP_URL" >/dev/null
+      echo "notification sent via $NP_PROVIDER"
+      exit 0
     fi
+    [[ -n "$NP_URL" ]] || { echo "ERROR: --url is required for provider=$NP_PROVIDER" >&2; exit 2; }
     payload="$(python3 - "$NP_MESSAGE" <<'PY'
 import json, sys
 msg = sys.argv[1]
@@ -5003,6 +6070,326 @@ PY
     fi
     curl -fsS -X POST -H 'Content-Type: application/json' --data "$payload" "$NP_URL" >/dev/null
     echo "notification sent via $NP_PROVIDER"
+    ;;
+
+  ticket)
+    TK_PROVIDER=""
+    TK_URL=""
+    TK_TITLE=""
+    TK_BODY=""
+    TK_PROJECT="OPS"
+    TK_ISSUE_TYPE="Task"
+    TK_JSON=0
+    TK_DRY_RUN=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --provider) TK_PROVIDER="$2"; shift 2;;
+        --url) TK_URL="$2"; shift 2;;
+        --title) TK_TITLE="$2"; shift 2;;
+        --body) TK_BODY="$2"; shift 2;;
+        --project) TK_PROJECT="$2"; shift 2;;
+        --issue-type) TK_ISSUE_TYPE="$2"; shift 2;;
+        --json) TK_JSON=1; shift 1;;
+        --dry-run) TK_DRY_RUN=1; shift 1;;
+        -h|--help) command_usage ticket; exit 0;;
+        *) echo "Unknown ticket flag: $1" >&2; exit 2;;
+      esac
+    done
+    case "$TK_PROVIDER" in
+      jira|servicenow) ;;
+      *) echo "ERROR: --provider must be jira|servicenow" >&2; exit 2;;
+    esac
+    [[ -n "$TK_URL" ]] || { echo "ERROR: --url is required" >&2; exit 2; }
+    [[ -n "$TK_TITLE" ]] || { echo "ERROR: --title is required" >&2; exit 2; }
+    [[ -n "$TK_BODY" ]] || { echo "ERROR: --body is required" >&2; exit 2; }
+    if [[ "$TK_PROVIDER" == "jira" ]]; then
+      payload="$(python3 - "$TK_PROJECT" "$TK_ISSUE_TYPE" "$TK_TITLE" "$TK_BODY" <<'PY'
+import json, sys
+project, issue_type, title, body = sys.argv[1:5]
+print(json.dumps({
+  "fields": {
+    "project": {"key": project},
+    "summary": title,
+    "description": body,
+    "issuetype": {"name": issue_type}
+  }
+}))
+PY
+)"
+    else
+      payload="$(python3 - "$TK_TITLE" "$TK_BODY" <<'PY'
+import json, sys
+title, body = sys.argv[1:3]
+print(json.dumps({
+  "short_description": title,
+  "description": body
+}))
+PY
+)"
+    fi
+    if [[ "$TK_DRY_RUN" -eq 1 ]]; then
+      if [[ "$TK_JSON" -eq 1 ]]; then
+        python3 - "$TK_PROVIDER" "$TK_URL" "$payload" <<'PY'
+import json, sys
+provider, url, payload_raw = sys.argv[1:4]
+payload = json.loads(payload_raw)
+print(json.dumps({
+  "ticket_contract_version": 1,
+  "provider": provider,
+  "url": url,
+  "dry_run": True,
+  "submitted": False,
+  "payload": payload
+}, indent=2, sort_keys=True))
+PY
+        exit 0
+      fi
+      echo "DRY_RUN provider=$TK_PROVIDER url=$TK_URL payload=$payload"
+      exit 0
+    fi
+    if ! command -v curl >/dev/null 2>&1; then
+      echo "ERROR: curl command not found" >&2
+      exit 2
+    fi
+    curl -fsS -X POST -H 'Content-Type: application/json' --data "$payload" "$TK_URL" >/dev/null
+    if [[ "$TK_JSON" -eq 1 ]]; then
+      python3 - "$TK_PROVIDER" "$TK_URL" <<'PY'
+import json, sys
+provider, url = sys.argv[1:3]
+print(json.dumps({
+  "ticket_contract_version": 1,
+  "provider": provider,
+  "url": url,
+  "dry_run": False,
+  "submitted": True
+}, indent=2, sort_keys=True))
+PY
+      exit 0
+    fi
+    echo "ticket submitted via $TK_PROVIDER"
+    ;;
+
+  audit-log)
+    AL_LAST=50
+    AL_JSON=0
+    AL_VERIFY=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --last) AL_LAST="$2"; shift 2;;
+        --json) AL_JSON=1; shift 1;;
+        --verify) AL_VERIFY=1; shift 1;;
+        -h|--help) command_usage audit-log; exit 0;;
+        *) echo "Unknown audit-log flag: $1" >&2; exit 2;;
+      esac
+    done
+    [[ "$AL_LAST" =~ ^[0-9]+$ ]] || { echo "ERROR: --last must be integer" >&2; exit 2; }
+    AL_FILE="$(audit_log_path)"
+    if [[ ! -f "$AL_FILE" ]]; then
+      echo "No audit log found: $AL_FILE" >&2
+      exit 1
+    fi
+    if [[ "$AL_VERIFY" -eq 1 ]]; then
+      if [[ "$AL_JSON" -eq 1 ]]; then
+        python3 - "$AL_FILE" <<'PY'
+import hashlib, json, sys
+path = sys.argv[1]
+rows = []
+errors = []
+with open(path, "rb") as f:
+    for line_no, raw in enumerate(f, 1):
+        s = raw.decode("utf-8", "ignore").strip()
+        if not s:
+            continue
+        try:
+            obj = json.loads(s)
+        except Exception:
+            errors.append(f"line {line_no}: invalid_json")
+            continue
+        rows.append((line_no, obj))
+
+prev_chain = ""
+for line_no, obj in rows:
+    stored_prev = str(obj.get("prev_hash", "") or "")
+    stored_chain = str(obj.get("chain_hash", "") or "")
+    if stored_prev != prev_chain:
+        errors.append(f"line {line_no}: prev_hash mismatch")
+    base = dict(obj)
+    base.pop("prev_hash", None)
+    base.pop("chain_hash", None)
+    material = (stored_prev + "|" + json.dumps(base, sort_keys=True, separators=(",", ":"))).encode("utf-8", "ignore")
+    calc = hashlib.sha256(material).hexdigest()
+    if stored_chain != calc:
+        errors.append(f"line {line_no}: chain_hash mismatch")
+    prev_chain = stored_chain
+
+valid = len(errors) == 0 and len(rows) > 0
+print(json.dumps({
+    "audit_verify_contract_version": 1,
+    "file": path,
+    "valid": valid,
+    "events_checked": len(rows),
+    "errors": errors
+}, indent=2, sort_keys=True))
+raise SystemExit(0 if valid else 2)
+PY
+      else
+        python3 - "$AL_FILE" <<'PY'
+import hashlib, json, sys
+path = sys.argv[1]
+rows = []
+errors = []
+with open(path, "rb") as f:
+    for line_no, raw in enumerate(f, 1):
+        s = raw.decode("utf-8", "ignore").strip()
+        if not s:
+            continue
+        try:
+            obj = json.loads(s)
+        except Exception:
+            errors.append(f"line {line_no}: invalid_json")
+            continue
+        rows.append((line_no, obj))
+
+prev_chain = ""
+for line_no, obj in rows:
+    stored_prev = str(obj.get("prev_hash", "") or "")
+    stored_chain = str(obj.get("chain_hash", "") or "")
+    if stored_prev != prev_chain:
+        errors.append(f"line {line_no}: prev_hash mismatch")
+    base = dict(obj)
+    base.pop("prev_hash", None)
+    base.pop("chain_hash", None)
+    material = (stored_prev + "|" + json.dumps(base, sort_keys=True, separators=(",", ":"))).encode("utf-8", "ignore")
+    calc = hashlib.sha256(material).hexdigest()
+    if stored_chain != calc:
+        errors.append(f"line {line_no}: chain_hash mismatch")
+    prev_chain = stored_chain
+
+valid = len(errors) == 0 and len(rows) > 0
+print("=== linux-maint audit-log verify ===")
+print(f"file={path}")
+print(f"events_checked={len(rows)}")
+print(f"valid={str(valid).lower()}")
+if errors:
+    for e in errors[:20]:
+        print(f"- {e}")
+raise SystemExit(0 if valid else 2)
+PY
+      fi
+      exit $?
+    fi
+    if [[ "$AL_JSON" -eq 1 ]]; then
+      python3 - "$AL_FILE" "$AL_LAST" <<'PY'
+import json, sys
+path, last_n = sys.argv[1], int(sys.argv[2])
+rows = []
+with open(path, "r", encoding="utf-8", errors="ignore") as f:
+    for line in f:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rows.append(json.loads(line))
+        except Exception:
+            rows.append({"raw": line, "parse_error": True})
+rows = rows[-last_n:]
+print(json.dumps({"audit_contract_version": 1, "file": path, "events": rows}, indent=2, sort_keys=True))
+PY
+      exit 0
+    fi
+    echo "=== linux-maint audit-log ==="
+    echo "file=$AL_FILE"
+    tail -n "$AL_LAST" "$AL_FILE"
+    ;;
+
+  cm-hook)
+    CM_PROVIDER=""
+    CM_TARGET="localhost"
+    CM_PLAYBOOK=""
+    CM_MODULE="ping"
+    CM_ARGS=""
+    CM_JSON=0
+    CM_DRY_RUN=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --provider) CM_PROVIDER="$2"; shift 2;;
+        --target) CM_TARGET="$2"; shift 2;;
+        --playbook) CM_PLAYBOOK="$2"; shift 2;;
+        --module) CM_MODULE="$2"; shift 2;;
+        --args) CM_ARGS="$2"; shift 2;;
+        --json) CM_JSON=1; shift 1;;
+        --dry-run) CM_DRY_RUN=1; shift 1;;
+        -h|--help) command_usage cm-hook; exit 0;;
+        *) echo "Unknown cm-hook flag: $1" >&2; exit 2;;
+      esac
+    done
+    case "$CM_PROVIDER" in
+      ansible|puppet|salt) ;;
+      *) echo "ERROR: --provider must be ansible|puppet|salt" >&2; exit 2;;
+    esac
+    if [[ "$CM_PROVIDER" == "ansible" ]]; then
+      if [[ -n "$CM_PLAYBOOK" ]]; then
+        cmd=(ansible-playbook -i "${CM_TARGET}," "$CM_PLAYBOOK")
+      else
+        cmd=(ansible "$CM_TARGET" -m "$CM_MODULE")
+        [[ -n "$CM_ARGS" ]] && cmd+=(-a "$CM_ARGS")
+      fi
+    elif [[ "$CM_PROVIDER" == "puppet" ]]; then
+      cmd=(puppet agent -t)
+    else
+      cmd=(salt "$CM_TARGET" test.ping)
+      [[ -n "$CM_ARGS" ]] && cmd=(salt "$CM_TARGET" "$CM_ARGS")
+    fi
+    rendered="$(printf '%q ' "${cmd[@]}" | sed 's/[[:space:]]$//')"
+    audit_log_append "cm-hook" "start" "provider=$CM_PROVIDER target=$CM_TARGET cmd=$rendered dry_run=$CM_DRY_RUN"
+    if [[ "$CM_DRY_RUN" -eq 1 ]]; then
+      if [[ "$CM_JSON" -eq 1 ]]; then
+        python3 - "$CM_PROVIDER" "$CM_TARGET" "$rendered" <<'PY'
+import json, sys
+provider, target, cmd = sys.argv[1:4]
+print(json.dumps({
+  "cm_hook_contract_version": 1,
+  "provider": provider,
+  "target": target,
+  "dry_run": True,
+  "executed": False,
+  "rc": 0,
+  "cmd": cmd
+}, indent=2, sort_keys=True))
+PY
+        audit_log_append "cm-hook" "success" "provider=$CM_PROVIDER dry_run=1"
+        exit 0
+      fi
+      echo "DRY_RUN provider=$CM_PROVIDER cmd=$rendered"
+      audit_log_append "cm-hook" "success" "provider=$CM_PROVIDER dry_run=1"
+      exit 0
+    fi
+    if ! command -v "${cmd[0]}" >/dev/null 2>&1; then
+      echo "ERROR: command not found: ${cmd[0]}" >&2
+      audit_log_append "cm-hook" "failure" "provider=$CM_PROVIDER reason=missing_command cmd=${cmd[0]}"
+      exit 2
+    fi
+    set +e
+    "${cmd[@]}"
+    rc=$?
+    set -e
+    audit_log_append "cm-hook" "$([[ "$rc" -eq 0 ]] && echo success || echo failure)" "provider=$CM_PROVIDER rc=$rc"
+    if [[ "$CM_JSON" -eq 1 ]]; then
+      python3 - "$CM_PROVIDER" "$CM_TARGET" "$rendered" "$rc" <<'PY'
+import json, sys
+provider, target, cmd, rc = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
+print(json.dumps({
+  "cm_hook_contract_version": 1,
+  "provider": provider,
+  "target": target,
+  "dry_run": False,
+  "executed": True,
+  "rc": rc,
+  "cmd": cmd
+}, indent=2, sort_keys=True))
+PY
+    fi
+    exit "$rc"
     ;;
 
   serve)
@@ -5247,12 +6634,19 @@ for r in reasons[:5]:
         hints.append(map_hint[r])
 if not hints:
     hints.append("Run linux-maint doctor and inspect top reasons.")
-out={"ai_assist_contract_version":1,"overall":overall,"top_reasons":reasons[:5],"hints":hints}
+risk_note="heuristic"
+confidence_level="low"
+if len(reasons) >= 5:
+    confidence_level="high"
+elif len(reasons) >= 2:
+    confidence_level="medium"
+out={"ai_assist_contract_version":1,"overall":overall,"top_reasons":reasons[:5],"hints":hints,"confidence":{"level":confidence_level,"basis":"reason_rollup_size","value":len(reasons)},"risk_note":risk_note}
 if os.environ.get("AA_JSON","0")=="1":
     print(json.dumps(out,indent=2,sort_keys=True))
 else:
     print("=== linux-maint ai-assist ===")
     print(f"overall={overall}")
+    print(f"confidence={confidence_level} basis=reason_rollup_size value={len(reasons)}")
     print("hints:")
     for h in hints:
       print(f"- {h}")
@@ -5286,12 +6680,22 @@ score=round((crit*3 + warn*1 + unk*2)/n,2)
 risk="low"
 if score>=10: risk="high"
 elif score>=4: risk="medium"
-out={"predict_contract_version":1,"runs_considered":len(runs),"risk_score":score,"risk_level":risk,"totals":{"crit":crit,"warn":warn,"unknown":unk}}
+confidence="low"
+if len(runs) >= 20:
+    confidence="high"
+elif len(runs) >= 8:
+    confidence="medium"
+recommended_action="observe"
+if risk == "high":
+    recommended_action="open_incident"
+elif risk == "medium":
+    recommended_action="schedule_investigation"
+out={"predict_contract_version":1,"runs_considered":len(runs),"risk_score":score,"risk_level":risk,"confidence_level":confidence,"recommended_action":recommended_action,"totals":{"crit":crit,"warn":warn,"unknown":unk}}
 if os.environ.get("P_JSON","0")=="1":
     print(json.dumps(out,indent=2,sort_keys=True))
 else:
     print("=== linux-maint predict ===")
-    print(f"runs={len(runs)} risk_score={score} risk_level={risk} CRIT={crit} WARN={warn} UNKNOWN={unk}")
+    print(f"runs={len(runs)} risk_score={score} risk_level={risk} confidence_level={confidence} action={recommended_action} CRIT={crit} WARN={warn} UNKNOWN={unk}")
 PY
     ;;
 
@@ -5461,6 +6865,7 @@ PY
 
     LM_COLOR="$HISTORY_COLOR" HISTORY_NOTE="$HISTORY_NOTE" python3 - "$index_file" "$LAST_N" "$HISTORY_JSON" "$HISTORY_TABLE" "$HISTORY_COMPACT" <<'PY'
 import json, os, sys
+from collections import deque
 path, last_n, json_mode, table, compact = sys.argv[1:6]
 last_n = int(last_n)
 json_mode = json_mode == "1"
@@ -5525,7 +6930,7 @@ if not os.path.exists(path):
     print(c("- Or set LM_RUN_INDEX_FILE when invoking the wrapper", "1;33"))
     sys.exit(1)
 
-rows=[]
+rows=deque(maxlen=last_n)
 with open(path, "r", encoding="utf-8", errors="ignore") as f:
     for line in f:
         line=line.strip()
@@ -5536,7 +6941,7 @@ with open(path, "r", encoding="utf-8", errors="ignore") as f:
         except Exception:
             continue
 
-rows = rows[-last_n:]
+rows = list(rows)
 if json_mode:
     out = {
         "history_json_contract_version": 1,
@@ -6874,12 +8279,18 @@ PY
     REDACT=0
     SINCE=""
     UNTIL=""
+    ANOMALY=0
+    ANOMALY_Z="2.0"
+    ANOMALY_WINDOW=5
     OUTPUT_PATH=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --last) LAST_N="$2"; shift 2 ;;
         --since|--from) SINCE="$2"; shift 2 ;;
         --until|--to) UNTIL="$2"; shift 2 ;;
+        --anomaly) ANOMALY=1; shift 1 ;;
+        --anomaly-z) ANOMALY_Z="$2"; shift 2 ;;
+        --anomaly-window) ANOMALY_WINDOW="$2"; shift 2 ;;
         --json) JSON=1; shift 1 ;;
         --csv) CSV=1; shift 1 ;;
         --output) OUTPUT_PATH="$2"; shift 2 ;;
@@ -6900,6 +8311,14 @@ PY
 
     if [[ ! "$LAST_N" =~ ^[0-9]+$ ]] || (( LAST_N <= 0 )); then
       echo "ERROR: --last must be a positive integer" >&2
+      exit 2
+    fi
+    if [[ ! "$ANOMALY_WINDOW" =~ ^[0-9]+$ ]] || (( ANOMALY_WINDOW < 2 )); then
+      echo "ERROR: --anomaly-window must be an integer >= 2" >&2
+      exit 2
+    fi
+    if ! [[ "$ANOMALY_Z" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+      echo "ERROR: --anomaly-z must be a positive number" >&2
       exit 2
     fi
     if [[ "$JSON" -eq 1 && "$CSV" -eq 1 ]]; then
@@ -6929,14 +8348,17 @@ PY
 
     TREND_COLOR=0
     color_enabled && TREND_COLOR=1
-    LM_COLOR="$TREND_COLOR" TREND_REDACT="$REDACT" TREND_CACHE="${LM_TREND_CACHE:-0}" TREND_CACHE_TTL="${LM_TREND_CACHE_TTL:-60}" TREND_CACHE_FILE="${LM_TREND_CACHE_FILE:-$cache_dir/trend_cache.json}" python3 - "$log_dir" "$LAST_N" "$JSON" "$CSV" "$SINCE" "$UNTIL" <<'PY'
+    LM_COLOR="$TREND_COLOR" TREND_REDACT="$REDACT" TREND_CACHE="${LM_TREND_CACHE:-0}" TREND_CACHE_TTL="${LM_TREND_CACHE_TTL:-60}" TREND_CACHE_FILE="${LM_TREND_CACHE_FILE:-$cache_dir/trend_cache.json}" python3 - "$log_dir" "$LAST_N" "$JSON" "$CSV" "$SINCE" "$UNTIL" "$ANOMALY" "$ANOMALY_Z" "$ANOMALY_WINDOW" <<'PY'
 import glob, json, os, re, sys, time
 import builtins
 
-log_dir, last_n, json_mode, csv_mode, since_arg, until_arg = sys.argv[1:7]
+log_dir, last_n, json_mode, csv_mode, since_arg, until_arg, anomaly_enabled, anomaly_z, anomaly_window = sys.argv[1:10]
 last_n=int(last_n)
 json_mode = json_mode == '1'
 csv_mode = csv_mode == '1'
+anomaly_enabled = anomaly_enabled == '1'
+anomaly_z = float(anomaly_z)
+anomaly_window = int(anomaly_window)
 color = os.environ.get("LM_COLOR","1") == "1"
 redact = os.environ.get("TREND_REDACT","0") == "1"
 redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
@@ -7079,7 +8501,7 @@ if cache_enabled and cache_file and os.path.exists(cache_file):
         age = time.time() - os.path.getmtime(cache_file)
         if age <= cache_ttl:
             cached = json.load(open(cache_file, "r", encoding="utf-8"))
-            if cached.get("last_n") == last_n and cached.get("source_dir") == log_dir and cached.get("since") == since_arg and cached.get("until") == until_arg:
+            if cached.get("last_n") == last_n and cached.get("source_dir") == log_dir and cached.get("since") == since_arg and cached.get("until") == until_arg and cached.get("anomaly_enabled") == anomaly_enabled and float(cached.get("anomaly_z", anomaly_z)) == anomaly_z and int(cached.get("anomaly_window", anomaly_window)) == anomaly_window:
                 runs = cached.get("runs", [])
                 overall = cached.get("totals", overall)
                 reason_counts = {r["reason"]: r["count"] for r in cached.get("reasons", [])}
@@ -7107,8 +8529,44 @@ if not cache_hit:
         runs.append({'file': fp, 'totals': rc})
 
 rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+
+anomaly = {
+    "enabled": anomaly_enabled,
+    "window": anomaly_window,
+    "z_threshold": anomaly_z,
+    "enough_data": False,
+    "signals": []
+}
+if anomaly_enabled:
+    if len(runs) >= (anomaly_window + 1):
+        anomaly["enough_data"] = True
+        metrics = ["CRIT", "WARN", "UNKNOWN", "SKIP", "OK"]
+        current = runs[0]["totals"] if runs else {}
+        baseline_runs = runs[1:1+anomaly_window]
+        for m in metrics:
+            vals = [int((r.get("totals") or {}).get(m, 0) or 0) for r in baseline_runs]
+            if not vals:
+                continue
+            mean = sum(vals) / float(len(vals))
+            var = sum((v - mean) ** 2 for v in vals) / float(len(vals))
+            std = var ** 0.5
+            cur = int(current.get(m, 0) or 0)
+            if std == 0:
+                zscore = 999.0 if cur > mean else 0.0
+            else:
+                zscore = (cur - mean) / std
+            is_anom = (zscore >= anomaly_z) and (cur > mean)
+            anomaly["signals"].append({
+                "metric": m,
+                "current": cur,
+                "baseline_mean": round(mean, 4),
+                "baseline_std": round(std, 4),
+                "zscore": round(zscore, 4),
+                "anomalous": bool(is_anom)
+            })
+        anomaly["signals"].sort(key=lambda s: (-s["zscore"], s["metric"]))
 if json_mode:
-    out={'trend_json_contract_version': 1, 'runs':runs, 'totals':overall, 'reasons':[{'reason':r,'count':c} for r,c in rollup]}
+    out={'trend_json_contract_version': 1, 'runs':runs, 'totals':overall, 'reasons':[{'reason':r,'count':c} for r,c in rollup], 'anomaly': anomaly}
     if redact_json or redact_json_strict:
         out = redact_json_obj(out)
     print(json.dumps(out, indent=2, sort_keys=True))
@@ -7132,6 +8590,18 @@ else:
           print(f"{reason}={count}")
     else:
       print('none')
+    if anomaly_enabled:
+      print('')
+      print(c('anomaly_signals:', "1;36"))
+      if not anomaly.get("enough_data"):
+          print(f"insufficient_data runs={len(runs)} required={anomaly_window + 1}")
+      else:
+          hot = [s for s in anomaly.get("signals", []) if s.get("anomalous")]
+          if not hot:
+              print("none")
+          else:
+              for s in hot:
+                  print(f"{s['metric']}: current={s['current']} baseline_mean={s['baseline_mean']} zscore={s['zscore']}")
 
 if cache_enabled and cache_file and not cache_hit:
     try:
@@ -7140,6 +8610,9 @@ if cache_enabled and cache_file and not cache_hit:
             "since": since_arg,
             "until": until_arg,
             "source_dir": log_dir,
+            "anomaly_enabled": anomaly_enabled,
+            "anomaly_z": anomaly_z,
+            "anomaly_window": anomaly_window,
             "created_epoch": int(time.time()),
             "runs": runs,
             "totals": overall,
@@ -7268,20 +8741,23 @@ PY
 
     EXPORT_JSON=0
     EXPORT_CSV=0
+    EXPORT_JSONL=0
     case "${1:-}" in
       --json) EXPORT_JSON=1; shift ;;
       --csv) EXPORT_CSV=1; shift ;;
+      --jsonl) EXPORT_JSONL=1; shift ;;
       -h|--help) EXPORT_JSON=0 ;;
       "") ;;
       *) echo "Unknown export flag: $1" >&2; exit 2 ;;
     esac
 
-    if [[ "$EXPORT_JSON" -eq 0 && "$EXPORT_CSV" -eq 0 ]]; then
-      echo "Usage: linux-maint export --json|--csv" >&2
+    if [[ "$EXPORT_JSON" -eq 0 && "$EXPORT_CSV" -eq 0 && "$EXPORT_JSONL" -eq 0 ]]; then
+      echo "Usage: linux-maint export --json|--csv|--jsonl" >&2
       exit 2
     fi
-    if [[ "$EXPORT_JSON" -eq 1 && "$EXPORT_CSV" -eq 1 ]]; then
-      echo "ERROR: choose only one export format (--json or --csv)" >&2
+    export_mode_count=$((EXPORT_JSON + EXPORT_CSV + EXPORT_JSONL))
+    if [[ "$export_mode_count" -gt 1 ]]; then
+      echo "ERROR: choose only one export format (--json, --csv, or --jsonl)" >&2
       exit 2
     fi
 
@@ -7297,12 +8773,13 @@ PY
       summary_json="/var/log/health/full_health_monitor_summary_latest.json"
     fi
 
-    python3 - "$MODE" "$EXPORT_CSV" "$status_file" "$summary_file" "$summary_json" "$log_file" <<'PY'
+    python3 - "$MODE" "$EXPORT_CSV" "$EXPORT_JSONL" "$status_file" "$summary_file" "$summary_json" "$log_file" <<'PY'
 import json, os, re, sys
 
 mode = sys.argv[1]
 csv_mode = sys.argv[2] == "1"
-status_path, summary_path, summary_json_path, log_path = sys.argv[3:7]
+jsonl_mode = sys.argv[3] == "1"
+status_path, summary_path, summary_json_path, log_path = sys.argv[4:8]
 redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
 redact_json_strict = os.environ.get("LM_REDACT_JSON_STRICT","0") in ("1","true","TRUE","yes","YES")
 
@@ -7476,6 +8953,9 @@ if csv_mode:
             r.get("status",""),
             r.get("reason",""),
         ])
+elif jsonl_mode:
+    for r in rows:
+        print(json.dumps(r, sort_keys=True))
 else:
     out={
         'mode': mode,
@@ -8107,8 +9587,14 @@ EOF_DEPS
       export LM_PACK_LOGS_GPG_KEEP_PLAINTEXT="$PACK_GPG_KEEP"
     fi
 
+    audit_log_append "pack-logs" "start" "out=$OUT log_dir=$_logdir state_dir=$_state_dir redact=${LM_REDACT_LOGS:-0}"
+    set +e
     OUTDIR="$OUT" LOG_DIR="$_logdir" CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}" STATE_DIR="$_state_dir" REPO_ROOT="$_repo_root" \
       "$pack_logs_bin"
+    rc=$?
+    set -e
+    audit_log_append "pack-logs" "$([[ "$rc" -eq 0 ]] && echo success || echo failure)" "rc=$rc out=$OUT"
+    exit "$rc"
     ;;
   verify-install)
     section "linux-maint verify-install"
@@ -8262,7 +9748,12 @@ EOF_DEPS
 
     if [[ "$DOCTOR_FIX" -eq 1 && "${EUID:-$(id -u)}" -ne 0 ]]; then
       echo "ERROR: doctor --fix requires root" >&2
+      audit_log_append "doctor-fix" "failure" "reason=requires_root"
       exit 1
+    fi
+
+    if [[ "$DOCTOR_FIX" -eq 1 ]]; then
+      audit_log_append "doctor-fix" "start" "dry_run=$DOCTOR_DRY_RUN fix_deps=$DOCTOR_FIX_DEPS fix_optional=$DOCTOR_FIX_OPTIONAL cfg_dir=$CFG_DIR"
     fi
 
     fix_actions_file=""
@@ -8623,6 +10114,9 @@ PYJSON
       if [[ -n "$fix_actions_file" ]]; then
         rm -f "$fix_actions_file" 2>/dev/null || true
       fi
+      if [[ "$DOCTOR_FIX" -eq 1 ]]; then
+        audit_log_append "doctor-fix" "success" "json=1 dry_run=$DOCTOR_DRY_RUN"
+      fi
       exit 0
     fi
 
@@ -8862,7 +10356,13 @@ PYJSON
       rm -f "$fix_actions_file" 2>/dev/null || true
     fi
     if [[ "$DOCTOR_STRICT" -eq 1 && "${perm_fail:-0}" -eq 1 ]]; then
+      if [[ "$DOCTOR_FIX" -eq 1 ]]; then
+        audit_log_append "doctor-fix" "failure" "strict=1 perm_fail=1"
+      fi
       exit 2
+    fi
+    if [[ "$DOCTOR_FIX" -eq 1 ]]; then
+      audit_log_append "doctor-fix" "success" "json=0 dry_run=$DOCTOR_DRY_RUN"
     fi
     ;;
 

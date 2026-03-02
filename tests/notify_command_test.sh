@@ -26,4 +26,25 @@ printf '%s\n' "$out2" | grep -q '^DRY_RUN provider=email' || {
   exit 1
 }
 
+set +e
+bash "$LM" notify --provider pagerduty --message test --dry-run >/dev/null 2>&1
+rc_pd_missing=$?
+set -e
+[[ "$rc_pd_missing" -eq 2 ]] || {
+  echo "expected missing routing-key rc=2 for pagerduty, got rc=$rc_pd_missing" >&2
+  exit 1
+}
+
+out3="$(bash "$LM" notify --provider pagerduty --routing-key rk_test --severity warning --source linux-maint --message pd-test --dry-run 2>/dev/null || true)"
+printf '%s\n' "$out3" | grep -q '^DRY_RUN provider=pagerduty' || {
+  echo "expected dry-run pagerduty output" >&2
+  echo "$out3" >&2
+  exit 1
+}
+printf '%s\n' "$out3" | grep -q 'events.pagerduty.com/v2/enqueue' || {
+  echo "expected pagerduty default URL in dry-run output" >&2
+  echo "$out3" >&2
+  exit 1
+}
+
 echo "notify command ok"

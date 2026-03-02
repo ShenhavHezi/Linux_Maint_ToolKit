@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint plugin verify --json",
+  "type": "object",
+  "required": ["plugin_contract_version", "name", "exists", "manifest_ok", "registry_has", "compat_ok", "signature_ok", "ok", "issues", "manifest"],
+  "properties": {
+    "plugin_contract_version": { "type": "integer" },
+    "name": { "type": "string" },
+    "root": { "type": "string" },
+    "exists": { "type": "boolean" },
+    "manifest_ok": { "type": "boolean" },
+    "registry_has": { "type": "boolean" },
+    "compat_ok": { "type": "boolean" },
+    "signature_ok": { "type": "boolean" },
+    "signature_type": { "type": "string" },
+    "signature_digest": { "type": "string" },
+    "signer_fingerprint": { "type": "string" },
+    "cosign_key_sha256": { "type": "string" },
+    "trust_policy_file": { "type": ["string", "null"] },
+    "require_trust_policy": { "type": "boolean" },
+    "trust_policy_applied": { "type": "boolean" },
+    "trust": { "type": "string" },
+    "ok": { "type": "boolean" },
+    "issues": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
