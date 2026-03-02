@@ -37,11 +37,8 @@ lm_require_cmd "inventory_export" "localhost" hostname || exit $?
 lm_require_cmd "inventory_export" "localhost" uname || exit $?
 lm_require_cmd "inventory_export" "localhost" date || exit $?
 lm_require_cmd "inventory_export" "localhost" nproc || exit $?
-lm_require_cmd "inventory_export" "localhost" lscpu --optional || true
-lm_require_cmd "inventory_export" "localhost" vgs --optional || true
-lm_require_cmd "inventory_export" "localhost" lvs --optional || true
-lm_require_cmd "inventory_export" "localhost" pvs --optional || true
-lm_require_cmd "inventory_export" "localhost" systemd-detect-virt --optional || true
+# Optional dependencies are handled best-effort inside the collector.
+# Avoid emitting extra summary lines for missing optional commands.
 
 
 # ========================
