@@ -48,6 +48,7 @@ jobs:
         run: |
           tmp_base="$(mktemp -d)"
           mkdir -p .etc_linux_maint
+          mkdir -p "$tmp_base/state" "$tmp_base/logs" "$tmp_base/lock"
           printf 'localhost\n' > .etc_linux_maint/servers.txt
           : > .etc_linux_maint/excluded.txt
           : > .etc_linux_maint/services.txt
