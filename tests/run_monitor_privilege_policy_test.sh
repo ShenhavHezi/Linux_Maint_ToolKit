@@ -11,7 +11,7 @@ cfg_dir="$workdir/etc"
 mkdir -p "$cfg_dir"
 printf 'localhost\n' > "$cfg_dir/servers.txt"
 
-# Non-root should fail when monitor policy requires root.
+# requires_root should fail for non-root and pass for root.
 cat > "$cfg_dir/monitor_privilege_policy.conf" <<'P'
 health_monitor=requires_root
 P
@@ -19,10 +19,17 @@ set +e
 LM_CFG_DIR="$cfg_dir" bash "$LM" run --plan --local-only --only health_monitor >/dev/null 2>&1
 rc_req_root=$?
 set -e
-[[ "$rc_req_root" -eq 2 ]] || {
-  echo "expected requires_root policy failure rc=2, got rc=$rc_req_root" >&2
-  exit 1
-}
+if [[ "$(id -u)" -eq 0 ]]; then
+  [[ "$rc_req_root" -eq 0 ]] || {
+    echo "expected requires_root policy success as root rc=0, got rc=$rc_req_root" >&2
+    exit 1
+  }
+else
+  [[ "$rc_req_root" -eq 2 ]] || {
+    echo "expected requires_root policy failure rc=2, got rc=$rc_req_root" >&2
+    exit 1
+  }
+fi
 
 # Non-root should pass when policy forbids sudo/root usage.
 cat > "$cfg_dir/monitor_privilege_policy.conf" <<'P'
