@@ -1,10 +1,13 @@
 ## Summary
-What does this change do?
+
+- What does this change do?
+- Why is it needed?
 
 ## Testing
-- [ ] `bash tests/smoke.sh`
-- [ ] `bash tests/summary_contract.sh`
-- [ ] Other:
 
-## Risk
-Any behavior changes, compatibility notes, or rollout concerns?
+- [ ] `make lint`
+- [ ] `make test`
+
+## Notes
+
+Any risk/rollout considerations?

@@ -52,6 +52,15 @@ fi
 : "${LM_SSH_TIMEOUT:=0}"
 : "${LM_SSH_RETRY:=0}"
 
+: "${LM_MIN_BASH_OVERRIDE:=}"
+if [[ -n "${BASH_VERSINFO[0]:-}" ]]; then
+  min_bash="${LM_MIN_BASH_OVERRIDE:-4}"
+  if [[ "$min_bash" =~ ^[0-9]+$ ]] && (( BASH_VERSINFO[0] < min_bash )); then
+    echo "ERROR: linux-maint requires bash >= ${min_bash} (detected ${BASH_VERSINFO[0]})" >&2
+    exit 2
+  fi
+fi
+
 : "${LM_EMAIL_ENABLED:=true}"      # scripts can set LM_EMAIL_ENABLED=false to suppress email
 : "${LM_MAX_PARALLEL:=0}"          # 0 = sequential
 : "${LM_PREFIX:=}"                 # optional log prefix (script can set)
@@ -73,6 +82,36 @@ lm_validate_ssh_opts() {
       return 2
       ;;
   esac
+  local strict=0
+  case "${LM_STRICT:-0}" in 1|true|TRUE|yes|YES|on|ON) strict=1 ;; esac
+  case "${LM_SSH_ALLOWLIST_STRICT:-0}" in 1|true|TRUE|yes|YES|on|ON) strict=1 ;; esac
+  local weak_cipher_re='3des-cbc|arcfour|arcfour128|arcfour256|aes128-cbc|aes192-cbc|aes256-cbc|blowfish-cbc|cast128-cbc|rijndael-cbc@lysator\\.liu\\.se'
+  local weak_kex_re='diffie-hellman-group1-sha1|diffie-hellman-group14-sha1|diffie-hellman-group-exchange-sha1'
+  local weak_mac_re='hmac-md5|hmac-md5-96|hmac-sha1|hmac-sha1-96|umac-64@openssh\\.com'
+  if printf '%s' "$s" | grep -Eiq "Ciphers=.*(${weak_cipher_re})"; then
+    if [[ "$strict" -eq 1 ]]; then
+      echo "ERROR: LM_SSH_OPTS enables weak ciphers in strict mode" >&2
+      return 2
+    else
+      echo "WARN: LM_SSH_OPTS includes weak ciphers (consider removing CBC/RC4/3DES)" >&2
+    fi
+  fi
+  if printf '%s' "$s" | grep -Eiq "KexAlgorithms=.*(${weak_kex_re})"; then
+    if [[ "$strict" -eq 1 ]]; then
+      echo "ERROR: LM_SSH_OPTS enables weak key exchange in strict mode" >&2
+      return 2
+    else
+      echo "WARN: LM_SSH_OPTS includes weak key exchange (consider removing sha1 groups)" >&2
+    fi
+  fi
+  if printf '%s' "$s" | grep -Eiq "MACs=.*(${weak_mac_re})"; then
+    if [[ "$strict" -eq 1 ]]; then
+      echo "ERROR: LM_SSH_OPTS enables weak MACs in strict mode" >&2
+      return 2
+    else
+      echo "WARN: LM_SSH_OPTS includes weak MACs (consider removing hmac-sha1/md5)" >&2
+    fi
+  fi
   return 0
 }
 
@@ -891,7 +930,65 @@ lm_summary() {
     args=("${filtered[@]}")
   fi
 
-  line="monitor=${monitor} host=${target_host} status=${status} node=${node} ${args[*]}"
+  # Ensure reason= appears early so it's less likely to be truncated away.
+  local reordered=()
+  for tok in "${args[@]}"; do
+    [[ "$tok" == reason=* ]] && reordered+=("$tok")
+  done
+  for tok in "${args[@]}"; do
+    [[ "$tok" == reason=* ]] || reordered+=("$tok")
+  done
+  args=("${reordered[@]}")
+
+  local max_len="${LM_SUMMARY_MAX_LEN:-220}"
+  local max_val="${LM_SUMMARY_MAX_VALUE_LEN:-120}"
+  local monitor_max_len="$max_len"
+  if [[ -n "${LM_SUMMARY_MONITOR_MAX_LEN_MAP:-}" ]]; then
+    local part k v
+    IFS=',' read -r -a parts <<< "${LM_SUMMARY_MONITOR_MAX_LEN_MAP}"
+    for part in "${parts[@]}"; do
+      part="${part//[[:space:]]/}"
+      [[ -z "$part" ]] && continue
+      [[ "$part" == *=* ]] || continue
+      k="${part%%=*}"
+      v="${part#*=}"
+      if [[ "$k" == "$monitor" && "$v" =~ ^[0-9]+$ ]]; then
+        monitor_max_len="$v"
+        break
+      fi
+    done
+  fi
+
+  local base="monitor=${monitor} host=${target_host} status=${status} node=${node}"
+  local line="$base"
+  local truncated=0
+  local tok key val
+  for tok in "${args[@]}"; do
+    if [[ "$tok" == *=* ]]; then
+      key="${tok%%=*}"
+      val="${tok#*=}"
+      if [[ -n "$max_val" && "$max_val" =~ ^[0-9]+$ && "${#val}" -gt "$max_val" ]]; then
+        if (( max_val > 3 )); then
+          val="${val:0:$((max_val-3))}..."
+        else
+          val="${val:0:$max_val}"
+        fi
+      fi
+      tok="${key}=${val}"
+    fi
+    if (( ${#line} + 1 + ${#tok} > monitor_max_len )); then
+      truncated=1
+      continue
+    fi
+    line="${line} ${tok}"
+  done
+  if [[ "$truncated" -eq 1 ]]; then
+    local trunc_tok="truncated=1"
+    if (( ${#line} + 1 + ${#trunc_tok} <= monitor_max_len )); then
+      line="${line} ${trunc_tok}"
+    fi
+  fi
+
   line="$(printf '%s' "$line" | sed "s/[[:space:]]\\+/ /g; s/[[:space:]]$//")"
   line="$(lm_redact_kv_line "$line")"
   printf '%s\n' "$line"

@@ -9,6 +9,7 @@ Start here to navigate operator and contributor documentation.
 - Full reference (configuration, monitors, outputs): `docs/reference.md`
 - Monitors matrix: `docs/MONITORS_MATRIX.md`
 - Configuration: `docs/configuration.md`
+- Custom monitors: `docs/CUSTOM_MONITORS.md`
 - Installation: `docs/installation.md`
 - Compatibility matrix: `docs/COMPATIBILITY.md`
 - Troubleshooting: `docs/troubleshooting.md`
@@ -20,6 +21,7 @@ Start here to navigate operator and contributor documentation.
 - Upgrade and rollback: `docs/UPGRADE.md`
 - Artifacts and logs: `docs/ARTIFACTS.md`
 - Examples: `docs/examples/README.md`
+- Interactive menu (TUI): `linux-maint menu`
 - Reasons quick reference: `docs/REASONS.md#top-10-reasons-quick-reference`
 - Short index (quick links): `docs/INDEX.md`
 
@@ -32,7 +34,9 @@ Start here to navigate operator and contributor documentation.
 - Release checklist: `docs/RELEASE_CHECKLIST.md`
 - Release template: `docs/RELEASE_TEMPLATE.md`
 - Release notes (latest): `docs/release_notes/release_notes_v0.2.8.md`, `docs/release_notes/release_notes_v0.2.7.md`
+- TUI style guide: `docs/TUI_STYLE_GUIDE.md`
 - Security policy: `SECURITY.md`
+- Security response: `docs/SECURITY_RESPONSE.md`
 - Security best practices report: `docs/security_best_practices_report.md`
 
 ## Architecture

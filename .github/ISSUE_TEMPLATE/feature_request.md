@@ -1,17 +1,21 @@
 ---
 name: Feature request
-description: Suggest an improvement
-labels: [enhancement]
+about: Suggest an idea or enhancement
+labels: enhancement
 ---
 
-## Problem
-What problem are you trying to solve?
+## Summary
+
+What problem would this solve?
 
 ## Proposed solution
+
 What would you like to see added or changed?
 
-## Alternatives
-Any alternatives you considered.
+## Alternatives considered
 
-## Impact
-Who benefits and how?
+Any other approaches you evaluated?
+
+## Additional context
+
+Links, screenshots, or examples.

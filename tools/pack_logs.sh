@@ -57,6 +57,16 @@ if command -v sha256sum >/dev/null 2>&1 && command -v stat >/dev/null 2>&1; then
   integrity_enabled=1
 fi
 
+gpg_enabled=0
+case "${LM_PACK_LOGS_GPG:-0}" in
+  1|true|TRUE|yes|YES) gpg_enabled=1 ;;
+esac
+gpg_recipient="${LM_PACK_LOGS_GPG_RECIPIENT:-}"
+gpg_keep_plaintext=0
+case "${LM_PACK_LOGS_GPG_KEEP_PLAINTEXT:-0}" in
+  1|true|TRUE|yes|YES) gpg_keep_plaintext=1 ;;
+esac
+
 # Redaction is intentionally simple and conservative.
 # We only redact common key patterns in *.conf and *.txt.
 redact_file() {
@@ -162,6 +172,9 @@ fi
 if [[ "$integrity_enabled" -eq 1 ]]; then
   progress_total=$((progress_total + 1))
 fi
+if [[ "$gpg_enabled" -eq 1 ]]; then
+  progress_total=$((progress_total + 1))
+fi
 
 mkdir -p "$OUTDIR"
 workdir="$(mktemp -d -p "$TMPDIR")"
@@ -180,10 +193,15 @@ hash_state="disabled"
 if [[ "$hash_enabled" -eq 1 ]]; then
   hash_state="enabled"
 fi
+gpg_state="disabled"
+if [[ "$gpg_enabled" -eq 1 ]]; then
+  gpg_state="enabled"
+fi
 {
   echo "created_utc=$TS"
   echo "redaction=$redact_state"
   echo "hashes=$hash_state"
+  echo "gpg=$gpg_state"
 } > "$bundle_root/meta/bundle_meta.txt"
 
 # --- Logs ---
@@ -267,6 +285,29 @@ out_path="$OUTDIR/$out_name"
 
 tar -C "$bundle_root" -czf "$out_path" .
 progress_step "compress"
+
+if [[ "$gpg_enabled" -eq 1 ]]; then
+  if ! command -v gpg >/dev/null 2>&1; then
+    echo "ERROR: gpg not found (requested --gpg)" >&2
+    exit 2
+  fi
+  if [[ -z "$gpg_recipient" ]]; then
+    echo "ERROR: --gpg requires --gpg-recipient (email or key id)" >&2
+    exit 2
+  fi
+  gpg_out="${out_path}.gpg"
+  if gpg --batch --yes --recipient "$gpg_recipient" --output "$gpg_out" --encrypt "$out_path"; then
+    progress_step "gpg"
+    if [[ "$gpg_keep_plaintext" -ne 1 ]]; then
+      rm -f "$out_path" 2>/dev/null || true
+    fi
+    out_path="$gpg_out"
+  else
+    echo "ERROR: gpg encryption failed" >&2
+    exit 2
+  fi
+fi
+
 progress_done
 
 echo "$out_path"

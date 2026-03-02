@@ -140,6 +140,14 @@ Several scripts create temporary files (wrapper, monitors, tools).
 - If unwritable, the code falls back to `/var/tmp` then `/tmp` (best-effort).
 - Some monitors also consider `LM_STATE_DIR` for temp files when appropriate.
 
+### TUI (linux-maint menu)
+
+You can tune the interactive menu behavior via environment variables:
+
+- `LM_TUI_BACKEND` = `gum|dialog|whiptail` (force a specific backend)
+- `LM_TUI_DASH_REFRESH` = seconds (auto-refresh interval; `0` disables)
+- `TUI_BANNER_WIDTH` = integer (banner width for gum backend)
+
 ### Runtime summary (wrapper logs)
 
 The wrapper records per-monitor runtime in milliseconds and includes:
@@ -435,7 +443,22 @@ Operator docs:
 
 After installation, use the `linux-maint` CLI as the primary interface.
 
+## Interactive menu (TUI)
 
+`linux-maint menu` launches a local terminal UI for common actions (run, status, report, tools).
+It prefers **gum** for the most polished UI, but falls back to `dialog` or `whiptail`.
+
+Examples:
+
+```bash
+sudo linux-maint menu
+LM_TUI_BACKEND=dialog sudo linux-maint menu
+```
+
+Prerequisites (any one):
+- `gum` (recommended)
+- `dialog`
+- `whiptail`
 
 ### Commands
 
@@ -446,6 +469,10 @@ After installation, use the `linux-maint` CLI as the primary interface.
   - `--only a,b`: run only selected monitors (names with or without `_monitor`).
   - `--skip a,b`: skip selected monitors.
   - `--strict`: fail the run if any monitor emits malformed summary lines (adds `reason=summary_invalid`).
+  - `--allow-concurrent`: allow overlapping runs (skip lock).
+  - `--lock-timeout N`: wait up to `N` seconds for the run lock (default 60).
+
+- `linux-maint menu`: interactive TUI menu for common actions (requires gum/dialog/whiptail).
 
 - `linux-maint init [--minimal] [--force]` *(root required)*: install `/etc/linux_maint` templates from the repo checkout.
   - By default, existing files are not overwritten.
@@ -456,6 +483,7 @@ After installation, use the `linux-maint` CLI as the primary interface.
 - `linux-maint status` *(root required)*: show last run metadata plus a compact, severity-sorted problems summary by default. Use `--verbose` for raw summary lines.
 - `linux-maint check` *(root required)*: run config validation + preflight and show a short OK/WARN/CRIT summary.
   - `--json`: emit machine-friendly summary and expected SKIPs.
+- `linux-maint config --diff-defaults`: show effective config values that differ from shipped defaults.
 
 Status flags (installed mode):
 
@@ -471,15 +499,17 @@ Status flags (installed mode):
 - `--group-by host|monitor|reason` — group summary lines with stable ordering (reason grouping includes non-OK entries)
 - `--top N` — cap the number of group-by rows (requires `--group-by`)
 - `--prom` — emit Prometheus textfile-style summary metrics to stdout (overall + per-status counts)
+- `--output PATH` — write output atomically to `PATH`
 
 - `linux-maint report` *(root required)*: show combined status + trends + runtimes.
   - `--short` emits a one-screen summary with totals, top problems, and next steps.
   - `--redact` applies best-effort redaction to human output only (not JSON).
+  - `--output PATH` writes output atomically to a file.
 
 Note: when optional config/baselines are missing, `status`/`report` show an `Expected SKIPs` banner by default (suppressed in compact/summary output). Use `--expected-skips` for the explicit list.
 
 - `linux-maint metrics --json` *(root required)*: emit a single JSON snapshot with status + trends + runtimes for automation.
-- `linux-maint metrics --prom` *(root required)*: emit Prometheus textfile metrics to stdout (same contract as `status --prom`).
+- `linux-maint metrics --prom` *(root required)*: emit Prometheus textfile metrics to stdout (same contract as `status --prom`; use `--output PATH` for atomic writes).
 - `linux-maint run-index` *(root required)*: show stats for `run_index.jsonl` and optionally prune with `--keep N`.
 
 
@@ -488,6 +518,8 @@ Note: when optional config/baselines are missing, `status`/`report` show an `Exp
 `linux-maint status --json` is intended for automation use and keeps a stable top-level shape.
 
 Top-level keys:
+- `schema_version` (integer, current value: `1`)
+- `run_id` (string, stable identifier for the run)
 - `status_json_contract_version` (integer, current value: `1`)
 - `mode` (string: `repo` or `installed`)
 - `last_status` (object; parsed from `last_status_full` key/value file)
@@ -508,6 +540,8 @@ Schemas:
 ### `linux-maint report --json` compatibility contract
 
 Top-level keys:
+- `schema_version` (integer, current value: `1`)
+- `run_id` (string, stable identifier for the run)
 - `report_json_contract_version` (integer, current value: `1`)
 - `status` (object; same payload as `linux-maint status --json`)
 - `trend` (object; same payload as `linux-maint trend --json`)
@@ -524,6 +558,8 @@ Schema:
 ### `linux-maint metrics --json` compatibility contract
 
 Top-level keys:
+- `schema_version` (integer, current value: `1`)
+- `run_id` (string, stable identifier for the run)
 - `metrics_json_contract_version` (integer, current value: `1`)
 - `status` (object; same payload as `linux-maint status --json`)
 - `trend` (object; same payload as `linux-maint trend --json`)
@@ -580,6 +616,7 @@ Top-level keys:
 - `cfg_dir` (string path to the config root)
 - `sources` (array of config file paths used to build the effective config)
 - `values` (object; effective config key/value pairs as strings)
+- `diff_defaults` (optional array; present when `--diff-defaults` is used)
 
 Compatibility policy:
 - Existing keys/types above are treated as stable for contract version `1`.
@@ -651,7 +688,7 @@ Example (`doctor --json`):
 
 
 
-- `linux-maint trend [--last N] [--since DATE] [--until DATE] [--json|--csv|--export csv|json] [--redact]` *(root required)*: aggregate severity and reason trends across recent timestamped summary artifacts (default last 10 runs).
+- `linux-maint trend [--last N] [--since DATE] [--until DATE] [--json|--csv|--export csv|json] [--redact] [--output PATH]` *(root required)*: aggregate severity and reason trends across recent timestamped summary artifacts (default last 10 runs).
   - `--since`/`--until` accept `YYYY-MM-DD` or `YYYY-MM-DD_HHMMSS` (local time).
   - `--csv` emits a stable CSV table for imports.
   - `--redact` applies best-effort redaction to human output only (not JSON/CSV).
@@ -730,6 +767,9 @@ Example (`export --json`):
 - `LM_REDACT_JSON_STRICT=1` — redact all string values in JSON outputs (full scrub).
 - `LM_EXPORT_ALLOWLIST=monitor,host,status,reason,...` — restrict keys emitted for each row in `linux-maint export --json`.
 - `LM_PACK_LOGS_HASH=1` — include `meta/bundle_hashes.txt` (SHA256 per file) in pack-logs bundles.
+- `LM_PACK_LOGS_GPG=1` — encrypt pack-logs bundle with GPG (requires `LM_PACK_LOGS_GPG_RECIPIENT`).
+- `LM_PACK_LOGS_GPG_RECIPIENT=<email|keyid>` — GPG recipient for encrypted bundles.
+- `LM_PACK_LOGS_GPG_KEEP_PLAINTEXT=1` — keep the `.tar.gz` alongside the `.gpg`.
 - pack-logs also writes `meta/bundle_integrity.txt` (SHA256 + size per file) when `sha256sum` and `stat` are available.
 - `LM_PROGRESS=0` — disable progress bars (run, pack-logs, baseline update).
 - `LM_PROGRESS_WIDTH=24` — progress bar width in characters.
@@ -794,6 +834,8 @@ LM_SSH_ALLOWLIST='^bash -lc |^command -v |^df |^ss |^netstat |^systemctl |^ping 
 Start with a broad allowlist, then tighten it based on blocked-command warnings in logs.
 
 Validation guardrails (in `linux-maint run`):
+- Rejects unsafe shell metacharacters in `LM_SSH_OPTS`.
+- In strict mode (`LM_STRICT=1`), weak SSH ciphers/KEX/MACs are rejected.
 
 ### Least-privilege guidance (SSH mode)
 
@@ -810,8 +852,8 @@ command="sudo /usr/local/sbin/run_full_health_monitor.sh",no-port-forwarding,no-
 
 ```
 # /etc/sudoers.d/linux-maint
-linuxmaint ALL=(root) NOPASSWD: /usr/local/sbin/run_full_health_monitor.sh
-linuxmaint ALL=(root) NOPASSWD: /usr/local/bin/linux-maint status, /usr/local/bin/linux-maint doctor, /usr/local/bin/linux-maint logs
+Cmnd_Alias LINUX_MAINT = /usr/local/sbin/run_full_health_monitor.sh, /usr/local/bin/linux-maint status, /usr/local/bin/linux-maint report, /usr/local/bin/linux-maint doctor, /usr/local/bin/linux-maint logs
+linuxmaint ALL=(root) NOPASSWD: LINUX_MAINT
 ```
 
 Adjust paths if your `PREFIX` is not `/usr/local`.
@@ -934,7 +976,7 @@ The wrapper writes an aggregated log to:
 It also writes a machine-parseable summary (only `monitor=` lines) to:
 
 - `/var/log/health/full_health_monitor_summary_latest.log`
-- `/var/log/health/full_health_monitor_summary_latest.json` *(same content as JSON array)*
+- `/var/log/health/full_health_monitor_summary_latest.json` *(JSON object with `schema_version`, `run_id`, `meta`, `rows`)*
 
 This file is intended for automation/CI ingestion and is what `linux-maint status` will prefer when present.
 
@@ -943,6 +985,7 @@ The wrapper also appends a compact run index entry (JSONL) to:
 - `/var/lib/linux_maint/run_index.jsonl` *(default; overridden by `LM_RUN_INDEX_FILE`)*
 
 You can control retention with `LM_RUN_INDEX_KEEP` (default 200).
+Optional age cap: `LM_RUN_INDEX_MAX_AGE_DAYS` (drop entries older than N days).
 
 Run index schema:
 - `docs/schemas/run_index.json` — JSON schema for each JSONL entry.
@@ -954,10 +997,12 @@ Optional: Prometheus export (textfile collector format)
 - `linux_maint_overall_status` — overall run status gauge (OK=0, WARN=1, CRIT=2, UNKNOWN=3)
 - `linux_maint_summary_hosts_count{status=...}` — host-level counters derived from `monitor=` lines
 - `linux_maint_monitor_status_count{status=...}` — deduped monitor result counters by status
+- `linux_maint_monitor_host_count{monitor="..."}` — host result count per monitor (deduped by monitor+host)
 - `linux_maint_monitor_status{monitor="...",host="..."}` — per monitor/host status gauge (OK=0, WARN=1, CRIT=2, UNKNOWN/SKIP=3)
 - `linux_maint_last_run_age_seconds` — seconds since the wrapper run timestamp (near 0 on fresh runs)
 - `linux_maint_reason_count{reason="..."}` — top non-OK reason token counts (deduped by monitor+host, bounded by `LM_PROM_MAX_REASON_LABELS`, default 20)
 - `linux_maint_monitor_runtime_ms{monitor="..."}` — per-monitor runtime in milliseconds (wrapper)
+- `linux_maint_monitor_runtime_seconds{monitor="..."}` — per-monitor runtime in seconds (wrapper)
 - `linux_maint_runtime_warn_count` — count of monitors exceeding runtime warn thresholds
 - `LM_PROM_FORMAT=openmetrics` — append `# EOF` for OpenMetrics-compatible output.
 
@@ -1347,7 +1392,7 @@ CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).
 
 - `linux-maint help <command>`: show concise usage for a specific command (no root required). For full flag details, see this reference.
 
-- `linux-maint pack-logs [--out DIR]`: create a support bundle (progress can be toggled with `--progress|--no-progress`).
+- `linux-maint pack-logs [--out DIR]`: create a support bundle (supports `--gpg` encryption; progress can be toggled with `--progress|--no-progress`).
   - `--redact|--no-redact`: override `LM_REDACT_LOGS` for this bundle only.
   - `--hash`: include `meta/bundle_hashes.txt` (SHA256 per file) in the bundle.
   - `meta/bundle_integrity.txt` is always included when `sha256sum` and `stat` are available.

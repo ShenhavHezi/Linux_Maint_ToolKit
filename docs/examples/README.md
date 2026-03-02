@@ -15,3 +15,7 @@ sudo ./bin/linux-maint run
 ```
 
 Replace hostnames and service names before using in production.
+
+## fleet_quickstart/
+
+An SSH fleet example with inventory, services, and network targets.

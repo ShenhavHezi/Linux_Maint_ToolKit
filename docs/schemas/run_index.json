@@ -5,6 +5,8 @@
   "required": ["run_index_version", "timestamp", "overall", "exit_code", "hosts"],
   "properties": {
     "run_index_version": { "type": "integer" },
+    "schema_version": { "type": "integer" },
+    "run_id": { "type": ["string", "null"] },
     "timestamp": { "type": "string" },
     "timestamp_epoch": { "type": ["integer", "null"] },
     "overall": { "type": "string" },

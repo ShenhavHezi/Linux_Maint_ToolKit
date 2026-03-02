@@ -13,7 +13,7 @@ help:
 	@echo "  make release VERSION=x.y.z - bump version/changelog, tag, and build tarball (tools/release.sh)"
 	@echo "  make release-prep VERSION=x.y.z - bump version/changelog and draft notes (tools/release_prep.sh)"
 	@echo "  make release-check - validate docs/schemas/release notes (tools/release_check.sh)"
-	@echo "  make verify-release - verify tarball checksums (linux-maint verify-release)"
+	@echo "  make verify-release - verify release notes/index + tarball checksums"
 	@echo "  make docs-check - validate internal markdown links"
 	@echo "  make test   - run repo test suite (contract + smoke)"
 	@echo "  make quick-check - run fast contract/lint checks"
@@ -62,7 +62,8 @@ release-check:
 	@./tools/release_check.sh
 
 verify-release:
-	@./bin/linux-maint verify-release dist/Linux_Maint_ToolKit-*.tgz --sums dist/SHA256SUMS
+	@./tools/release_check.sh
+	@./tools/verify_release.sh dist/Linux_Maint_ToolKit-*.tgz --sums dist/SHA256SUMS
 
 install-githooks:
 	@./tools/install_githooks.sh

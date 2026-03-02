@@ -66,6 +66,31 @@ tip_line() {
   fi
 }
 
+atomic_output_begin() {
+  local path="$1"
+  [[ -n "$path" ]] || return 1
+  local dir
+  dir="$(dirname "$path")"
+  mkdir -p "$dir" 2>/dev/null || true
+  LM_OUTPUT_PATH="$path"
+  LM_OUTPUT_TMP="$(mktemp -p "$dir" .linux_maint_out.XXXXXX 2>/dev/null || true)"
+  [[ -n "${LM_OUTPUT_TMP:-}" ]] || return 1
+  exec 3>&1
+  exec >"$LM_OUTPUT_TMP"
+}
+
+atomic_output_end() {
+  local rc=$?
+  trap - EXIT
+  exec 1>&3 3>&-
+  if [[ "$rc" -eq 0 ]]; then
+    mv -f "$LM_OUTPUT_TMP" "$LM_OUTPUT_PATH" 2>/dev/null || true
+  else
+    rm -f "$LM_OUTPUT_TMP" 2>/dev/null || true
+  fi
+  exit "$rc"
+}
+
 get_default_monitors(){
   local file="$wrapper"
   [[ -f "$file" ]] || return 1
@@ -674,6 +699,37 @@ tui_run_live(){
   tui_run_cmd "$title" "$@"
 }
 
+tui_run_next_steps(){
+  local rc="$1"
+  local summary log
+  if [[ "$MODE" == "repo" ]]; then
+    summary="$REPO_SUMMARY_LATEST"
+    log="$REPO_LATEST_LOG"
+  else
+    summary="$INST_SUMMARY_LATEST"
+    log="/var/log/health/full_health_monitor_latest.log"
+  fi
+  local msg
+  if [[ "$rc" -eq 0 ]]; then
+    msg="Run finished (exit_code=$rc)\nSummary: $summary\nLog: $log\n\nNext steps:\n- linux-maint report\n- linux-maint status --reasons 5\n- linux-maint doctor (if WARN/CRIT)"
+  else
+    msg="Run finished (exit_code=$rc)\nSummary: $summary\nLog: $log\n\nNext steps:\n- linux-maint report --short\n- linux-maint status --reasons 5\n- linux-maint doctor"
+  fi
+  tui_msgbox "$msg"
+}
+
+tui_about(){
+  local build
+  build="$("$0" version 2>/dev/null || true)"
+  local bin_path
+  bin_path="$(command -v linux-maint 2>/dev/null || echo "$0")"
+  local msg="Linux-Maint\nmode=$MODE\nbinary=$bin_path"
+  if [[ -n "$build" ]]; then
+    msg="${msg}\n\nBuild info:\n$build"
+  fi
+  tui_msgbox "$msg"
+}
+
 tui_tail_logs(){
   local log_file
   log_file="$(tui_latest_log_path)"
@@ -813,6 +869,7 @@ run_menu_run(){
       run)
         if tui_yesno "Run full checks now?"; then
           tui_run_live "linux-maint run" "$0" run
+          tui_run_next_steps "$?"
         fi
         ;;
       plan)
@@ -927,6 +984,7 @@ run_menu_help(){
       faq "FAQ" \
       reasons "Reasons catalog" \
       monitors "Monitors matrix" \
+      about "About / version" \
       explain_reason "Explain reason token" \
       explain_monitor "Explain monitor" \
       explain_status "Explain status" \
@@ -948,6 +1006,9 @@ run_menu_help(){
         ;;
       monitors)
         tui_view_file "Monitors matrix" "$REPO_ROOT/docs/MONITORS_MATRIX.md"
+        ;;
+      about)
+        tui_about
         ;;
       explain_reason)
         local token
@@ -1063,7 +1124,7 @@ run_menu(){
   TUI_BACKTITLE="Linux Maint ToolKit"
 
   if [[ "$MODE" == "installed" && $EUID -ne 0 ]]; then
-    tui_msgbox "Some actions (run/doctor/summary) require root.\nRe-run with: sudo linux-maint menu"
+    tui_msgbox $'Some actions (run/doctor/summary) require root.\nRe-run with: sudo linux-maint menu'
   fi
 
   TUI_ANIM_TICK=0
@@ -1234,6 +1295,39 @@ validate_ssh_opts(){
       exit 2
       ;;
   esac
+
+  local strict=0
+  case "${LM_STRICT:-0}" in 1|true|TRUE|yes|YES|on|ON) strict=1 ;; esac
+  case "${LM_SSH_ALLOWLIST_STRICT:-0}" in 1|true|TRUE|yes|YES|on|ON) strict=1 ;; esac
+
+  local weak_cipher_re='3des-cbc|arcfour|arcfour128|arcfour256|aes128-cbc|aes192-cbc|aes256-cbc|blowfish-cbc|cast128-cbc|rijndael-cbc@lysator\\.liu\\.se'
+  local weak_kex_re='diffie-hellman-group1-sha1|diffie-hellman-group14-sha1|diffie-hellman-group-exchange-sha1'
+  local weak_mac_re='hmac-md5|hmac-md5-96|hmac-sha1|hmac-sha1-96|umac-64@openssh\\.com'
+
+  if printf '%s' "$s" | grep -Eiq "Ciphers=.*(${weak_cipher_re})"; then
+    if [[ "$strict" -eq 1 ]]; then
+      echo "ERROR: LM_SSH_OPTS enables weak ciphers in strict mode" >&2
+      exit 2
+    else
+      echo "WARN: LM_SSH_OPTS includes weak ciphers (consider removing CBC/RC4/3DES)" >&2
+    fi
+  fi
+  if printf '%s' "$s" | grep -Eiq "KexAlgorithms=.*(${weak_kex_re})"; then
+    if [[ "$strict" -eq 1 ]]; then
+      echo "ERROR: LM_SSH_OPTS enables weak key exchange in strict mode" >&2
+      exit 2
+    else
+      echo "WARN: LM_SSH_OPTS includes weak key exchange (consider removing sha1 groups)" >&2
+    fi
+  fi
+  if printf '%s' "$s" | grep -Eiq "MACs=.*(${weak_mac_re})"; then
+    if [[ "$strict" -eq 1 ]]; then
+      echo "ERROR: LM_SSH_OPTS enables weak MACs in strict mode" >&2
+      exit 2
+    else
+      echo "WARN: LM_SSH_OPTS includes weak MACs (consider removing hmac-sha1/md5)" >&2
+    fi
+  fi
 }
 
 
@@ -1441,6 +1535,10 @@ parse_run_args(){
         LM_PROGRESS=1; export LM_PROGRESS; shift 1;;
       --no-progress)
         LM_PROGRESS=0; export LM_PROGRESS; shift 1;;
+      --allow-concurrent)
+        LM_ALLOW_CONCURRENT=1; export LM_ALLOW_CONCURRENT; shift 1;;
+      --lock-timeout)
+        LM_RUN_LOCK_TIMEOUT="$2"; export LM_RUN_LOCK_TIMEOUT; shift 2;;
       --debug|--print-env)
         DEBUG=1; shift 1;;
       --dry-run)
@@ -1571,12 +1669,15 @@ Key flags:
   --json               with --plan, emit JSON
   --dry-run            alias for --plan
   --strict             fail if any monitor emits malformed summary lines
+  --allow-concurrent   allow overlapping runs (skip lock)
+  --lock-timeout N     wait up to N seconds for run lock (default: 60)
   --progress|--no-progress  progress bar control
 
 Examples:
   linux-maint run --group prod --parallel 10 --progress
   linux-maint run --only service_monitor,ntp_drift_monitor
   linux-maint run --skip inventory_export,backup_check
+  linux-maint run --lock-timeout 120
   NO_COLOR=1 linux-maint run --local-only --plan
   NO_COLOR=1 linux-maint run --local-only --plan --json
 EOF
@@ -1602,6 +1703,7 @@ Output:
   --summary                one-line summary
   --json                   machine JSON
   --prom                   Prometheus textfile format
+  --output PATH            write output atomically to PATH
   --table                  table output
   --group-by host|monitor|reason
   --top N                  limit group-by rows (requires --group-by)
@@ -1620,6 +1722,7 @@ Output:
   --table        table formatting
   --json         machine JSON
   --redact       redact secrets in human output only
+  --output PATH  write output atomically to PATH
   --no-trend     suppress trend section
   --no-slow      suppress slow monitors
   --no-reasons   suppress reason rollup
@@ -1631,9 +1734,9 @@ Examples:
 EOF
       ;;
     metrics)
-      echo "Usage: linux-maint metrics --json|--prom";;
+      echo "Usage: linux-maint metrics --json|--prom [--output PATH]";;
     config)
-      echo "Usage: linux-maint config [--json] [--sources] [--lint]";;
+      echo "Usage: linux-maint config [--json] [--sources] [--lint] [--diff-defaults]";;
     doctor)
       echo "Usage: linux-maint doctor [--json] [--compact] [--fix] [--fix-deps] [--fix-deps-optional] [--yes] [--dry-run]";;
     self-check)
@@ -1664,7 +1767,7 @@ EOF
       echo "Usage: linux-maint summary [--no-color]";;
     trend)
       cat <<'EOF'
-Usage: linux-maint trend [--last N] [--since DATE] [--until DATE] [--json|--csv|--export csv|json] [--redact]
+Usage: linux-maint trend [--last N] [--since DATE] [--until DATE] [--json|--csv|--export csv|json] [--redact] [--output PATH]
 
 Examples:
   linux-maint trend --last 10
@@ -1706,6 +1809,9 @@ Usage: linux-maint pack-logs [flags]
   --redact|--no-redact redact sensitive data
   --progress|--no-progress
   --hash               include SHA256 manifest
+  --gpg                encrypt bundle (requires --gpg-recipient)
+  --gpg-recipient ID   GPG recipient (email or key id)
+  --gpg-keep-plaintext keep the .tar.gz alongside the .gpg
 EOF
       ;;
     version)
@@ -1821,6 +1927,10 @@ case "$cmd" in
           local_monitors="$(available_monitors 2>/dev/null || true)"
         fi
       fi
+      if [[ -z "$local_monitors" ]]; then
+        echo "ERROR: no monitors resolved for plan" >&2
+        exit 2
+      fi
 
       if [[ "${RUN_JSON:-0}" -eq 1 ]]; then
         printf '{'
@@ -1915,44 +2025,112 @@ case "$cmd" in
       echo "ERROR: monitors directory not found" >&2
       exit 1
     fi
-    MONITORS_LIST="$avail" python3 - "$LIST_JSON" <<'PY'
+    MONITORS_LIST="$avail" MONITORS_DIR="$(
+      if [[ "$MODE" == "repo" && -d "$REPO_MONITORS" ]]; then
+        echo "$REPO_MONITORS"
+      elif [[ -d "$LIBEXEC" ]]; then
+        echo "$LIBEXEC"
+      elif [[ -d "$REPO_MONITORS" ]]; then
+        echo "$REPO_MONITORS"
+      else
+        echo ""
+      fi
+    )" python3 - "$LIST_JSON" <<'PY'
 import json
 import os
+import re
 import sys
 
 json_mode = sys.argv[1] == "1"
 monitors = [l.strip() for l in os.environ.get("MONITORS_LIST", "").splitlines() if l.strip()]
+monitors_dir = os.environ.get("MONITORS_DIR", "")
 
-meta = {
-    "preflight_check": ("Preflight readiness checks (deps/SSH/config).", [] , False),
-    "config_validate": ("Validate config file formats and hygiene.", ["linux-maint.conf"], False),
-    "health_monitor": ("Core host health (cpu/mem/disk/load).", [], False),
-    "filesystem_readonly_monitor": ("Detect read-only filesystems.", [], False),
-    "resource_monitor": ("Process resource hotspots (CPU/mem).", [], False),
-    "inode_monitor": ("Inode usage checks.", [], False),
-    "disk_trend_monitor": ("Disk growth trend check.", [], False),
-    "network_monitor": ("Network reachability/latency checks.", ["network_targets.txt"], True),
-    "service_monitor": ("Service status checks.", ["services.txt"], False),
-    "timer_monitor": ("systemd timer status checks.", [], False),
-    "last_run_age_monitor": ("Age of last run (wrapper status).", [], False),
-    "ntp_drift_monitor": ("NTP drift checks.", [], False),
-    "patch_monitor": ("Security updates check.", [], False),
-    "storage_health_monitor": ("Storage health (SMART/bad blocks).", [], False),
-    "kernel_events_monitor": ("Kernel error/oom events scan.", [], False),
-    "log_spike_monitor": ("Log spike detection.", [], False),
-    "cert_monitor": ("Certificate expiry checks.", ["certs.txt"], True),
-    "nfs_mount_monitor": ("NFS mount presence/health.", [], False),
-    "ports_baseline_monitor": ("Open ports baseline drift.", ["ports_baseline.txt"], True),
-    "config_drift_monitor": ("Config drift vs baseline.", ["config_paths.txt"], True),
-    "user_monitor": ("User/sudoers baseline drift.", ["baseline_users.txt","baseline_sudoers.txt"], True),
-    "backup_check": ("Backup target freshness checks.", ["backup_targets.csv"], True),
-    "inventory_export": ("Inventory snapshot exporter.", [], False),
+fallback_desc = {
+    "preflight_check": "Preflight readiness checks (deps/SSH/config).",
+    "config_validate": "Validate config file formats and hygiene.",
+    "health_monitor": "Core host health (cpu/mem/disk/load).",
+    "filesystem_readonly_monitor": "Detect read-only filesystems.",
+    "resource_monitor": "Process resource hotspots (CPU/mem).",
+    "inode_monitor": "Inode usage checks.",
+    "disk_trend_monitor": "Disk growth trend check.",
+    "network_monitor": "Network reachability/latency checks.",
+    "service_monitor": "Service status checks.",
+    "timer_monitor": "systemd timer status checks.",
+    "last_run_age_monitor": "Age of last run (wrapper status).",
+    "ntp_drift_monitor": "NTP drift checks.",
+    "patch_monitor": "Security updates check.",
+    "storage_health_monitor": "Storage health (SMART/bad blocks).",
+    "kernel_events_monitor": "Kernel error/oom events scan.",
+    "log_spike_monitor": "Log spike detection.",
+    "cert_monitor": "Certificate expiry checks.",
+    "nfs_mount_monitor": "NFS mount presence/health.",
+    "ports_baseline_monitor": "Open ports baseline drift.",
+    "config_drift_monitor": "Config drift vs baseline.",
+    "user_monitor": "User/sudoers baseline drift.",
+    "backup_check": "Backup target freshness checks.",
+    "inventory_export": "Inventory snapshot exporter.",
 }
+
+optional_map = {
+    "network_monitor": True,
+    "cert_monitor": True,
+    "ports_baseline_monitor": True,
+    "config_drift_monitor": True,
+    "user_monitor": True,
+    "backup_check": True,
+}
+
+def parse_description(path: str) -> str:
+    try:
+        lines = open(path, "r", encoding="utf-8", errors="ignore").read().splitlines()
+    except Exception:
+        return ""
+    # Look for Description: block
+    for i, line in enumerate(lines[:60]):
+        m = re.match(r"^#\\s*Description\\s*:?\\s*(.*)$", line)
+        if m:
+            desc = m.group(1).strip()
+            if desc:
+                return desc
+            parts = []
+            for nxt in lines[i+1:i+8]:
+                if not nxt.strip().startswith("#"):
+                    break
+                txt = nxt.lstrip("#").strip()
+                if txt:
+                    parts.append(txt)
+            if parts:
+                return " ".join(parts)
+    # Fallback: first comment like "<name> - description"
+    for line in lines[:20]:
+        m = re.match(r"^#\\s*[^-]+-\\s*(.+)$", line)
+        if m:
+            return m.group(1).strip()
+    return ""
+
+def parse_config_files(path: str):
+    try:
+        text = open(path, "r", encoding="utf-8", errors="ignore").read()
+    except Exception:
+        return []
+    cfg = set()
+    for m in re.findall(r"/etc/linux_maint/([A-Za-z0-9_./-]+)", text):
+        cfg.add(m.strip().strip("/"))
+    for m in re.findall(r"\\$\\{?LM_CFG_DIR[^}]*\\}?/([A-Za-z0-9_./-]+)", text):
+        cfg.add(m.strip().strip("/"))
+    for m in re.findall(r"\\$\\{?CFG_DIR\\}?/([A-Za-z0-9_./-]+)", text):
+        cfg.add(m.strip().strip("/"))
+    return sorted(cfg)
 
 rows = []
 for m in monitors:
     name = m[:-3] if m.endswith(".sh") else m
-    desc, cfg, optional = meta.get(name, ("(no description)", [], False))
+    path = os.path.join(monitors_dir, m) if monitors_dir else ""
+    desc = parse_description(path) if path and os.path.exists(path) else ""
+    cfg = parse_config_files(path) if path and os.path.exists(path) else []
+    if not desc:
+        desc = fallback_desc.get(name, "(no description)")
+    optional = bool(optional_map.get(name, False))
     rows.append({
         "monitor": name,
         "description": desc,
@@ -2066,7 +2244,45 @@ def parse_kv(line: str):
     return d, dup_keys, bad_tokens
 
 allowed_reasons, allowlist_reasons = load_allowed_reasons()
-txt = open(path, "r", encoding="utf-8", errors="ignore").read().splitlines()
+raw = open(path, "r", encoding="utf-8", errors="ignore").read()
+strip = raw.lstrip()
+if strip.startswith("{"):
+    try:
+        obj = json.loads(strip)
+    except Exception:
+        obj = None
+    if isinstance(obj, dict) and ("rows" in obj or "meta" in obj):
+        errors = []
+        if "schema_version" not in obj:
+            errors.append("summary JSON missing schema_version")
+        run_id = obj.get("run_id")
+        if not isinstance(run_id, str) or not run_id:
+            errors.append("summary JSON missing run_id")
+        ok = not errors
+        if json_mode:
+            out = {
+                "summary_lint_contract_version": 1,
+                "ok": ok,
+                "errors": errors,
+                "counts": {
+                    "malformed": 0,
+                    "missing_required": 0,
+                    "bad_status": 0,
+                    "missing_reason": 0,
+                    "bad_reason": 0,
+                    "dup_monitor_host": 0,
+                    "bad_host": 0,
+                    "missing_node": 0,
+                },
+                "missing_monitor_lines": [],
+            }
+            print(json.dumps(out, indent=2, sort_keys=True))
+            raise SystemExit(0 if ok else 2)
+        for e in errors:
+            print(f"ERROR: {e}")
+        raise SystemExit(0 if ok else 2)
+
+txt = raw.splitlines()
 
 executed = []
 monitor_lines = []
@@ -2276,6 +2492,7 @@ PY
     REPORT_NO_REASONS=0
     REPORT_NO_PROBLEMS=0
     REPORT_REDACT=0
+    OUTPUT_PATH=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) REPORT_JSON=1; shift 1;;
@@ -2289,6 +2506,7 @@ PY
         --no-slow) REPORT_NO_SLOW=1; shift 1;;
         --no-reasons) REPORT_NO_REASONS=1; shift 1;;
         --no-problems) REPORT_NO_PROBLEMS=1; shift 1;;
+        --output) OUTPUT_PATH="$2"; shift 2;;
         -h|--help)
           command_usage report
           exit 0;;
@@ -2300,6 +2518,14 @@ PY
     if [[ "$REPORT_JSON" -eq 1 && "$REPORT_REDACT" -eq 1 ]]; then
       echo "ERROR: --redact is only for human output (not --json)" >&2
       exit 2
+    fi
+
+    if [[ -n "$OUTPUT_PATH" ]]; then
+      if ! atomic_output_begin "$OUTPUT_PATH"; then
+        echo "ERROR: unable to write output to $OUTPUT_PATH" >&2
+        exit 2
+      fi
+      trap atomic_output_end EXIT
     fi
 
     tmp_status="$(mktemp -p "$TMPDIR" linux_maint_report_status.XXXXXX.json)"
@@ -2424,7 +2650,12 @@ trend = read_json(trend_path)
 runtimes = read_json(runtimes_path)
 
 if json_mode:
+    run_id = ""
+    if isinstance(status, dict):
+        run_id = status.get("run_id") or (status.get("last_status", {}) or {}).get("run_id", "")
     out = {
+        "schema_version": 1,
+        "run_id": run_id,
         "report_json_contract_version": 1,
         "status": status,
         "trend": trend,
@@ -2656,10 +2887,12 @@ PY
 
     METRICS_JSON=0
     METRICS_PROM=0
+    METRICS_OUT=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) METRICS_JSON=1; shift 1;;
         --prom) METRICS_PROM=1; shift 1;;
+        --output) METRICS_OUT="$2"; shift 2;;
         -h|--help)
           command_usage metrics
           exit 0;;
@@ -2672,7 +2905,11 @@ PY
       exit 2
     fi
     if [[ "$METRICS_PROM" -eq 1 ]]; then
-      "$0" status --prom
+      if [[ -n "$METRICS_OUT" ]]; then
+        "$0" status --prom --output "$METRICS_OUT"
+      else
+        "$0" status --prom
+      fi
       exit 0
     fi
     if [[ "$METRICS_JSON" -ne 1 ]]; then
@@ -2818,6 +3055,8 @@ if isinstance(runtimes, dict):
             monitor_durations_ms[mon] = ms_val
 
 out = {
+    "schema_version": 1,
+    "run_id": (status.get("run_id") if isinstance(status, dict) else "") or (status.get("last_status", {}) if isinstance(status, dict) else {}).get("run_id", ""),
     "metrics_json_contract_version": 1,
     "status": status,
     "trend": trend,
@@ -2843,11 +3082,13 @@ PY
     CFG_JSON=0
     CFG_SOURCES=0
     CFG_LINT=0
+    CFG_DIFF_DEFAULTS=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) CFG_JSON=1; shift 1;;
         --sources) CFG_SOURCES=1; shift 1;;
         --lint) CFG_LINT=1; shift 1;;
+        --diff-defaults) CFG_DIFF_DEFAULTS=1; shift 1;;
         -h|--help)
           command_usage config
           exit 0;;
@@ -2856,6 +3097,19 @@ PY
     done
 
     CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+    if [[ "$MODE" == "repo" ]]; then
+      LOG_DIR_LOCAL="${LOG_DIR:-$REPO_LOG_DIR}"
+      SUMMARY_DIR_LOCAL="${SUMMARY_DIR:-$REPO_LOG_DIR}"
+      STATE_DIR_LOCAL="${LM_STATE_DIR:-$REPO_LOG_DIR}"
+    else
+      LOG_DIR_LOCAL="${LOG_DIR:-/var/log/health}"
+      SUMMARY_DIR_LOCAL="${SUMMARY_DIR:-$LOG_DIR_LOCAL}"
+      STATE_DIR_LOCAL="${LM_STATE_DIR:-/var/lib/linux_maint}"
+    fi
+    DOCTOR_STRICT=0
+    if [[ "${LM_STRICT:-0}" == "1" || "${LM_STRICT:-}" == "true" ]]; then
+      DOCTOR_STRICT=1
+    fi
     main_conf="$CFG_DIR/linux-maint.conf"
     conf_d="$CFG_DIR/conf.d"
     conf_files=()
@@ -2884,13 +3138,14 @@ PY
     CFG_COLOR=1
     [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && CFG_COLOR=0
     color_enabled || CFG_COLOR=0
-    CFG_DIR="$CFG_DIR" CFG_SOURCES="$CFG_SOURCES" CFG_JSON="$CFG_JSON" CFG_LINT="$CFG_LINT" CFG_COLOR="$CFG_COLOR" python3 - "${conf_files[@]}" <<'PY'
+    CFG_DIR="$CFG_DIR" CFG_SOURCES="$CFG_SOURCES" CFG_JSON="$CFG_JSON" CFG_LINT="$CFG_LINT" CFG_DIFF_DEFAULTS="$CFG_DIFF_DEFAULTS" CFG_COLOR="$CFG_COLOR" python3 - "${conf_files[@]}" <<'PY'
 import json, os, re, shlex, subprocess, sys
 
 cfg_dir = os.environ.get("CFG_DIR", "/etc/linux_maint")
 show_sources = os.environ.get("CFG_SOURCES", "0") == "1"
 json_mode = os.environ.get("CFG_JSON", "0") == "1"
 lint_mode = os.environ.get("CFG_LINT", "0") == "1"
+diff_defaults = os.environ.get("CFG_DIFF_DEFAULTS", "0") == "1"
 color = os.environ.get("CFG_COLOR", "0") == "1"
 files = sys.argv[1:]
 
@@ -2951,6 +3206,106 @@ def lint(paths):
     duplicates = {k: v for k, v in seen.items() if len(v) > 1}
     return invalid, duplicates
 
+def parse_defaults(paths):
+    defaults = {}
+    for p in paths:
+        if not p or not os.path.exists(p):
+            continue
+        try:
+            with open(p, "r", encoding="utf-8", errors="ignore") as f:
+                for raw in f:
+                    line = raw.strip()
+                    if not line or line.startswith("##"):
+                        continue
+                    if line.startswith("#"):
+                        line = line[1:].lstrip()
+                    if line.startswith("export "):
+                        line = line[len("export "):].lstrip()
+                    m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\s*=", line)
+                    if not m:
+                        continue
+                    k = m.group(1)
+                    val = line.split("=", 1)[1].strip()
+                    val = val.strip('"').strip("'")
+                    defaults[k] = val
+        except FileNotFoundError:
+            continue
+    return defaults
+
+def find_defaults_template():
+    candidates = [
+        os.path.join(cfg_dir, "linux-maint.conf.example"),
+        os.path.join(os.environ.get("REPO_ROOT", ""), "etc", "linux_maint", "linux-maint.conf.example"),
+        os.path.join(os.environ.get("SHARE", ""), "templates", "linux_maint", "linux-maint.conf.example"),
+        "/usr/local/share/linux_maint/templates/linux_maint/linux-maint.conf.example",
+        "/usr/share/linux_maint/templates/linux_maint/linux-maint.conf.example",
+    ]
+    for p in candidates:
+        if p and os.path.exists(p):
+            return p
+    return ""
+
+BOOL_KEYS = {
+    "LM_LOCAL_ONLY",
+    "LM_SSH_ALLOWLIST_STRICT",
+    "LM_DARK_SITE",
+    "LM_REDACT_JSON",
+    "LM_REDACT_JSON_STRICT",
+    "LM_NOTIFY",
+    "LM_NOTIFY_ONLY_ON_CHANGE",
+}
+INT_KEYS = {
+    "LM_MAX_PARALLEL",
+    "LM_SSH_RETRY",
+    "MONITOR_TIMEOUT_SECS",
+    "LM_LAST_RUN_MAX_AGE_MIN",
+}
+LIST_KEYS = {
+    "LM_NOTIFY_TO",
+    "LM_PREFLIGHT_OPT_CMDS",
+}
+
+def is_bool(val: str) -> bool:
+    return val.lower() in {"1", "0", "true", "false", "yes", "no", "on", "off"}
+
+def is_int(val: str) -> bool:
+    return val.isdigit()
+
+def parse_list(val: str):
+    if not val.strip():
+        return []
+    if "," in val:
+        return [p.strip() for p in val.split(",") if p.strip()]
+    return [p for p in val.split() if p]
+
+def is_list(val: str) -> bool:
+    parts = parse_list(val)
+    if not parts:
+        return True
+    for p in parts:
+        if not re.match(r"^[A-Za-z0-9_.:/@+-]+$", p):
+            return False
+    return True
+
+def validate_types(values):
+    errors = []
+    for k in BOOL_KEYS:
+        if k in values:
+            v = str(values.get(k, ""))
+            if v == "" or not is_bool(v):
+                errors.append({"key": k, "expected": "bool", "value": v})
+    for k in INT_KEYS:
+        if k in values:
+            v = str(values.get(k, ""))
+            if v == "" or not is_int(v):
+                errors.append({"key": k, "expected": "int", "value": v})
+    for k in LIST_KEYS:
+        if k in values:
+            v = str(values.get(k, ""))
+            if not is_list(v):
+                errors.append({"key": k, "expected": "list", "value": v})
+    return errors
+
 if lint_mode:
     invalid, duplicates = lint(files)
     print(header("=== linux-maint config lint ==="))
@@ -2999,6 +3354,16 @@ else:
     sys.exit(1)
 
 values = {k: env.get(k, "") for k in keys}
+type_errors = validate_types(values)
+if type_errors:
+    if json_mode:
+        print(json.dumps({"error": "invalid_types", "cfg_dir": cfg_dir, "sources": files, "errors": type_errors}, indent=2, sort_keys=True))
+    else:
+        print(header("=== linux-maint config type errors ==="))
+        print(f"cfg_dir={cfg_dir}")
+        for e in type_errors:
+            print(f"- {e.get('key')}: expected {e.get('expected')} got {e.get('value')!r}")
+    sys.exit(2)
 
 if json_mode:
     out = {
@@ -3007,6 +3372,19 @@ if json_mode:
         "sources": files,
         "values": values,
     }
+    if diff_defaults:
+        tpl = find_defaults_template()
+        if tpl:
+            defaults = parse_defaults([tpl])
+            diffs = []
+            for k, v in values.items():
+                if k in defaults and str(v) != str(defaults[k]):
+                    diffs.append({"key": k, "default": defaults[k], "effective": v})
+            out["diff_defaults"] = diffs
+            out["diff_defaults_template"] = tpl
+        else:
+            out["diff_defaults"] = []
+            out["diff_defaults_error"] = "defaults template not found"
     print(json.dumps(out, indent=2, sort_keys=True))
     sys.exit(0)
 
@@ -3021,6 +3399,26 @@ width = max(len(k) for k in keys)
 print(f"{'KEY':<{width}} VALUE")
 for k in keys:
     print(f"{k:<{width}} {values.get(k,'')}")
+
+if diff_defaults:
+    tpl = find_defaults_template()
+    print("")
+    print(header("=== config diff vs defaults ==="))
+    if not tpl:
+        print("defaults template not found")
+    else:
+        defaults = parse_defaults([tpl])
+        diff_rows = []
+        for k, v in values.items():
+            if k in defaults and str(v) != str(defaults[k]):
+                diff_rows.append((k, defaults[k], v))
+        if not diff_rows:
+            print("no differences (effective matches defaults)")
+        else:
+            w = max(len(r[0]) for r in diff_rows)
+            print(f"{'KEY':<{w}} DEFAULT => EFFECTIVE")
+            for k, d, v in diff_rows:
+                print(f"{k:<{w}} {d} => {v}")
 PY
     ;;
 
@@ -3398,33 +3796,40 @@ if not exists:
         print(f"No run index found: {path}")
     sys.exit(1)
 
-lines = []
+entries = []
+invalid = 0
 with open(path, "r", encoding="utf-8", errors="ignore") as f:
-    lines = [l for l in f if l.strip()]
+    for raw in f:
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            entries.append(json.loads(raw))
+        except Exception:
+            invalid += 1
 
-count = len(lines)
-last = {}
-if lines:
-    try:
-        last = json.loads(lines[-1])
-    except Exception:
-        last = {}
+count = len(entries)
+last = entries[-1] if entries else {}
 
 if action == "prune":
     if keep > 0 and count > keep:
-        lines = lines[-keep:]
-        try:
-            tmp_dir = os.path.dirname(path) or "."
-            fd, tmp = tempfile.mkstemp(prefix=".run_index.", dir=tmp_dir)
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.writelines(lines)
-            os.replace(tmp, path)
-        except Exception:
-            pass
+        entries = entries[-keep:]
+    try:
+        tmp_dir = os.path.dirname(path) or "."
+        fd, tmp = tempfile.mkstemp(prefix=".run_index.", dir=tmp_dir)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            for e in entries:
+                f.write(json.dumps(e, sort_keys=True) + "\n")
+        os.replace(tmp, path)
+    except Exception:
+        pass
     if json_mode:
-        print(json.dumps({"path": path, "kept": min(count, keep), "total_before": count}, indent=2, sort_keys=True))
+        print(json.dumps({"path": path, "kept": min(count, keep), "total_before": count, "invalid_lines": invalid}, indent=2, sort_keys=True))
     else:
-        print(f"run_index_pruned path={path} kept={min(count, keep)} total_before={count}")
+        msg = f"run_index_pruned path={path} kept={min(count, keep)} total_before={count}"
+        if invalid:
+            msg += f" invalid_lines={invalid}"
+        print(msg)
     sys.exit(0)
 
 if json_mode:
@@ -3432,6 +3837,7 @@ if json_mode:
         "path": path,
         "count": count,
         "last": last,
+        "invalid_lines": invalid,
     }
     print(json.dumps(out, indent=2, sort_keys=True))
 else:
@@ -3547,6 +3953,7 @@ PY
     TOP_N=0
     PROM=0
     STRICT=0
+    OUTPUT_PATH=""
 
 
     while [[ $# -gt 0 ]]; do
@@ -3569,6 +3976,7 @@ PY
         --group-by) GROUP_BY="$2"; shift 2;;
         --top) TOP_N="$2"; shift 2;;
         --prom) PROM=1; shift 1;;
+        --output) OUTPUT_PATH="$2"; shift 2;;
         --since) SINCE="$2"; shift 2;;
         --last) LAST_N="$2"; shift 2;;
         --strict) STRICT=1; shift 1;;
@@ -3588,6 +3996,14 @@ PY
     if [[ "$JSON" -eq 1 && "$PROM" -eq 1 ]]; then
       echo "ERROR: --prom is not compatible with --json" >&2
       exit 2
+    fi
+
+    if [[ -n "$OUTPUT_PATH" ]]; then
+      if ! atomic_output_begin "$OUTPUT_PATH"; then
+        echo "ERROR: unable to write output to $OUTPUT_PATH" >&2
+        exit 2
+      fi
+      trap atomic_output_end EXIT
     fi
 
     if [[ "$SUMMARY_ONLY" -eq 1 ]]; then
@@ -4015,6 +4431,9 @@ def matched(value, flt):
         sys.exit(2)
 
 status=read_kv(status_path)
+run_id = ""
+if isinstance(status, dict):
+    run_id = status.get("run_id", "")
 
 counts={}
 problems=[]
@@ -4057,6 +4476,8 @@ problems.sort(key=lambda e: sev_order.get(e.get('status','UNKNOWN'), 9))
 
 out={
     'mode': mode,
+    'schema_version': 1,
+    'run_id': run_id,
     'status_json_contract_version': 1,
     'last_status': status,
     'summary_file': summary_path if summary_path and os.path.exists(summary_path) else None,
@@ -4563,6 +4984,7 @@ PY
     REDACT=0
     SINCE=""
     UNTIL=""
+    OUTPUT_PATH=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --last) LAST_N="$2"; shift 2 ;;
@@ -4570,6 +4992,7 @@ PY
         --until|--to) UNTIL="$2"; shift 2 ;;
         --json) JSON=1; shift 1 ;;
         --csv) CSV=1; shift 1 ;;
+        --output) OUTPUT_PATH="$2"; shift 2 ;;
         --export)
           case "${2:-}" in
             csv) CSV=1; shift 2 ;;
@@ -4596,6 +5019,14 @@ PY
     if [[ "$REDACT" -eq 1 && ( "$JSON" -eq 1 || "$CSV" -eq 1 ) ]]; then
       echo "ERROR: --redact is only for human output" >&2
       exit 2
+    fi
+
+    if [[ -n "$OUTPUT_PATH" ]]; then
+      if ! atomic_output_begin "$OUTPUT_PATH"; then
+        echo "ERROR: unable to write output to $OUTPUT_PATH" >&2
+        exit 2
+      fi
+      trap atomic_output_end EXIT
     fi
 
     if [[ "$MODE" == "repo" ]]; then
@@ -5707,6 +6138,9 @@ EOF_DEPS
     PACK_REDACT_SET=0
     PACK_REDACT=0
     PACK_HASH=0
+    PACK_GPG=0
+    PACK_GPG_RECIPIENT=""
+    PACK_GPG_KEEP=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --out) OUT="${2:-}"; shift 2;;
@@ -5715,6 +6149,9 @@ EOF_DEPS
         --redact) PACK_REDACT=1; PACK_REDACT_SET=1; shift 1;;
         --no-redact) PACK_REDACT=0; PACK_REDACT_SET=1; shift 1;;
         --hash) PACK_HASH=1; shift 1;;
+        --gpg) PACK_GPG=1; shift 1;;
+        --gpg-recipient) PACK_GPG=1; PACK_GPG_RECIPIENT="${2:-}"; shift 2;;
+        --gpg-keep-plaintext) PACK_GPG_KEEP=1; shift 1;;
         -h|--help)
           command_usage pack-logs
           exit 0;;
@@ -5773,6 +6210,11 @@ EOF_DEPS
 
     if [[ "$PACK_HASH" -eq 1 ]]; then
       export LM_PACK_LOGS_HASH=1
+    fi
+    if [[ "$PACK_GPG" -eq 1 ]]; then
+      export LM_PACK_LOGS_GPG=1
+      export LM_PACK_LOGS_GPG_RECIPIENT="$PACK_GPG_RECIPIENT"
+      export LM_PACK_LOGS_GPG_KEEP_PLAINTEXT="$PACK_GPG_KEEP"
     fi
 
     OUTDIR="$OUT" LOG_DIR="$_logdir" CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}" STATE_DIR="$_state_dir" REPO_ROOT="$_repo_root" \
@@ -5886,6 +6328,21 @@ EOF_DEPS
   doctor)
     if [[ "$MODE" == "installed" ]]; then
       need_root_for doctor
+    fi
+
+    if [[ "$MODE" == "repo" ]]; then
+      LOG_DIR_LOCAL="${LOG_DIR:-$REPO_LOG_DIR}"
+      SUMMARY_DIR_LOCAL="${SUMMARY_DIR:-$REPO_LOG_DIR}"
+      STATE_DIR_LOCAL="${LM_STATE_DIR:-$REPO_LOG_DIR}"
+    else
+      LOG_DIR_LOCAL="${LOG_DIR:-/var/log/health}"
+      SUMMARY_DIR_LOCAL="${SUMMARY_DIR:-$LOG_DIR_LOCAL}"
+      STATE_DIR_LOCAL="${LM_STATE_DIR:-/var/lib/linux_maint}"
+    fi
+
+    DOCTOR_STRICT=0
+    if [[ "${LM_STRICT:-0}" == "1" || "${LM_STRICT:-}" == "true" ]]; then
+      DOCTOR_STRICT=1
     fi
 
     DOCTOR_JSON=0
@@ -6067,11 +6524,12 @@ EOF_DEPS
     fi
 
     if [[ "$DOCTOR_JSON" -eq 1 ]]; then
-      MODE="$MODE" PREFIX="$PREFIX" WRAPPER="$wrapper" LIBEXEC="$LIBEXEC" LINUX_MAINT_LIB="${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" CFG_DIR="$CFG_DIR" FIX_ACTIONS_FILE="$fix_actions_file" python3 - <<'PYJSON'
+      MODE="$MODE" PREFIX="$PREFIX" WRAPPER="$wrapper" LIBEXEC="$LIBEXEC" LINUX_MAINT_LIB="${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" CFG_DIR="$CFG_DIR" LOG_DIR="$LOG_DIR_LOCAL" SUMMARY_DIR="$SUMMARY_DIR_LOCAL" STATE_DIR="$STATE_DIR_LOCAL" DOCTOR_STRICT="$DOCTOR_STRICT" FIX_ACTIONS_FILE="$fix_actions_file" python3 - <<'PYJSON'
 import json
 import os
 import pathlib
 import shutil
+import stat
 
 mode = os.environ.get("MODE", "")
 prefix = os.environ.get("PREFIX", "")
@@ -6079,6 +6537,10 @@ wrapper = os.environ.get("WRAPPER", "")
 libexec = os.environ.get("LIBEXEC", "")
 lib = os.environ.get("LINUX_MAINT_LIB", "")
 cfg_dir = os.environ.get("CFG_DIR", "/etc/linux_maint")
+log_dir = os.environ.get("LOG_DIR", "/var/log/health")
+summary_dir = os.environ.get("SUMMARY_DIR", log_dir)
+state_dir = os.environ.get("STATE_DIR", "/var/lib/linux_maint")
+strict = os.environ.get("DOCTOR_STRICT", "0") == "1"
 fix_actions_file = os.environ.get("FIX_ACTIONS_FILE", "")
 
 cfg_path = pathlib.Path(cfg_dir)
@@ -6196,6 +6658,35 @@ for d in writable_paths:
     elif not writable:
         add_fix(f"Ensure {d} is writable (example: sudo install -d -m 0755 {d})")
 
+dir_permissions = []
+for p in [log_dir, summary_dir, state_dir, cfg_dir]:
+    path = pathlib.Path(p)
+    exists = path.is_dir()
+    group_writable = False
+    world_writable = False
+    if exists:
+        try:
+            mode_bits = path.stat().st_mode
+            group_writable = bool(mode_bits & stat.S_IWGRP)
+            world_writable = bool(mode_bits & stat.S_IWOTH)
+        except Exception:
+            pass
+    severity = "OK"
+    if not exists:
+        severity = "MISSING"
+    elif group_writable or world_writable:
+        severity = "CRIT" if strict else "WARN"
+        add_fix(f"Remove group/world write from {p} (chmod go-w {p})")
+    dir_permissions.append(
+        {
+            "path": p,
+            "exists": exists,
+            "group_writable": group_writable,
+            "world_writable": world_writable,
+            "severity": severity,
+        }
+    )
+
 result = {
     "mode": mode,
     "prefix": prefix,
@@ -6203,10 +6694,12 @@ result = {
     "libexec": libexec,
     "lib": lib,
     "cfg_dir": cfg_dir,
+    "strict": strict,
     "config": config,
     "monitor_gates": monitor_gates,
     "dependencies": dependencies,
     "writable_locations": writable_locations,
+    "dir_permissions": dir_permissions,
     "fix_suggestions": fix_suggestions,
     "fix_actions": [],
     "next_actions": [
@@ -6254,6 +6747,7 @@ PYJSON
     echo "libexec=$LIBEXEC"
     echo "lib=${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
     echo "cfg_dir=$CFG_DIR"
+    echo "strict=$DOCTOR_STRICT"
 
     if [[ "$DOCTOR_FIX" -eq 1 ]]; then
       echo ""
@@ -6426,6 +6920,36 @@ PYJSON
     done
 
     echo ""
+    section "Directory permissions"
+    perm_fail=0
+    check_perm() {
+      local path="$1"
+      if [[ ! -d "$path" ]]; then
+        printf "%-40s %s\n" "$path" "${C_RED}MISSING${C_RESET}"
+        return 0
+      fi
+      local perm group world
+      perm="$(stat -c %a "$path" 2>/dev/null || echo "")"
+      group=$(( (perm / 10) % 10 ))
+      world=$(( perm % 10 ))
+      if (( (group & 2) || (world & 2) )); then
+        if [[ "$DOCTOR_STRICT" -eq 1 ]]; then
+          printf "%-40s %s\n" "$path" "${C_RED}CRIT (group/world writable)${C_RESET}"
+          perm_fail=1
+        else
+          printf "%-40s %s\n" "$path" "${C_YELLOW}WARN (group/world writable)${C_RESET}"
+        fi
+        add_fix "Remove group/world write from $path (chmod go-w $path)"
+      else
+        printf "%-40s %s\n" "$path" "${C_GREEN}OK${C_RESET}"
+      fi
+    }
+    check_perm "$LOG_DIR_LOCAL"
+    check_perm "$SUMMARY_DIR_LOCAL"
+    check_perm "$STATE_DIR_LOCAL"
+    check_perm "$CFG_DIR"
+
+    echo ""
     section "Fix suggestions"
     if [[ "${#fix_suggestions[@]}" -eq 0 ]]; then
       echo "- none"
@@ -6446,6 +6970,9 @@ PYJSON
     fi
     if [[ -n "$fix_actions_file" ]]; then
       rm -f "$fix_actions_file" 2>/dev/null || true
+    fi
+    if [[ "$DOCTOR_STRICT" -eq 1 && "${perm_fail:-0}" -eq 1 ]]; then
+      exit 2
     fi
     ;;
 

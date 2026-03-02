@@ -35,7 +35,14 @@ Only these `monitor=` lines are written into the summary artifacts.
 - `linux-maint status --verbose` — raw `monitor=` lines
 - `linux-maint status --json` — automation‑friendly payload
 - `linux-maint export --json|--csv` — structured output for external systems
-- `linux-maint pack-logs` — support bundle (includes `meta/bundle_integrity.txt` when `sha256sum`+`stat` are available)
+- `linux-maint pack-logs` — support bundle (includes `meta/bundle_integrity.txt` when `sha256sum`+`stat` are available; supports `--gpg` encryption)
+
+To decrypt a GPG-encrypted bundle:
+
+```bash
+gpg --output linux-maint-support.tar.gz --decrypt linux-maint-support-*.tar.gz.gpg
+tar -tzf linux-maint-support.tar.gz
+```
 
 ## Retention
 

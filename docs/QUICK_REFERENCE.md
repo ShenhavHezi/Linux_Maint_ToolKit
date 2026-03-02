@@ -202,10 +202,12 @@ sudo linux-maint baseline sudoers --update
 LM_PROGRESS=0 sudo linux-maint run
 LM_PROGRESS=0 sudo linux-maint pack-logs --out /tmp
 LM_PACK_LOGS_HASH=1 sudo linux-maint pack-logs --out /tmp
+LM_PACK_LOGS_GPG=1 LM_PACK_LOGS_GPG_RECIPIENT="ops@example.com" sudo linux-maint pack-logs --out /tmp
 
 # Pack logs redaction control
 sudo linux-maint pack-logs --out /tmp --redact
 sudo linux-maint pack-logs --out /tmp --no-redact
+sudo linux-maint pack-logs --out /tmp --gpg --gpg-recipient ops@example.com
 ```
 
 ## Fleet runs (monitoring node)

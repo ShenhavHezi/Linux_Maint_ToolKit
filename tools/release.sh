@@ -12,6 +12,7 @@ Automates:
   - VERSION bump
   - CHANGELOG entry (moves Unreleased into dated section)
   - release notes draft from docs/RELEASE_TEMPLATE.md
+  - docs/README.md + docs/INDEX.md updated when notes live under docs/release_notes/
   - optional git tag and GitHub release
   - optional tarball build + checksum injection into notes
 
@@ -72,8 +73,7 @@ if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
 fi
 
 if [[ -z "$NOTES_OUT" ]]; then
-  mkdir -p dist
-  NOTES_OUT="dist/release_notes_${TAG}.md"
+  NOTES_OUT="docs/release_notes/release_notes_v${VERSION}.md"
 fi
 
 if [[ ! -f docs/RELEASE_TEMPLATE.md ]]; then
@@ -148,6 +148,7 @@ import sys
 from pathlib import Path
 
 tpl_path, out_path, version, date, tag = sys.argv[1:6]
+Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 tpl = Path(tpl_path).read_text().splitlines()
 out = []
 for line in tpl:
@@ -162,7 +163,60 @@ for line in tpl:
 Path(out_path).write_text("\n".join(out).rstrip() + "\n")
 PY
 
-git add VERSION CHANGELOG.md
+python3 - "$ROOT_DIR/docs/README.md" "$ROOT_DIR/docs/INDEX.md" "$NOTES_OUT" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+readme_path, index_path, notes_path = map(Path, sys.argv[1:4])
+notes_rel = notes_path.as_posix()
+if notes_rel.startswith(str(readme_path.parent) + "/"):
+  notes_rel = notes_rel[len(str(readme_path.parent)) + 1:]
+notes_rel = f"docs/{notes_rel}" if not notes_rel.startswith("docs/") else notes_rel
+
+def update_readme(path: Path, notes: str) -> None:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    out = []
+    pat = re.compile(r"`(docs/release_notes/release_notes_v[^`]+)`")
+    replaced = False
+    for line in lines:
+        if line.strip().startswith("- Release notes (latest):"):
+            found = pat.findall(line)
+            items = [notes] + [f for f in found if f != notes]
+            items = items[:2]
+            line = "- Release notes (latest): " + ", ".join(f"`{f}`" for f in items)
+            replaced = True
+        out.append(line)
+    if replaced:
+        path.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+def update_index(path: Path, notes: str) -> None:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    link = f"- [`{notes}`]({notes.replace('docs/','')})"
+    if any(link in line for line in lines):
+        return
+    out = []
+    inserted = False
+    for line in lines:
+        if not inserted and "security_best_practices_report.md" in line:
+            out.append(line)
+            out.append(link)
+            inserted = True
+            continue
+        if not inserted and "release_notes_v" in line:
+            out.append(link)
+            inserted = True
+        out.append(line)
+    if not inserted:
+        out.append(link)
+    path.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+if notes_rel.startswith("docs/release_notes/"):
+    update_readme(readme_path, notes_rel)
+    update_index(index_path, notes_rel)
+PY
+
+git add VERSION CHANGELOG.md "$NOTES_OUT" docs/README.md docs/INDEX.md
 if [[ "$NO_COMMIT" -ne 1 ]]; then
   git commit -m "Release ${TAG}"
 fi

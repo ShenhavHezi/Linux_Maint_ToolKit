@@ -9,12 +9,14 @@
     "monitor_gates",
     "dependencies",
     "writable_locations",
+    "dir_permissions",
     "fix_suggestions",
     "fix_actions",
     "next_actions"
   ],
   "properties": {
     "mode": { "type": "string" },
+    "strict": { "type": "boolean" },
     "prefix": { "type": "string" },
     "wrapper": { "type": "string" },
     "libexec": { "type": "string" },
@@ -68,6 +70,21 @@
           "path": { "type": "string" },
           "exists": { "type": "boolean" },
           "writable": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "dir_permissions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "exists", "group_writable", "world_writable", "severity"],
+        "properties": {
+          "path": { "type": "string" },
+          "exists": { "type": "boolean" },
+          "group_writable": { "type": "boolean" },
+          "world_writable": { "type": "boolean" },
+          "severity": { "type": "string" }
         },
         "additionalProperties": true
       }

@@ -291,7 +291,6 @@ run_for_host(){
   else
     if ! lm_reachable "$host"; then
       lm_err "[$host] SSH unreachable"
-      lm_summary "inventory_export" "$host" "CRIT" reason=ssh_unreachable
       return 2
     fi
 
@@ -303,7 +302,6 @@ run_for_host(){
 
   if [ -z "${V[DATE]:-}" ]; then
     lm_err "[$host] inventory collector returned no data"
-    lm_summary "inventory_export" "$host" "UNKNOWN" reason=collect_failed
     return 3
   fi
 
@@ -353,8 +351,10 @@ run_for_host(){
 ensure_dirs
 lm_info "=== Inventory Export Started (CSV: $CSV_FILE) ==="
 
+set +e
 lm_for_each_host_rc run_for_host
 worst=$?
+set -e
 # Continue to write summary and optionally mail; exit with worst at end
 
 case "${LM_INVENTORY_CACHE:-0}" in

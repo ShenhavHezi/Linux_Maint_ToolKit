@@ -93,6 +93,16 @@ if [[ "${LM_TEST_MODE:-0}" == "1" || "${LM_TEST_MODE:-}" == "true" ]]; then
   fi
 fi
 
+# Run identifier (stable across summary/status/report/metrics JSON for this run).
+if [[ -z "${LM_RUN_ID:-}" ]]; then
+  if command -v uuidgen >/dev/null 2>&1; then
+    LM_RUN_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+  else
+    LM_RUN_ID="$(date +%Y%m%dT%H%M%S)-$$-$RANDOM"
+  fi
+fi
+export LM_RUN_ID
+
 # Resolve state dir with fallback chain (writable-required)
 STATE_DIR_REQUESTED="${LM_STATE_DIR:-$STATE_DIR_DEFAULT}"
 STATE_DIR_FALLBACK_FROM=""
@@ -110,6 +120,26 @@ if command -v lm_pick_writable_dir >/dev/null 2>&1; then
   fi
 else
   export LM_STATE_DIR="$STATE_DIR_REQUESTED"
+fi
+
+# Run concurrency lock (best-effort; prevent overlapping runs).
+LM_ALLOW_CONCURRENT="${LM_ALLOW_CONCURRENT:-0}"
+LM_RUN_LOCK_TIMEOUT="${LM_RUN_LOCK_TIMEOUT:-60}"
+if [[ "${LM_ALLOW_CONCURRENT}" != "1" && "${LM_ALLOW_CONCURRENT}" != "true" ]]; then
+  if command -v flock >/dev/null 2>&1; then
+    mkdir -p "$LM_STATE_DIR" 2>/dev/null || true
+    lock_file="$LM_STATE_DIR/linux_maint_run.lock"
+    if [[ ! "$LM_RUN_LOCK_TIMEOUT" =~ ^[0-9]+$ ]]; then
+      LM_RUN_LOCK_TIMEOUT=60
+    fi
+    exec {__lm_run_lock_fd}>"$lock_file" || { echo "ERROR: cannot open run lock file: $lock_file" >&2; exit 2; }
+    if ! flock -w "$LM_RUN_LOCK_TIMEOUT" "$__lm_run_lock_fd"; then
+      echo "ERROR: another linux-maint run is already in progress (lock: $lock_file)" >&2
+      exit 2
+    fi
+  else
+    echo "WARN: flock not available; skipping run lock" >&2
+  fi
 fi
 
 # Resolve log dir with fallback chain (writable-required)
@@ -336,6 +366,11 @@ declare -a scripts=(
 if [[ -n "${LM_MONITORS:-}" ]]; then
   # shellcheck disable=SC2206
   scripts=(${LM_MONITORS})
+fi
+
+if [[ "${#scripts[@]}" -eq 0 ]]; then
+  echo "ERROR: no monitors resolved (empty monitor list)" >&2
+  exit 2
 fi
 
 {
@@ -839,7 +874,7 @@ rm -f "$tmp_summary" 2>/dev/null || true
 
 # Also write JSON + Prometheus outputs (best-effort)
 # shellcheck disable=SC2031
-SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" LM_HOSTS_OK="${hosts_ok:-0}" LM_HOSTS_WARN="${hosts_warn:-0}" LM_HOSTS_CRIT="${hosts_crit:-0}" LM_HOSTS_UNKNOWN="${hosts_unknown:-0}" LM_HOSTS_SKIPPED="${hosts_skip:-0}" LM_OVERALL="$overall" LM_EXIT_CODE="$worst" LM_STATUS_FILE="$STATUS_FILE" LM_RUNTIME_FILE="$runtime_file" LM_RUNTIME_WARN_COUNT="$runtime_warn_count" LM_RUN_EPOCH="$ts_epoch" python3 - <<'PY' || true
+SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" LM_HOSTS_OK="${hosts_ok:-0}" LM_HOSTS_WARN="${hosts_warn:-0}" LM_HOSTS_CRIT="${hosts_crit:-0}" LM_HOSTS_UNKNOWN="${hosts_unknown:-0}" LM_HOSTS_SKIPPED="${hosts_skip:-0}" LM_OVERALL="$overall" LM_EXIT_CODE="$worst" LM_STATUS_FILE="$STATUS_FILE" LM_RUNTIME_FILE="$runtime_file" LM_RUNTIME_WARN_COUNT="$runtime_warn_count" LM_RUN_EPOCH="$ts_epoch" LM_RUN_ID="$LM_RUN_ID" python3 - <<'PY' || true
 import json, os, tempfile
 import time
 from datetime import datetime
@@ -848,6 +883,7 @@ json_file=os.environ.get("SUMMARY_JSON_FILE")
 json_latest=os.environ.get("SUMMARY_JSON_LATEST_FILE")
 prom_file=os.environ.get("PROM_FILE")
 prom_format=os.environ.get("LM_PROM_FORMAT","")
+run_id=os.environ.get("LM_RUN_ID","")
 hosts_ok=int(os.environ.get("LM_HOSTS_OK","0"))
 hosts_warn=int(os.environ.get("LM_HOSTS_WARN","0"))
 hosts_crit=int(os.environ.get("LM_HOSTS_CRIT","0"))
@@ -894,8 +930,10 @@ def read_status_file(path):
 
 status_file = os.environ.get("LM_STATUS_FILE")
 meta = read_status_file(status_file) if status_file else {}
+if run_id and "run_id" not in meta:
+    meta["run_id"] = run_id
 
-payload = rows if legacy else {"meta": meta, "rows": rows}
+payload = rows if legacy else {"schema_version": 1, "run_id": run_id, "meta": meta, "rows": rows}
 
 if json_file:
     os.makedirs(os.path.dirname(json_file), exist_ok=True)
@@ -1046,6 +1084,8 @@ if prom_file and rows:
             if runtime_file:
                 f.write("\n# HELP linux_maint_monitor_runtime_ms Monitor runtime in milliseconds (wrapper)\n")
                 f.write("# TYPE linux_maint_monitor_runtime_ms gauge\n")
+                f.write("# HELP linux_maint_monitor_runtime_seconds Monitor runtime in seconds (wrapper)\n")
+                f.write("# TYPE linux_maint_monitor_runtime_seconds gauge\n")
                 try:
                     with open(runtime_file,"r",encoding="utf-8",errors="ignore") as rf:
                         for line in rf:
@@ -1061,6 +1101,11 @@ if prom_file and rows:
                             ms=d.get("ms")
                             if mon and ms and ms.isdigit():
                                 f.write(f"linux_maint_monitor_runtime_ms{{monitor=\"{mon}\"}} {ms}\n")
+                                try:
+                                    secs = float(ms) / 1000.0
+                                    f.write(f"linux_maint_monitor_runtime_seconds{{monitor=\"{mon}\"}} {secs:.3f}\n")
+                                except Exception:
+                                    pass
                 except FileNotFoundError:
                     pass
 
@@ -1109,18 +1154,36 @@ if [[ -n "${SUMMARY_JSON_FILE:-}" && -s "${SUMMARY_JSON_FILE:-}" ]]; then
   fi
 fi
 
-{
-  echo "timestamp=$(lm_now_iso)"
-  echo "host=$(hostname -f 2>/dev/null || hostname)"
-  echo "overall=$overall"
-  echo "exit_code=$worst"
-  echo "logfile=$logfile"
-} > "$STATUS_FILE"
-chmod 0644 "$STATUS_FILE"
+status_dir="$(dirname "$STATUS_FILE")"
+mkdir -p "$status_dir" 2>/dev/null || true
+tmp_status_file="$(mktemp -p "$status_dir" .last_status_full.XXXXXX 2>/dev/null || true)"
+if [[ -n "$tmp_status_file" ]]; then
+  {
+    echo "timestamp=$(lm_now_iso)"
+    echo "host=$(hostname -f 2>/dev/null || hostname)"
+    echo "run_id=$LM_RUN_ID"
+    echo "overall=$overall"
+    echo "exit_code=$worst"
+    echo "logfile=$logfile"
+  } > "$tmp_status_file"
+  chmod 0644 "$tmp_status_file" 2>/dev/null || true
+  mv -f "$tmp_status_file" "$STATUS_FILE" 2>/dev/null || true
+else
+  {
+    echo "timestamp=$(lm_now_iso)"
+    echo "host=$(hostname -f 2>/dev/null || hostname)"
+    echo "run_id=$LM_RUN_ID"
+    echo "overall=$overall"
+    echo "exit_code=$worst"
+    echo "logfile=$logfile"
+  } > "$STATUS_FILE"
+  chmod 0644 "$STATUS_FILE" 2>/dev/null || true
+fi
 
 # ---- run index (best-effort) ----
 RUN_INDEX_FILE="${LM_RUN_INDEX_FILE:-$LM_STATE_DIR/run_index.jsonl}"
 RUN_INDEX_KEEP="${LM_RUN_INDEX_KEEP:-200}"
+RUN_INDEX_MAX_AGE_DAYS="${LM_RUN_INDEX_MAX_AGE_DAYS:-0}"
 # If the run index previously lived in a legacy location, seed it once.
 if [[ ! -f "$RUN_INDEX_FILE" ]]; then
   for _old in /var/tmp/run_index.jsonl /var/tmp/linux_maint/run_index.jsonl /tmp/linux_maint/run_index.jsonl; do
@@ -1130,14 +1193,18 @@ if [[ ! -f "$RUN_INDEX_FILE" ]]; then
     fi
   done
 fi
-python3 - "$RUN_INDEX_FILE" "$RUN_INDEX_KEEP" "$SUMMARY_FILE" "$SUMMARY_JSON_FILE" "$logfile" "$overall" "$worst" "$ts_epoch" <<'PY' || true
+python3 - "$RUN_INDEX_FILE" "$RUN_INDEX_KEEP" "$RUN_INDEX_MAX_AGE_DAYS" "$SUMMARY_FILE" "$SUMMARY_JSON_FILE" "$logfile" "$overall" "$worst" "$ts_epoch" "$LM_RUN_ID" <<'PY' || true
 import json, os, sys, time, tempfile
 
-path, keep_s, summary_file, summary_json, logfile, overall, exit_code, ts_epoch = sys.argv[1:9]
+path, keep_s, max_age_days_s, summary_file, summary_json, logfile, overall, exit_code, ts_epoch, run_id = sys.argv[1:11]
 try:
     keep = int(keep_s)
 except Exception:
     keep = 200
+try:
+    max_age_days = int(max_age_days_s)
+except Exception:
+    max_age_days = 0
 
 def read_reason_counts(summary_path):
     counts = {}
@@ -1197,6 +1264,8 @@ host_counts = read_status_counts(summary_file)
 
 entry = {
     "run_index_version": 1,
+    "schema_version": 1,
+    "run_id": run_id if run_id else None,
     "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(int(ts_epoch))) if ts_epoch.isdigit() else "",
     "timestamp_epoch": int(ts_epoch) if ts_epoch.isdigit() else None,
     "overall": overall,
@@ -1209,22 +1278,48 @@ entry = {
 }
 
 os.makedirs(os.path.dirname(path), exist_ok=True)
-lines = []
+entries = []
 try:
-    with open(path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
+    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+        for raw in f:
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                entries.append(json.loads(raw))
+            except Exception:
+                # Skip partial/broken JSONL records.
+                continue
 except Exception:
-    lines = []
+    entries = []
 
-lines.append(json.dumps(entry, sort_keys=True) + "\n")
-if keep > 0 and len(lines) > keep:
-    lines = lines[-keep:]
+def entry_epoch(e):
+    if isinstance(e, dict):
+        ep = e.get("timestamp_epoch")
+        if isinstance(ep, int):
+            return ep
+        ts = e.get("timestamp", "")
+        if ts:
+            try:
+                return int(time.mktime(time.strptime(ts, "%Y-%m-%dT%H:%M:%S%z")))
+            except Exception:
+                pass
+    return None
+
+if max_age_days and max_age_days > 0:
+    cutoff = int(time.time()) - (max_age_days * 86400)
+    entries = [e for e in entries if (entry_epoch(e) or 0) >= cutoff]
+
+entries.append(entry)
+if keep > 0 and len(entries) > keep:
+    entries = entries[-keep:]
 
 try:
     tmp_dir = os.path.dirname(path) or "."
     fd, tmp = tempfile.mkstemp(prefix=".run_index.", dir=tmp_dir)
     with os.fdopen(fd, "w", encoding="utf-8") as f:
-        f.writelines(lines)
+        for e in entries:
+            f.write(json.dumps(e, sort_keys=True) + "\n")
     os.replace(tmp, path)
 except Exception:
     pass
