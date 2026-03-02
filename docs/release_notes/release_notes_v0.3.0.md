@@ -1,4 +1,4 @@
-# Release Notes v0.3.0 (Draft)
+# Release Notes v0.3.0
 
 ## Highlights
 - Expanded `linux-maint menu` into a guided operator UI with run wizard, status drilldown, and menu settings.

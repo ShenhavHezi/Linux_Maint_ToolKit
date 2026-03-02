@@ -8,6 +8,14 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-03-02
 
+- Release v0.3.0
+- Expanded `linux-maint menu` with wizard-driven run flow, status drilldown, quick actions, and persisted menu settings.
+- Added stronger menu/test coverage (shortcuts, settings roundtrip/validation, run-loop continuation, stdin guard, drilldown behavior).
+- Added release governance audit tooling and integrated it into release verification workflows.
+- Expanded observability outputs with slow-monitor rollups and safer Prometheus parse handling.
+
+## 2026-03-02
+
 - Release v0.2.9
 - (no notable changes)
 
