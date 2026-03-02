@@ -2511,7 +2511,7 @@ if os.path.exists(path):
         prev_hash = ""
 
 evt = {
-    "ts_utc": datetime.datetime.utcnow().isoformat() + "Z",
+    "ts_utc": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
     "action": action,
     "status": status,
     "details": details,
@@ -5392,7 +5392,7 @@ overall_ok = summary["index_ok"] and summary["plugins_failed"] == 0 and list_rc 
 
 report = {
     "plugin_provenance_contract_version": 1,
-    "generated_at_utc": datetime.datetime.utcnow().isoformat() + "Z",
+    "generated_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
     "index_file": idx_file,
     "strict": strict_mode,
     "policy_file": policy_file,
@@ -5570,7 +5570,7 @@ if os.path.exists(reg_file):
         registry = {"plugins": []}
 plugins = registry.get("plugins") or []
 plugins = [p for p in plugins if str(p.get("name","")) != name]
-meta["installed_at"] = datetime.datetime.utcnow().isoformat() + "Z"
+meta["installed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
 plugins.append(meta)
 registry["plugins"] = sorted(plugins, key=lambda p: str(p.get("name","")))
 with open(reg_file, "w", encoding="utf-8") as f:

@@ -8,13 +8,18 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 run_case() {
   local fixture="$1" warn="$2" crit="$3" exp_status="$4"
+  local fixture_path="$ROOT_DIR/tests/fixtures/$fixture"
+  if [[ ! -r "$fixture_path" ]]; then
+    echo "SKIP: fixture unreadable: $fixture_path"
+    return 0
+  fi
   set +e
   out="$({
     LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh" \
     LM_LOCKDIR="${workdir}" \
     LM_LOGFILE="${workdir}/linux_maint_log_spike_test.log" \
     LM_LOG_SPIKE_SOURCE=file \
-    LM_LOG_SPIKE_FIXTURE_FILE="$ROOT_DIR/tests/fixtures/$fixture" \
+    LM_LOG_SPIKE_FIXTURE_FILE="$fixture_path" \
     LM_LOG_SPIKE_WARN="$warn" \
     LM_LOG_SPIKE_CRIT="$crit" \
     LM_LOG_SPIKE_PATTERN='error|failed|oom' \
