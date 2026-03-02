@@ -1,12 +1,12 @@
 === linux-maint report (short) ===
 mode=repo overall=CRIT exit_code=2
 Expected SKIPs (missing optional config):
-- network_monitor (missing:/home/shenhav/Linux_Maint_ToolKit/.etc_linux_maint/network_targets.txt)
-- cert_monitor (missing:/home/shenhav/Linux_Maint_ToolKit/.etc_linux_maint/certs.txt)
-- ports_baseline_monitor (missing:/home/shenhav/Linux_Maint_ToolKit/.etc_linux_maint/ports_baseline.txt)
-- config_drift_monitor (missing:/home/shenhav/Linux_Maint_ToolKit/.etc_linux_maint/config_paths.txt)
-- user_monitor (missing:/home/shenhav/Linux_Maint_ToolKit/.etc_linux_maint/baseline_users.txt,/home/shenhav/Linux_Maint_ToolKit/.etc_linux_maint/baseline_sudoers.txt)
-- backup_check (missing:/home/shenhav/Linux_Maint_ToolKit/.etc_linux_maint/backup_targets.csv)
+- network_monitor (missing:/tmp/linux_maint_cfg_test/network_targets.txt)
+- cert_monitor (missing:/tmp/linux_maint_cfg_test/certs.txt)
+- ports_baseline_monitor (missing:/tmp/linux_maint_cfg_test/ports_baseline.txt)
+- config_drift_monitor (missing:/tmp/linux_maint_cfg_test/config_paths.txt)
+- user_monitor (missing:/tmp/linux_maint_cfg_test/baseline_users.txt,/tmp/linux_maint_cfg_test/baseline_sudoers.txt)
+- backup_check (missing:/tmp/linux_maint_cfg_test/backup_targets.csv)
 totals: CRIT=1 WARN=1 UNKNOWN=0 SKIP=0 OK=1
 
 problems (top 5):

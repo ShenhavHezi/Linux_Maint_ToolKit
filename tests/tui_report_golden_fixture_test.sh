@@ -35,7 +35,9 @@ timestamp=2026-02-24T00:00:00Z
 logfile=/var/log/health/full_health_monitor_latest.log
 S
 
-out="$(NO_COLOR=1 bash "$LM" report --short --no-trend --no-slow --no-reasons 2>/dev/null || true)"
+cfg_dir="/tmp/linux_maint_cfg_test"
+mkdir -p "$cfg_dir"
+out="$(NO_COLOR=1 LM_CFG_DIR="$cfg_dir" bash "$LM" report --short --no-trend --no-slow --no-reasons 2>/dev/null || true)"
 expected_file="$ROOT_DIR/tests/fixtures/tui_report_golden.txt"
 
 if ! diff -u "$expected_file" <(printf '%s\n' "$out") >/dev/null; then
