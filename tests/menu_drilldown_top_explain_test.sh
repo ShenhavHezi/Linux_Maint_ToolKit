@@ -6,8 +6,11 @@ LM="$ROOT_DIR/bin/linux-maint"
 
 source "$LM" >/dev/null 2>&1
 
-LM_TUI_DRILL_JSON='{"problems":[{"status":"WARN","monitor":"service_monitor","host":"db-01","reason":"service_inactive"},{"status":"CRIT","monitor":"disk_trend_monitor","host":"db-02","reason":"disk_full"}]}'
 export LM_TUI_DRILL_JSON
+LM_TUI_DRILL_JSON="$(cat <<'JSON'
+{"problems":[{"status":"WARN","monitor":"service_monitor","host":"db-01","reason":"service_inactive"},{"status":"CRIT","monitor":"disk_trend_monitor","host":"db-02","reason":"disk_full"}]}
+JSON
+)"
 
 top="$(tui_status_drilldown_top_problem "WARN" "" "" "" || true)"
 [[ "$top" == "service_monitor|service_inactive" ]] || {

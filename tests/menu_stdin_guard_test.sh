@@ -23,6 +23,7 @@ printf 'TOKEN_FROM_STDIN\n' > "$infile"
 # tui_run_cmd should not pass caller stdin to child command.
 TUI_BACKEND="whiptail"
 exec 0<"$infile"
+# shellcheck disable=SC2016
 OUT_FILE="$out1" tui_run_cmd "stdin-guard-cmd" bash -lc 'if IFS= read -r line; then printf "%s" "$line" > "$OUT_FILE"; else printf "EOF" > "$OUT_FILE"; fi'
 [[ "$(cat "$out1")" == "EOF" ]] || {
   echo "tui_run_cmd leaked stdin to child process" >&2
@@ -34,6 +35,7 @@ OUT_FILE="$out1" tui_run_cmd "stdin-guard-cmd" bash -lc 'if IFS= read -r line; t
 printf 'TOKEN_FROM_STDIN\n' > "$infile"
 TUI_BACKEND="gum"
 exec 0<"$infile"
+# shellcheck disable=SC2016
 OUT_FILE="$out2" tui_run_live "stdin-guard-live" bash -lc 'if IFS= read -r line; then printf "%s" "$line" > "$OUT_FILE"; else printf "EOF" > "$OUT_FILE"; fi'
 [[ "$(cat "$out2")" == "EOF" ]] || {
   echo "tui_run_live leaked stdin to child process" >&2
