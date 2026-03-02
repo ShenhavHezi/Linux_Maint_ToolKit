@@ -47,6 +47,23 @@
     "monitor_durations_ms": {
       "type": "object",
       "additionalProperties": { "type": "integer" }
+    },
+    "monitor_durations_seconds": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "slow_monitors_top": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["monitor", "ms"],
+        "properties": {
+          "monitor": { "type": "string" },
+          "ms": { "type": "integer" },
+          "seconds": { "type": "number" }
+        },
+        "additionalProperties": true
+      }
     }
   },
   "additionalProperties": true

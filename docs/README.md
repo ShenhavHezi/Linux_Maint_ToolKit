@@ -35,6 +35,7 @@ Start here to navigate operator and contributor documentation.
 - Release template: `docs/RELEASE_TEMPLATE.md`
 - Release notes (latest): `docs/release_notes/release_notes_v0.2.9.md`, `docs/release_notes/release_notes_v0.2.8.md`
 - TUI style guide: `docs/TUI_STYLE_GUIDE.md`
+- TUI style addendum (menu updates): `docs/TUI_STYLE_GUIDE_ADDENDUM.md`
 - Security policy: `SECURITY.md`
 - Security response: `docs/SECURITY_RESPONSE.md`
 - Security best practices report: `docs/security_best_practices_report.md`

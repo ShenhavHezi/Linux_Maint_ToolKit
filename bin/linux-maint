@@ -404,8 +404,9 @@ PY
     log_lines="  (no log yet: $log_file)"
   fi
 
-  local overall_line totals_line body
-  overall_line="$(gum style --bold --foreground "$color" "Overall: $overall")"
+  local overall_line totals_line body sym
+  sym="$(severity_symbol "$overall")"
+  overall_line="$(gum style --bold --foreground "$color" "Overall: $sym $overall")"
   totals_line="$(gum style --foreground "#e5e7eb" "OK:$ok  WARN:$warn  CRIT:$crit  UNKNOWN:$unk  SKIP:$skip")"
   body="$(gum join --vertical "$overall_line" "$totals_line")"
 
@@ -517,10 +518,11 @@ tui_menu_prompt_safe(){
 tui_tag_color(){
   case "$1" in
     run) echo "#22c55e" ;;
-    reports|report|trend|runtimes|status|dashboard) echo "#60a5fa" ;;
+    reports|report|trend|runtimes|status|dashboard|drilldown) echo "#60a5fa" ;;
+    wizard) echo "#22c55e" ;;
     tools|check|summary|diff|history|runindex|metrics_prom|metrics_json|pack_logs) echo "#38bdf8" ;;
     diagnostics|doctor|selfcheck|logslive|logs) echo "#f59e0b" ;;
-    config|monitors) echo "#a78bfa" ;;
+    config|monitors|settings) echo "#a78bfa" ;;
     help|quickref|faq|reasons|monitors_matrix|explain_reason|explain_monitor|explain_status) echo "#93c5fd" ;;
     exit|back) echo "#9ca3af" ;;
     *) echo "#93c5fd" ;;
@@ -548,6 +550,138 @@ if m:
 PY
 }
 
+map_menu_shortcut(){
+  local choice="$1"
+  local context="${2:-main}"
+  case "${LM_TUI_SHORTCUTS:-1}" in
+    1|true|TRUE|yes|YES|on|ON) ;;
+    *) printf '%s' "$choice"; return 0 ;;
+  esac
+  case "${context}:${choice}" in
+    main:r) printf 'run' ;;
+    main:s) printf 'reports' ;;
+    main:d) printf 'diagnostics' ;;
+    main:h) printf 'help' ;;
+    run:r) printf 'run' ;;
+    run:p) printf 'plan' ;;
+    run:w) printf 'wizard' ;;
+    reports:d) printf 'dashboard' ;;
+    reports:s) printf 'status' ;;
+    diagnostics:d) printf 'doctor' ;;
+    help:h) printf 'quickref' ;;
+    config:c) printf 'config' ;;
+    tools:p) printf 'pack_logs' ;;
+    *) printf '%s' "$choice" ;;
+  esac
+}
+
+tui_preview_cmd(){
+  case "${LM_TUI_PREVIEW:-1}" in
+    1|true|TRUE|yes|YES|on|ON) ;;
+    *) return 0 ;;
+  esac
+  local cmd_text="$*"
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    tui_gum_hint "Will run: $cmd_text"
+  else
+    echo "Will run: $cmd_text" >&2
+  fi
+}
+
+severity_symbol(){
+  case "$1" in
+    CRIT) printf '!!' ;;
+    WARN) printf '! ' ;;
+    OK) printf 'OK' ;;
+    UNKNOWN) printf '??' ;;
+    SKIP) printf '--' ;;
+    *) printf '..' ;;
+  esac
+}
+
+menu_settings_path(){
+  local cfg_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+  printf '%s/linux-maint/menu.conf' "$cfg_home"
+}
+
+sanitize_int_range(){
+  local int_raw="$1" min="$2" max="$3" fallback="$4"
+  if [[ "$int_raw" =~ ^[0-9]+$ ]]; then
+    if (( int_raw < min )); then
+      printf '%s' "$min"
+      return 0
+    fi
+    if (( int_raw > max )); then
+      printf '%s' "$max"
+      return 0
+    fi
+    printf '%s' "$int_raw"
+    return 0
+  fi
+  printf '%s' "$fallback"
+}
+
+normalize_menu_settings(){
+  local backend="${LM_TUI_BACKEND:-}"
+  case "$backend" in
+    ""|gum|dialog|whiptail) ;;
+    *) unset LM_TUI_BACKEND ;;
+  esac
+  LM_TUI_DASH_REFRESH="$(sanitize_int_range "${LM_TUI_DASH_REFRESH:-0}" 0 300 0)"
+  LM_TUI_DEFAULT_PROBLEMS="$(sanitize_int_range "${LM_TUI_DEFAULT_PROBLEMS:-20}" 1 100 20)"
+  LM_TUI_DEFAULT_REASONS="$(sanitize_int_range "${LM_TUI_DEFAULT_REASONS:-5}" 0 20 5)"
+  case "${LM_TUI_DEFAULT_STATUS_VIEW:-table}" in
+    table|compact) ;;
+    *) LM_TUI_DEFAULT_STATUS_VIEW="table" ;;
+  esac
+  case "${LM_TUI_PREVIEW:-1}" in
+    1|0|true|false|TRUE|FALSE|yes|no|YES|NO|on|off|ON|OFF) ;;
+    *) LM_TUI_PREVIEW=1 ;;
+  esac
+  case "${LM_TUI_SHORTCUTS:-1}" in
+    1|0|true|false|TRUE|FALSE|yes|no|YES|NO|on|off|ON|OFF) ;;
+    *) LM_TUI_SHORTCUTS=1 ;;
+  esac
+  export LM_TUI_DASH_REFRESH LM_TUI_DEFAULT_PROBLEMS LM_TUI_DEFAULT_REASONS LM_TUI_DEFAULT_STATUS_VIEW LM_TUI_PREVIEW LM_TUI_SHORTCUTS
+}
+
+load_menu_settings(){
+  local f
+  f="$(menu_settings_path)"
+  [[ -f "$f" ]] || return 0
+  while IFS='=' read -r k v; do
+    [[ -n "$k" ]] || continue
+    [[ "$k" =~ ^[A-Z0-9_]+$ ]] || continue
+    case "$k" in
+      LM_TUI_BACKEND|LM_TUI_DASH_REFRESH|LM_TUI_DEFAULT_STATUS_VIEW|LM_TUI_DEFAULT_PROBLEMS|LM_TUI_DEFAULT_REASONS|LM_TUI_PREVIEW|LM_TUI_SHORTCUTS)
+        v="${v%\"}"; v="${v#\"}"
+        case "$v" in
+          *$'\n'*|*$'\r'*) continue ;;
+        esac
+        export "$k=$v"
+        ;;
+    esac
+  done < "$f"
+  normalize_menu_settings
+}
+
+save_menu_settings(){
+  normalize_menu_settings
+  local f d
+  f="$(menu_settings_path)"
+  d="$(dirname "$f")"
+  mkdir -p "$d" 2>/dev/null || return 1
+  cat > "$f" <<EOF
+LM_TUI_BACKEND=${LM_TUI_BACKEND:-}
+LM_TUI_DASH_REFRESH=${LM_TUI_DASH_REFRESH:-0}
+LM_TUI_DEFAULT_STATUS_VIEW=${LM_TUI_DEFAULT_STATUS_VIEW:-table}
+LM_TUI_DEFAULT_PROBLEMS=${LM_TUI_DEFAULT_PROBLEMS:-20}
+LM_TUI_DEFAULT_REASONS=${LM_TUI_DEFAULT_REASONS:-5}
+LM_TUI_PREVIEW=${LM_TUI_PREVIEW:-1}
+LM_TUI_SHORTCUTS=${LM_TUI_SHORTCUTS:-1}
+EOF
+}
+
 tui_input(){
   local prompt="$1"
   local placeholder="${2:-}"
@@ -568,6 +702,21 @@ tui_input(){
   set -e
   TUI_INPUT_RC="$rc"
   printf '%s' "$out"
+  return "$rc"
+}
+
+tui_input_capture(){
+  local prompt="$1"
+  local placeholder="${2:-}"
+  local out rc
+  TUI_INPUT_VALUE=""
+  TUI_INPUT_RC=0
+  set +e
+  out="$(tui_input "$prompt" "$placeholder")"
+  rc=$?
+  set -e
+  TUI_INPUT_VALUE="$out"
+  TUI_INPUT_RC="$rc"
   return 0
 }
 
@@ -579,6 +728,29 @@ tui_view_file(){
   else
     tui_msgbox "File not found: $file"
   fi
+}
+
+find_doc_file(){
+  local name="$1"
+  local -a candidates=(
+    "$REPO_ROOT/docs/$name"
+    "$SHARE/docs/$name"
+    "$PREFIX/share/Linux_Maint_ToolKit/docs/$name"
+    "$PREFIX/share/linux-maint/docs/$name"
+    "/usr/local/share/Linux_Maint_ToolKit/docs/$name"
+    "/usr/share/Linux_Maint_ToolKit/docs/$name"
+    "/usr/share/linux-maint/docs/$name"
+    "/usr/share/linux_maint/docs/$name"
+  )
+  local p
+  for p in "${candidates[@]}"; do
+    if [[ -f "$p" ]]; then
+      printf '%s' "$p"
+      return 0
+    fi
+  done
+  printf '%s' "$REPO_ROOT/docs/$name"
+  return 1
 }
 
 tui_msgbox(){
@@ -655,10 +827,11 @@ PY
 tui_run_cmd(){
   local title="$1"
   shift || true
+  tui_preview_cmd "$@"
   local out
   out="$(mktemp -p "$TMPDIR" linux_maint_menu.XXXXXX)"
   set +e
-  NO_COLOR=1 "$@" >"$out" 2>&1
+  NO_COLOR=1 "$@" >"$out" 2>&1 </dev/null
   local rc=$?
   set -e
   local label="$title"
@@ -681,12 +854,13 @@ tui_run_cmd(){
 tui_run_live(){
   local title="$1"
   shift || true
+  tui_preview_cmd "$@"
   if [[ "$TUI_BACKEND" == "gum" ]]; then
     clear
     tui_gum_header "Linux Maint ToolKit" "$title"
     tui_gum_hint "Live output. Press Ctrl+C to stop."
     set +e
-    env LM_PROGRESS=1 LM_PROGRESS_MODE=plain LM_PROGRESS_FORCE=1 LM_PROGRESS_WIDTH=32 "$@"
+    env LM_PROGRESS=1 LM_PROGRESS_MODE=plain LM_PROGRESS_FORCE=1 LM_PROGRESS_WIDTH=32 "$@" </dev/null
     local rc=$?
     set -e
     return $rc
@@ -699,6 +873,87 @@ tui_run_live(){
   tui_run_cmd "$title" "$@"
 }
 
+tui_support_bundle_summary(){
+  local bundle
+  bundle="$(find /tmp -maxdepth 1 -type f \( -name 'linux_maint_support*.tar.gz' -o -name 'linux_maint*.tar.gz' \) -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 | awk '{print $2}')"
+  [[ -n "$bundle" && -f "$bundle" ]] || return 0
+  local sha
+  sha="$(sha256sum "$bundle" 2>/dev/null | awk '{print $1}')"
+  local msg="Support bundle created:\n$bundle"
+  [[ -n "$sha" ]] && msg="${msg}\nsha256=$sha"
+  if [[ -f "$bundle.gpg" ]]; then
+    msg="${msg}\nencrypted=$bundle.gpg"
+  fi
+  msg="${msg}\nredaction=enabled"
+  tui_msgbox "$msg"
+}
+
+tui_recent_artifacts_block(){
+  local summary log statusf
+  if [[ "$MODE" == "repo" ]]; then
+    summary="$REPO_SUMMARY_LATEST"
+    log="$REPO_LATEST_LOG"
+    statusf="$REPO_STATUS_FILE"
+  else
+    summary="$INST_SUMMARY_LATEST"
+    log="/var/log/health/full_health_monitor_latest.log"
+    statusf="/var/log/health/last_status_full"
+  fi
+  local tmp
+  tmp="$(mktemp -p "$TMPDIR" linux_maint_artifacts.XXXXXX)"
+  {
+    echo "Recent artifacts"
+    for p in "$summary" "$log" "$statusf"; do
+      if [[ -f "$p" ]]; then
+        printf -- "- %s (%s)\n" "$p" "$(date -r "$p" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo unknown_time)"
+      else
+        printf -- "- %s (missing)\n" "$p"
+      fi
+    done
+  } > "$tmp"
+  if [[ "$TUI_BACKEND" == "gum" ]]; then
+    gum style --border normal --border-foreground "#374151" --padding "1 2" --margin "0 1" \
+      "$(cat "$tmp")" >&2
+  else
+    cat "$tmp" >&2
+  fi
+  rm -f "$tmp"
+}
+
+tui_menu_quick_actions(){
+  local overall="$1" rc="$2"
+  while true; do
+    local choice
+    if [[ "$overall" == "CRIT" || "$overall" == "WARN" || "$rc" -ne 0 ]]; then
+      choice="$(tui_menu_prompt_safe "Quick actions" \
+        doctor "Run doctor diagnostics" \
+        reasons "Show top reasons (10)" \
+        logs "Show latest logs (200 lines)" \
+        pack "Create support bundle" \
+        back "Back")"
+    else
+      choice="$(tui_menu_prompt_safe "Quick actions" \
+        report "Show short report" \
+        trend "Show trend (last 10)" \
+        back "Back")"
+    fi
+    [[ "$TUI_MENU_RC" -eq 0 && -n "${choice:-}" ]] || break
+    choice="$(normalize_menu_choice "$choice")"
+    case "$choice" in
+      doctor) tui_run_cmd "linux-maint doctor" "$0" doctor ;;
+      reasons) tui_run_cmd "linux-maint status --reasons 10" "$0" status --reasons 10 ;;
+      logs) tui_run_cmd "linux-maint logs 200" "$0" logs 200 ;;
+      pack)
+        tui_run_cmd "linux-maint pack-logs --out /tmp --redact" "$0" pack-logs --out /tmp --redact
+        tui_support_bundle_summary
+        ;;
+      report) tui_run_cmd "linux-maint report --short --no-trend" "$0" report --short --no-trend ;;
+      trend) tui_run_cmd "linux-maint trend --last 10" "$0" trend --last 10 ;;
+      back) break ;;
+    esac
+  done
+}
+
 tui_run_next_steps(){
   local rc="$1"
   local summary log
@@ -709,13 +964,28 @@ tui_run_next_steps(){
     summary="$INST_SUMMARY_LATEST"
     log="/var/log/health/full_health_monitor_latest.log"
   fi
+  local status_json overall
+  status_json="$(NO_COLOR=1 "$0" status --json 2>/dev/null || true)"
+  overall="$(STATUS_JSON="$status_json" python3 - <<'PY'
+import json, os
+raw = os.environ.get("STATUS_JSON","")
+try:
+    data = json.loads(raw) if raw else {}
+except Exception:
+    data = {}
+t = data.get("totals",{}) or {}
+crit = int(t.get("CRIT",0) or 0); warn = int(t.get("WARN",0) or 0); unk = int(t.get("UNKNOWN",0) or 0); ok = int(t.get("OK",0) or 0)
+if crit > 0: print("CRIT")
+elif warn > 0: print("WARN")
+elif unk > 0: print("UNKNOWN")
+elif ok > 0: print("OK")
+else: print("UNKNOWN")
+PY
+)"
   local msg
-  if [[ "$rc" -eq 0 ]]; then
-    msg="Run finished (exit_code=$rc)\nSummary: $summary\nLog: $log\n\nNext steps:\n- linux-maint report\n- linux-maint status --reasons 5\n- linux-maint doctor (if WARN/CRIT)"
-  else
-    msg="Run finished (exit_code=$rc)\nSummary: $summary\nLog: $log\n\nNext steps:\n- linux-maint report --short\n- linux-maint status --reasons 5\n- linux-maint doctor"
-  fi
+  msg="Run finished (exit_code=$rc)\nOverall=$overall\nSummary: $summary\nLog: $log"
   tui_msgbox "$msg"
+  tui_menu_quick_actions "$overall" "$rc"
 }
 
 tui_about(){
@@ -763,6 +1033,7 @@ tui_gum_dashboard(){
     clear
     tui_gum_header "Linux Maint ToolKit" "Dashboard"
     tui_gum_status_overview
+    tui_recent_artifacts_block
 
     local problems_csv reasons_csv
     problems_csv="$(STATUS_JSON="$status_json" python3 - <<'PY'
@@ -853,18 +1124,343 @@ PY
   done
 }
 
+tui_status_drilldown_view(){
+  local mode="$1" status_filter="$2" host_filter="$3" monitor_filter="$4" reason_filter="$5"
+  local problems="${LM_TUI_DEFAULT_PROBLEMS:-20}" reasons="${LM_TUI_DEFAULT_REASONS:-5}"
+  local tmp
+  tmp="$(mktemp -p "$TMPDIR" linux_maint_drilldown.XXXXXX)"
+  local drill_json
+  if [[ -n "${LM_TUI_DRILL_JSON:-}" ]]; then
+    drill_json="$LM_TUI_DRILL_JSON"
+  else
+    NO_COLOR=1 "$0" status --json --problems "$problems" --reasons "$reasons" > "$tmp.json" 2>/dev/null || true
+    drill_json="$(cat "$tmp.json" 2>/dev/null || true)"
+  fi
+  DRILL_JSON="$drill_json" DRILL_MODE="$mode" DRILL_STATUS="$status_filter" DRILL_HOST="$host_filter" DRILL_MON="$monitor_filter" DRILL_REASON="$reason_filter" \
+    python3 - <<'PY' > "$tmp"
+import json, os
+raw = os.environ.get("DRILL_JSON","")
+mode = os.environ.get("DRILL_MODE","table")
+st = os.environ.get("DRILL_STATUS","ANY")
+hf = os.environ.get("DRILL_HOST","").lower()
+mf = os.environ.get("DRILL_MON","").lower()
+rf = os.environ.get("DRILL_REASON","").lower()
+try:
+    data = json.loads(raw) if raw else {}
+except Exception:
+    data = {}
+rows = data.get("problems") or []
+out = []
+for r in rows:
+    status = str(r.get("status",""))
+    host = str(r.get("host",""))
+    mon = str(r.get("monitor",""))
+    reason = str(r.get("reason",""))
+    if st not in ("", "ANY") and status != st:
+      continue
+    if hf and hf not in host.lower():
+      continue
+    if mf and mf not in mon.lower():
+      continue
+    if rf and rf not in reason.lower():
+      continue
+    out.append((status, mon, host, reason))
+print(f"filters: status={st or 'ANY'} host={hf or '-'} monitor={mf or '-'} reason={rf or '-'}")
+if not out:
+    print("no rows matched")
+else:
+    if mode == "compact":
+        for s,m,h,r in out:
+            print(f"{s} {m} {h} {r}")
+    else:
+        print("STATUS   MONITOR                 HOST                    REASON")
+        print("------   ----------------------  ----------------------  ------------------------------")
+        for s,m,h,r in out:
+            print(f"{s[:7]:<7}  {m[:22]:<22}  {h[:22]:<22}  {r[:30]}")
+PY
+  tui_textbox "Status drilldown ($mode)" "$tmp"
+  rm -f "$tmp" "$tmp.json"
+}
+
+tui_status_drilldown_top_problem(){
+  local status_filter="$1" host_filter="$2" monitor_filter="$3" reason_filter="$4"
+  local problems="${LM_TUI_DEFAULT_PROBLEMS:-20}" reasons="${LM_TUI_DEFAULT_REASONS:-5}"
+  local drill_json
+  if [[ -n "${LM_TUI_DRILL_JSON:-}" ]]; then
+    drill_json="$LM_TUI_DRILL_JSON"
+  else
+    drill_json="$(NO_COLOR=1 "$0" status --json --problems "$problems" --reasons "$reasons" 2>/dev/null || true)"
+  fi
+  DRILL_JSON="$drill_json" DRILL_STATUS="$status_filter" DRILL_HOST="$host_filter" DRILL_MON="$monitor_filter" DRILL_REASON="$reason_filter" \
+    python3 - <<'PY'
+import json, os
+raw = os.environ.get("DRILL_JSON","")
+st = os.environ.get("DRILL_STATUS","ANY")
+hf = os.environ.get("DRILL_HOST","").lower()
+mf = os.environ.get("DRILL_MON","").lower()
+rf = os.environ.get("DRILL_REASON","").lower()
+try:
+    data = json.loads(raw) if raw else {}
+except Exception:
+    data = {}
+for r in (data.get("problems") or []):
+    status = str(r.get("status",""))
+    host = str(r.get("host",""))
+    mon = str(r.get("monitor",""))
+    reason = str(r.get("reason",""))
+    if st not in ("", "ANY") and status != st:
+      continue
+    if hf and hf not in host.lower():
+      continue
+    if mf and mf not in mon.lower():
+      continue
+    if rf and rf not in reason.lower():
+      continue
+    print(f"{mon}|{reason}")
+    raise SystemExit(0)
+PY
+}
+
+tui_status_drilldown(){
+  local status_filter="ANY" host_filter="" monitor_filter="" reason_filter=""
+  while true; do
+    local choice
+    choice="$(tui_menu_prompt_safe "Status drilldown" \
+      table "View table with current filters" \
+      compact "View compact with current filters" \
+      set_status "Set status filter (current: $status_filter)" \
+      set_host "Set host filter (current: ${host_filter:--})" \
+      set_monitor "Set monitor filter (current: ${monitor_filter:--})" \
+      set_reason "Set reason filter (current: ${reason_filter:--})" \
+      explain_reason "Explain a reason token" \
+      explain_monitor "Explain a monitor" \
+      explain_top "Explain top filtered problem" \
+      clear "Clear all filters" \
+      back "Back")"
+    [[ "$TUI_MENU_RC" -eq 0 && -n "${choice:-}" ]] || break
+    choice="$(normalize_menu_choice "$choice")"
+    case "$choice" in
+      table) tui_status_drilldown_view "table" "$status_filter" "$host_filter" "$monitor_filter" "$reason_filter" ;;
+      compact) tui_status_drilldown_view "compact" "$status_filter" "$host_filter" "$monitor_filter" "$reason_filter" ;;
+      set_status)
+        local s
+        s="$(tui_menu_prompt_safe "Pick status filter" ANY "All statuses" OK "OK only" WARN "WARN only" CRIT "CRIT only" UNKNOWN "UNKNOWN only" SKIP "SKIP only" back "Back")"
+        if [[ "$TUI_MENU_RC" -eq 0 && -n "${s:-}" ]]; then
+          s="$(normalize_menu_choice "$s")"
+          [[ "$s" != "back" ]] && status_filter="$s"
+        fi
+        ;;
+      set_host)
+        tui_input_capture "Host filter (contains)" "$host_filter"
+        [[ "$TUI_INPUT_RC" -eq 0 ]] && host_filter="$TUI_INPUT_VALUE"
+        ;;
+      set_monitor)
+        tui_input_capture "Monitor filter (contains)" "$monitor_filter"
+        [[ "$TUI_INPUT_RC" -eq 0 ]] && monitor_filter="$TUI_INPUT_VALUE"
+        ;;
+      set_reason)
+        tui_input_capture "Reason filter (contains)" "$reason_filter"
+        [[ "$TUI_INPUT_RC" -eq 0 ]] && reason_filter="$TUI_INPUT_VALUE"
+        ;;
+      explain_reason)
+        local token
+        tui_input_capture "Reason token" "e.g. disk_full"
+        token="$TUI_INPUT_VALUE"
+        if [[ "$TUI_INPUT_RC" -eq 0 && -n "${token:-}" ]]; then
+          tui_run_cmd "linux-maint explain reason $token" "$0" explain reason "$token"
+        fi
+        ;;
+      explain_monitor)
+        local mon
+        tui_input_capture "Monitor name" "e.g. service_monitor"
+        mon="$TUI_INPUT_VALUE"
+        if [[ "$TUI_INPUT_RC" -eq 0 && -n "${mon:-}" ]]; then
+          tui_run_cmd "linux-maint explain monitor $mon" "$0" explain monitor "$mon"
+        fi
+        ;;
+      explain_top)
+        local top mon reason
+        top="$(tui_status_drilldown_top_problem "$status_filter" "$host_filter" "$monitor_filter" "$reason_filter" || true)"
+        mon="${top%%|*}"
+        reason="${top#*|}"
+        if [[ -z "$top" || -z "$mon" || "$reason" == "$top" || -z "$reason" ]]; then
+          tui_msgbox "No matching problem row to explain."
+        else
+          tui_run_cmd "linux-maint explain reason $reason" "$0" explain reason "$reason"
+          tui_run_cmd "linux-maint explain monitor $mon" "$0" explain monitor "$mon"
+        fi
+        ;;
+      clear)
+        status_filter="ANY"; host_filter=""; monitor_filter=""; reason_filter=""
+        ;;
+      back) break ;;
+    esac
+  done
+}
+
+tui_run_wizard(){
+  local scope="all" only="" skip="" target="local" group="" hosts="" mode="run"
+  local c
+  c="$(tui_menu_prompt_safe "Run wizard: scope" all "All monitors" only "Only selected monitors" skip "Skip selected monitors" back "Back")"
+  [[ "$TUI_MENU_RC" -eq 0 && -n "${c:-}" ]] || return 0
+  c="$(normalize_menu_choice "$c")"
+  [[ "$c" == "back" ]] && return 0
+  scope="$c"
+  if [[ "$scope" == "only" ]]; then
+    tui_input_capture "Only monitors (csv)" "service_monitor,ntp_drift_monitor"
+    only="$TUI_INPUT_VALUE"
+    [[ "$TUI_INPUT_RC" -eq 0 && -n "${only:-}" ]] || return 0
+  elif [[ "$scope" == "skip" ]]; then
+    tui_input_capture "Skip monitors (csv)" "inventory_export,backup_check"
+    skip="$TUI_INPUT_VALUE"
+    [[ "$TUI_INPUT_RC" -eq 0 && -n "${skip:-}" ]] || return 0
+  fi
+
+  c="$(tui_menu_prompt_safe "Run wizard: target" local "Local only" group "Group from groups.d" hosts "Ad-hoc hosts list" back "Back")"
+  [[ "$TUI_MENU_RC" -eq 0 && -n "${c:-}" ]] || return 0
+  c="$(normalize_menu_choice "$c")"
+  [[ "$c" == "back" ]] && return 0
+  target="$c"
+  case "$target" in
+    group)
+      tui_input_capture "Group name" "prod"
+      group="$TUI_INPUT_VALUE"
+      [[ "$TUI_INPUT_RC" -eq 0 && -n "${group:-}" ]] || return 0
+      ;;
+    hosts)
+      tui_input_capture "Hosts (csv)" "server-a,server-b"
+      hosts="$TUI_INPUT_VALUE"
+      [[ "$TUI_INPUT_RC" -eq 0 && -n "${hosts:-}" ]] || return 0
+      ;;
+  esac
+
+  c="$(tui_menu_prompt_safe "Run wizard: mode" run "Execute now" plan "Plan only (no execution)" back "Back")"
+  [[ "$TUI_MENU_RC" -eq 0 && -n "${c:-}" ]] || return 0
+  c="$(normalize_menu_choice "$c")"
+  [[ "$c" == "back" ]] && return 0
+  mode="$c"
+
+  local -a cmd
+  cmd=("$0" run)
+  case "$scope" in
+    only) cmd+=(--only "$only") ;;
+    skip) cmd+=(--skip "$skip") ;;
+  esac
+  case "$target" in
+    local) cmd+=(--local-only) ;;
+    group) cmd+=(--group "$group") ;;
+    hosts) cmd+=(--hosts "$hosts") ;;
+  esac
+  [[ "$mode" == "plan" ]] && cmd+=(--plan)
+  if [[ "$mode" == "run" ]]; then
+    tui_run_live "linux-maint run (wizard)" "${cmd[@]}"
+    tui_run_next_steps "$?"
+  else
+    tui_run_cmd "linux-maint run --plan (wizard)" "${cmd[@]}"
+  fi
+}
+
+run_menu_settings(){
+  while true; do
+    local choice
+    local backend_cur="${LM_TUI_BACKEND:-auto}"
+    local refresh_cur="${LM_TUI_DASH_REFRESH:-0}"
+    local view_cur="${LM_TUI_DEFAULT_STATUS_VIEW:-table}"
+    local p_cur="${LM_TUI_DEFAULT_PROBLEMS:-20}"
+    local r_cur="${LM_TUI_DEFAULT_REASONS:-5}"
+    local prev_cur="${LM_TUI_PREVIEW:-1}"
+    local sh_cur="${LM_TUI_SHORTCUTS:-1}"
+    choice="$(tui_menu_prompt_safe "Menu settings" \
+      backend "Backend preference (current: $backend_cur)" \
+      refresh "Dashboard refresh seconds (current: $refresh_cur)" \
+      view "Default status view (current: $view_cur)" \
+      limits "Default problems/reasons (current: $p_cur/$r_cur)" \
+      preview "Command preview before run (current: $prev_cur)" \
+      shortcuts "Shortcuts r/s/d/h (current: $sh_cur)" \
+      save "Save settings to $(menu_settings_path)" \
+      back "Back")"
+    [[ "$TUI_MENU_RC" -eq 0 && -n "${choice:-}" ]] || break
+    choice="$(normalize_menu_choice "$choice")"
+    case "$choice" in
+      backend)
+        local b
+        b="$(tui_menu_prompt_safe "Pick backend preference" auto "Auto detect" gum "gum" dialog "dialog" whiptail "whiptail" back "Back")"
+        if [[ "$TUI_MENU_RC" -eq 0 && -n "${b:-}" ]]; then
+          b="$(normalize_menu_choice "$b")"
+          case "$b" in
+            auto) unset LM_TUI_BACKEND ;;
+            gum|dialog|whiptail) export LM_TUI_BACKEND="$b" ;;
+          esac
+        fi
+        ;;
+      refresh)
+        local v
+        tui_input_capture "Dashboard refresh seconds (0 disables)" "${LM_TUI_DASH_REFRESH:-0}"
+        v="$TUI_INPUT_VALUE"
+        if [[ "$TUI_INPUT_RC" -eq 0 && "$v" =~ ^[0-9]+$ ]]; then
+          export LM_TUI_DASH_REFRESH="$v"
+        fi
+        ;;
+      view)
+        local v
+        v="$(tui_menu_prompt_safe "Default status view" table "Table" compact "Compact" back "Back")"
+        if [[ "$TUI_MENU_RC" -eq 0 && -n "${v:-}" ]]; then
+          v="$(normalize_menu_choice "$v")"
+          [[ "$v" != "back" ]] && export LM_TUI_DEFAULT_STATUS_VIEW="$v"
+        fi
+        ;;
+      limits)
+        local p r
+        tui_input_capture "Default problems count" "${LM_TUI_DEFAULT_PROBLEMS:-20}"
+        p="$TUI_INPUT_VALUE"
+        if [[ "$TUI_INPUT_RC" -eq 0 && "$p" =~ ^[0-9]+$ ]]; then export LM_TUI_DEFAULT_PROBLEMS="$p"; fi
+        tui_input_capture "Default reasons count" "${LM_TUI_DEFAULT_REASONS:-5}"
+        r="$TUI_INPUT_VALUE"
+        if [[ "$TUI_INPUT_RC" -eq 0 && "$r" =~ ^[0-9]+$ ]]; then export LM_TUI_DEFAULT_REASONS="$r"; fi
+        ;;
+      preview)
+        local v
+        v="$(tui_menu_prompt_safe "Command preview" 1 "Enabled" 0 "Disabled" back "Back")"
+        if [[ "$TUI_MENU_RC" -eq 0 && -n "${v:-}" ]]; then
+          v="$(normalize_menu_choice "$v")"
+          [[ "$v" != "back" ]] && export LM_TUI_PREVIEW="$v"
+        fi
+        ;;
+      shortcuts)
+        local v
+        v="$(tui_menu_prompt_safe "Keyboard shortcuts" 1 "Enabled (r/s/d/h)" 0 "Disabled" back "Back")"
+        if [[ "$TUI_MENU_RC" -eq 0 && -n "${v:-}" ]]; then
+          v="$(normalize_menu_choice "$v")"
+          [[ "$v" != "back" ]] && export LM_TUI_SHORTCUTS="$v"
+        fi
+        ;;
+      save)
+        if save_menu_settings; then
+          tui_msgbox "Saved menu settings to $(menu_settings_path)"
+        else
+          tui_msgbox "Failed to save menu settings to $(menu_settings_path)"
+        fi
+        ;;
+      back) break ;;
+    esac
+  done
+}
+
 run_menu_run(){
   while true; do
     local choice
+    TUI_SHORTCUT_CONTEXT="run"
     choice="$(tui_menu_prompt_safe "Run actions" \
-      run "Run full checks (live output)" \
-      plan "Plan only (no execution)" \
+      run "Run full checks (live output) [r]" \
+      plan "Plan only (no execution) [p]" \
+      wizard "Guided run wizard [w]" \
       back "Back to main")"
     local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
     choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "run")"
     case "$choice" in
       run)
         if tui_yesno "Run full checks now?"; then
@@ -874,6 +1470,9 @@ run_menu_run(){
         ;;
       plan)
         tui_run_cmd "linux-maint run --plan" "$0" run --plan
+        ;;
+      wizard)
+        tui_run_wizard
         ;;
       back)
         break
@@ -885,9 +1484,11 @@ run_menu_run(){
 run_menu_reports(){
   while true; do
     local choice
+    TUI_SHORTCUT_CONTEXT="reports"
     choice="$(tui_menu_prompt_safe "Reports" \
-      dashboard "Styled status overview" \
-      status "Show status (table)" \
+      dashboard "Styled status overview [d]" \
+      status "Show status (table) [s]" \
+      drilldown "Status drilldown (filters + explain)" \
       report "Show report (short)" \
       trend "Show trend (last 10)" \
       runtimes "Show runtimes (last 10)" \
@@ -897,6 +1498,7 @@ run_menu_reports(){
       break
     fi
     choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "reports")"
     case "$choice" in
       dashboard)
         if [[ "$TUI_BACKEND" == "gum" ]]; then
@@ -906,7 +1508,14 @@ run_menu_reports(){
         fi
         ;;
       status)
-        tui_run_cmd "linux-maint status --table" "$0" status --table
+        if [[ "${LM_TUI_DEFAULT_STATUS_VIEW:-table}" == "compact" ]]; then
+          tui_run_cmd "linux-maint status --compact" "$0" status --compact
+        else
+          tui_run_cmd "linux-maint status --table" "$0" status --table
+        fi
+        ;;
+      drilldown)
+        tui_status_drilldown
         ;;
       report)
         tui_run_cmd "linux-maint report --short --no-trend" "$0" report --short --no-trend
@@ -927,6 +1536,7 @@ run_menu_reports(){
 run_menu_tools(){
   while true; do
     local choice
+    TUI_SHORTCUT_CONTEXT="tools"
     choice="$(tui_menu_prompt_safe "Tools & automation" \
       check "Preflight + validate + expected SKIPs" \
       summary "One-line summary" \
@@ -935,13 +1545,14 @@ run_menu_tools(){
       runindex "Run index stats" \
       metrics_prom "Metrics (Prometheus text)" \
       metrics_json "Metrics (JSON)" \
-      pack_logs "Support bundle (redacted)" \
+      pack_logs "Support bundle (redacted) [p]" \
       back "Back to main")"
     local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
     choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "tools")"
     case "$choice" in
       check)
         tui_run_cmd "linux-maint check" "$0" check
@@ -967,6 +1578,7 @@ run_menu_tools(){
       pack_logs)
         if tui_yesno "Create redacted support bundle in /tmp?"; then
           tui_run_cmd "linux-maint pack-logs --out /tmp --redact" "$0" pack-logs --out /tmp --redact
+          tui_support_bundle_summary
         fi
         ;;
       back)
@@ -979,8 +1591,9 @@ run_menu_tools(){
 run_menu_help(){
   while true; do
     local choice
+    TUI_SHORTCUT_CONTEXT="help"
     choice="$(tui_menu_prompt_safe "Help & docs" \
-      quickref "Quick reference" \
+      quickref "Quick reference [h]" \
       faq "FAQ" \
       reasons "Reasons catalog" \
       monitors "Monitors matrix" \
@@ -994,32 +1607,35 @@ run_menu_help(){
       break
     fi
     choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "help")"
     case "$choice" in
       quickref)
-        tui_view_file "Quick reference" "$REPO_ROOT/docs/QUICK_REFERENCE.md"
+        tui_view_file "Quick reference" "$(find_doc_file QUICK_REFERENCE.md)"
         ;;
       faq)
-        tui_view_file "FAQ" "$REPO_ROOT/docs/FAQ.md"
+        tui_view_file "FAQ" "$(find_doc_file FAQ.md)"
         ;;
       reasons)
-        tui_view_file "Reasons" "$REPO_ROOT/docs/REASONS.md"
+        tui_view_file "Reasons" "$(find_doc_file REASONS.md)"
         ;;
       monitors)
-        tui_view_file "Monitors matrix" "$REPO_ROOT/docs/MONITORS_MATRIX.md"
+        tui_view_file "Monitors matrix" "$(find_doc_file MONITORS_MATRIX.md)"
         ;;
       about)
         tui_about
         ;;
       explain_reason)
         local token
-        token="$(tui_input "Reason token" "e.g. disk_full")"
+        tui_input_capture "Reason token" "e.g. disk_full"
+        token="$TUI_INPUT_VALUE"
         if [[ "$TUI_INPUT_RC" -eq 0 && -n "$token" ]]; then
           tui_run_cmd "linux-maint explain reason $token" "$0" explain reason "$token"
         fi
         ;;
       explain_monitor)
         local mon
-        mon="$(tui_input "Monitor name" "e.g. service_monitor")"
+        tui_input_capture "Monitor name" "e.g. service_monitor"
+        mon="$TUI_INPUT_VALUE"
         if [[ "$TUI_INPUT_RC" -eq 0 && -n "$mon" ]]; then
           tui_run_cmd "linux-maint explain monitor $mon" "$0" explain monitor "$mon"
         fi
@@ -1050,10 +1666,11 @@ run_menu_help(){
 run_menu_diagnostics(){
   while true; do
     local choice
+    TUI_SHORTCUT_CONTEXT="diagnostics"
     choice="$(tui_menu_prompt_safe "Diagnostics" \
       logslive "Live log tail (stream)" \
       logs "Tail latest log" \
-      doctor "Doctor (diagnose)" \
+      doctor "Doctor (diagnose) [d]" \
       selfcheck "Self-check (safe)" \
       back "Back to main")"
     local rc=$TUI_MENU_RC
@@ -1061,6 +1678,7 @@ run_menu_diagnostics(){
       break
     fi
     choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "diagnostics")"
     case "$choice" in
       logslive)
         tui_tail_logs
@@ -1084,22 +1702,27 @@ run_menu_diagnostics(){
 run_menu_config(){
   while true; do
     local choice
+    TUI_SHORTCUT_CONTEXT="config"
     choice="$(tui_menu_prompt_safe "Config & inventory" \
-      config "Show config" \
+      config "Show config [c]" \
       monitors "List monitors" \
+      settings "Menu settings" \
       back "Back to main")"
     local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
-    choice="${choice#"${choice%%[! ]*}"}"
-    choice="${choice%%:*}"
+    choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "config")"
     case "$choice" in
       config)
         tui_run_cmd "linux-maint config" "$0" config
         ;;
       monitors)
         tui_run_cmd "linux-maint list-monitors" "$0" list-monitors
+        ;;
+      settings)
+        run_menu_settings
         ;;
       back)
         break
@@ -1128,22 +1751,30 @@ run_menu(){
   fi
 
   TUI_ANIM_TICK=0
+  load_menu_settings
+  : "${LM_TUI_DEFAULT_STATUS_VIEW:=table}"
+  : "${LM_TUI_DEFAULT_PROBLEMS:=20}"
+  : "${LM_TUI_DEFAULT_REASONS:=5}"
+  : "${LM_TUI_PREVIEW:=1}"
+  : "${LM_TUI_SHORTCUTS:=1}"
+  normalize_menu_settings
   while true; do
     TUI_MENU_STYLE="full"
+    TUI_SHORTCUT_CONTEXT="main"
     choice="$(tui_menu_prompt_safe "Select an action" \
-      run "Run / plan" \
-      reports "Status / report / trend / runtimes" \
+      run "Run / plan [r]" \
+      reports "Status / report / trend / runtimes [s]" \
       tools "Tools & automation" \
-      diagnostics "Logs / doctor / self-check" \
+      diagnostics "Logs / doctor / self-check [d]" \
       config "Config / monitors" \
-      help "Help & docs" \
+      help "Help & docs [h]" \
       exit "Exit")"
     rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
       break
     fi
-    choice="${choice#"${choice%%[! ]*}"}"
-    choice="${choice%%:*}"
+    choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "main")"
     case "$choice" in
       run)
         TUI_MENU_STYLE="compact"
@@ -1242,14 +1873,14 @@ INST_SUMMARY_LATEST="/var/log/health/full_health_monitor_summary_latest.log"
 
 
 need_root_for(){
-  local cmd="$1"
+  local req_cmd="$1"
   if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
     if color_enabled; then
-      echo "${C_RED}ERROR:${C_RESET} linux-maint $cmd requires root (installed mode)." >&2
+      echo "${C_RED}ERROR:${C_RESET} linux-maint $req_cmd requires root (installed mode)." >&2
     else
-      echo "ERROR: linux-maint $cmd requires root (installed mode)." >&2
+      echo "ERROR: linux-maint $req_cmd requires root (installed mode)." >&2
     fi
-    case "$cmd" in
+    case "$req_cmd" in
       run)
         hint_line "sudo linux-maint run" >&2
         echo "      (or run the wrapper directly: sudo /usr/local/sbin/run_full_health_monitor.sh)" >&2
@@ -1267,7 +1898,7 @@ need_root_for(){
         hint_line "sudo linux-maint validate" >&2
         ;;
       *)
-        hint_line "sudo linux-maint $cmd" >&2
+        hint_line "sudo linux-maint $req_cmd" >&2
         ;;
     esac
     exit 1
@@ -1683,7 +2314,21 @@ Examples:
 EOF
       ;;
     menu)
-      echo "Usage: linux-maint menu";;
+      cat <<'EOF'
+Usage: linux-maint menu
+
+Interactive TUI with optional shortcuts and persisted settings.
+
+Useful env vars:
+  LM_TUI_BACKEND=gum|dialog|whiptail
+  LM_TUI_DASH_REFRESH=<seconds>
+  LM_TUI_DEFAULT_STATUS_VIEW=table|compact
+  LM_TUI_DEFAULT_PROBLEMS=<1..100>
+  LM_TUI_DEFAULT_REASONS=<0..20>
+  LM_TUI_PREVIEW=1|0
+  LM_TUI_SHORTCUTS=1|0
+EOF
+      ;;
     list-monitors)
       echo "Usage: linux-maint list-monitors [--json]";;
     lint-summary)
@@ -1844,9 +2489,9 @@ EOF
   esac
 }
 
-cmd="${1:-help}"; shift || true
+subcmd="${1:-help}"; shift || true
 
-case "$cmd" in
+case "$subcmd" in
   help|-h|--help)
     if [[ -n "${1:-}" ]]; then
       command_usage "$1"
@@ -3054,6 +3699,28 @@ if isinstance(runtimes, dict):
         if prev is None or ms_val > prev:
             monitor_durations_ms[mon] = ms_val
 
+monitor_durations_seconds = {}
+for mon, ms_val in monitor_durations_ms.items():
+    try:
+        monitor_durations_seconds[mon] = round(float(ms_val) / 1000.0, 3)
+    except Exception:
+        continue
+
+top_n = 5
+try:
+    top_n = int(os.environ.get("LM_METRICS_TOP_SLOW", "5") or 5)
+except Exception:
+    top_n = 5
+top_n = max(1, min(20, top_n))
+
+slow_monitors_top = []
+for mon, ms_val in sorted(monitor_durations_ms.items(), key=lambda kv: (-kv[1], kv[0]))[:top_n]:
+    secs = monitor_durations_seconds.get(mon)
+    row = {"monitor": mon, "ms": ms_val}
+    if secs is not None:
+        row["seconds"] = secs
+    slow_monitors_top.append(row)
+
 out = {
     "schema_version": 1,
     "run_id": (status.get("run_id") if isinstance(status, dict) else "") or (status.get("last_status", {}) if isinstance(status, dict) else {}).get("run_id", ""),
@@ -3064,6 +3731,8 @@ out = {
     "severity_totals": severity_totals,
     "host_counts": host_counts,
     "monitor_durations_ms": monitor_durations_ms,
+    "monitor_durations_seconds": monitor_durations_seconds,
+    "slow_monitors_top": slow_monitors_top,
 }
 
 if redact_json or redact_json_strict:
@@ -4093,17 +4762,21 @@ run_epoch = parse_timestamp(timestamp_raw)
 
 counts = {k:0 for k in ["OK","WARN","CRIT","UNKNOWN","SKIP"]}
 if summary_path and os.path.exists(summary_path):
-    with open(summary_path,'r',encoding='utf-8',errors='ignore') as f:
-        for line in f:
-            line=line.strip()
-            if not line:
-                continue
-            if not line.startswith("monitor="):
-                continue
-            st = get_kv(line, "status") or "UNKNOWN"
-            if st not in counts:
-                st = "UNKNOWN"
-            counts[st] += 1
+    try:
+        with open(summary_path,'r',encoding='utf-8',errors='ignore') as f:
+            for line in f:
+                line=line.strip()
+                if not line:
+                    continue
+                if not line.startswith("monitor="):
+                    continue
+                st = get_kv(line, "status") or "UNKNOWN"
+                if st not in counts:
+                    st = "UNKNOWN"
+                counts[st] += 1
+    except Exception:
+        # Keep zero counts when summary is unreadable/missing permissions.
+        pass
 
 print("# HELP linux_maint_overall_status Overall status (labelled)")
 print("# TYPE linux_maint_overall_status gauge")
@@ -6863,11 +7536,11 @@ PYJSON
     echo ""
     section "Dependencies (best-effort)"
     need_cmd() {
-      local cmd="$1" pkg_hint="$2"
-      if command -v "$cmd" >/dev/null 2>&1; then
-        printf "%-18s %s\n" "$cmd" "${C_GREEN}OK${C_RESET}"
+      local dep_cmd="$1" pkg_hint="$2"
+      if command -v "$dep_cmd" >/dev/null 2>&1; then
+        printf "%-18s %s\n" "$dep_cmd" "${C_GREEN}OK${C_RESET}"
       else
-        printf "%-18s %s\n" "$cmd" "${C_RED}MISSING${C_RESET}"
+        printf "%-18s %s\n" "$dep_cmd" "${C_RED}MISSING${C_RESET}"
         [[ -n "$pkg_hint" ]] && echo "  hint: install package: $pkg_hint" >&2
         [[ -n "$pkg_hint" ]] && add_fix "Install missing dependency: $pkg_hint"
       fi
@@ -7089,8 +7762,8 @@ PY
       done
       echo ""
       section "Dependencies"
-      for cmd in bash awk sed grep df find timeout ssh; do
-        command -v "$cmd" >/dev/null 2>&1 && printf "%-18s %s\n" "$cmd" "${C_GREEN}OK${C_RESET}" || printf "%-18s %s\n" "$cmd" "${C_RED}MISSING${C_RESET}"
+      for dep in bash awk sed grep df find timeout ssh; do
+        command -v "$dep" >/dev/null 2>&1 && printf "%-18s %s\n" "$dep" "${C_GREEN}OK${C_RESET}" || printf "%-18s %s\n" "$dep" "${C_RED}MISSING${C_RESET}"
       done
     fi
     ;;
@@ -7146,7 +7819,7 @@ EOF_DEPS
 
 
   *)
-    echo "Unknown command: $cmd" >&2
+    echo "Unknown command: $subcmd" >&2
     usage
     exit 2
     ;;

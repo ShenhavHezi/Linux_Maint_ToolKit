@@ -147,6 +147,16 @@ You can tune the interactive menu behavior via environment variables:
 - `LM_TUI_BACKEND` = `gum|dialog|whiptail` (force a specific backend)
 - `LM_TUI_DASH_REFRESH` = seconds (auto-refresh interval; `0` disables)
 - `TUI_BANNER_WIDTH` = integer (banner width for gum backend)
+- `LM_TUI_DEFAULT_STATUS_VIEW` = `table|compact` (default view in Reports -> Status)
+- `LM_TUI_DEFAULT_PROBLEMS` = integer (default problem rows in drilldown/status JSON fetch)
+- `LM_TUI_DEFAULT_REASONS` = integer (default reason rows in drilldown/status JSON fetch)
+- `LM_TUI_PREVIEW` = `1|0` (show `Will run: ...` preview before command execution in menu)
+- `LM_TUI_SHORTCUTS` = `1|0` (enable single-key aliases such as `r/s/d/h`)
+
+Validation/clamping:
+- `LM_TUI_DASH_REFRESH` is clamped to `0..300`.
+- `LM_TUI_DEFAULT_PROBLEMS` is clamped to `1..100`.
+- `LM_TUI_DEFAULT_REASONS` is clamped to `0..20`.
 
 ### Runtime summary (wrapper logs)
 
@@ -448,6 +458,14 @@ After installation, use the `linux-maint` CLI as the primary interface.
 `linux-maint menu` launches a local terminal UI for common actions (run, status, report, tools).
 It prefers **gum** for the most polished UI, but falls back to `dialog` or `whiptail`.
 
+Highlights:
+- Guided **Run Wizard** for building `run` commands without remembering flags.
+- **Status Drilldown** view with status/host/monitor/reason filters and quick explain actions.
+  - Includes `Explain top filtered problem` (opens both reason and monitor explain views).
+- Post-run **Quick Actions** screen (doctor/logs/reasons/support bundle).
+- **Menu settings** screen (session values, optional save to `~/.config/linux-maint/menu.conf`).
+- Keyboard shortcuts in main menu (`r` run, `s` reports, `d` diagnostics, `h` help) when shortcuts are enabled.
+
 Examples:
 
 ```bash
@@ -567,6 +585,11 @@ Top-level keys:
 - `severity_totals` (object; counts of `monitor=` lines by status)
 - `host_counts` (object; worst-status-per-host counts derived from summary lines)
 - `monitor_durations_ms` (object; map of `monitor` to runtime in ms)
+- `monitor_durations_seconds` (object; map of `monitor` to runtime in seconds)
+- `slow_monitors_top` (array; top slow monitors sorted by runtime desc, default top 5)
+
+Environment:
+- `LM_METRICS_TOP_SLOW` = `1..20` (controls `slow_monitors_top` length, default `5`)
 
 Schema:
 - `docs/schemas/metrics.json` — JSON schema for `linux-maint metrics --json`.

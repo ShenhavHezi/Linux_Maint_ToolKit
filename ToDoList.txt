@@ -1,76 +1,58 @@
-# Linux_Maint_ToolKit - Roadmap and Backlog (2026-02-25)
+# Linux_Maint_ToolKit - Menu-Centric Backlog (2026-03-02)
 
-## Project brief
-Linux_Maint_ToolKit is a lightweight, offline-first Linux health toolkit for fleet and single-host checks.
-It runs locally or over SSH, emits stable machine-parseable summary lines, and favors predictable outputs for automation.
-Primary users: operators, sysadmins, and SREs working in constrained or air-gapped environments.
-
-## Principles
-- Bash-only runtime; avoid new dependencies.
-- Output contracts are stable, parse-safe, and versioned where needed.
-- Changes should be minimal and reversible; behavior changes require tests + docs.
-
-## Success criteria
-- One command provides a clear, actionable status report with sane defaults.
-- Summary contract is consistent and validated across all monitors and CLI outputs.
-- Works on RHEL 9 and common distros with explicit compatibility guidance.
-- CI is reliable, deterministic, and low-flake.
+## Scope
+This backlog is focused on `linux-maint menu` UX, reliability, and operator guidance.
+Older roadmap items are treated as completed and replaced by this menu-forward plan.
 
 ## Priority legend
-- P0: correctness, safety, and contract integrity
-- P1: operator UX, docs, and compatibility
-- P2: security, hardening, and performance
-- P3: observability, integrations, and QA coverage
-- P4: DX, release polish, and community
+- P0: correctness/regression blockers
+- P1: high-value user workflow improvements
+- P2: polish, discoverability, and quality-of-life
 
----
+## P0 - Fix now (menu correctness)
+- Fix dialog-tag normalization in top-level and config menus so padded labels never break routing.
+  - Acceptance: `LM_TUI_BACKEND=dialog linux-maint menu` can navigate all menu branches.
+  - Tests: add non-interactive unit coverage for menu choice normalization/parsing.
+- Fix Help docs paths in installed mode (`quickref/faq/reasons/monitors`) by resolving from installed docs share path when repo docs are absent.
+  - Acceptance: installed mode help pages open successfully without repo checkout.
+  - Tests: add path-resolution tests for repo and installed mode.
+- Add a focused menu smoke test suite (backend-neutral) to prevent regressions in command wiring.
+  - Acceptance: CI verifies each menu action maps to expected CLI command.
 
-## P0 - Correctness and safety
-- Add a run concurrency lock (lockfile + timeout) so overlapping `linux-maint run` cannot corrupt logs; support `--allow-concurrent` override.
-- Introduce a stable `run_id` and `schema_version` across summary/status/report/metrics JSON; enforce in schemas and `lint-summary`.
-- Make run-index and status writes fully atomic (write temp + rename), and skip/repair partial JSONL records on read.
-- Enforce config type validation (int/bool/list) with JSON-only error payloads in `--json` modes; extend tests for invalid types.
-- Add strict empty-monitor resolution checks: fail if `run --plan` or `run --only/--skip` resolves to zero monitors.
-- Add a defensive cap on summary line length and untrusted fields to avoid broken terminals or logs.
+## P1 - Core UX features
+- Add a guided "Run Wizard" in menu:
+  - choose scope (`all`, `only`, `skip`)
+  - choose target mode (`local`, `group`, `hosts`)
+  - optional dry-run preview before execution
+  - Acceptance: users can build a full run command without typing flags manually.
+- Add "Status Drilldown" view:
+  - filter by `status/host/monitor/reason`
+  - quick toggle between table and compact
+  - jump from a selected row to `explain reason` or `explain monitor`
+- Add post-run "Quick Actions" screen:
+  - if WARN/CRIT: offer `doctor`, `status --reasons 10`, `logs 200`, `pack-logs --redact`
+  - if OK: offer `report --short`, `trend --last 10`
+- Add menu settings screen (session-scoped):
+  - backend, dashboard refresh, default status view mode, preferred problem/reason limits
+  - writes optional config block under `~/.config/linux-maint/menu.conf` (safe fallback when absent)
 
----
+## P2 - Usability polish
+- Add command preview footer before execution ("Will run: linux-maint ...").
+- Add keyboard shortcuts for common actions (`r` run, `s` status, `d` doctor, `h` help).
+- Improve visual severity consistency across all views (OK/WARN/CRIT/UNKNOWN/SKIP colors + symbols).
+- Add "recent artifacts" panel (latest summary/log/report paths + timestamps) on dashboard.
+- Add copy-ready support bundle summary after `pack-logs` (path, checksum, redaction mode, gpg mode).
 
-## P1 - Operator UX, docs, compatibility
-- Document `linux-maint menu` in `docs/reference.md` and `docs/README.md` (include prerequisites + examples).
-- Add TUI configuration knobs section (e.g., `LM_TUI_BACKEND`, `LM_TUI_DASH_REFRESH`) in docs.
-- Add `linux-maint config --diff-defaults` to show which effective values differ from shipped defaults.
-- Add a Custom Monitors guide (`docs/CUSTOM_MONITORS.md`) and a template generator (`tools/new_monitor.sh`).
-- Expand `list-monitors` to derive descriptions/required files from monitor headers to avoid drift.
-- Add `--output <path>` to `status`, `report`, and `trend` for atomic file writes.
-- Add a fleet quickstart example (SSH inventory, services, network targets) under `docs/examples/`.
-- Add a short “what to do next” hint screen at the end of TUI runs (success/failure actions).
-- Add a TUI “About / version” view (build info + install mode) to help operators.
+## QA and docs requirements for every menu feature
+- Add at least one test per new menu branch and one regression test for failure/cancel paths.
+- Update:
+  - `docs/reference.md` (menu options/env vars)
+  - `docs/QUICK_REFERENCE.md` (operator flow)
+  - `docs/TUI_STYLE_GUIDE.md` (interaction and visual rules)
+- Include release-note entry under next version in `docs/release_notes/`.
 
----
-
-## P2 - Security, hardening, performance
-- Add `pack-logs --redact` to scrub secrets from text logs and configs before bundling.
-- Add `doctor` checks for group/world-writable `LOG_DIR`, `SUMMARY_DIR`, `STATE_DIR`, and `LM_CFG_DIR` (warn or fail in strict mode).
-- Provide a minimal `sudoers` example for safe non-root use; document least-privilege setup.
-- Add optional GPG encryption for support bundles and document verification steps.
-- Add a configurable cap for run-index size/age that is enforced even without logrotate.
-- Add allowlist validation for `LM_SSH_OPTS` (deny weak ciphers) in strict mode.
-
----
-
-## P3 - Observability, integrations, QA coverage
-- Add `metrics --prom --output <file>` with atomic write for Prometheus textfile collector.
-- Add Prometheus gauges for per-monitor durations (seconds) and per-monitor host counts.
-- Add contract tests for `run_id` propagation and lock behavior.
-- Add compatibility test for older bash (3.x) to ensure minimal features are used.
-- Add integration test that exercises a full run with `--only` plus `--progress` output stability.
-- Add golden fixtures for TUI report output (non-interactive capture) to lock formatting where feasible.
-
----
-
-## P4 - DX, release polish, community
-- Extend `tools/release.sh` to bump VERSION, update notes, generate checksums, and tag in one flow.
-- Add `make verify-release` to run `tools/verify_release.sh` plus notes/index checks.
-- Add a brief `docs/SECURITY_RESPONSE.md` to document responsible disclosure expectations.
-- Add `CODEOWNERS` and issue/PR templates to streamline maintenance.
-- Add a small “UI style guide” section for TUI colors/layout to keep changes consistent.
+## Delivery order
+1. P0 correctness fixes + tests
+2. Run Wizard + Status Drilldown
+3. Quick Actions + Settings
+4. P2 polish batch and doc hardening

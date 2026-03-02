@@ -20,12 +20,15 @@ This guide keeps the `linux-maint menu` experience consistent as new views are a
 - Use `tui_run_cmd` for command output capture and display.
 - Use `tui_run_live` only for long-running commands (e.g., `run`).
 - Keep stderr noise to a minimum; use friendly errors in `tui_msgbox`.
+- Show a pre-execution preview (`Will run: ...`) for menu-triggered commands unless disabled.
 
 ## Interactions
 
 - `Esc` or `q` should return to the previous menu (not exit).
 - Confirm destructive actions with `tui_yesno`.
 - Provide a short “next steps” hint after long runs.
+- Keep keyboard shortcuts stable (`r/s/d/h` in main menu) and document them in labels.
+- Guided flows (wizard/drilldown/settings) must always allow cancel/back without side effects.
 
 ## Backend support
 

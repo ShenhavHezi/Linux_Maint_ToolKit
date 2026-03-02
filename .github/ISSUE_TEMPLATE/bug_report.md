@@ -14,6 +14,7 @@ What happened? What did you expect?
 - Installation mode (repo/installed):
 - Version (`linux-maint version`):
 - Relevant config files:
+- Reproducible in local-only mode (`linux-maint run --local-only --plan`)?
 
 ## Reproduction
 
@@ -30,3 +31,14 @@ Paste relevant command output or logs (redact secrets):
 ```
 ...
 ```
+
+## Contract impact
+
+- [ ] Affects summary line contract (`monitor=... host=... status=... reason=...`)
+- [ ] Affects JSON output (`status/report/metrics/export`)
+- [ ] Affects TUI/menu behavior
+
+## Additional context
+
+- First version where issue appeared:
+- Workaround (if any):

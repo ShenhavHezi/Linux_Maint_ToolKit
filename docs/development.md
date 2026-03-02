@@ -38,4 +38,5 @@ bash tests/summary_contract.sh  # when touching summary/json/monitor output
 ## Repo tools
 
 - Release verification: `tools/release_check.sh`
+- Release/gov audit: `tools/release_audit.sh`
 - Tarball build: `tools/make_tarball.sh`

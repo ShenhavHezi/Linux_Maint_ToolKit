@@ -2,7 +2,7 @@
 
 SHELL := /usr/bin/env bash
 
-.PHONY: help lint test quick-check dev-check docs-check release-tarball make-tarball release release-prep release-check verify-release install-githooks ci-local
+.PHONY: help lint test quick-check dev-check docs-check release-tarball make-tarball release release-prep release-check release-audit verify-release install-githooks ci-local
 
 help:
 	@echo "Targets:"
@@ -13,6 +13,7 @@ help:
 	@echo "  make release VERSION=x.y.z - bump version/changelog, tag, and build tarball (tools/release.sh)"
 	@echo "  make release-prep VERSION=x.y.z - bump version/changelog and draft notes (tools/release_prep.sh)"
 	@echo "  make release-check - validate docs/schemas/release notes (tools/release_check.sh)"
+	@echo "  make release-audit - validate release docs references and governance templates"
 	@echo "  make verify-release - verify release notes/index + tarball checksums"
 	@echo "  make docs-check - validate internal markdown links"
 	@echo "  make test   - run repo test suite (contract + smoke)"
@@ -61,8 +62,12 @@ make-tarball: release-tarball
 release-check:
 	@./tools/release_check.sh
 
+release-audit:
+	@./tools/release_audit.sh
+
 verify-release:
 	@./tools/release_check.sh
+	@./tools/release_audit.sh
 	@./tools/verify_release.sh dist/Linux_Maint_ToolKit-*.tgz --sums dist/SHA256SUMS
 
 install-githooks:

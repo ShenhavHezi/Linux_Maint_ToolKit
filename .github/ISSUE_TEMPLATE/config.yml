@@ -3,3 +3,6 @@ contact_links:
   - name: Security issue
     url: https://github.com/ShenhavHezi/Linux_Maint_ToolKit/security/policy
     about: Please report security issues privately.
+  - name: Operator quick reference
+    url: https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/QUICK_REFERENCE.md
+    about: Check common commands and workflows first.

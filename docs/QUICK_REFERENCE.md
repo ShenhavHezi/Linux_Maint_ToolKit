@@ -58,6 +58,12 @@ sudo linux-maint run --plan --json
 # Interactive TUI menu (uses gum if installed, else dialog/whiptail)
 sudo linux-maint menu
 
+# Optional menu behavior controls
+LM_TUI_DASH_REFRESH=10 sudo linux-maint menu
+LM_TUI_DEFAULT_STATUS_VIEW=compact sudo linux-maint menu
+LM_TUI_PREVIEW=0 sudo linux-maint menu
+LM_TUI_SHORTCUTS=1 sudo linux-maint menu
+
 # List monitors and config requirements
 sudo linux-maint list-monitors
 
@@ -144,6 +150,7 @@ LM_REDACT_JSON=1 sudo linux-maint export --json
 # Metrics snapshot (status + trend + runtimes)
 sudo linux-maint metrics --json
 sudo linux-maint metrics --prom
+LM_METRICS_TOP_SLOW=10 sudo linux-maint metrics --json
 
 # Export JSON with row allowlist
 LM_EXPORT_ALLOWLIST=monitor,host,status,reason sudo linux-maint export --json
@@ -176,6 +183,8 @@ linux-maint self-check
 linux-maint self-check --json
 # Verify offline tarball checksum
 linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
+# Release metadata/governance audit
+./tools/release_audit.sh
 
 # Explain a reason token quickly
 linux-maint explain reason ssh_unreachable

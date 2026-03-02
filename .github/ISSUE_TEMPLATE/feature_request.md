@@ -12,6 +12,16 @@ What problem would this solve?
 
 What would you like to see added or changed?
 
+## User flow
+
+Who is the operator persona and what command/menu flow should improve?
+
+## Acceptance criteria
+
+- [ ] Clear expected behavior
+- [ ] Backward compatibility expectations noted
+- [ ] Suggested tests listed
+
 ## Alternatives considered
 
 Any other approaches you evaluated?

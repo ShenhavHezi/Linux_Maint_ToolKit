@@ -6,7 +6,7 @@ cd "$ROOT_DIR"
 
 usage() {
   cat <<USAGE
-Usage: tools/release.sh <version> [--release] [--with-tarball] [--notes-out PATH] [--no-tag] [--no-commit] [--allow-dirty] [--dry-run]
+Usage: tools/release.sh <version> [--release] [--with-tarball] [--notes-out PATH] [--no-tag] [--no-commit] [--allow-dirty] [--dry-run] [--skip-checks]
 
 Automates:
   - VERSION bump
@@ -33,6 +33,7 @@ NO_COMMIT=0
 ALLOW_DIRTY=0
 DRY_RUN=0
 NOTES_OUT=""
+SKIP_CHECKS=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -43,6 +44,7 @@ while [[ $# -gt 0 ]]; do
     --no-commit) NO_COMMIT=1; shift 1;;
     --allow-dirty) ALLOW_DIRTY=1; shift 1;;
     --dry-run) DRY_RUN=1; shift 1;;
+    --skip-checks) SKIP_CHECKS=1; shift 1;;
     -h|--help) usage; exit 0;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2;;
   esac
@@ -82,6 +84,10 @@ if [[ ! -f docs/RELEASE_TEMPLATE.md ]]; then
 fi
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
+  if [[ "$SKIP_CHECKS" -eq 0 ]]; then
+    echo "[dry-run] would run: ./tools/release_check.sh"
+    echo "[dry-run] would run: ./tools/release_audit.sh (if present)"
+  fi
   echo "[dry-run] would update VERSION -> $VERSION"
   echo "[dry-run] would update CHANGELOG.md with date $DATE_UTC and tag $TAG"
   echo "[dry-run] would write notes: $NOTES_OUT"
@@ -90,6 +96,13 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   fi
   echo "[dry-run] no git commit/tag/release"
   exit 0
+fi
+
+if [[ "$SKIP_CHECKS" -eq 0 ]]; then
+  ./tools/release_check.sh
+  if [[ -x ./tools/release_audit.sh ]]; then
+    ./tools/release_audit.sh
+  fi
 fi
 
 echo "$VERSION" > VERSION
