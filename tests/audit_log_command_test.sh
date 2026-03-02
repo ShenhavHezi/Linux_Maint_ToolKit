@@ -27,10 +27,17 @@ set +e
 LM_AUDIT_LOG="$audit_file" bash "$LM" doctor --fix --dry-run --yes >/dev/null 2>&1
 rc_fix=$?
 set -e
-[[ "$rc_fix" -eq 1 ]] || {
-  echo "expected doctor --fix as non-root to fail rc=1, got rc=$rc_fix" >&2
-  exit 1
-}
+if [[ "$(id -u)" -eq 0 ]]; then
+  [[ "$rc_fix" -eq 0 ]] || {
+    echo "expected doctor --fix as root to succeed rc=0, got rc=$rc_fix" >&2
+    exit 1
+  }
+else
+  [[ "$rc_fix" -eq 1 ]] || {
+    echo "expected doctor --fix as non-root to fail rc=1, got rc=$rc_fix" >&2
+    exit 1
+  }
+fi
 
 json_out="$(LM_AUDIT_LOG="$audit_file" bash "$LM" audit-log --json --last 50 2>/dev/null || true)"
 JSON_OUT="$json_out" python3 - <<'PY'

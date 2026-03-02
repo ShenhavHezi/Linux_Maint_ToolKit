@@ -5035,7 +5035,7 @@ def verify_attestation(att, index_path):
             ["gpg", "--status-fd", "1", "--verify", sig_path, target_path],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            text=True,
+            universal_newlines=True,
         )
         if proc.returncode != 0:
             out["issues"].append(f"gpg attestation verification failed for {target_rel}")
@@ -5307,7 +5307,7 @@ if os.path.exists(list_path):
     except Exception:
         pass
 for n in names:
-    proc = subprocess.run([cli, "plugin", "verify", n, "--json"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    proc = subprocess.run([cli, "plugin", "verify", n, "--json"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True)
     with open(os.path.join(out_dir, f"{n}.json"), "w", encoding="utf-8") as f:
         f.write(proc.stdout or "")
     with open(os.path.join(out_dir, f"{n}.rc"), "w", encoding="utf-8") as f:
@@ -5793,7 +5793,7 @@ if sig is not None:
                             ["gpg", "--status-fd", "1", "--verify", sig_path, target_path],
                             stdout=subprocess.PIPE,
                             stderr=subprocess.DEVNULL,
-                            text=True,
+                            universal_newlines=True,
                         )
                         if proc.returncode != 0:
                             signature_ok = False
@@ -6418,7 +6418,7 @@ cli = os.environ.get("S_CLI", "linux-maint")
 
 def run_json(args):
     try:
-        out = subprocess.check_output([cli] + args, stderr=subprocess.DEVNULL, text=True)
+        out = subprocess.check_output([cli] + args, stderr=subprocess.DEVNULL, universal_newlines=True)
         return 200, out
     except subprocess.CalledProcessError as e:
         return 500, json.dumps({"error": f"command failed: {' '.join(args)}", "rc": e.returncode})
