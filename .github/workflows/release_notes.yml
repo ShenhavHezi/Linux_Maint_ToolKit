@@ -15,8 +15,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract Unreleased Notes
+      - name: Build Release Notes Body
         run: |
+          tag="${GITHUB_REF_NAME}"
+          notes_file="docs/release_notes/release_notes_${tag}.md"
+          if [[ -f "$notes_file" ]]; then
+            cp "$notes_file" release_notes.md
+            exit 0
+          fi
+
           python3 - <<'PY' > release_notes.md
           import re
           from pathlib import Path
@@ -32,7 +39,26 @@ jobs:
           print(body)
           PY
 
+      - name: Check Existing Release
+        id: existing_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if gh release view "$tag" --json isDraft > release_meta.json 2>/dev/null; then
+            if jq -e '.isDraft == false' release_meta.json >/dev/null; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Skip Existing Published Release
+        if: steps.existing_release.outputs.skip == 'true'
+        run: echo "Published release already exists for ${GITHUB_REF_NAME}; skipping draft update."
+
       - name: Create Draft Release
+        if: steps.existing_release.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         with:
           draft: true
