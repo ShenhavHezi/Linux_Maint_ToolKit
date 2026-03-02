@@ -45,4 +45,4 @@
 - Run lock defaults to 60s; override with `--lock-timeout` or `LM_RUN_LOCK_TIMEOUT`.
 
 ## Checksums (if releasing a tarball)
-- SHA256SUMS: 21aad5fddcf56b385db048b610bbf41b33e0afae81b78553dcbd0a1775005022  Linux_Maint_ToolKit-v0.2.9-c0d8a05.tgz
+- SHA256SUMS: 1dadcd94f5ef56695204db532be95e7296ffb16c1aff92b11f82ab7f2fc4aeca  Linux_Maint_ToolKit-v0.2.9-1311f7a.tgz
