@@ -44,6 +44,15 @@ jobs:
         run: |
           ./tests/summary_contract_lint.sh
 
+      - name: Self-check strict profile
+        run: |
+          tmp_base="$(mktemp -d)"
+          mkdir -p .etc_linux_maint
+          printf 'localhost\n' > .etc_linux_maint/servers.txt
+          : > .etc_linux_maint/excluded.txt
+          : > .etc_linux_maint/services.txt
+          LM_CFG_DIR="$PWD/.etc_linux_maint" LM_STATE_DIR="$tmp_base/state" LOG_DIR="$tmp_base/logs" LM_LOCKDIR="$tmp_base/lock" ./bin/linux-maint self-check --strict
+
       - name: Smoke test (best-effort)
         run: |
           chmod +x tests/smoke.sh

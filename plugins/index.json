@@ -1,0 +1,10 @@
+{
+  "plugins": [
+    {
+      "name": "minimal_example",
+      "version": "0.1.0",
+      "description": "Minimal plugin example",
+      "source": "plugins/examples/minimal"
+    }
+  ]
+}

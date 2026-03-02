@@ -1668,10 +1668,12 @@ run_menu_diagnostics(){
     local choice
     TUI_SHORTCUT_CONTEXT="diagnostics"
     choice="$(tui_menu_prompt_safe "Diagnostics" \
+      incident "Incident mode (guided)" \
       logslive "Live log tail (stream)" \
       logs "Tail latest log" \
       doctor "Doctor (diagnose) [d]" \
       selfcheck "Self-check (safe)" \
+      secprofile "Security profile" \
       back "Back to main")"
     local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
@@ -1680,6 +1682,9 @@ run_menu_diagnostics(){
     choice="$(normalize_menu_choice "$choice")"
     choice="$(map_menu_shortcut "$choice" "diagnostics")"
     case "$choice" in
+      incident)
+        run_menu_incident_mode
+        ;;
       logslive)
         tui_tail_logs
         ;;
@@ -1691,6 +1696,75 @@ run_menu_diagnostics(){
         ;;
       selfcheck)
         tui_run_cmd "linux-maint self-check" "$0" self-check
+        ;;
+      secprofile)
+        tui_run_cmd "linux-maint security-profile --strict" "$0" security-profile --strict
+        ;;
+      back)
+        break
+        ;;
+    esac
+  done
+}
+
+run_menu_incident_mode(){
+  local status_json overall top_reason top_monitor summary_text
+  status_json="$(NO_COLOR=1 "$0" status --json --problems 12 --reasons 6 2>/dev/null || true)"
+  summary_text="$(STATUS_JSON="$status_json" python3 - <<'PY'
+import json, os
+raw = os.environ.get("STATUS_JSON","")
+overall = "UNKNOWN"
+top_reason = "-"
+top_monitor = "-"
+try:
+    obj = json.loads(raw or "{}")
+except Exception:
+    obj = {}
+overall = str((obj.get("last_status") or {}).get("overall") or "UNKNOWN")
+rr = obj.get("reason_rollup") or []
+if rr:
+    top_reason = str((rr[0] or {}).get("reason") or "-")
+problems = obj.get("problems") or []
+if problems:
+    top_monitor = str((problems[0] or {}).get("monitor") or "-")
+print(f"overall={overall}")
+print(f"top_reason={top_reason}")
+print(f"top_monitor={top_monitor}")
+PY
+)"
+  overall="$(printf '%s\n' "$summary_text" | awk -F= '/^overall=/{print $2; exit}')"
+  top_reason="$(printf '%s\n' "$summary_text" | awk -F= '/^top_reason=/{print $2; exit}')"
+  top_monitor="$(printf '%s\n' "$summary_text" | awk -F= '/^top_monitor=/{print $2; exit}')"
+  tui_msgbox "Incident mode context:\noverall=${overall:-UNKNOWN}\ntop_reason=${top_reason:--}\ntop_monitor=${top_monitor:--}\n\nChoose guided next steps."
+
+  while true; do
+    local choice
+    choice="$(tui_menu_prompt_safe "Incident mode" \
+      focused_run "Run focused health checks" \
+      status_reasons "Show status reasons (top 10)" \
+      doctor "Run doctor" \
+      bundle "Create redacted support bundle" \
+      short_report "Show short report" \
+      back "Back")"
+    [[ "$TUI_MENU_RC" -eq 0 && -n "${choice:-}" ]] || break
+    choice="$(normalize_menu_choice "$choice")"
+    case "$choice" in
+      focused_run)
+        tui_run_cmd "linux-maint run --only preflight_check,health_monitor,service_monitor,network_monitor --strict" \
+          "$0" run --only preflight_check,health_monitor,service_monitor,network_monitor --strict
+        ;;
+      status_reasons)
+        tui_run_cmd "linux-maint status --reasons 10 --table" "$0" status --reasons 10 --table
+        ;;
+      doctor)
+        tui_run_cmd "linux-maint doctor" "$0" doctor
+        ;;
+      bundle)
+        tui_run_cmd "linux-maint pack-logs --out /tmp --redact --hash" "$0" pack-logs --out /tmp --redact --hash
+        tui_support_bundle_summary
+        ;;
+      short_report)
+        tui_run_cmd "linux-maint report --short --no-trend" "$0" report --short --no-trend
         ;;
       back)
         break
@@ -2135,6 +2209,9 @@ parse_run_args(){
   RUN_SKIP=""
   PLAN_ONLY=0
   RUN_JSON=0
+  RUN_RESUME=""
+  RUN_RESPECT_MAINT=0
+  RUN_DRAIN_FILE=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -2150,6 +2227,18 @@ parse_run_args(){
         LM_LOCAL_ONLY="true"; export LM_LOCAL_ONLY; shift 1;;
       --ssh-opts)
         LM_SSH_OPTS="$2"; export LM_SSH_OPTS; shift 2;;
+      --retry)
+        LM_SSH_RETRY="$2"; export LM_SSH_RETRY; shift 2;;
+      --host-timeout)
+        LM_SSH_TIMEOUT="$2"; export LM_SSH_TIMEOUT; shift 2;;
+      --strategy)
+        LM_EXEC_STRATEGY="$2"; export LM_EXEC_STRATEGY; shift 2;;
+      --quorum-percent)
+        LM_EXEC_QUORUM_PERCENT="$2"; export LM_EXEC_QUORUM_PERCENT; shift 2;;
+      --respect-maintenance)
+        RUN_RESPECT_MAINT=1; shift 1;;
+      --drain-file)
+        RUN_DRAIN_FILE="$2"; shift 2;;
       --only)
         RUN_ONLY="$2"; shift 2;;
       --skip)
@@ -2176,6 +2265,8 @@ parse_run_args(){
         DRY_RUN=1; PLAN_ONLY=1; shift 1;;
       --strict)
         LM_STRICT=1; export LM_STRICT; shift 1;;
+      --resume)
+        RUN_RESUME="$2"; shift 2;;
       -h|--help)
         command_usage run
         exit 0;;
@@ -2184,6 +2275,112 @@ parse_run_args(){
         exit 2;;
     esac
   done
+}
+
+resolve_resume_run_id(){
+  local target="${1:-}"
+  [[ -n "$target" ]] || return 1
+  if [[ "$target" != "latest" ]]; then
+    printf '%s' "$target"
+    return 0
+  fi
+
+  local state_dir index_file
+  if [[ "$MODE" == "repo" ]]; then
+    state_dir="${LM_STATE_DIR:-$REPO_LOG_DIR}"
+  else
+    state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
+  fi
+  index_file="${LM_RUN_INDEX_FILE:-$state_dir/run_index.jsonl}"
+  if [[ ! -f "$index_file" ]]; then
+    for alt in /var/tmp/run_index.jsonl /var/tmp/linux_maint/run_index.jsonl /tmp/linux_maint/run_index.jsonl; do
+      if [[ -f "$alt" ]]; then
+        index_file="$alt"
+        break
+      fi
+    done
+  fi
+  [[ -f "$index_file" ]] || return 1
+  python3 - "$index_file" <<'PY'
+import json, sys
+path = sys.argv[1]
+run_id = ""
+with open(path, "r", encoding="utf-8", errors="ignore") as f:
+    for raw in f:
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            obj = json.loads(raw)
+        except Exception:
+            continue
+        rid = obj.get("run_id")
+        if isinstance(rid, str) and rid:
+            run_id = rid
+print(run_id)
+PY
+}
+
+within_maintenance_window(){
+  local cfg_dir="$1"
+  local mw_file="${LM_MAINTENANCE_FILE:-$cfg_dir/maintenance_windows.conf}"
+  [[ -f "$mw_file" ]] || return 0
+  python3 - "$mw_file" <<'PY'
+import datetime, sys
+path = sys.argv[1]
+cfg = {}
+with open(path, "r", encoding="utf-8", errors="ignore") as f:
+    for raw in f:
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        cfg[k.strip().lower()] = v.strip()
+enabled = cfg.get("enabled", "0").lower()
+if enabled not in ("1", "true", "yes", "on"):
+    raise SystemExit(0)
+window = cfg.get("window", "")
+if not window or "-" not in window:
+    raise SystemExit(0)
+start_s, end_s = [p.strip() for p in window.split("-", 1)]
+def parse_hhmm(s):
+    h, m = s.split(":", 1)
+    return int(h), int(m)
+try:
+    sh, sm = parse_hhmm(start_s)
+    eh, em = parse_hhmm(end_s)
+except Exception:
+    raise SystemExit(0)
+now = datetime.datetime.now()
+cur = now.hour * 60 + now.minute
+start = sh * 60 + sm
+end = eh * 60 + em
+days = cfg.get("days", "").strip()
+if days:
+    valid = set()
+    for d in days.split(","):
+        d = d.strip().lower()
+        if d:
+            valid.add(d[:3])
+    if valid and now.strftime("%a").lower()[:3] not in valid:
+        raise SystemExit(2)
+inside = (start <= cur <= end) if start <= end else (cur >= start or cur <= end)
+raise SystemExit(0 if inside else 2)
+PY
+}
+
+plugin_root_dir(){
+  if [[ "$MODE" == "repo" ]]; then
+    printf '%s/plugins' "$REPO_ROOT"
+  else
+    printf '%s' "${LM_PLUGIN_DIR:-/var/lib/linux_maint/plugins}"
+  fi
+}
+
+plugin_registry_file(){
+  local root
+  root="$(plugin_root_dir)"
+  printf '%s/registry.json' "$root"
 }
 
 
@@ -2206,9 +2403,19 @@ ${C_CYAN}Common commands${C_RESET}:
   report [flags]         Unified report (status + trend + runtimes)
   doctor [flags]         Diagnose installation/config/state
   self-check [flags]     Quick validation (safe without sudo)
+  security-profile [flags]  Security posture checks (config/perms/ssh policy)
   summary                One-line summary (cron/dashboards)
   metrics --json|--prom  Snapshot status+trend+runtimes (JSON) or Prometheus text
   check [--json]         Run config_validate + preflight + show expected skips
+  gate --policy FILE     Evaluate health policy thresholds for automation gates
+  plugin <subcommand>    Manage local plugins (list/install/verify/remove/search)
+  notify [flags]         Send test notifications (webhook/slack/teams/email)
+  serve [flags]          Local REST API (status/report/metrics/history)
+  agent [flags]          Optional loop runner for scheduled checks
+  policy <subcommand>    Policy-as-code helpers (init/lint/eval)
+  federate [flags]       Aggregate multiple status JSON snapshots
+  ai-assist [flags]      Local heuristic diagnosis assistant
+  predict [flags]        Predictive risk summary from history
 
 ${C_CYAN}Analysis / reporting${C_RESET}:
   trend [flags]         Aggregate severity/reason trends
@@ -2294,12 +2501,19 @@ Key flags:
   --parallel N         max parallel SSH
   --local-only         run checks locally only
   --ssh-opts "..."     override SSH options
+  --retry N            SSH retries per host (maps to LM_SSH_RETRY)
+  --host-timeout N     SSH timeout seconds (maps to LM_SSH_TIMEOUT)
   --only a,b           run only selected monitors (names with/without _monitor)
   --skip a,b           skip selected monitors
+  --strategy S         execution strategy: fail-soft|fail-fast|quorum
+  --quorum-percent N   quorum success percent for --strategy quorum
+  --respect-maintenance skip execution outside configured maintenance window
+  --drain-file PATH    hosts drain file to exclude from runs
   --plan               show resolved hosts/monitors without executing
   --json               with --plan, emit JSON
   --dry-run            alias for --plan
   --strict             fail if any monitor emits malformed summary lines
+  --resume RUN_ID      resume an interrupted run_id (or use 'latest')
   --allow-concurrent   allow overlapping runs (skip lock)
   --lock-timeout N     wait up to N seconds for run lock (default: 60)
   --progress|--no-progress  progress bar control
@@ -2308,6 +2522,9 @@ Examples:
   linux-maint run --group prod --parallel 10 --progress
   linux-maint run --only service_monitor,ntp_drift_monitor
   linux-maint run --skip inventory_export,backup_check
+  linux-maint run --strategy quorum --quorum-percent 80
+  linux-maint run --retry 2 --host-timeout 10
+  linux-maint run --resume latest
   linux-maint run --lock-timeout 120
   NO_COLOR=1 linux-maint run --local-only --plan
   NO_COLOR=1 linux-maint run --local-only --plan --json
@@ -2385,9 +2602,51 @@ EOF
     doctor)
       echo "Usage: linux-maint doctor [--json] [--compact] [--fix] [--fix-deps] [--fix-deps-optional] [--yes] [--dry-run]";;
     self-check)
-      echo "Usage: linux-maint self-check [--json] [--compact]";;
+      echo "Usage: linux-maint self-check [--json] [--compact] [--strict]";;
+    security-profile)
+      echo "Usage: linux-maint security-profile [--json] [--strict]";;
     check)
       echo "Usage: linux-maint check [--json]";;
+    gate)
+      echo "Usage: linux-maint gate --policy <file> [--json]";;
+    plugin)
+      cat <<'EOF'
+Usage: linux-maint plugin <subcommand> [flags]
+
+Subcommands:
+  list [--json]
+  search [--index FILE] [--json]
+  init <name> [--out DIR]
+  install <source_dir> [--name NAME] [--force]
+  verify <name> [--json]
+  remove <name>
+EOF
+      ;;
+    notify)
+      cat <<'EOF'
+Usage: linux-maint notify --provider <webhook|slack|teams|email> [flags]
+
+Flags:
+  --provider P
+  --url URL            required for webhook/slack/teams
+  --to ADDR            required for email
+  --subject TEXT       optional (email default: linux-maint notification)
+  --message TEXT       message body (default: linux-maint test notification)
+  --dry-run            print payload only (no send)
+EOF
+      ;;
+    serve)
+      echo "Usage: linux-maint serve [--host 127.0.0.1] [--port 9910]";;
+    agent)
+      echo "Usage: linux-maint agent [--once] [--interval N] [--max-runs N] [--dry-run]";;
+    policy)
+      echo "Usage: linux-maint policy <init|lint|eval> ...";;
+    federate)
+      echo "Usage: linux-maint federate --input file1,file2[,fileN] [--json]";;
+    ai-assist)
+      echo "Usage: linux-maint ai-assist [--json]";;
+    predict)
+      echo "Usage: linux-maint predict [--last N] [--json]";;
     history)
       cat <<'EOF'
 Usage: linux-maint history [flags]
@@ -2396,6 +2655,7 @@ Usage: linux-maint history [flags]
   --json        machine JSON
   --table       table output
   --compact     one-line latest run
+  --sqlite      read from sqlite history index (or set LM_HISTORY_SQLITE=1)
 EOF
       ;;
     run-index)
@@ -2511,6 +2771,43 @@ case "$subcmd" in
     parse_run_args "$@"
     validate_ssh_opts
 
+    if [[ -n "${LM_SSH_RETRY:-}" ]] && [[ ! "${LM_SSH_RETRY}" =~ ^[0-9]+$ ]]; then
+      echo "ERROR: --retry must be a non-negative integer" >&2
+      exit 2
+    fi
+    if [[ -n "${LM_SSH_TIMEOUT:-}" ]] && [[ ! "${LM_SSH_TIMEOUT}" =~ ^[0-9]+$ ]]; then
+      echo "ERROR: --host-timeout must be a non-negative integer" >&2
+      exit 2
+    fi
+    case "${LM_EXEC_STRATEGY:-fail-soft}" in
+      fail-soft|fail-fast|quorum) ;;
+      *)
+        echo "ERROR: --strategy must be one of fail-soft|fail-fast|quorum" >&2
+        exit 2
+        ;;
+    esac
+    if [[ "${LM_EXEC_STRATEGY:-fail-soft}" == "quorum" ]]; then
+      if [[ ! "${LM_EXEC_QUORUM_PERCENT:-80}" =~ ^[0-9]+$ ]] || (( LM_EXEC_QUORUM_PERCENT < 1 || LM_EXEC_QUORUM_PERCENT > 100 )); then
+        echo "ERROR: --quorum-percent must be an integer in range 1..100" >&2
+        exit 2
+      fi
+    fi
+
+    if [[ -n "${RUN_RESUME:-}" ]]; then
+      resume_id="$(resolve_resume_run_id "$RUN_RESUME" || true)"
+      if [[ -z "${resume_id:-}" ]]; then
+        echo "ERROR: unable to resolve --resume target '$RUN_RESUME'" >&2
+        echo "Hint: pass an explicit run_id from linux-maint history --json" >&2
+        exit 2
+      fi
+      export LM_RESUME_RUN_ID="$resume_id"
+      export LM_RUN_ID="$resume_id"
+    fi
+    if [[ -n "${RUN_DRAIN_FILE:-}" ]]; then
+      export LM_DRAIN_MODE=1
+      export LM_DRAIN_FILE="$RUN_DRAIN_FILE"
+    fi
+
     if [[ -n "${RUN_ONLY:-}" ]]; then
       validate_monitor_list "$(normalize_monitor_list "$RUN_ONLY")" || exit $?
     fi
@@ -2547,11 +2844,19 @@ case "$subcmd" in
       echo "LM_LOCAL_ONLY=${LM_LOCAL_ONLY:-}"
       echo "LM_MONITORS=${LM_MONITORS:-}"
       echo "LM_SSH_OPTS=${LM_SSH_OPTS:-}"
+      echo "LM_SSH_RETRY=${LM_SSH_RETRY:-}"
+      echo "LM_SSH_TIMEOUT=${LM_SSH_TIMEOUT:-}"
+      echo "LM_EXEC_STRATEGY=${LM_EXEC_STRATEGY:-}"
+      echo "LM_EXEC_QUORUM_PERCENT=${LM_EXEC_QUORUM_PERCENT:-}"
+      echo "LM_DRAIN_FILE=${LM_DRAIN_FILE:-}"
       echo "LIMIT=${LIMIT:-0}"
       echo "SHUFFLE=${SHUFFLE:-0}"
       echo "PLAN_ONLY=${PLAN_ONLY:-0}"
       echo "DRY_RUN=${DRY_RUN:-0}"
       echo "RUN_JSON=${RUN_JSON:-0}"
+      echo "RUN_RESUME=${RUN_RESUME:-}"
+      echo "RUN_RESPECT_MAINT=${RUN_RESPECT_MAINT:-0}"
+      echo "LM_RESUME_RUN_ID=${LM_RESUME_RUN_ID:-}"
       echo "============================="
     fi
 
@@ -2586,6 +2891,10 @@ case "$subcmd" in
           printf '"local_only":false,'
         fi
         printf '"parallel":%s,' "${LM_MAX_PARALLEL:-0}"
+        printf '"retry":%s,' "${LM_SSH_RETRY:-0}"
+        printf '"host_timeout":%s,' "${LM_SSH_TIMEOUT:-0}"
+        printf '"strategy":"%s",' "$(json_escape "${LM_EXEC_STRATEGY:-fail-soft}")"
+        printf '"quorum_percent":%s,' "${LM_EXEC_QUORUM_PERCENT:-80}"
         if [[ -n "${LM_GROUP:-}" ]]; then
           printf '"group":"%s",' "$(json_escape "$LM_GROUP")"
         else
@@ -2628,6 +2937,17 @@ case "$subcmd" in
         printf '%s\n' "$local_monitors"
       fi
       exit 0
+    fi
+
+    if [[ "${RUN_RESPECT_MAINT:-0}" -eq 1 ]]; then
+      cfg_dir="/etc/linux_maint"
+      if [[ "$MODE" == "repo" ]]; then
+        cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+      fi
+      if ! within_maintenance_window "$cfg_dir"; then
+        echo "Run skipped: outside configured maintenance window ($cfg_dir/maintenance_windows.conf)"
+        exit 0
+      fi
     fi
 
     # Run wrapper (installed or repo mode) and print a short footer when interactive.
@@ -4198,6 +4518,782 @@ PY
     fi
     ;;
 
+  gate)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for gate
+    fi
+
+    GATE_JSON=0
+    GATE_POLICY=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --policy) GATE_POLICY="$2"; shift 2;;
+        --json) GATE_JSON=1; shift 1;;
+        -h|--help)
+          command_usage gate
+          exit 0;;
+        *) echo "Unknown gate flag: $1" >&2; exit 2;;
+      esac
+    done
+    if [[ -z "$GATE_POLICY" ]]; then
+      echo "ERROR: --policy is required" >&2
+      exit 2
+    fi
+    if [[ ! -f "$GATE_POLICY" ]]; then
+      echo "ERROR: policy file not found: $GATE_POLICY" >&2
+      exit 2
+    fi
+
+    status_json="$(NO_COLOR=1 "$0" status --json 2>/dev/null || true)"
+    GATE_POLICY_FILE="$GATE_POLICY" GATE_STATUS_JSON="$status_json" GATE_JSON="$GATE_JSON" python3 - <<'PY'
+import json, os, sys
+policy_file = os.environ.get("GATE_POLICY_FILE","")
+status_raw = os.environ.get("GATE_STATUS_JSON","{}")
+json_mode = os.environ.get("GATE_JSON","0") == "1"
+
+def parse_policy(path):
+    p = {
+        "max_crit": 0,
+        "max_warn": 999999,
+        "max_unknown": 999999,
+        "max_skip": 999999,
+        "require_overall": "",
+    }
+    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+        for raw in f:
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            k = k.strip()
+            v = v.strip()
+            if k in ("max_crit","max_warn","max_unknown","max_skip"):
+                try:
+                    p[k] = int(v)
+                except Exception:
+                    pass
+            elif k == "require_overall":
+                p[k] = v.upper()
+    return p
+
+policy = parse_policy(policy_file)
+try:
+    status = json.loads(status_raw or "{}")
+except Exception:
+    status = {}
+totals = status.get("totals") or {}
+overall = str((status.get("last_status") or {}).get("overall") or "UNKNOWN").upper()
+
+crit = int(totals.get("CRIT", 0) or 0)
+warn = int(totals.get("WARN", 0) or 0)
+unknown = int(totals.get("UNKNOWN", 0) or 0)
+skip = int(totals.get("SKIP", 0) or 0)
+
+violations = []
+if crit > policy["max_crit"]:
+    violations.append(f"CRIT {crit} > max_crit {policy['max_crit']}")
+if warn > policy["max_warn"]:
+    violations.append(f"WARN {warn} > max_warn {policy['max_warn']}")
+if unknown > policy["max_unknown"]:
+    violations.append(f"UNKNOWN {unknown} > max_unknown {policy['max_unknown']}")
+if skip > policy["max_skip"]:
+    violations.append(f"SKIP {skip} > max_skip {policy['max_skip']}")
+req_overall = policy.get("require_overall","")
+if req_overall and overall != req_overall:
+    violations.append(f"overall {overall} != require_overall {req_overall}")
+
+ok = len(violations) == 0
+out = {
+    "gate_contract_version": 1,
+    "ok": ok,
+    "policy_file": policy_file,
+    "policy": policy,
+    "observed": {"overall": overall, "CRIT": crit, "WARN": warn, "UNKNOWN": unknown, "SKIP": skip},
+    "violations": violations,
+}
+if json_mode:
+    print(json.dumps(out, indent=2, sort_keys=True))
+else:
+    print("=== linux-maint gate ===")
+    print(f"policy={policy_file}")
+    print(f"observed overall={overall} CRIT={crit} WARN={warn} UNKNOWN={unknown} SKIP={skip}")
+    if ok:
+        print("result=PASS")
+    else:
+        print("result=FAIL")
+        for v in violations:
+            print(f"- {v}")
+raise SystemExit(0 if ok else 2)
+PY
+    ;;
+
+  plugin)
+    sub="${1:-}"
+    shift || true
+    case "$sub" in
+      list)
+        PLUG_JSON=0
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            --json) PLUG_JSON=1; shift 1;;
+            -h|--help) command_usage plugin; exit 0;;
+            *) echo "Unknown plugin list flag: $1" >&2; exit 2;;
+          esac
+        done
+        plug_root="$(plugin_root_dir)"
+        reg_file="$(plugin_registry_file)"
+        python3 - "$plug_root" "$reg_file" "$PLUG_JSON" <<'PY'
+import json, os, sys
+root, reg_file, json_mode = sys.argv[1:4]
+json_mode = json_mode == "1"
+plugins = []
+if os.path.exists(reg_file):
+    try:
+        with open(reg_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        plugins = data.get("plugins") or []
+    except Exception:
+        plugins = []
+if json_mode:
+    print(json.dumps({"plugin_contract_version": 1, "root": root, "plugins": plugins}, indent=2, sort_keys=True))
+    raise SystemExit(0)
+print("=== linux-maint plugin list ===")
+print(f"root={root}")
+if not plugins:
+    print("no plugins installed")
+    raise SystemExit(0)
+w = max(len(str(p.get("name",""))) for p in plugins)
+print(f"{'NAME':<{w}} VERSION SOURCE")
+for p in plugins:
+    print(f"{p.get('name',''):<{w}} {p.get('version','-')} {p.get('source','-')}")
+PY
+        ;;
+
+      search)
+        PLUG_JSON=0
+        idx_file="${LM_PLUGIN_INDEX:-$REPO_ROOT/plugins/index.json}"
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            --json) PLUG_JSON=1; shift 1;;
+            --index) idx_file="$2"; shift 2;;
+            -h|--help) command_usage plugin; exit 0;;
+            *) echo "Unknown plugin search flag: $1" >&2; exit 2;;
+          esac
+        done
+        python3 - "$idx_file" "$PLUG_JSON" <<'PY'
+import json, os, sys
+idx, json_mode = sys.argv[1:3]
+json_mode = json_mode == "1"
+plugins = []
+if os.path.exists(idx):
+    try:
+        with open(idx, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            plugins = data.get("plugins") or []
+        elif isinstance(data, list):
+            plugins = data
+    except Exception:
+        plugins = []
+if json_mode:
+    print(json.dumps({"plugin_contract_version": 1, "index": idx, "plugins": plugins}, indent=2, sort_keys=True))
+    raise SystemExit(0)
+print("=== linux-maint plugin search ===")
+print(f"index={idx}")
+if not plugins:
+    print("no plugins found")
+    raise SystemExit(0)
+w = max(len(str(p.get("name",""))) for p in plugins)
+print(f"{'NAME':<{w}} VERSION DESCRIPTION")
+for p in plugins:
+    print(f"{p.get('name',''):<{w}} {p.get('version','-')} {p.get('description','-')}")
+PY
+        ;;
+
+      init)
+        name="${1:-}"
+        shift || true
+        [[ -n "$name" ]] || { echo "ERROR: plugin init requires <name>" >&2; exit 2; }
+        out_dir="${PWD}"
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            --out) out_dir="$2"; shift 2;;
+            -h|--help) command_usage plugin; exit 0;;
+            *) echo "Unknown plugin init flag: $1" >&2; exit 2;;
+          esac
+        done
+        if [[ ! "$name" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+          echo "ERROR: plugin name must match [a-zA-Z0-9._-]+" >&2
+          exit 2
+        fi
+        mkdir -p "$out_dir" 2>/dev/null || true
+        target="$out_dir/$name"
+        if [[ -e "$target" ]]; then
+          echo "ERROR: target already exists: $target" >&2
+          exit 2
+        fi
+        mkdir -p "$target"
+        cat > "$target/plugin.json" <<EOF
+{
+  "name": "$name",
+  "version": "0.1.0",
+  "description": "TODO: describe plugin",
+  "author": "TODO",
+  "entrypoint": "README.md"
+}
+EOF
+        cat > "$target/README.md" <<EOF
+# $name
+
+Plugin scaffold generated by \`linux-maint plugin init\`.
+
+## Next steps
+1. Update \`plugin.json\` metadata.
+2. Add plugin assets/scripts to this directory.
+3. Install locally:
+   \`\`\`bash
+   linux-maint plugin install "$target"
+   \`\`\`
+EOF
+        echo "created plugin scaffold: $target"
+        ;;
+
+      install)
+        src="${1:-}"
+        shift || true
+        [[ -n "$src" ]] || { echo "ERROR: plugin install requires <source_dir>" >&2; exit 2; }
+        pname=""
+        force=0
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            --name) pname="$2"; shift 2;;
+            --force) force=1; shift 1;;
+            -h|--help) command_usage plugin; exit 0;;
+            *) echo "Unknown plugin install flag: $1" >&2; exit 2;;
+          esac
+        done
+        if [[ ! -d "$src" ]]; then
+          echo "ERROR: plugin source directory not found: $src" >&2
+          exit 2
+        fi
+        if [[ "$MODE" == "installed" ]]; then
+          need_root_for plugin
+        fi
+        plug_root="$(plugin_root_dir)"
+        reg_file="$(plugin_registry_file)"
+        mkdir -p "$plug_root" 2>/dev/null || true
+        python3 - "$src" "$plug_root" "$reg_file" "$pname" "$force" <<'PY'
+import datetime, json, os, shutil, sys, tempfile
+src, root, reg_file, pname, force = sys.argv[1:6]
+force = force == "1"
+manifest_path = os.path.join(src, "plugin.json")
+meta = {"name": os.path.basename(os.path.abspath(src)), "version": "0.0.0", "description": "", "source": src}
+if os.path.exists(manifest_path):
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            m = json.load(f)
+        if isinstance(m, dict):
+            meta["name"] = str(m.get("name") or meta["name"])
+            meta["version"] = str(m.get("version") or meta["version"])
+            meta["description"] = str(m.get("description") or "")
+    except Exception:
+        pass
+if pname:
+    meta["name"] = pname
+name = meta["name"]
+dest = os.path.join(root, name)
+if os.path.exists(dest) and not force:
+    print(f"ERROR: plugin already exists: {name}", file=sys.stderr)
+    raise SystemExit(2)
+tmp_dest = tempfile.mkdtemp(prefix=".plugin_", dir=root)
+tmp_copy = os.path.join(tmp_dest, name)
+if os.path.exists(dest) and force:
+    shutil.rmtree(dest, ignore_errors=True)
+shutil.copytree(src, tmp_copy, dirs_exist_ok=True)
+os.replace(tmp_copy, dest)
+shutil.rmtree(tmp_dest, ignore_errors=True)
+
+registry = {"plugins": []}
+if os.path.exists(reg_file):
+    try:
+        with open(reg_file, "r", encoding="utf-8") as f:
+            registry = json.load(f)
+        if not isinstance(registry, dict):
+            registry = {"plugins": []}
+    except Exception:
+        registry = {"plugins": []}
+plugins = registry.get("plugins") or []
+plugins = [p for p in plugins if str(p.get("name","")) != name]
+meta["installed_at"] = datetime.datetime.utcnow().isoformat() + "Z"
+plugins.append(meta)
+registry["plugins"] = sorted(plugins, key=lambda p: str(p.get("name","")))
+with open(reg_file, "w", encoding="utf-8") as f:
+    json.dump(registry, f, indent=2, sort_keys=True)
+print(f"installed plugin {name} -> {dest}")
+PY
+        ;;
+
+      verify)
+        name="${1:-}"
+        shift || true
+        [[ -n "$name" ]] || { echo "ERROR: plugin verify requires <name>" >&2; exit 2; }
+        PLUG_JSON=0
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            --json) PLUG_JSON=1; shift 1;;
+            -h|--help) command_usage plugin; exit 0;;
+            *) echo "Unknown plugin verify flag: $1" >&2; exit 2;;
+          esac
+        done
+        plug_root="$(plugin_root_dir)"
+        reg_file="$(plugin_registry_file)"
+        python3 - "$name" "$plug_root" "$reg_file" "$PLUG_JSON" <<'PY'
+import json, os, sys
+name, root, reg_file, json_mode = sys.argv[1:5]
+json_mode = json_mode == "1"
+dest = os.path.join(root, name)
+exists = os.path.isdir(dest)
+manifest = os.path.join(dest, "plugin.json")
+manifest_ok = False
+meta = {}
+if os.path.exists(manifest):
+    try:
+        with open(manifest, "r", encoding="utf-8") as f:
+            m = json.load(f)
+        if isinstance(m, dict):
+            manifest_ok = True
+            meta = m
+    except Exception:
+        manifest_ok = False
+registry_has = False
+if os.path.exists(reg_file):
+    try:
+        with open(reg_file, "r", encoding="utf-8") as f:
+            reg = json.load(f)
+        for p in (reg.get("plugins") or []):
+            if str(p.get("name","")) == name:
+                registry_has = True
+                break
+    except Exception:
+        pass
+ok = exists and manifest_ok and registry_has
+out = {
+    "plugin_contract_version": 1,
+    "name": name,
+    "root": root,
+    "exists": exists,
+    "manifest_ok": manifest_ok,
+    "registry_has": registry_has,
+    "ok": ok,
+    "manifest": meta,
+}
+if json_mode:
+    print(json.dumps(out, indent=2, sort_keys=True))
+else:
+    print(f"plugin={name} exists={exists} manifest_ok={manifest_ok} registry_has={registry_has} ok={ok}")
+raise SystemExit(0 if ok else 2)
+PY
+        ;;
+
+      remove)
+        name="${1:-}"
+        shift || true
+        [[ -n "$name" ]] || { echo "ERROR: plugin remove requires <name>" >&2; exit 2; }
+        if [[ "$MODE" == "installed" ]]; then
+          need_root_for plugin
+        fi
+        plug_root="$(plugin_root_dir)"
+        reg_file="$(plugin_registry_file)"
+        python3 - "$name" "$plug_root" "$reg_file" <<'PY'
+import json, os, shutil, sys
+name, root, reg_file = sys.argv[1:4]
+dest = os.path.join(root, name)
+if os.path.isdir(dest):
+    shutil.rmtree(dest, ignore_errors=True)
+registry = {"plugins": []}
+if os.path.exists(reg_file):
+    try:
+        with open(reg_file, "r", encoding="utf-8") as f:
+            registry = json.load(f)
+        if not isinstance(registry, dict):
+            registry = {"plugins": []}
+    except Exception:
+        registry = {"plugins": []}
+plugins = [p for p in (registry.get("plugins") or []) if str(p.get("name","")) != name]
+registry["plugins"] = plugins
+os.makedirs(root, exist_ok=True)
+with open(reg_file, "w", encoding="utf-8") as f:
+    json.dump(registry, f, indent=2, sort_keys=True)
+print(f"removed plugin {name}")
+PY
+        ;;
+
+      ""|-h|--help)
+        command_usage plugin
+        ;;
+      *)
+        echo "Unknown plugin subcommand: $sub" >&2
+        command_usage plugin >&2
+        exit 2
+        ;;
+    esac
+    ;;
+
+  notify)
+    NP_PROVIDER=""
+    NP_URL=""
+    NP_TO=""
+    NP_SUBJECT="linux-maint notification"
+    NP_MESSAGE="linux-maint test notification"
+    NP_DRY_RUN=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --provider) NP_PROVIDER="$2"; shift 2;;
+        --url) NP_URL="$2"; shift 2;;
+        --to) NP_TO="$2"; shift 2;;
+        --subject) NP_SUBJECT="$2"; shift 2;;
+        --message) NP_MESSAGE="$2"; shift 2;;
+        --dry-run) NP_DRY_RUN=1; shift 1;;
+        -h|--help) command_usage notify; exit 0;;
+        *) echo "Unknown notify flag: $1" >&2; exit 2;;
+      esac
+    done
+    case "$NP_PROVIDER" in
+      webhook|slack|teams|email) ;;
+      *)
+        echo "ERROR: --provider must be one of webhook|slack|teams|email" >&2
+        exit 2
+        ;;
+    esac
+    if [[ "$NP_PROVIDER" == "email" ]]; then
+      if [[ -z "$NP_TO" ]]; then
+        echo "ERROR: --to is required for provider=email" >&2
+        exit 2
+      fi
+      if [[ "$NP_DRY_RUN" -eq 1 ]]; then
+        echo "DRY_RUN provider=email to=$NP_TO subject=$NP_SUBJECT message=$NP_MESSAGE"
+        exit 0
+      fi
+      if ! command -v mail >/dev/null 2>&1; then
+        echo "ERROR: mail command not found" >&2
+        exit 2
+      fi
+      printf '%s\n' "$NP_MESSAGE" | mail -s "$NP_SUBJECT" "$NP_TO"
+      echo "notification sent via email"
+      exit 0
+    fi
+    if [[ -z "$NP_URL" ]]; then
+      echo "ERROR: --url is required for provider=$NP_PROVIDER" >&2
+      exit 2
+    fi
+    payload="$(python3 - "$NP_MESSAGE" <<'PY'
+import json, sys
+msg = sys.argv[1]
+print(json.dumps({"text": msg}))
+PY
+)"
+    if [[ "$NP_DRY_RUN" -eq 1 ]]; then
+      echo "DRY_RUN provider=$NP_PROVIDER url=$NP_URL payload=$payload"
+      exit 0
+    fi
+    if ! command -v curl >/dev/null 2>&1; then
+      echo "ERROR: curl command not found" >&2
+      exit 2
+    fi
+    curl -fsS -X POST -H 'Content-Type: application/json' --data "$payload" "$NP_URL" >/dev/null
+    echo "notification sent via $NP_PROVIDER"
+    ;;
+
+  serve)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for serve
+    fi
+    S_HOST="127.0.0.1"
+    S_PORT="9910"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --host) S_HOST="$2"; shift 2;;
+        --port) S_PORT="$2"; shift 2;;
+        -h|--help) command_usage serve; exit 0;;
+        *) echo "Unknown serve flag: $1" >&2; exit 2;;
+      esac
+    done
+    if [[ ! "$S_PORT" =~ ^[0-9]+$ ]]; then
+      echo "ERROR: --port must be numeric" >&2
+      exit 2
+    fi
+    S_CLI="$0" python3 - "$S_HOST" "$S_PORT" <<'PY'
+import json, os, subprocess, sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+host, port = sys.argv[1], int(sys.argv[2])
+cli = os.environ.get("S_CLI", "linux-maint")
+
+def run_json(args):
+    try:
+        out = subprocess.check_output([cli] + args, stderr=subprocess.DEVNULL, text=True)
+        return 200, out
+    except subprocess.CalledProcessError as e:
+        return 500, json.dumps({"error": f"command failed: {' '.join(args)}", "rc": e.returncode})
+    except Exception as e:
+        return 500, json.dumps({"error": str(e)})
+
+class H(BaseHTTPRequestHandler):
+    def _send(self, code, body, ctype="application/json"):
+        data = body.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+    def log_message(self, format, *args):
+        return
+    def do_GET(self):
+        p = self.path.split("?", 1)[0]
+        if p == "/health":
+            self._send(200, json.dumps({"ok": True, "service": "linux-maint serve"}))
+            return
+        if p == "/status":
+            code, out = run_json(["status", "--json"])
+            self._send(code, out)
+            return
+        if p == "/report":
+            code, out = run_json(["report", "--json"])
+            self._send(code, out)
+            return
+        if p == "/metrics":
+            code, out = run_json(["metrics", "--json"])
+            self._send(code, out)
+            return
+        if p == "/history":
+            code, out = run_json(["history", "--json", "--last", "20"])
+            self._send(code, out)
+            return
+        if p == "/":
+            self._send(200, json.dumps({"routes": ["/health","/status","/report","/metrics","/history"]}))
+            return
+        self._send(404, json.dumps({"error":"not_found","path":p}))
+
+HTTPServer((host, port), H).serve_forever()
+PY
+    ;;
+
+  agent)
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for agent
+    fi
+    A_ONCE=0
+    A_INTERVAL=300
+    A_MAX_RUNS=0
+    A_DRY_RUN=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --once) A_ONCE=1; shift 1;;
+        --interval) A_INTERVAL="$2"; shift 2;;
+        --max-runs) A_MAX_RUNS="$2"; shift 2;;
+        --dry-run) A_DRY_RUN=1; shift 1;;
+        -h|--help) command_usage agent; exit 0;;
+        *) echo "Unknown agent flag: $1" >&2; exit 2;;
+      esac
+    done
+    [[ "$A_INTERVAL" =~ ^[0-9]+$ ]] || { echo "ERROR: --interval must be integer" >&2; exit 2; }
+    [[ "$A_MAX_RUNS" =~ ^[0-9]+$ ]] || { echo "ERROR: --max-runs must be integer" >&2; exit 2; }
+    runs=0
+    while true; do
+      runs=$((runs+1))
+      if [[ "$A_DRY_RUN" -eq 1 ]]; then
+        echo "agent dry-run iteration=$runs"
+      else
+        "$0" run || true
+      fi
+      if [[ "$A_ONCE" -eq 1 ]]; then
+        break
+      fi
+      if [[ "$A_MAX_RUNS" -gt 0 && "$runs" -ge "$A_MAX_RUNS" ]]; then
+        break
+      fi
+      sleep "$A_INTERVAL"
+    done
+    ;;
+
+  policy)
+    psub="${1:-}"
+    shift || true
+    case "$psub" in
+      init)
+        out="${1:-policy.conf}"
+        cat > "$out" <<'EOF'
+# linux-maint gate policy
+max_crit=0
+max_warn=10
+max_unknown=5
+max_skip=100
+require_overall=
+EOF
+        echo "created policy template: $out"
+        ;;
+      lint)
+        pfile="${1:-}"
+        [[ -n "$pfile" && -f "$pfile" ]] || { echo "ERROR: policy file required" >&2; exit 2; }
+        python3 - "$pfile" <<'PY'
+import sys
+p=sys.argv[1]
+allowed={"max_crit","max_warn","max_unknown","max_skip","require_overall"}
+bad=[]
+for ln,raw in enumerate(open(p,encoding="utf-8",errors="ignore"),start=1):
+    line=raw.strip()
+    if not line or line.startswith("#"):
+        continue
+    if "=" not in line:
+        bad.append((ln,"missing '='"))
+        continue
+    k,v=line.split("=",1); k=k.strip(); v=v.strip()
+    if k not in allowed:
+        bad.append((ln,f"unknown key {k}"))
+        continue
+    if k!="require_overall" and not v.isdigit():
+        bad.append((ln,f"{k} must be integer"))
+if bad:
+    for ln,msg in bad:
+        print(f"{p}:{ln}: {msg}")
+    raise SystemExit(2)
+print("policy lint ok")
+PY
+        ;;
+      eval)
+        if [[ "${1:-}" != "--policy" || -z "${2:-}" ]]; then
+          echo "Usage: linux-maint policy e""val --policy <file> [--json]" >&2
+          exit 2
+        fi
+        pfile="$2"; shift 2
+        exec "$0" gate --policy "$pfile" "$@"
+        ;;
+      ""|-h|--help)
+        command_usage policy
+        ;;
+      *)
+        echo "Unknown policy subcommand: $psub" >&2
+        exit 2
+        ;;
+    esac
+    ;;
+
+  federate)
+    FED_INPUT=""
+    FED_JSON=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --input) FED_INPUT="$2"; shift 2;;
+        --json) FED_JSON=1; shift 1;;
+        -h|--help) command_usage federate; exit 0;;
+        *) echo "Unknown federate flag: $1" >&2; exit 2;;
+      esac
+    done
+    [[ -n "$FED_INPUT" ]] || { echo "ERROR: --input file1,file2 is required" >&2; exit 2; }
+    FED_INPUT="$FED_INPUT" FED_JSON="$FED_JSON" python3 - <<'PY'
+import json, os
+paths=[p.strip() for p in os.environ.get("FED_INPUT","").split(",") if p.strip()]
+json_mode=os.environ.get("FED_JSON","0")=="1"
+tot={"CRIT":0,"WARN":0,"UNKNOWN":0,"SKIP":0,"OK":0}
+clusters=[]
+for p in paths:
+    try:
+        o=json.load(open(p,encoding="utf-8"))
+    except Exception:
+        continue
+    t=o.get("totals") or {}
+    for k in tot:
+        try: tot[k]+=int(t.get(k,0))
+        except Exception: pass
+    clusters.append({"file":p,"overall":(o.get("last_status") or {}).get("overall","UNKNOWN"),"totals":{k:int(t.get(k,0) or 0) for k in tot}})
+out={"federation_contract_version":1,"clusters":clusters,"totals":tot}
+if json_mode:
+    print(json.dumps(out,indent=2,sort_keys=True))
+else:
+    print("=== linux-maint federate ===")
+    for c in clusters:
+        print(f"{c['file']} overall={c['overall']} CRIT={c['totals']['CRIT']} WARN={c['totals']['WARN']} UNKNOWN={c['totals']['UNKNOWN']} SKIP={c['totals']['SKIP']} OK={c['totals']['OK']}")
+    print(f"TOTAL CRIT={tot['CRIT']} WARN={tot['WARN']} UNKNOWN={tot['UNKNOWN']} SKIP={tot['SKIP']} OK={tot['OK']}")
+PY
+    ;;
+
+  ai-assist)
+    AA_JSON=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --json) AA_JSON=1; shift 1;;
+        -h|--help) command_usage ai-assist; exit 0;;
+        *) echo "Unknown ai-assist flag: $1" >&2; exit 2;;
+      esac
+    done
+    st_json="$(NO_COLOR=1 "$0" status --json --reasons 8 --problems 12 2>/dev/null || true)"
+    ST_JSON="$st_json" AA_JSON="$AA_JSON" python3 - <<'PY'
+import json, os
+obj={}
+try: obj=json.loads(os.environ.get("ST_JSON","{}"))
+except Exception: obj={}
+overall=str((obj.get("last_status") or {}).get("overall","UNKNOWN"))
+reasons=[r.get("reason") for r in (obj.get("reason_rollup") or []) if isinstance(r,dict)]
+hints=[]
+map_hint={
+  "ssh_unreachable":"Check network path, DNS, and SSH keys.",
+  "missing_dependency":"Install missing command on runner/host.",
+  "service_inactive":"Start/enable required service.",
+  "config_missing":"Run linux-maint init and populate config files.",
+  "runtime_exceeded":"Increase monitor timeout or investigate slow hosts.",
+}
+for r in reasons[:5]:
+    if r in map_hint and map_hint[r] not in hints:
+        hints.append(map_hint[r])
+if not hints:
+    hints.append("Run linux-maint doctor and inspect top reasons.")
+out={"ai_assist_contract_version":1,"overall":overall,"top_reasons":reasons[:5],"hints":hints}
+if os.environ.get("AA_JSON","0")=="1":
+    print(json.dumps(out,indent=2,sort_keys=True))
+else:
+    print("=== linux-maint ai-assist ===")
+    print(f"overall={overall}")
+    print("hints:")
+    for h in hints:
+      print(f"- {h}")
+PY
+    ;;
+
+  predict)
+    P_LAST=30
+    P_JSON=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --last) P_LAST="$2"; shift 2;;
+        --json) P_JSON=1; shift 1;;
+        -h|--help) command_usage predict; exit 0;;
+        *) echo "Unknown predict flag: $1" >&2; exit 2;;
+      esac
+    done
+    [[ "$P_LAST" =~ ^[0-9]+$ ]] || { echo "ERROR: --last must be integer" >&2; exit 2; }
+    hist_json="$(NO_COLOR=1 "$0" history --json --last "$P_LAST" 2>/dev/null || true)"
+    HIST_JSON="$hist_json" P_JSON="$P_JSON" python3 - <<'PY'
+import json, os
+obj={}
+try: obj=json.loads(os.environ.get("HIST_JSON","{}"))
+except Exception: obj={}
+runs=obj.get("runs") or []
+crit=sum(int(((r.get("hosts") or {}).get("crit",0) or 0)) for r in runs if isinstance(r,dict))
+warn=sum(int(((r.get("hosts") or {}).get("warn",0) or 0)) for r in runs if isinstance(r,dict))
+unk=sum(int(((r.get("hosts") or {}).get("unknown",0) or 0)) for r in runs if isinstance(r,dict))
+n=max(len(runs),1)
+score=round((crit*3 + warn*1 + unk*2)/n,2)
+risk="low"
+if score>=10: risk="high"
+elif score>=4: risk="medium"
+out={"predict_contract_version":1,"runs_considered":len(runs),"risk_score":score,"risk_level":risk,"totals":{"crit":crit,"warn":warn,"unknown":unk}}
+if os.environ.get("P_JSON","0")=="1":
+    print(json.dumps(out,indent=2,sort_keys=True))
+else:
+    print("=== linux-maint predict ===")
+    print(f"runs={len(runs)} risk_score={score} risk_level={risk} CRIT={crit} WARN={warn} UNKNOWN={unk}")
+PY
+    ;;
+
   history)
     if [[ "$MODE" == "installed" ]]; then
       need_root_for history
@@ -4208,6 +5304,11 @@ PY
     HISTORY_TABLE=0
     HISTORY_COLOR=1
     HISTORY_COMPACT=0
+    HISTORY_NOTE=""
+    HISTORY_SQLITE=0
+    case "${LM_HISTORY_SQLITE:-0}" in
+      1|true|TRUE|yes|YES|on|ON) HISTORY_SQLITE=1 ;;
+    esac
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --last) LAST_N="$2"; shift 2;;
@@ -4215,6 +5316,7 @@ PY
         --table) HISTORY_TABLE=1; shift 1;;
         --no-color) HISTORY_COLOR=0; shift 1;;
         --compact) HISTORY_COMPACT=1; shift 1;;
+        --sqlite) HISTORY_SQLITE=1; shift 1;;
         -h|--help)
           command_usage history
           exit 0;;
@@ -4234,7 +5336,116 @@ PY
     else
       state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
     fi
+    history_db="${LM_HISTORY_DB:-$state_dir/run_index.sqlite}"
     index_file="${LM_RUN_INDEX_FILE:-$state_dir/run_index.jsonl}"
+
+    if [[ "$HISTORY_SQLITE" -eq 1 && -f "$history_db" ]]; then
+      LM_COLOR="$HISTORY_COLOR" HISTORY_NOTE="$HISTORY_NOTE" python3 - "$history_db" "$LAST_N" "$HISTORY_JSON" "$HISTORY_TABLE" "$HISTORY_COMPACT" <<'PY'
+import json, os, sqlite3, sys
+db_path, last_n, json_mode, table, compact = sys.argv[1:6]
+last_n = int(last_n)
+json_mode = json_mode == "1"
+table = table == "1"
+compact = compact == "1"
+color = os.environ.get("LM_COLOR","1") == "1"
+note = os.environ.get("HISTORY_NOTE","")
+
+def c(s, code):
+    if not color:
+        return s
+    return f"\033[{code}m{s}\033[0m"
+
+def header(text):
+    if not color:
+        return text
+    if text.startswith("=== ") and text.endswith(" ==="):
+        inner = text[4:-4]
+        return f"=== {c(inner, '1;36')} ==="
+    return c(text, "1;36")
+
+def color_status(st, text=None):
+    label = text if text is not None else st
+    if st == "CRIT":
+        return c(label, "1;31")
+    if st == "WARN":
+        return c(label, "1;33")
+    if st == "OK":
+        return c(label, "1;32")
+    if st == "UNKNOWN":
+        return c(label, "1;35")
+    if st == "SKIP":
+        return c(label, "1;36")
+    return label
+
+if not os.path.exists(db_path):
+    print(f"No sqlite history db found: {db_path}")
+    raise SystemExit(1)
+
+conn = sqlite3.connect(db_path)
+cur = conn.cursor()
+cur.execute("""SELECT run_id,timestamp,overall,exit_code,hosts_crit,hosts_warn,hosts_unknown,hosts_skipped,hosts_ok
+               FROM runs ORDER BY ts_epoch DESC LIMIT ?""", (last_n,))
+rows = cur.fetchall()
+conn.close()
+runs = []
+for row in rows:
+    run_id, ts, overall, exit_code, crit, warn, unknown, skipped, ok = row
+    runs.append({
+        "run_index_version": 1,
+        "run_id": run_id,
+        "timestamp": ts,
+        "overall": overall,
+        "exit_code": exit_code,
+        "hosts": {
+            "crit": int(crit or 0),
+            "warn": int(warn or 0),
+            "unknown": int(unknown or 0),
+            "skipped": int(skipped or 0),
+            "ok": int(ok or 0),
+        },
+    })
+
+if json_mode:
+    print(json.dumps({"history_json_contract_version": 1, "runs": runs}, indent=2, sort_keys=True))
+    raise SystemExit(0)
+if compact:
+    if runs:
+        r = runs[0]
+        h = r.get("hosts",{})
+        print(f"last_run={r.get('timestamp','')} overall={color_status(r.get('overall','UNKNOWN'))} CRIT={h.get('crit',0)} WARN={h.get('warn',0)} UNKNOWN={h.get('unknown',0)} SKIP={h.get('skipped',0)} OK={h.get('ok',0)}")
+    else:
+        print("no runs")
+    raise SystemExit(0)
+if not runs:
+    print(header("=== Last 0 runs (sqlite) ==="))
+    print("No runs recorded yet.")
+    raise SystemExit(0)
+
+print(header(f"=== Last {len(runs)} runs (sqlite) ==="))
+if note:
+    print(note)
+if table:
+    headers=("TIMESTAMP","OVERALL","EXIT_CODE","CRIT","WARN","UNKNOWN","SKIP","OK")
+    rows2=[]
+    for r in runs:
+        h=r.get("hosts",{})
+        rows2.append((str(r.get("timestamp","")), str(r.get("overall","UNKNOWN")), str(r.get("exit_code","")), str(h.get("crit",0)), str(h.get("warn",0)), str(h.get("unknown",0)), str(h.get("skipped",0)), str(h.get("ok",0))))
+    w=[len(h) for h in headers]
+    for rr in rows2:
+        for i,v in enumerate(rr):
+            w[i]=max(w[i], len(v))
+    print(" ".join(f"{headers[i]:<{w[i]}}" for i in range(len(headers))))
+    for rr in rows2:
+        cells=[f"{rr[i]:<{w[i]}}" for i in range(len(headers))]
+        cells[1]=color_status(rr[1], cells[1])
+        print(" ".join(cells))
+else:
+    for r in runs:
+        h=r.get("hosts",{})
+        print(f"{r.get('timestamp','')} overall={color_status(r.get('overall','UNKNOWN'))} exit_code={r.get('exit_code','')} CRIT={h.get('crit',0)} WARN={h.get('warn',0)} UNKNOWN={h.get('unknown',0)} SKIP={h.get('skipped',0)} OK={h.get('ok',0)}")
+PY
+      exit 0
+    fi
 
     HISTORY_NOTE=""
     if [[ ! -f "$index_file" ]]; then
@@ -7657,10 +8868,12 @@ PYJSON
   self-check)
     SC_JSON=0
     SC_COMPACT=0
+    SC_STRICT=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) SC_JSON=1; shift 1;;
         --compact) SC_COMPACT=1; shift 1;;
+        --strict) SC_STRICT=1; shift 1;;
         -h|--help)
           command_usage self-check
           exit 0;;
@@ -7680,14 +8893,15 @@ PYJSON
     fi
 
     if [[ "$SC_JSON" -eq 1 ]]; then
-      MODE="$MODE" CFG_DIR="$CFG_DIR" LOG_DIR_SC="$LOG_DIR_SC" STATE_DIR_SC="$STATE_DIR_SC" LOCK_DIR_SC="$LOCK_DIR_SC" python3 - <<'PY'
-import json, os, pathlib, shutil
+      MODE="$MODE" CFG_DIR="$CFG_DIR" LOG_DIR_SC="$LOG_DIR_SC" STATE_DIR_SC="$STATE_DIR_SC" LOCK_DIR_SC="$LOCK_DIR_SC" SC_STRICT="$SC_STRICT" python3 - <<'PY'
+import json, os, pathlib, shutil, sys
 
 mode = os.environ.get("MODE","")
 cfg_dir = os.environ.get("CFG_DIR","/etc/linux_maint")
 log_dir = os.environ.get("LOG_DIR_SC","/var/log/health")
 state_dir = os.environ.get("STATE_DIR_SC","/var/lib/linux_maint")
 lock_dir = os.environ.get("LOCK_DIR_SC","/var/lock")
+strict = os.environ.get("SC_STRICT","0") == "1"
 
 cfg_path = pathlib.Path(cfg_dir)
 config_files = ["servers.txt", "excluded.txt", "services.txt"]
@@ -7711,8 +8925,15 @@ paths = [
 deps_list = ["bash","awk","sed","grep","df","find","timeout","ssh"]
 deps = [{"cmd": d, "present": shutil.which(d) is not None} for d in deps_list]
 
+missing_cfg = (not config["dir_exists"]) or any(not v for v in config["files"].values())
+bad_paths = any((not p["exists"]) or (not p["writable"]) for p in paths)
+missing_deps = any(not d["present"] for d in deps)
+ok = not (missing_cfg or bad_paths or missing_deps)
+
 out = {
     "mode": mode,
+    "strict": strict,
+    "ok": ok,
     "cfg_dir": cfg_dir,
     "config": config,
     "paths": paths,
@@ -7720,6 +8941,8 @@ out = {
 }
 
 print(json.dumps(out, sort_keys=True))
+if strict and not ok:
+    raise SystemExit(2)
 PY
       exit 0
     fi
@@ -7733,11 +8956,13 @@ PY
     fi
     section "Config files"
     printf "%-44s %s\n" "FILE" "STATUS"
+    sc_failures=0
     for f in "$CFG_DIR/servers.txt" "$CFG_DIR/excluded.txt" "$CFG_DIR/services.txt"; do
       if [[ -e "$f" ]]; then
         printf "%-44s %s\n" "$f" "${C_GREEN}OK${C_RESET}"
       else
         printf "%-44s %s\n" "$f" "${C_RED}MISSING${C_RESET}"
+        sc_failures=$((sc_failures+1))
       fi
     done
     if [[ "$SC_COMPACT" -eq 0 ]]; then
@@ -7755,17 +8980,124 @@ PY
             printf "%-10s %-44s %s\n" "$purpose" "$d" "${C_GREEN}OK${C_RESET}"
           else
             printf "%-10s %-44s %s\n" "$purpose" "$d" "${C_RED}NOT_WRITABLE${C_RESET}"
+            sc_failures=$((sc_failures+1))
           fi
         else
           printf "%-10s %-44s %s\n" "$purpose" "$d" "${C_RED}MISSING${C_RESET}"
+          sc_failures=$((sc_failures+1))
         fi
       done
       echo ""
       section "Dependencies"
       for dep in bash awk sed grep df find timeout ssh; do
-        command -v "$dep" >/dev/null 2>&1 && printf "%-18s %s\n" "$dep" "${C_GREEN}OK${C_RESET}" || printf "%-18s %s\n" "$dep" "${C_RED}MISSING${C_RESET}"
+        if command -v "$dep" >/dev/null 2>&1; then
+          printf "%-18s %s\n" "$dep" "${C_GREEN}OK${C_RESET}"
+        else
+          printf "%-18s %s\n" "$dep" "${C_RED}MISSING${C_RESET}"
+          sc_failures=$((sc_failures+1))
+        fi
       done
     fi
+    if [[ "$SC_STRICT" -eq 1 && "$sc_failures" -gt 0 ]]; then
+      echo ""
+      echo "self-check strict failed: $sc_failures issue(s)"
+      exit 2
+    fi
+    ;;
+
+  security-profile)
+    SP_JSON=0
+    SP_STRICT=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --json) SP_JSON=1; shift 1;;
+        --strict) SP_STRICT=1; shift 1;;
+        -h|--help)
+          command_usage security-profile
+          exit 0;;
+        *) echo "Unknown security-profile flag: $1" >&2; exit 2;;
+      esac
+    done
+
+    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+    if [[ "$MODE" == "repo" ]]; then
+      LOG_DIR_SP="${LOG_DIR:-$REPO_LOG_DIR}"
+      STATE_DIR_SP="${LM_STATE_DIR:-/tmp}"
+      LOCK_DIR_SP="${LM_LOCKDIR:-/tmp}"
+    else
+      LOG_DIR_SP="${LOG_DIR:-/var/log/health}"
+      STATE_DIR_SP="${LM_STATE_DIR:-/var/lib/linux_maint}"
+      LOCK_DIR_SP="${LM_LOCKDIR:-/var/lock}"
+    fi
+
+    MODE="$MODE" CFG_DIR="$CFG_DIR" LOG_DIR_SP="$LOG_DIR_SP" STATE_DIR_SP="$STATE_DIR_SP" LOCK_DIR_SP="$LOCK_DIR_SP" SP_JSON="$SP_JSON" SP_STRICT="$SP_STRICT" python3 - <<'PY'
+import json, os, pathlib, shutil, stat, sys
+
+mode = os.environ.get("MODE","")
+cfg_dir = os.environ.get("CFG_DIR","/etc/linux_maint")
+log_dir = os.environ.get("LOG_DIR_SP","/var/log/health")
+state_dir = os.environ.get("STATE_DIR_SP","/var/lib/linux_maint")
+lock_dir = os.environ.get("LOCK_DIR_SP","/var/lock")
+json_mode = os.environ.get("SP_JSON","0") == "1"
+strict = os.environ.get("SP_STRICT","0") == "1"
+
+def path_mode(path):
+    p = pathlib.Path(path)
+    if not p.exists():
+        return None
+    try:
+        return stat.S_IMODE(p.stat().st_mode)
+    except Exception:
+        return None
+
+def bad_perms(path):
+    mode = path_mode(path)
+    if mode is None:
+        return "missing"
+    if mode & stat.S_IWOTH:
+        return "world_writable"
+    if mode & stat.S_IWGRP:
+        return "group_writable"
+    return "ok"
+
+ssh_mode = os.environ.get("LM_SSH_KNOWN_HOSTS_MODE","accept-new")
+allowlist_strict = os.environ.get("LM_SSH_ALLOWLIST_STRICT","0").lower() in ("1","true","yes","on")
+
+checks = []
+def add(name, ok, detail=""):
+    checks.append({"check": name, "ok": bool(ok), "detail": detail})
+
+for p in [cfg_dir, log_dir, state_dir, lock_dir]:
+    status = bad_perms(p)
+    add(f"path_perm:{p}", status == "ok", status)
+
+add("ssh_known_hosts_mode", ssh_mode == "strict", f"mode={ssh_mode}")
+add("ssh_allowlist_strict", allowlist_strict, f"enabled={allowlist_strict}")
+add("gpg_present", shutil.which("gpg") is not None, "required for signed artifact workflows")
+add("sha256sum_present", shutil.which("sha256sum") is not None, "required for integrity checks")
+
+ok = all(c["ok"] for c in checks)
+out = {
+    "security_profile_contract_version": 1,
+    "mode": mode,
+    "strict": strict,
+    "ok": ok,
+    "checks": checks,
+}
+
+if json_mode:
+    print(json.dumps(out, indent=2, sort_keys=True))
+else:
+    print("=== linux-maint security-profile ===")
+    print(f"mode={mode}")
+    for c in checks:
+        st = "OK" if c["ok"] else "FAIL"
+        print(f"{c['check']}: {st} ({c.get('detail','')})")
+    print(f"overall={'OK' if ok else 'FAIL'}")
+
+if strict and not ok:
+    raise SystemExit(2)
+PY
     ;;
 
   deps)

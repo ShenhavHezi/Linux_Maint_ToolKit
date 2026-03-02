@@ -462,6 +462,7 @@ Highlights:
 - Guided **Run Wizard** for building `run` commands without remembering flags.
 - **Status Drilldown** view with status/host/monitor/reason filters and quick explain actions.
   - Includes `Explain top filtered problem` (opens both reason and monitor explain views).
+- Guided **Incident Mode** flow in diagnostics for focused checks, reason triage, doctor, and support bundle creation.
 - Post-run **Quick Actions** screen (doctor/logs/reasons/support bundle).
 - **Menu settings** screen (session values, optional save to `~/.config/linux-maint/menu.conf`).
 - Keyboard shortcuts in main menu (`r` run, `s` reports, `d` diagnostics, `h` help) when shortcuts are enabled.
@@ -487,6 +488,13 @@ Prerequisites (any one):
   - `--only a,b`: run only selected monitors (names with or without `_monitor`).
   - `--skip a,b`: skip selected monitors.
   - `--strict`: fail the run if any monitor emits malformed summary lines (adds `reason=summary_invalid`).
+  - `--resume RUN_ID|latest`: resume an interrupted run from saved state.
+  - `--retry N`: SSH retry count per host.
+  - `--host-timeout N`: SSH timeout seconds per host command.
+  - `--strategy fail-soft|fail-fast|quorum`: execution strategy for host fanout.
+  - `--quorum-percent N`: required success percentage for strategy `quorum`.
+  - `--drain-file PATH`: exclude hosts listed in PATH during host resolution.
+  - `--respect-maintenance`: skip run outside configured maintenance window file (`maintenance_windows.conf`).
   - `--allow-concurrent`: allow overlapping runs (skip lock).
   - `--lock-timeout N`: wait up to `N` seconds for the run lock (default 60).
 
@@ -740,10 +748,82 @@ Schema:
 
 - `linux-maint export --json` *(root required)*: export a single JSON payload containing summary_result/summary_hosts plus raw `monitor=` rows (best for external ingestion).
 - `linux-maint export --csv` *(root required)*: export `monitor,host,status,reason` rows as CSV (easy to import).
-- `linux-maint self-check [--json]`: quick validation for config/paths/deps (safe in repo mode).
+- `linux-maint self-check [--json] [--strict]`: quick validation for config/paths/deps (safe in repo mode).
+  - `--strict`: return non-zero when required config/deps/path checks fail.
+
+- `linux-maint history [--sqlite]`:
+  - `--sqlite`: read history from SQLite prototype index (`LM_HISTORY_DB`, default `$LM_STATE_DIR/run_index.sqlite`).
+  - Enable SQLite writes from wrapper with `LM_HISTORY_SQLITE=1`.
+
+- `linux-maint security-profile [--json] [--strict]`:
+  - evaluates path permissions, SSH strictness posture, and security tooling presence.
+  - `--strict` exits non-zero when checks fail.
+
+- `linux-maint gate --policy FILE [--json]`:
+  - evaluates current `status --json` totals against policy thresholds for automation gates.
+  - policy keys: `max_crit`, `max_warn`, `max_unknown`, `max_skip`, `require_overall`.
+  - exits `0` on pass, `2` on policy violation.
+
+- `linux-maint plugin <subcommand>`:
+  - `list [--json]`: show installed plugins from local registry.
+  - `search [--index FILE] [--json]`: list candidate plugins from a local index file.
+  - `init <name> [--out DIR]`: create a plugin scaffold (manifest + README).
+  - `install <source_dir> [--name NAME] [--force]`: install plugin directory into plugin root and register it.
+  - `verify <name> [--json]`: verify plugin directory/manifest/registry entry.
+  - `remove <name>`: uninstall plugin and remove registry entry.
+
+- `linux-maint notify --provider ...`:
+  - providers: `webhook`, `slack`, `teams`, `email`.
+  - use `--dry-run` to validate payload/arguments without sending.
+  - intended as integration smoke test before wiring automation hooks.
+
+- `linux-maint serve [--host H] [--port N]`:
+  - starts a local HTTP service exposing `GET /health`, `/status`, `/report`, `/metrics`, `/history`.
+  - intended for local automation bridges and controlled internal networks.
+
+- `linux-maint agent [--once] [--interval N] [--max-runs N] [--dry-run]`:
+  - lightweight loop runner for periodic checks.
+  - defaults to interval `300` seconds.
+
+- `linux-maint policy <init|lint|eval>`:
+  - `init [file]` writes a gate policy template.
+  - `lint <file>` validates syntax and supported keys.
+  - `eval --policy <file>` executes policy checks via `linux-maint gate`.
+
+- `linux-maint federate --input file1,file2[,fileN] [--json]`:
+  - merges multiple `status --json` snapshots and outputs a federation summary.
+  - useful for multi-cluster or multi-runner reporting.
+
+- `linux-maint ai-assist [--json]`:
+  - local heuristic hints from recent status artifacts (`reason_rollup` + `overall`).
+  - no external model/API calls; local-first behavior.
+
+- `linux-maint predict [--last N] [--json]`:
+  - computes a simple risk score from recent history totals.
+  - intended as directional signal, not deterministic failure prediction.
 
 Export allowlist:
 - `LM_EXPORT_ALLOWLIST=monitor,host,status,reason,...` filters **row keys** in `export --json` output (core identity fields are always included).
+
+### Advanced optional module boundaries (P4)
+
+These commands are optional capabilities and are not required for standard run/report workflows:
+- `serve`
+- `agent`
+- `policy`
+- `federate`
+- `ai-assist`
+- `predict`
+
+They are disabled by default in the sense that nothing in the standard wrapper path invokes them automatically; operators must opt in by explicitly running the command.
+
+Risk boundaries:
+- `serve`: expose only on trusted interfaces (default `127.0.0.1`), and put behind network ACLs/reverse proxy when remote access is required.
+- `agent`: can create repeated load if intervals are too small; start with `--dry-run` or `--once`.
+- `policy`: should be paired with reviewed policy files in version control.
+- `federate`: trusts input JSON files; use artifacts from trusted runners.
+- `ai-assist`: provides heuristics only; always validate with `status`, `report`, and logs.
+- `predict`: score is intentionally simple and should not be used as a sole go/no-go signal.
 
 Schema:
 - `docs/schemas/export.json` — JSON schema for `linux-maint export --json`.

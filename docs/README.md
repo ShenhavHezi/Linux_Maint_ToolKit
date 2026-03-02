@@ -10,6 +10,7 @@ Start here to navigate operator and contributor documentation.
 - Monitors matrix: `docs/MONITORS_MATRIX.md`
 - Configuration: `docs/configuration.md`
 - Custom monitors: `docs/CUSTOM_MONITORS.md`
+- Plugin SDK (baseline): `docs/PLUGIN_SDK.md`
 - Installation: `docs/installation.md`
 - Compatibility matrix: `docs/COMPATIBILITY.md`
 - Troubleshooting: `docs/troubleshooting.md`
@@ -33,7 +34,7 @@ Start here to navigate operator and contributor documentation.
 - Command contract checklist: `docs/COMMAND_CONTRACT_CHECKLIST.md`
 - Release checklist: `docs/RELEASE_CHECKLIST.md`
 - Release template: `docs/RELEASE_TEMPLATE.md`
-- Release notes (latest): `docs/release_notes/release_notes_v0.3.0.md`, `docs/release_notes/release_notes_v0.2.9.md`
+- Release notes (latest): `docs/release_notes/release_notes_v0.3.1.md`, `docs/release_notes/release_notes_v0.3.0.md`
 - TUI style guide: `docs/TUI_STYLE_GUIDE.md`
 - TUI style addendum (menu updates): `docs/TUI_STYLE_GUIDE_ADDENDUM.md`
 - Security policy: `SECURITY.md`

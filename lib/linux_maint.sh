@@ -63,6 +63,8 @@ fi
 
 : "${LM_EMAIL_ENABLED:=true}"      # scripts can set LM_EMAIL_ENABLED=false to suppress email
 : "${LM_MAX_PARALLEL:=0}"          # 0 = sequential
+: "${LM_EXEC_STRATEGY:=fail-soft}" # fail-soft|fail-fast|quorum
+: "${LM_EXEC_QUORUM_PERCENT:=80}"  # used when strategy=quorum
 : "${LM_PREFIX:=}"                 # optional log prefix (script can set)
 
 # ========= SSH opts validation =========
@@ -563,7 +565,7 @@ lm_hosts() {
     return 0
   fi
 
-  awk -v excluded="${LM_EXCLUDED:-}" '
+  awk -v excluded="${LM_EXCLUDED:-}" -v drained="${LM_DRAIN_FILE:-}" -v drain_en="${LM_DRAIN_MODE:-0}" '
     function trim(s){gsub(/^[ \t]+|[ \t]+$/, "", s); return s}
     function load_excluded(path,  line){
       if(path=="" || system("test -f " path " >/dev/null 2>&1")!=0) return
@@ -574,7 +576,10 @@ lm_hosts() {
       }
       close(path)
     }
-    BEGIN { load_excluded(excluded) }
+    BEGIN {
+      load_excluded(excluded)
+      if(drain_en=="1" || drain_en=="true") load_excluded(drained)
+    }
     {
       line=$0
       sub(/#.*/, "", line)
@@ -712,14 +717,39 @@ lm_for_each_host() {
 lm_for_each_host_rc() {
   local fn="$1"
   local -a PIDS=()
+  local -a PID_HOSTS=()
   local running=0
   local worst=0
+  local success_count=0
+  local failure_count=0
+  local host_total=0
   local use_progress=0
   local max_parallel="${LM_MAX_PARALLEL:-0}"
   local cap="${LM_MAX_PARALLEL_CAP:-25}"
+  local exec_strategy="${LM_EXEC_STRATEGY:-fail-soft}"
+  local exec_quorum="${LM_EXEC_QUORUM_PERCENT:-80}"
+  local rc=0
+
+  case "$exec_strategy" in
+    fail-soft|fail-fast|quorum) ;;
+    *)
+      lm_warn "Invalid LM_EXEC_STRATEGY=$exec_strategy; using fail-soft"
+      exec_strategy="fail-soft"
+      ;;
+  esac
+  if [[ ! "$exec_quorum" =~ ^[0-9]+$ ]]; then
+    exec_quorum=80
+  fi
+  if [[ "$exec_quorum" -lt 1 ]]; then exec_quorum=1; fi
+  if [[ "$exec_quorum" -gt 100 ]]; then exec_quorum=100; fi
+
   if [[ "$max_parallel" -gt 0 && "$cap" -gt 0 && "$max_parallel" -gt "$cap" ]]; then
     lm_warn "LM_MAX_PARALLEL=$max_parallel exceeds cap=$cap; using cap"
     max_parallel="$cap"
+  fi
+  if [[ "$exec_strategy" == "fail-fast" && "$max_parallel" -gt 1 ]]; then
+    lm_warn "LM_EXEC_STRATEGY=fail-fast with parallel=$max_parallel is downgraded to serial execution"
+    max_parallel=0
   fi
 
   wait_one_oldest(){
@@ -728,9 +758,15 @@ lm_for_each_host_rc() {
     if [ -n "$pid" ]; then
       wait "$pid" 2>/dev/null
       rc=$?
+      if [[ "$rc" -eq 0 ]]; then
+        success_count=$((success_count+1))
+      else
+        failure_count=$((failure_count+1))
+      fi
       [ "$rc" -gt "$worst" ] && worst="$rc"
       # pop front
       PIDS=("${PIDS[@]:1}")
+      PID_HOSTS=("${PID_HOSTS[@]:1}")
       running=$((running-1))
     fi
   }
@@ -756,10 +792,12 @@ lm_for_each_host_rc() {
         lm_info "Skipping $HOST (excluded)"
         continue
       fi
+      host_total=$((host_total+1))
       lm_progress_step "$HOST"
       if [ "$max_parallel" -gt 0 ]; then
         "$fn" "$HOST" &
         PIDS+=($!)
+        PID_HOSTS+=("$HOST")
         running=$((running+1))
 
         # throttle
@@ -769,6 +807,15 @@ lm_for_each_host_rc() {
       else
         "$fn" "$HOST"
         rc=$?
+        if [[ "$rc" -eq 0 ]]; then
+          success_count=$((success_count+1))
+        else
+          failure_count=$((failure_count+1))
+          if [[ "$exec_strategy" == "fail-fast" ]]; then
+            [ "$rc" -gt "$worst" ] && worst="$rc"
+            break
+          fi
+        fi
         [ "$rc" -gt "$worst" ] && worst="$rc"
       fi
     done
@@ -776,10 +823,12 @@ lm_for_each_host_rc() {
     while read -r HOST; do
       [ -z "$HOST" ] && continue
       lm_is_excluded "$HOST" && { lm_info "Skipping $HOST (excluded)"; continue; }
+      host_total=$((host_total+1))
 
       if [ "$max_parallel" -gt 0 ]; then
         "$fn" "$HOST" &
         PIDS+=($!)
+        PID_HOSTS+=("$HOST")
         running=$((running+1))
 
         # throttle
@@ -789,6 +838,15 @@ lm_for_each_host_rc() {
       else
         "$fn" "$HOST"
         rc=$?
+        if [[ "$rc" -eq 0 ]]; then
+          success_count=$((success_count+1))
+        else
+          failure_count=$((failure_count+1))
+          if [[ "$exec_strategy" == "fail-fast" ]]; then
+            [ "$rc" -gt "$worst" ] && worst="$rc"
+            break
+          fi
+        fi
         [ "$rc" -gt "$worst" ] && worst="$rc"
       fi
     done < <(lm_hosts)
@@ -800,6 +858,17 @@ lm_for_each_host_rc() {
   done
   if [ "$use_progress" -eq 1 ]; then
     lm_progress_done
+  fi
+
+  if [[ "$exec_strategy" == "quorum" && "$host_total" -gt 0 ]]; then
+    local pct
+    pct=$(( success_count * 100 / host_total ))
+    if [[ "$pct" -lt "$exec_quorum" ]]; then
+      if [[ "$worst" -lt 2 ]]; then
+        worst=2
+      fi
+      lm_warn "Execution quorum not met: success=${success_count}/${host_total} (${pct}%) required=${exec_quorum}%"
+    fi
   fi
 
   return "$worst"

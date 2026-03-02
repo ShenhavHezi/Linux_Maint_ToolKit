@@ -54,6 +54,12 @@ sudo linux-maint run --skip inventory_export,backup_check
 # Plan only (no execution)
 sudo linux-maint run --plan
 sudo linux-maint run --plan --json
+# Fleet execution controls
+sudo linux-maint run --retry 2 --host-timeout 10
+sudo linux-maint run --strategy quorum --quorum-percent 80
+sudo linux-maint run --drain-file /etc/linux_maint/hosts_drain.txt --plan
+# Resume a previous interrupted run (explicit id or latest from history)
+sudo linux-maint run --resume latest
 
 # Interactive TUI menu (uses gum if installed, else dialog/whiptail)
 sudo linux-maint menu
@@ -81,6 +87,9 @@ sudo linux-maint history --json
 sudo linux-maint history --table
 sudo linux-maint history --table --no-color
 sudo linux-maint history --compact
+# SQLite history prototype (feature flag or explicit flag)
+LM_HISTORY_SQLITE=1 sudo linux-maint history --last 10
+sudo linux-maint history --sqlite --json
 
 # Run index maintenance
 sudo linux-maint run-index --stats
@@ -108,6 +117,34 @@ sudo linux-maint status --group-by host --top 10
 # Compact diagnostics
 sudo linux-maint doctor --compact
 sudo linux-maint self-check --compact
+sudo linux-maint self-check --strict
+# Security posture profile
+sudo linux-maint security-profile
+sudo linux-maint security-profile --strict
+# Policy gate for CI/deploy checks
+linux-maint gate --policy policy.conf
+linux-maint gate --policy policy.conf --json
+
+# Plugin baseline
+linux-maint plugin list
+linux-maint plugin init my_plugin --out .
+linux-maint plugin install ./my-plugin
+linux-maint plugin verify my-plugin
+linux-maint plugin remove my-plugin
+
+# Notification test helpers
+linux-maint notify --provider webhook --url https://example.invalid/hook --message "test" --dry-run
+linux-maint notify --provider email --to ops@example.com --subject "linux-maint" --message "test" --dry-run
+
+# Advanced optional modules (disabled by default; opt-in command usage)
+linux-maint serve --host 127.0.0.1 --port 9910
+linux-maint agent --once --dry-run
+linux-maint policy init policy.conf
+linux-maint policy lint policy.conf
+linux-maint policy eval --policy policy.conf
+linux-maint federate --input /tmp/cluster-a-status.json,/tmp/cluster-b-status.json --json
+linux-maint ai-assist --json
+linux-maint predict --last 30 --json
 
 # JSON schemas (validation)
 docs/schemas/report.json

@@ -1,58 +1,128 @@
-# Linux_Maint_ToolKit - Menu-Centric Backlog (2026-03-02)
+# Linux_Maint_ToolKit - Session Tracker Roadmap
+Last updated: 2026-03-02
 
-## Scope
-This backlog is focused on `linux-maint menu` UX, reliability, and operator guidance.
-Older roadmap items are treated as completed and replaced by this menu-forward plan.
+## How to use this file each session
+- `DONE`: implemented and validated with tests/docs.
+- `PARTIAL`: implemented baseline/scaffold but acceptance criteria not fully closed.
+- `NEXT`: not implemented yet, queued.
+- Rule: when a task moves to `DONE`, add at least one proof item (`command`, `test`, or file path).
 
-## Priority legend
-- P0: correctness/regression blockers
-- P1: high-value user workflow improvements
-- P2: polish, discoverability, and quality-of-life
+## Current session checkpoint
+- Completed this session:
+  - P4 command baseline: `serve`, `agent`, `policy`, `federate`, `ai-assist`, `predict`.
+  - Added tests for above commands and wired into smoke.
+  - Added docs for advanced optional modules and risk boundaries.
+- Resume-from-next-session:
+  - Finish remaining `PARTIAL` and `NEXT` items below in order: P3 hardening -> P2 analytics depth -> P1 security hardening gaps.
 
-## P0 - Fix now (menu correctness)
-- Fix dialog-tag normalization in top-level and config menus so padded labels never break routing.
-  - Acceptance: `LM_TUI_BACKEND=dialog linux-maint menu` can navigate all menu branches.
-  - Tests: add non-interactive unit coverage for menu choice normalization/parsing.
-- Fix Help docs paths in installed mode (`quickref/faq/reasons/monitors`) by resolving from installed docs share path when repo docs are absent.
-  - Acceptance: installed mode help pages open successfully without repo checkout.
-  - Tests: add path-resolution tests for repo and installed mode.
-- Add a focused menu smoke test suite (backend-neutral) to prevent regressions in command wiring.
-  - Acceptance: CI verifies each menu action maps to expected CLI command.
+## P0 - Reliability and safety foundation
+- `DONE` Strict command contract coverage baseline for key CLI outputs.
+  - Proof: multiple command tests under `tests/*_command_test.sh`.
+- `DONE` Atomic run locking + stale lock recovery.
+  - Proof: `tests/run_lock_test.sh`, `tests/run_lock_stale_meta_test.sh`.
+- `PARTIAL` Crash-safe artifact writing (`*.tmp` + atomic rename) coverage.
+  - Implemented in several command paths; not yet fully audited for every artifact writer.
+- `PARTIAL` End-to-end idempotency checks for repeated runs.
+  - Some behavior tested indirectly; no dedicated full idempotency suite yet.
+- `DONE` `self-check --strict`.
+  - Proof: `tests/self_check_strict_test.sh`.
 
-## P1 - Core UX features
-- Add a guided "Run Wizard" in menu:
-  - choose scope (`all`, `only`, `skip`)
-  - choose target mode (`local`, `group`, `hosts`)
-  - optional dry-run preview before execution
-  - Acceptance: users can build a full run command without typing flags manually.
-- Add "Status Drilldown" view:
-  - filter by `status/host/monitor/reason`
-  - quick toggle between table and compact
-  - jump from a selected row to `explain reason` or `explain monitor`
-- Add post-run "Quick Actions" screen:
-  - if WARN/CRIT: offer `doctor`, `status --reasons 10`, `logs 200`, `pack-logs --redact`
-  - if OK: offer `report --short`, `trend --last 10`
-- Add menu settings screen (session-scoped):
-  - backend, dashboard refresh, default status view mode, preferred problem/reason limits
-  - writes optional config block under `~/.config/linux-maint/menu.conf` (safe fallback when absent)
+## P1 - Fleet-grade execution engine
+- `DONE` Parallel/timeout/retry controls (`--parallel`, `--host-timeout`, `--retry`).
+- `DONE` Execution strategy fields (`fail-soft`, `fail-fast`, `quorum`) in run planning.
+  - Proof: `tests/run_plan_strategy_fields_test.sh`.
+- `DONE` Resumable runs (`run --resume`).
+  - Proof: `tests/run_resume_state_test.sh`.
+- `PARTIAL` Inventory backends.
+  - Static file path is present; dynamic/cloud adapters (AWS/GCP/Azure) not implemented.
+- `DONE` Maintenance windows + drain file gating.
+  - Proof: `tests/run_maintenance_window_gate_test.sh`, `tests/run_drain_file_plan_test.sh`.
+- `NEXT` 1k-host simulation fixture with deterministic bounded runtime.
 
-## P2 - Usability polish
-- Add command preview footer before execution ("Will run: linux-maint ...").
-- Add keyboard shortcuts for common actions (`r` run, `s` status, `d` doctor, `h` help).
-- Improve visual severity consistency across all views (OK/WARN/CRIT/UNKNOWN/SKIP colors + symbols).
-- Add "recent artifacts" panel (latest summary/log/report paths + timestamps) on dashboard.
-- Add copy-ready support bundle summary after `pack-logs` (path, checksum, redaction mode, gpg mode).
+## P1 - Security hardening
+- `PARTIAL` Signed artifacts + verification flow.
+  - Some release verification tooling exists; full signing workflow hardening remains.
+- `PARTIAL` Secrets policy engine.
+  - Redaction exists; dedicated denylist+entropy+context policy engine not fully implemented.
+- `NEXT` Per-monitor privilege policy (`requires_root`, `allow_sudo`, `no_sudo`).
+- `NEXT` Immutable audit log stream for critical actions.
+- `NEXT` Optional FIPS-friendly crypto mode checks.
+- `DONE` Security posture report command.
+  - Proof: `linux-maint security-profile`, `tests/security_profile_command_test.sh`.
 
-## QA and docs requirements for every menu feature
-- Add at least one test per new menu branch and one regression test for failure/cancel paths.
-- Update:
-  - `docs/reference.md` (menu options/env vars)
-  - `docs/QUICK_REFERENCE.md` (operator flow)
-  - `docs/TUI_STYLE_GUIDE.md` (interaction and visual rules)
-- Include release-note entry under next version in `docs/release_notes/`.
+## P2 - Operator UX (CLI + Menu)
+- `DONE` Incident Mode v1 in menu (guided flow baseline).
+- `PARTIAL` Persistent profile system (`default/prod/lab`) with overlays.
+- `NEXT` Interactive remediator queue with per-host confirm/deny.
+- `PARTIAL` Rich TUI dashboard/drilldown improvements (ongoing).
+- `PARTIAL` Offline-first operation pack (parts present; not fully productized).
+- `NEXT` First-time operator <10 minutes acceptance benchmark.
 
-## Delivery order
-1. P0 correctness fixes + tests
-2. Run Wizard + Status Drilldown
-3. Quick Actions + Settings
-4. P2 polish batch and doc hardening
+## P2 - Data and analytics
+- `DONE` Run history SQLite prototype (`history --sqlite`).
+  - Proof: `tests/history_sqlite_test.sh`.
+- `NEXT` Trend anomaly detection (z-score / rolling baseline).
+- `PARTIAL` Diff intelligence/root-cause hints.
+- `DONE` Runtime profiling and slow-monitor warning baseline.
+- `PARTIAL` Export pipeline depth.
+  - JSON and CSV exist; JSONL and richer OpenMetrics histograms still pending.
+- `NEXT` 100k+ record performance validation for `history`/`trend`.
+
+## P3 - Plugin and extension ecosystem
+- `DONE` Plugin SDK baseline docs and examples.
+  - Proof: `docs/PLUGIN_SDK.md`, `plugins/`.
+- `PARTIAL` Marketplace index format.
+  - Local index format exists; signing/trust-level compatibility validation is incomplete.
+- `PARTIAL` Plugin lifecycle commands.
+  - Implemented: `search/install/remove/list/verify/init`.
+  - Missing: robust `update` workflow and full trust verification.
+- `PARTIAL` Monitor scaffolding generator.
+  - Plugin scaffold exists; full monitor scaffold with test/doc templates still pending.
+- `NEXT` Plugin sandbox mode (resource/syscall/network restrictions).
+- `NEXT` Third-party monitor install/validate in <5 minutes acceptance check.
+
+## P3 - Integrations and automation
+- `PARTIAL` Notification providers.
+  - Implemented baseline: webhook/slack/teams/email test sender.
+  - Missing: PagerDuty and production-grade provider adapters/config validation.
+- `NEXT` Ticketing integrations (Jira, ServiceNow).
+- `NEXT` Config management hooks (Ansible, Puppet, Salt).
+- `DONE` CI quality gate command.
+  - Proof: `linux-maint gate --policy`, `tests/gate_command_test.sh`.
+- `DONE` REST API service mode baseline.
+  - Proof: `linux-maint serve`, `tests/serve_command_test.sh`.
+- `NEXT` Pipeline deployment-block acceptance flow documented end-to-end.
+
+## P4 - Advanced capabilities
+- `DONE` Optional lightweight agent baseline.
+  - Proof: `linux-maint agent`, `tests/agent_command_test.sh`.
+- `DONE` Policy-as-code baseline (`policy init/lint/eval`).
+  - Proof: `tests/policy_command_test.sh`.
+- `DONE` AI-assist baseline (local heuristic hints).
+  - Proof: `linux-maint ai-assist`, `tests/ai_assist_command_test.sh`.
+- `DONE` Federation baseline (`federate`).
+  - Proof: `tests/federate_command_test.sh`.
+- `DONE` Predictive score baseline (`predict`).
+  - Proof: `tests/predict_command_test.sh`.
+- `PARTIAL` Advanced acceptance closure:
+  - modules are optional and docs include risk boundaries,
+  - but model depth/accuracy and production hardening are still pending.
+
+## Cross-cutting quality bar
+- `PARTIAL` CLI help/docs updates are consistently done for most new features.
+- `PARTIAL` JSON schema coverage is incomplete for some newly added commands.
+- `PARTIAL` cancellation-path tests are not present for every new feature.
+- `NEXT` Release-note entry automation for each merged feature batch.
+- `NEXT` Security review checklist updates for every auth/exec/secrets-touching change.
+- `NEXT` CI upgrades:
+  - nightly long-run regression job,
+  - performance budget checks,
+  - flaky test detector/quarantine workflow.
+
+## Next implementation queue (strict order)
+1. P3 hardening: plugin `update`, plugin trust/signature validation, marketplace schema hardening.
+2. P3 integrations: PagerDuty adapter, then Jira/ServiceNow minimal adapters.
+3. P2 analytics: anomaly detection + history/trend performance fixtures.
+4. P1 security: per-monitor privilege policy + immutable audit log stream.
+5. P4 depth: improve predict/ai-assist quality and confidence outputs.
+

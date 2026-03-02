@@ -94,6 +94,10 @@ if [[ "${LM_TEST_MODE:-0}" == "1" || "${LM_TEST_MODE:-}" == "true" ]]; then
 fi
 
 # Run identifier (stable across summary/status/report/metrics JSON for this run).
+# For resume workflows, pin run_id to the resumed run unless explicitly overridden.
+if [[ -n "${LM_RESUME_RUN_ID:-}" && -z "${LM_RUN_ID:-}" ]]; then
+  LM_RUN_ID="${LM_RESUME_RUN_ID}"
+fi
 if [[ -z "${LM_RUN_ID:-}" ]]; then
   if command -v uuidgen >/dev/null 2>&1; then
     LM_RUN_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
@@ -125,18 +129,46 @@ fi
 # Run concurrency lock (best-effort; prevent overlapping runs).
 LM_ALLOW_CONCURRENT="${LM_ALLOW_CONCURRENT:-0}"
 LM_RUN_LOCK_TIMEOUT="${LM_RUN_LOCK_TIMEOUT:-60}"
+lock_file=""
+lock_meta_file=""
+__lm_lock_meta_cleanup=0
 if [[ "${LM_ALLOW_CONCURRENT}" != "1" && "${LM_ALLOW_CONCURRENT}" != "true" ]]; then
   if command -v flock >/dev/null 2>&1; then
     mkdir -p "$LM_STATE_DIR" 2>/dev/null || true
     lock_file="$LM_STATE_DIR/linux_maint_run.lock"
+    lock_meta_file="${lock_file}.meta"
     if [[ ! "$LM_RUN_LOCK_TIMEOUT" =~ ^[0-9]+$ ]]; then
       LM_RUN_LOCK_TIMEOUT=60
     fi
+
+    # Best-effort stale metadata cleanup.
+    if [[ -f "$lock_meta_file" ]]; then
+      stale_pid="$(awk -F= '$1=="pid"{print $2; exit}' "$lock_meta_file" 2>/dev/null || true)"
+      if [[ -n "${stale_pid:-}" ]] && [[ "$stale_pid" =~ ^[0-9]+$ ]]; then
+        if ! kill -0 "$stale_pid" 2>/dev/null; then
+          rm -f "$lock_meta_file" 2>/dev/null || true
+        fi
+      fi
+    fi
+
     exec {__lm_run_lock_fd}>"$lock_file" || { echo "ERROR: cannot open run lock file: $lock_file" >&2; exit 2; }
     if ! flock -w "$LM_RUN_LOCK_TIMEOUT" "$__lm_run_lock_fd"; then
-      echo "ERROR: another linux-maint run is already in progress (lock: $lock_file)" >&2
+      lock_owner=""
+      lock_started=""
+      if [[ -f "$lock_meta_file" ]]; then
+        lock_owner="$(awk -F= '$1=="pid"{print $2; exit}' "$lock_meta_file" 2>/dev/null || true)"
+        lock_started="$(awk -F= '$1=="started"{print $2; exit}' "$lock_meta_file" 2>/dev/null || true)"
+      fi
+      echo "ERROR: another linux-maint run is already in progress (lock: $lock_file owner_pid=${lock_owner:-unknown} started=${lock_started:-unknown})" >&2
       exit 2
     fi
+    {
+      echo "pid=$$"
+      echo "run_id=$LM_RUN_ID"
+      echo "started=$(lm_now_iso)"
+      echo "host=$(hostname -f 2>/dev/null || hostname)"
+    } > "$lock_meta_file" 2>/dev/null || true
+    __lm_lock_meta_cleanup=1
   else
     echo "WARN: flock not available; skipping run lock" >&2
   fi
@@ -221,6 +253,9 @@ tmp_report="$TMPDIR/full_health_monitor_report.$$"
 tmp_summary="$TMPDIR/full_health_monitor_summary.$$"
 
 cleanup_tmpdir() {
+  if [[ "${__lm_lock_meta_cleanup:-0}" -eq 1 && -n "${lock_meta_file:-}" ]]; then
+    rm -f "$lock_meta_file" 2>/dev/null || true
+  fi
   rm -rf "$RUN_TMP_DIR" 2>/dev/null || true
 }
 trap cleanup_tmpdir EXIT INT TERM
@@ -373,6 +408,36 @@ if [[ "${#scripts[@]}" -eq 0 ]]; then
   exit 2
 fi
 
+# Resume state tracking (best-effort).
+declare -A completed_on_resume=()
+resume_from_run_id=""
+if [[ -n "${LM_RESUME_RUN_ID:-}" ]]; then
+  resume_from_run_id="${LM_RESUME_RUN_ID}"
+  resume_state_file="${LM_STATE_DIR}/run_state_${LM_RESUME_RUN_ID}.log"
+  if [[ -f "$resume_state_file" ]]; then
+    while IFS= read -r m; do
+      [[ -n "$m" ]] && completed_on_resume["$m"]=1
+    done < <(awk '
+      /^monitor=/ {
+        for (i=1; i<=NF; i++) {
+          if ($i ~ /^monitor=/) { sub(/^monitor=/, "", $i); print $i; break }
+        }
+      }
+    ' "$resume_state_file" 2>/dev/null | sort -u)
+  else
+    echo "WARN: resume state not found for run_id=$LM_RESUME_RUN_ID ($resume_state_file); running full monitor set" >&2
+  fi
+fi
+
+run_state_file="${LM_STATE_DIR}/run_state_${LM_RUN_ID}.log"
+if [[ ! -f "$run_state_file" ]]; then
+  {
+    echo "run_id=$LM_RUN_ID"
+    echo "started=$(lm_now_iso)"
+    [[ -n "$resume_from_run_id" ]] && echo "resumed_from=$resume_from_run_id"
+  } > "$run_state_file" 2>/dev/null || true
+fi
+
 {
   echo "SUMMARY full_health_monitor host=$(hostname -f 2>/dev/null || hostname) started=$(lm_now_iso)"
   echo "SCRIPTS_DIR=$SCRIPTS_DIR"
@@ -381,6 +446,7 @@ fi
   echo "LM_LOCAL_ONLY=${LM_LOCAL_ONLY:-false}"
   echo "MONITOR_TIMEOUT_SECS=$MONITOR_TIMEOUT_SECS"
   echo "SCRIPT_ORDER=${scripts[*]}"
+  [[ -n "$resume_from_run_id" ]] && echo "RESUME_FROM=$resume_from_run_id"
   echo "============================================================"
 } > "$tmp_report"
 
@@ -602,9 +668,19 @@ now_ms(){
 total_scripts=${#scripts[@]}
 idx=0
 for s in "${scripts[@]}"; do
+  monitor_name="${s%.sh}"
   set +e
   idx=$((idx+1))
   progress_render "$idx" "$total_scripts" "${s%.sh}"
+  if [[ -n "${completed_on_resume[$monitor_name]+x}" ]]; then
+    {
+      echo ""
+      echo "==== RESUME_SKIP $s @ $(date '+%F %T') ===="
+      echo "monitor=$monitor_name host=runner status=SKIP node=$(hostname -f 2>/dev/null || hostname) reason=resumed_already_completed resumed_from=$resume_from_run_id"
+    } >> "$tmp_report"
+    skipped=$((skipped+1))
+    continue
+  fi
   start_ms="$(now_ms)"
   before_lines=$(grep -a -c "^monitor=" "$tmp_report" 2>/dev/null || true)
   before_lines=${before_lines:-0}
@@ -622,13 +698,17 @@ for s in "${scripts[@]}"; do
   fi
   set -e
 
+  mon_status="UNKNOWN"
   case "$rc" in
-    0) ok=$((ok+1));;
-    1) warn=$((warn+1));;
-    2) crit=$((crit+1));;
-    *) unk=$((unk+1)); rc=3;;
+    0) ok=$((ok+1)); mon_status="OK" ;;
+    1) warn=$((warn+1)); mon_status="WARN" ;;
+    2) crit=$((crit+1)); mon_status="CRIT" ;;
+    *) unk=$((unk+1)); rc=3; mon_status="UNKNOWN" ;;
   esac
   [ "$rc" -gt "$worst" ] && worst="$rc"
+  {
+    echo "monitor=$monitor_name status=$mon_status rc=$rc completed_epoch=$(lm_now_epoch)"
+  } >> "$run_state_file" 2>/dev/null || true
 done
 progress_done
 
@@ -1324,6 +1404,78 @@ try:
 except Exception:
     pass
 PY
+
+if [[ "${LM_HISTORY_SQLITE:-0}" == "1" || "${LM_HISTORY_SQLITE:-}" == "true" ]]; then
+  HISTORY_DB="${LM_HISTORY_DB:-$LM_STATE_DIR/run_index.sqlite}"
+  python3 - "$HISTORY_DB" "$SUMMARY_FILE" "$SUMMARY_JSON_FILE" "$logfile" "$overall" "$worst" "$ts_epoch" "$LM_RUN_ID" <<'PY' || true
+import json, os, sqlite3, sys
+db_path, summary_file, summary_json, logfile, overall, exit_code, ts_epoch, run_id = sys.argv[1:9]
+try:
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("""
+CREATE TABLE IF NOT EXISTS runs (
+  run_id TEXT PRIMARY KEY,
+  timestamp TEXT,
+  ts_epoch INTEGER,
+  overall TEXT,
+  exit_code INTEGER,
+  hosts_ok INTEGER,
+  hosts_warn INTEGER,
+  hosts_crit INTEGER,
+  hosts_unknown INTEGER,
+  hosts_skipped INTEGER,
+  summary_file TEXT,
+  summary_json TEXT,
+  logfile TEXT
+)""")
+    hosts = {"OK": 0, "WARN": 0, "CRIT": 0, "UNKNOWN": 0, "SKIP": 0}
+    if summary_file and os.path.exists(summary_file):
+        with open(summary_file, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                if not line.startswith("monitor="):
+                    continue
+                parts = dict(p.split("=", 1) for p in line.strip().split() if "=" in p)
+                st = str(parts.get("status", "UNKNOWN")).upper()
+                if st in hosts:
+                    hosts[st] += 1
+                else:
+                    hosts["UNKNOWN"] += 1
+    ts = ""
+    if ts_epoch and str(ts_epoch).isdigit():
+        import datetime
+        ts = datetime.datetime.utcfromtimestamp(int(ts_epoch)).isoformat() + "Z"
+    cur.execute(
+      """INSERT INTO runs(run_id,timestamp,ts_epoch,overall,exit_code,hosts_ok,hosts_warn,hosts_crit,hosts_unknown,hosts_skipped,summary_file,summary_json,logfile)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+         ON CONFLICT(run_id) DO UPDATE SET
+           timestamp=excluded.timestamp,
+           ts_epoch=excluded.ts_epoch,
+           overall=excluded.overall,
+           exit_code=excluded.exit_code,
+           hosts_ok=excluded.hosts_ok,
+           hosts_warn=excluded.hosts_warn,
+           hosts_crit=excluded.hosts_crit,
+           hosts_unknown=excluded.hosts_unknown,
+           hosts_skipped=excluded.hosts_skipped,
+           summary_file=excluded.summary_file,
+           summary_json=excluded.summary_json,
+           logfile=excluded.logfile
+      """,
+      (run_id, ts, int(ts_epoch or 0), overall, int(exit_code or 3), hosts["OK"], hosts["WARN"], hosts["CRIT"], hosts["UNKNOWN"], hosts["SKIP"], summary_file, summary_json, logfile),
+    )
+    conn.commit()
+    conn.close()
+except Exception:
+    pass
+PY
+fi
+
+{
+  echo "finished=$(lm_now_iso)"
+  echo "overall=$overall"
+  echo "exit_code=$worst"
+} >> "$run_state_file" 2>/dev/null || true
 
 rm -f "$tmp_report" "$runtime_file" 2>/dev/null || true
 

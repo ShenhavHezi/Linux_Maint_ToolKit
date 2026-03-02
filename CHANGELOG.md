@@ -8,6 +8,15 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-03-02
 
+- Release v0.3.1
+- Added run reliability hardening: resume state improvements, stale-lock metadata recovery, and stricter self-check mode.
+- Added operator/security automation commands: `security-profile`, `gate --policy`, and expanded test coverage.
+- Added plugin and integration baselines: plugin SDK/docs, plugin lifecycle commands baseline, and notification command providers.
+- Added P4 advanced command baselines: `serve`, `agent`, `policy`, `federate`, `ai-assist`, and `predict`.
+- Expanded docs, smoke coverage, and release workflow readiness for new command surfaces.
+
+## 2026-03-02
+
 - Release v0.3.0
 - Expanded `linux-maint menu` with wizard-driven run flow, status drilldown, quick actions, and persisted menu settings.
 - Added stronger menu/test coverage (shortcuts, settings roundtrip/validation, run-loop continuation, stdin guard, drilldown behavior).
