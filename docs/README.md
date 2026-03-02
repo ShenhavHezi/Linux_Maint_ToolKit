@@ -33,7 +33,7 @@ Start here to navigate operator and contributor documentation.
 - Command contract checklist: `docs/COMMAND_CONTRACT_CHECKLIST.md`
 - Release checklist: `docs/RELEASE_CHECKLIST.md`
 - Release template: `docs/RELEASE_TEMPLATE.md`
-- Release notes (latest): `docs/release_notes/release_notes_v0.2.8.md`, `docs/release_notes/release_notes_v0.2.7.md`
+- Release notes (latest): `docs/release_notes/release_notes_v0.2.9.md`, `docs/release_notes/release_notes_v0.2.8.md`
 - TUI style guide: `docs/TUI_STYLE_GUIDE.md`
 - Security policy: `SECURITY.md`
 - Security response: `docs/SECURITY_RESPONSE.md`

@@ -6,6 +6,11 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 - (add changes here)
 
+## 2026-03-02
+
+- Release v0.2.9
+- (no notable changes)
+
 ## 2026-02-25
 
 - Release v0.2.8
