@@ -1,5 +1,5 @@
 # Linux_Maint_ToolKit - Session Tracker Roadmap
-Last updated: 2026-03-02
+Last updated: 2026-03-09
 
 ## How to use this file each session
 - `DONE`: implemented and validated with tests/docs.
@@ -15,6 +15,8 @@ Last updated: 2026-03-02
   - P1 audit hardening: `audit-log --verify` tamper detection + tests.
   - P3 trust lifecycle baseline: trust policy enforcement (`LM_PLUGIN_TRUST_POLICY_FILE`, `LM_PLUGIN_REQUIRE_TRUST_POLICY`) for index and plugin verification.
   - P3 provenance reporting: `plugin provenance-report` with strict gating and artifact output.
+  - P0 repo/runtime hardening: non-root wrapper logfile fallback, `LM_CFG_DIR` propagation, summary host-count fix, and monitor regression tests.
+    - Proof: `tests/wrapper_repo_logfile_default_test.sh`, `tests/wrapper_cfg_dir_fallback_cert_monitor_test.sh`, `tests/wrapper_summary_hosts_line_test.sh`, `tests/config_validate_unreadable_conf_test.sh`, `tests/config_drift_allowlist_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 

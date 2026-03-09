@@ -14,7 +14,13 @@
 set -o pipefail
 
 # ========= Defaults (overridable via env from the caller script) =========
-: "${LM_LOGFILE:=/var/log/linux_maint.log}"
+if [[ -z "${LM_LOGFILE:-}" ]]; then
+  if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+    LM_LOGFILE="/var/log/linux_maint.log"
+  else
+    LM_LOGFILE="${TMPDIR:-/tmp}/linux_maint.log"
+  fi
+fi
 : "${LM_EMAILS:=/etc/linux_maint/emails.txt}"
 : "${LM_EXCLUDED:=/etc/linux_maint/excluded.txt}"
 : "${LM_SERVERLIST:=/etc/linux_maint/servers.txt}"

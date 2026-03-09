@@ -200,6 +200,7 @@ mkdir -p "$LOG_DIR" 2>/dev/null || true
 chmod 0755 "$LOG_DIR" 2>/dev/null || true
 
 logfile="$LOG_DIR/full_health_monitor_$(lm_now_stamp).log"
+export LM_LOGFILE="${LM_LOGFILE:-$LOG_DIR/linux_maint.log}"
 
 # Resolve temp dir (base) with fallback chain.
 TMPDIR_REQUESTED="${TMPDIR:-/tmp}"
@@ -275,6 +276,7 @@ fi
 export LM_SERVERLIST="${LM_SERVERLIST:-$CFG_DIR/servers.txt}"
 export LM_EXCLUDED="${LM_EXCLUDED:-$CFG_DIR/excluded.txt}"
 export LM_SERVICES="${LM_SERVICES:-$CFG_DIR/services.txt}"
+export LM_CFG_DIR="${LM_CFG_DIR:-$CFG_DIR}"
 
 # Dark-site profile: optional conservative defaults for air-gapped operators.
 # Never override explicit values set by config/env/CLI.
@@ -825,11 +827,26 @@ hosts_unknown=0
 hosts_skip=0
 # Fleet-level counters derived from monitor= lines (per-host/per-monitor)
 if [ -f "$_tmp_mon_snapshot" ]; then
-  hosts_ok=$(grep -a -c " status=OK( |$)" "$_tmp_mon_snapshot" 2>/dev/null || echo 0)
-  hosts_warn=$(grep -a -c " status=WARN( |$)" "$_tmp_mon_snapshot" 2>/dev/null || echo 0)
-  hosts_crit=$(grep -a -c " status=CRIT( |$)" "$_tmp_mon_snapshot" 2>/dev/null || echo 0)
-  hosts_unknown=$(grep -a -c " status=UNKNOWN( |$)" "$_tmp_mon_snapshot" 2>/dev/null || echo 0)
-  hosts_skip=$(grep -a -c " status=SKIP( |$)" "$_tmp_mon_snapshot" 2>/dev/null || echo 0)
+  count_monitor_status() {
+    local file="$1"
+    local status="$2"
+    awk -v s="$status" '
+      /^monitor=/ {
+        for (i = 1; i <= NF; i++) {
+          if ($i == "status=" s) {
+            count++
+            break
+          }
+        }
+      }
+      END { print count + 0 }
+    ' "$file" 2>/dev/null || echo 0
+  }
+  hosts_ok="$(count_monitor_status "$_tmp_mon_snapshot" "OK")"
+  hosts_warn="$(count_monitor_status "$_tmp_mon_snapshot" "WARN")"
+  hosts_crit="$(count_monitor_status "$_tmp_mon_snapshot" "CRIT")"
+  hosts_unknown="$(count_monitor_status "$_tmp_mon_snapshot" "UNKNOWN")"
+  hosts_skip="$(count_monitor_status "$_tmp_mon_snapshot" "SKIP")"
 fi
 
 

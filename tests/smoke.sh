@@ -60,6 +60,7 @@ run_required "lm_ssh_opts_guard_test" bash "$ROOT_DIR/tests/lm_ssh_opts_guard_te
 run_required "lm_log_json_test" bash "$ROOT_DIR/tests/lm_log_json_test.sh"
 run_required "log_redaction_test" bash "$ROOT_DIR/tests/log_redaction_test.sh"
 run_required "config_validate_keys_test" bash "$ROOT_DIR/tests/config_validate_keys_test.sh"
+run_required "config_validate_unreadable_conf_test" bash "$ROOT_DIR/tests/config_validate_unreadable_conf_test.sh"
 run_required "config_type_validation_test" bash "$ROOT_DIR/tests/config_type_validation_test.sh"
 run_required "next_step_hint_test" bash "$ROOT_DIR/tests/next_step_hint_test.sh"
 run_required "timer_monitor_test" bash "$ROOT_DIR/tests/timer_monitor_test.sh"
@@ -78,6 +79,9 @@ run_required "summary_fixture_per_monitor_test" bash "$ROOT_DIR/tests/summary_fi
 run_required "skip_gate_reason_test" bash "$ROOT_DIR/tests/skip_gate_reason_test.sh"
 run_required "quick_check_make_target_test" bash "$ROOT_DIR/tests/quick_check_make_target_test.sh"
 run_required "wrapper_runtime_summary_test" bash "$ROOT_DIR/tests/wrapper_runtime_summary_test.sh"
+run_required "wrapper_repo_logfile_default_test" bash "$ROOT_DIR/tests/wrapper_repo_logfile_default_test.sh"
+run_required "wrapper_cfg_dir_fallback_cert_monitor_test" bash "$ROOT_DIR/tests/wrapper_cfg_dir_fallback_cert_monitor_test.sh"
+run_required "wrapper_summary_hosts_line_test" bash "$ROOT_DIR/tests/wrapper_summary_hosts_line_test.sh"
 run_required "strict_run_validation_test" bash "$ROOT_DIR/tests/strict_run_validation_test.sh"
 run_required "test_mode_deterministic_test" bash "$ROOT_DIR/tests/test_mode_deterministic_test.sh"
 run_required "wrapper_tmpdir_cleanup_test" bash "$ROOT_DIR/tests/wrapper_tmpdir_cleanup_test.sh"
@@ -180,6 +184,7 @@ run_required "secret_scan_lint_test" bash "$ROOT_DIR/tests/secret_scan_lint_test
 
 # Dependency behavior example: network_monitor should emit missing_dependency when curl missing
 run_required "network_monitor_missing_curl_test" bash "$ROOT_DIR/tests/network_monitor_missing_curl_test.sh"
+run_required "config_drift_allowlist_test" bash "$ROOT_DIR/tests/config_drift_allowlist_test.sh"
 run_required "nfs_reason_unreachable_test" bash "$ROOT_DIR/tests/nfs_reason_unreachable_test.sh"
 run_required "nfs_tempfile_cleanup_on_timeout_test" bash "$ROOT_DIR/tests/nfs_tempfile_cleanup_on_timeout_test.sh"
 

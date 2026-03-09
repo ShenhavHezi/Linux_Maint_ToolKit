@@ -35,6 +35,8 @@ Optional (improves coverage): `smartctl` (smartmontools), `nvme` (nvme-cli), ven
 - Repo mode (`./run_full_health_monitor.sh`, `./bin/linux-maint`): best for evaluation and local development.
 - Installed mode (`linux-maint`, systemd timer/cron): best for production use and scheduled runs.
 
+Repo mode writes wrapper artifacts under `.logs/`. If `/etc/linux_maint` is not writable, the wrapper falls back to a repo-local config directory (or `LM_CFG_DIR_FALLBACK`) and points monitors at that config root automatically.
+
 If you’re not sure, start with repo mode, then install once you like the output.
 
 ## Manual install (appendix)

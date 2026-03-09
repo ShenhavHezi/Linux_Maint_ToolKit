@@ -107,10 +107,20 @@ validate(){
 
   # Check for duplicate and unknown config keys across linux-maint.conf + conf.d
   local conf_files=()
-  [ -f "$CFG_DIR/linux-maint.conf" ] && conf_files+=("$CFG_DIR/linux-maint.conf")
+  add_conf_file(){
+    local path="$1"
+    [ -f "$path" ] || return 0
+    if [ ! -r "$path" ]; then
+      wa "config unreadable: $path"
+      return 0
+    fi
+    conf_files+=("$path")
+  }
+
+  add_conf_file "$CFG_DIR/linux-maint.conf"
   if [ -d "$CFG_DIR/conf.d" ]; then
     while IFS= read -r f; do
-      conf_files+=("$f")
+      add_conf_file "$f"
     done < <(find "$CFG_DIR/conf.d" -maxdepth 1 -type f -name '*.conf' 2>/dev/null | sort)
   fi
 
@@ -125,12 +135,14 @@ validate(){
     fi
 
     local allowed_tmp=""
-    if [ -n "$template" ]; then
+    if [ -n "$template" ] && [ -r "$template" ]; then
       allowed_tmp="$(awk -F= '
         /^[[:space:]]*#/ {next}
         /^[[:space:]]*$/ {next}
         /^[A-Za-z0-9_]+=/ {print $1}
       ' "$template" | sort -u)"
+    elif [ -n "$template" ]; then
+      wa "config template unreadable: $template"
     fi
 
     local -A seen=()

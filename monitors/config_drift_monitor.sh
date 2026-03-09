@@ -74,8 +74,18 @@ is_allowed_path(){
   local path="$1"
   [ -f "$ALLOWLIST_FILE" ] || return 1
   # exact match OR substring (case-insensitive)
-  grep -Fxq -- "$path" "$ALLOWLIST_FILE" && return 0
-  grep -iFq -- "$path" "$ALLOWLIST_FILE" && return 0
+  local pat trimmed_path trimmed_pat
+  trimmed_path="${path,,}"
+  while IFS= read -r pat || [ -n "$pat" ]; do
+    pat="$(printf '%s' "$pat" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [ -n "$pat" ] || continue
+    [[ "$pat" =~ ^# ]] && continue
+    [ "$path" = "$pat" ] && return 0
+    trimmed_pat="${pat,,}"
+    case "$trimmed_path" in
+      *"$trimmed_pat"*) return 0 ;;
+    esac
+  done < "$ALLOWLIST_FILE"
   return 1
 }
 

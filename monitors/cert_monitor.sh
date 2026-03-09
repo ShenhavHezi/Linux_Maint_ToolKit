@@ -33,7 +33,7 @@ lm_require_cmd "cert_monitor" "localhost" timeout --optional || true
 
 _summary_emitted=0
 emit_summary(){ _summary_emitted=1; lm_summary "cert_monitor" "$@"; }
-trap 'rc=$?; if [ "${_summary_emitted:-0}" -eq 0 ]; then lm_summary "cert_monitor" "localhost" "UNKNOWN" reason=early_exit rc="$?"; fi' EXIT
+trap 'rc=$?; if [ "${_summary_emitted:-0}" -eq 0 ]; then lm_summary "cert_monitor" "localhost" "UNKNOWN" reason=early_exit rc="$rc"; fi' EXIT
 mkdir -p "$(dirname "$LM_LOGFILE")"
 
 MAIL_SUBJECT_PREFIX='[Cert Monitor]'
@@ -41,9 +41,9 @@ MAIL_SUBJECT_PREFIX='[Cert Monitor]'
 # ========================
 # Configuration
 # ========================
-TARGETS_FILE="/etc/linux_maint/certs.txt"   # Formats (one per line):
+TARGETS_FILE="${TARGETS_FILE:-${LM_CFG_DIR:-/etc/linux_maint}/certs.txt}"   # Formats (one per line):
 CERTS_SCAN_DIR="${CERTS_SCAN_DIR:-}"
-CERTS_SCAN_IGNORE_FILE="${CERTS_SCAN_IGNORE_FILE:-/etc/linux_maint/certs_scan_ignore.txt}"
+CERTS_SCAN_IGNORE_FILE="${CERTS_SCAN_IGNORE_FILE:-${LM_CFG_DIR:-/etc/linux_maint}/certs_scan_ignore.txt}"
 CERTS_SCAN_EXTS="${CERTS_SCAN_EXTS:-crt,cer,pem}"
 
 #  host[:port]                               # default port 443

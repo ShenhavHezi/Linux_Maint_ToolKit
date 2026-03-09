@@ -19,7 +19,7 @@ trap 'rc=$?; if [ "${_summary_emitted:-0}" -eq 0 ]; then lm_summary "network_mon
 # ========================
 # Configuration
 # ========================
-TARGETS="${TARGETS:-/etc/linux_maint/network_targets.txt}"   # CSV: host,check,target,key=val,...
+TARGETS="${TARGETS:-${LM_CFG_DIR:-/etc/linux_maint}/network_targets.txt}"   # CSV: host,check,target,key=val,...
 MAIL_SUBJECT_PREFIX='[Network Monitor]'
 
 # Defaults (overridable per-check via key=val in targets file)

@@ -7,6 +7,7 @@ For full reference, see `docs/reference.md`.
 
 Templates are in `etc/linux_maint/*.example`.
 Installed configs live in `/etc/linux_maint/`.
+Repo and CI runs can override this with `LM_CFG_DIR=/path/to/config`. When `./run_full_health_monitor.sh` cannot create `/etc/linux_maint`, it falls back to a repo-local config dir (or `LM_CFG_DIR_FALLBACK`) and exports `LM_CFG_DIR` for monitors automatically.
 
 Quick overview of templates: `etc/linux_maint/README.md`.
 
@@ -29,6 +30,7 @@ Dark-site tip:
 - `LM_SSH_ALLOWLIST` (optional regex allowlist for SSH commands; blocks non-matching)
 - `LM_LOCAL_ONLY=true` (force local-only; useful for CI)
 - `LM_DARK_SITE=true` (optional profile for conservative defaults)
+- `LM_CFG_DIR=/path` (override config root for repo/dev/CI runs)
 - `LM_MAX_PARALLEL` (max parallel SSH fan-out)
 - `LM_MAX_PARALLEL_CAP` (safety cap for LM_MAX_PARALLEL; default 25)
 - `LM_TREND_CACHE=1` (opt-in cache for `linux-maint trend`)

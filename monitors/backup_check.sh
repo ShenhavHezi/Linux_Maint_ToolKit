@@ -45,7 +45,7 @@ EMAIL_ON_FAILURE="true"
 # ========================
 # Configuration
 # ========================
-TARGETS="/etc/linux_maint/backup_targets.csv"  # CSV: host,pattern,min_size_mb,max_age_hours,verify
+TARGETS="${TARGETS:-${LM_CFG_DIR:-/etc/linux_maint}/backup_targets.csv}"  # CSV: host,pattern,min_size_mb,max_age_hours,verify
 #  - host can be a concrete hostname or "*" to apply to all
 #  - pattern like /backups/db/db_*.tar.gz  (glob in the filename only)
 #  - verify: "tar" | "gzip" | "none" | "cmd:<shell that receives file path>"
