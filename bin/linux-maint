@@ -4702,12 +4702,15 @@ PY
       esac
     done
 
-    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
     if [[ "$MODE" == "repo" ]]; then
+      CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+      CFG_INIT_CMD="linux-maint init"
       LOG_DIR_LOCAL="${LOG_DIR:-$REPO_LOG_DIR}"
       SUMMARY_DIR_LOCAL="${SUMMARY_DIR:-$REPO_LOG_DIR}"
       STATE_DIR_LOCAL="${LM_STATE_DIR:-$REPO_LOG_DIR}"
     else
+      CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+      CFG_INIT_CMD="sudo linux-maint init"
       LOG_DIR_LOCAL="${LOG_DIR:-/var/log/health}"
       SUMMARY_DIR_LOCAL="${SUMMARY_DIR:-$LOG_DIR_LOCAL}"
       STATE_DIR_LOCAL="${LM_STATE_DIR:-/var/lib/linux_maint}"
@@ -4736,14 +4739,14 @@ PY
         printf '  "error": "no_config",\n'
         printf '  "message": "No config files found"\n'
         printf '}\n'
-        echo "Hint: sudo linux-maint init" >&2
+        echo "Hint: $CFG_INIT_CMD" >&2
       else
         if color_enabled; then
           echo "${C_RED}No config files found in ${CFG_DIR}${C_RESET}"
         else
           echo "No config files found in $CFG_DIR"
         fi
-        hint_line "sudo linux-maint init"
+        hint_line "$CFG_INIT_CMD"
       fi
       exit 1
     fi
@@ -9366,7 +9369,11 @@ PY
       exit 0
     fi
 
-    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+    if [[ "$MODE" == "repo" ]]; then
+      CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+    else
+      CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+    fi
     MONITOR_RUNTIME_WARN_FILE="${MONITOR_RUNTIME_WARN_FILE:-$CFG_DIR/monitor_runtime_warn.conf}"
 
     echo "=== linux-maint runtimes ==="
@@ -10243,15 +10250,16 @@ EOF_DEPS
 
     # Determine log dir for mode
     if [[ "$MODE" == "repo" ]]; then
-      _logdir="$REPO_LOG_DIR"
+      _logdir="${LOG_DIR:-$REPO_LOG_DIR}"
+      _state_dir="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-$REPO_LOG_DIR}}"
+      _cfgdir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
       _repo_root="$REPO_ROOT"
     else
       _logdir="${LOG_DIR:-/var/log/health}"
+      _state_dir="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-/var/lib/linux_maint}}"
+      _cfgdir="${LM_CFG_DIR:-/etc/linux_maint}"
       _repo_root=""
     fi
-
-    # Use best-effort state dir (where notify/summary diff stores state)
-    _state_dir="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-/var/lib/linux_maint}}"
 
     if [[ "$MODE" == "repo" ]]; then
       pack_logs_bin="$REPO_ROOT/tools/pack_logs.sh"
@@ -10290,7 +10298,7 @@ EOF_DEPS
 
     audit_log_append "pack-logs" "start" "out=$OUT log_dir=$_logdir state_dir=$_state_dir redact=${LM_REDACT_LOGS:-0}"
     set +e
-    OUTDIR="$OUT" LOG_DIR="$_logdir" CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}" STATE_DIR="$_state_dir" REPO_ROOT="$_repo_root" \
+    OUTDIR="$OUT" LOG_DIR="$_logdir" CFG_DIR="$_cfgdir" STATE_DIR="$_state_dir" REPO_ROOT="$_repo_root" \
       "$pack_logs_bin"
     rc=$?
     set -e
@@ -10332,8 +10340,7 @@ EOF_DEPS
     check_writable_dir() {
       local label="$1" path="$2"
       if [[ -d "$path" ]]; then
-        if ( : > "$path/.linux_maint_write_test" ) 2>/dev/null; then
-          rm -f "$path/.linux_maint_write_test" 2>/dev/null || true
+        if [[ -w "$path" ]]; then
           echo "${C_GREEN}OK${C_RESET}: writable $label: $path"
         else
           echo "${C_YELLOW}WARN${C_RESET}: not writable $label: $path" >&2
@@ -10418,13 +10425,27 @@ EOF_DEPS
     fi
 
     if [[ "$MODE" == "repo" ]]; then
+      CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
       LOG_DIR_LOCAL="${LOG_DIR:-$REPO_LOG_DIR}"
       SUMMARY_DIR_LOCAL="${SUMMARY_DIR:-$REPO_LOG_DIR}"
       STATE_DIR_LOCAL="${LM_STATE_DIR:-$REPO_LOG_DIR}"
+      LOCK_DIR_LOCAL="${LM_LOCKDIR:-/tmp}"
+      INVENTORY_DIR_LOCAL="${LM_INVENTORY_OUTPUT_DIR:-/var/log/inventory}"
+      DOCTOR_INIT_CMD="linux-maint init"
+      DOCTOR_PREFLIGHT_CMD="linux-maint preflight"
+      DOCTOR_RUN_CMD="linux-maint run"
+      DOCTOR_WRITE_PREFIX=""
     else
+      CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
       LOG_DIR_LOCAL="${LOG_DIR:-/var/log/health}"
       SUMMARY_DIR_LOCAL="${SUMMARY_DIR:-$LOG_DIR_LOCAL}"
       STATE_DIR_LOCAL="${LM_STATE_DIR:-/var/lib/linux_maint}"
+      LOCK_DIR_LOCAL="${LM_LOCKDIR:-/var/lock}"
+      INVENTORY_DIR_LOCAL="${LM_INVENTORY_OUTPUT_DIR:-/var/log/inventory}"
+      DOCTOR_INIT_CMD="sudo linux-maint init"
+      DOCTOR_PREFLIGHT_CMD="sudo linux-maint preflight"
+      DOCTOR_RUN_CMD="sudo linux-maint run"
+      DOCTOR_WRITE_PREFIX="sudo "
     fi
 
     DOCTOR_STRICT=0
@@ -10454,9 +10475,6 @@ EOF_DEPS
         *) echo "Unknown doctor flag: $1" >&2; exit 2;;
       esac
     done
-
-    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
-
     if [[ "$DOCTOR_FIX" -eq 1 && "${EUID:-$(id -u)}" -ne 0 ]]; then
       echo "ERROR: doctor --fix requires root" >&2
       audit_log_append "doctor-fix" "failure" "reason=requires_root"
@@ -10516,10 +10534,10 @@ EOF_DEPS
           fi
         fi
       }
-      ensure_dir "/var/log/health"
-      ensure_dir "/var/log/inventory"
-      ensure_dir "/var/lib/linux_maint"
-      ensure_dir "/var/lock"
+      ensure_dir "$LOG_DIR_LOCAL"
+      ensure_dir "$INVENTORY_DIR_LOCAL"
+      ensure_dir "$STATE_DIR_LOCAL"
+      ensure_dir "$LOCK_DIR_LOCAL"
       if [[ ! -d "$CFG_DIR" ]]; then
         if [[ "$DOCTOR_DRY_RUN" -eq 1 ]]; then
           fix_actions+=("would create: $CFG_DIR")
@@ -10616,7 +10634,7 @@ EOF_DEPS
     fi
 
     if [[ "$DOCTOR_JSON" -eq 1 ]]; then
-      MODE="$MODE" PREFIX="$PREFIX" WRAPPER="$wrapper" LIBEXEC="$LIBEXEC" LINUX_MAINT_LIB="${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" CFG_DIR="$CFG_DIR" LOG_DIR="$LOG_DIR_LOCAL" SUMMARY_DIR="$SUMMARY_DIR_LOCAL" STATE_DIR="$STATE_DIR_LOCAL" DOCTOR_STRICT="$DOCTOR_STRICT" FIX_ACTIONS_FILE="$fix_actions_file" python3 - <<'PYJSON'
+      MODE="$MODE" PREFIX="$PREFIX" WRAPPER="$wrapper" LIBEXEC="$LIBEXEC" LINUX_MAINT_LIB="${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" CFG_DIR="$CFG_DIR" LOG_DIR="$LOG_DIR_LOCAL" SUMMARY_DIR="$SUMMARY_DIR_LOCAL" STATE_DIR="$STATE_DIR_LOCAL" LOCK_DIR="$LOCK_DIR_LOCAL" INVENTORY_DIR="$INVENTORY_DIR_LOCAL" DOCTOR_STRICT="$DOCTOR_STRICT" DOCTOR_INIT_CMD="$DOCTOR_INIT_CMD" DOCTOR_PREFLIGHT_CMD="$DOCTOR_PREFLIGHT_CMD" DOCTOR_RUN_CMD="$DOCTOR_RUN_CMD" DOCTOR_WRITE_PREFIX="$DOCTOR_WRITE_PREFIX" FIX_ACTIONS_FILE="$fix_actions_file" python3 - <<'PYJSON'
 import json
 import os
 import pathlib
@@ -10632,7 +10650,13 @@ cfg_dir = os.environ.get("CFG_DIR", "/etc/linux_maint")
 log_dir = os.environ.get("LOG_DIR", "/var/log/health")
 summary_dir = os.environ.get("SUMMARY_DIR", log_dir)
 state_dir = os.environ.get("STATE_DIR", "/var/lib/linux_maint")
+lock_dir = os.environ.get("LOCK_DIR", "/var/lock")
+inventory_dir = os.environ.get("INVENTORY_DIR", "/var/log/inventory")
 strict = os.environ.get("DOCTOR_STRICT", "0") == "1"
+init_cmd = os.environ.get("DOCTOR_INIT_CMD", "sudo linux-maint init")
+preflight_cmd = os.environ.get("DOCTOR_PREFLIGHT_CMD", "sudo linux-maint preflight")
+run_cmd = os.environ.get("DOCTOR_RUN_CMD", "sudo linux-maint run")
+write_prefix = os.environ.get("DOCTOR_WRITE_PREFIX", "sudo ")
 fix_actions_file = os.environ.get("FIX_ACTIONS_FILE", "")
 
 cfg_path = pathlib.Path(cfg_dir)
@@ -10673,11 +10697,11 @@ def add_fix(msg: str) -> None:
 servers_path = cfg_path / "servers.txt"
 services_path = cfg_path / "services.txt"
 if not cfg_path.is_dir():
-    add_fix("Initialize config templates: sudo linux-maint init")
+    add_fix(f"Initialize config templates: {init_cmd}")
 else:
     if not servers_path.exists() or servers_path.stat().st_size == 0:
         add_fix(
-            f"Create {cfg_dir}/servers.txt (example: printf '%s\\n' localhost | sudo tee {cfg_dir}/servers.txt)"
+            f"Create {cfg_dir}/servers.txt (example: printf '%s\\n' localhost | {write_prefix}tee {cfg_dir}/servers.txt)"
         )
     elif active_hosts_count(servers_path) == 0:
         add_fix(f"Add hosts to {cfg_dir}/servers.txt (one per line)")
@@ -10738,7 +10762,10 @@ for c, h in dep_hints:
     if not present and h:
         add_fix(f"Install missing dependency: {h}")
 
-writable_paths = ["/var/log/health", "/var/log/inventory", "/var/lib/linux_maint", "/var/lock"]
+writable_paths = []
+for path in [log_dir, inventory_dir, state_dir, lock_dir]:
+    if path and path not in writable_paths:
+        writable_paths.append(path)
 writable_locations = []
 for d in writable_paths:
     p = pathlib.Path(d)
@@ -10746,9 +10773,9 @@ for d in writable_paths:
     writable = exists and os.access(d, os.W_OK)
     writable_locations.append({"path": d, "exists": exists, "writable": writable})
     if not exists:
-        add_fix(f"Create missing dir: sudo install -d -m 0755 {d}")
+        add_fix(f"Create missing dir: {write_prefix}install -d -m 0755 {d}")
     elif not writable:
-        add_fix(f"Ensure {d} is writable (example: sudo install -d -m 0755 {d})")
+        add_fix(f"Ensure {d} is writable (example: {write_prefix}install -d -m 0755 {d})")
 
 dir_permissions = []
 for p in [log_dir, summary_dir, state_dir, cfg_dir]:
@@ -10798,9 +10825,9 @@ result = {
     "fix_actions": [],
     "next_actions": [
         "linux-maint verify-install",
-        "sudo linux-maint init",
-        "sudo linux-maint preflight",
-        "sudo linux-maint run",
+        init_cmd,
+        preflight_cmd,
+        run_cmd,
         "linux-maint pack-logs --out .",
     ],
 }
@@ -10886,9 +10913,9 @@ PYJSON
 
       if [[ ! -s "$CFG_DIR/servers.txt" ]]; then
         echo "WARN: servers.txt missing/empty" >&2
-        add_fix "Create $CFG_DIR/servers.txt (example: printf '%s\\n' localhost | sudo tee $CFG_DIR/servers.txt)"
+        add_fix "Create $CFG_DIR/servers.txt (example: printf '%s\\n' localhost | ${DOCTOR_WRITE_PREFIX}tee $CFG_DIR/servers.txt)"
       else
-        n_hosts=$(grep -c -vE '^\s*(#|$)' "$CFG_DIR/servers.txt" 2>/dev/null || echo 0)
+        n_hosts="$(awk 'BEGIN{c=0} /^[[:space:]]*($|#)/ {next} {c++} END{print c}' "$CFG_DIR/servers.txt" 2>/dev/null || printf '0\n')"
         echo "hosts_configured=$n_hosts"
         if [[ "$n_hosts" -eq 0 ]]; then
           echo "WARN: servers.txt has no active hosts (only comments/blank lines)" >&2
@@ -10902,8 +10929,8 @@ PYJSON
       fi
     else
       echo "MISSING: config dir $CFG_DIR" >&2
-      echo "Tip: sudo linux-maint init" >&2
-      add_fix "Initialize config templates: sudo linux-maint init"
+      echo "Tip: $DOCTOR_INIT_CMD" >&2
+      add_fix "Initialize config templates: $DOCTOR_INIT_CMD"
     fi
 
     echo ""
@@ -10999,20 +11026,20 @@ PYJSON
     echo ""
     section "Can write state/logs?"
     printf "%-24s %s\n" "PATH" "STATUS"
-    for d in /var/log/health /var/log/inventory /var/lib/linux_maint /var/lock; do
+    for d in "$LOG_DIR_LOCAL" "$INVENTORY_DIR_LOCAL" "$STATE_DIR_LOCAL" "$LOCK_DIR_LOCAL"; do
+      [[ -n "$d" ]] || continue
       if [[ -d "$d" ]]; then
-        if touch "$d/.lm_write_test" 2>/dev/null; then
-          rm -f "$d/.lm_write_test" 2>/dev/null || true
+        if [[ -w "$d" ]]; then
           printf "%-24s %s\n" "$d" "${C_GREEN}OK${C_RESET}"
         else
           printf "%-24s %s\n" "$d" "${C_RED}NOT_WRITABLE${C_RESET}"
         fi
-        if ! touch "$d/.lm_write_test" 2>/dev/null; then
-          add_fix "Ensure $d is writable (example: sudo install -d -m 0755 $d)"
+        if [[ ! -w "$d" ]]; then
+          add_fix "Ensure $d is writable (example: ${DOCTOR_WRITE_PREFIX}install -d -m 0755 $d)"
         fi
       else
         printf "%-24s %s\n" "$d" "${C_RED}MISSING${C_RESET}"
-        add_fix "Create missing dir: sudo install -d -m 0755 $d"
+        add_fix "Create missing dir: ${DOCTOR_WRITE_PREFIX}install -d -m 0755 $d"
       fi
     done
 
@@ -11060,9 +11087,9 @@ PYJSON
       echo ""
       section "Next recommended actions"
       echo "- linux-maint verify-install"
-      echo "- sudo linux-maint init      # if config is missing"
-      echo "- sudo linux-maint preflight"
-      echo "- sudo linux-maint run"
+      echo "- $DOCTOR_INIT_CMD      # if config is missing"
+      echo "- $DOCTOR_PREFLIGHT_CMD"
+      echo "- $DOCTOR_RUN_CMD"
       echo "- linux-maint pack-logs --out .  # create bundle for export"
     fi
     if [[ -n "$fix_actions_file" ]]; then
@@ -11095,12 +11122,13 @@ PYJSON
       esac
     done
 
-    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
     if [[ "$MODE" == "repo" ]]; then
+      CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
       LOG_DIR_SC="${LOG_DIR:-$REPO_LOG_DIR}"
       STATE_DIR_SC="${LM_STATE_DIR:-/tmp}"
       LOCK_DIR_SC="${LM_LOCKDIR:-/tmp}"
     else
+      CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
       LOG_DIR_SC="${LOG_DIR:-/var/log/health}"
       STATE_DIR_SC="${LM_STATE_DIR:-/var/lib/linux_maint}"
       LOCK_DIR_SC="${LM_LOCKDIR:-/var/lock}"
@@ -11235,12 +11263,13 @@ PY
       esac
     done
 
-    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
     if [[ "$MODE" == "repo" ]]; then
+      CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
       LOG_DIR_SP="${LOG_DIR:-$REPO_LOG_DIR}"
       STATE_DIR_SP="${LM_STATE_DIR:-/tmp}"
       LOCK_DIR_SP="${LM_LOCKDIR:-/tmp}"
     else
+      CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
       LOG_DIR_SP="${LOG_DIR:-/var/log/health}"
       STATE_DIR_SP="${LM_STATE_DIR:-/var/lib/linux_maint}"
       LOCK_DIR_SP="${LM_LOCKDIR:-/var/lock}"

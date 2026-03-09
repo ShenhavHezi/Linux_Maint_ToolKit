@@ -504,7 +504,7 @@ Prerequisites (any one):
 
 - `linux-maint init [--minimal] [--force]`: install config templates from the repo checkout or installed template set.
   - installed mode writes `/etc/linux_maint` and requires root.
-  - repo mode honors `LM_CFG_DIR` (default `/etc/linux_maint`) and runs as the current user.
+  - repo mode honors `LM_CFG_DIR` (default `$REPO_ROOT/.etc_linux_maint`) and runs as the current user.
   - By default, existing files are not overwritten.
   - `--force` overwrites existing files.
 
@@ -518,6 +518,7 @@ Prerequisites (any one):
   - does not create missing repo-local config directories as a side effect.
   - `--json`: emit machine-friendly summary and expected SKIPs.
 - `linux-maint config --diff-defaults`: show effective config values that differ from shipped defaults.
+  - in repo mode, `config`, `doctor`, `self-check`, and `security-profile` default `LM_CFG_DIR` to `$REPO_ROOT/.etc_linux_maint`.
 
 Status flags (installed mode):
 
@@ -919,6 +920,7 @@ Schema:
 - `linux-maint export --jsonl` *(root required)*: export newline-delimited JSON monitor rows (best for stream ingestion pipelines).
 - `linux-maint export --csv` *(root required)*: export `monitor,host,status,reason` rows as CSV (easy to import).
 - `linux-maint self-check [--json] [--strict]`: quick validation for config/paths/deps (safe in repo mode).
+  - in repo mode, it honors repo-local config/log/state/lock overrides and does not probe writability by creating temp files.
   - `--strict`: return non-zero when required config/deps/path checks fail.
 
 - `linux-maint history [--sqlite]`:
@@ -927,6 +929,7 @@ Schema:
 
 - `linux-maint security-profile [--json] [--strict]`:
   - evaluates path permissions, SSH strictness posture, and security tooling presence.
+  - in repo mode, it uses the same repo-local config/log/state/lock path defaults as `self-check`.
   - `--strict` exits non-zero when checks fail.
 
 - `linux-maint gate --policy FILE [--json]`:
@@ -1724,6 +1727,7 @@ CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).
 - `linux-maint help <command>`: show concise usage for a specific command (no root required). For full flag details, see this reference.
 
 - `linux-maint pack-logs [--out DIR]`: create a support bundle (supports `--gpg` encryption; progress can be toggled with `--progress|--no-progress`).
+  - in repo mode, it honors `LOG_DIR`, `LM_STATE_DIR`/`LM_NOTIFY_STATE_DIR`, and the repo-local config fallback when collecting artifacts.
   - `--redact|--no-redact`: override `LM_REDACT_LOGS` for this bundle only.
   - `--hash`: include `meta/bundle_hashes.txt` (SHA256 per file) in the bundle.
   - `meta/bundle_integrity.txt` is always included when `sha256sum` and `stat` are available.
