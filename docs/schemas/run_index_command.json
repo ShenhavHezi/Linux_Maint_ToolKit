@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint run-index --json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_index_command_json_contract_version",
+    "action",
+    "path",
+    "exists"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "run_index_command_json_contract_version": { "type": "integer", "minimum": 1 },
+    "action": { "type": "string", "enum": ["stats", "prune"] },
+    "path": { "type": "string" },
+    "exists": { "type": "boolean" },
+    "count": { "type": "integer" },
+    "last": { "type": "object" },
+    "kept": { "type": "integer" },
+    "total_before": { "type": "integer" },
+    "invalid_lines": { "type": "integer" },
+    "error": { "type": "string" },
+    "message": { "type": "string" }
+  },
+  "additionalProperties": true
+}

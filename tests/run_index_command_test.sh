@@ -17,10 +17,12 @@ JSON
 export LM_RUN_INDEX_FILE="$index_file"
 
 stats_json="$(bash "$LM" run-index --stats --json)"
-printf '%s' "$stats_json" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["count"]==3; assert o["last"]["overall"]=="CRIT"; assert o["last"]["exit_code"]==2'
+printf '%s' "$stats_json" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["schema_version"]==1; assert o["run_index_command_json_contract_version"]==1; assert o["action"]=="stats"; assert o["exists"] is True; assert o["count"]==3; assert o["last"]["overall"]=="CRIT"; assert o["last"]["exit_code"]==2'
+printf '%s' "$stats_json" | python3 "$ROOT_DIR/tools/json_schema_validate.py" "$ROOT_DIR/docs/schemas/run_index_command.json"
 
 prune_json="$(bash "$LM" run-index --prune --keep 2 --json)"
-printf '%s' "$prune_json" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["kept"]==2; assert o["total_before"]==3'
+printf '%s' "$prune_json" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["schema_version"]==1; assert o["run_index_command_json_contract_version"]==1; assert o["action"]=="prune"; assert o["exists"] is True; assert o["kept"]==2; assert o["total_before"]==3'
+printf '%s' "$prune_json" | python3 "$ROOT_DIR/tools/json_schema_validate.py" "$ROOT_DIR/docs/schemas/run_index_command.json"
 
 lines=$(wc -l < "$index_file" | tr -d ' ')
 if [[ "$lines" -ne 2 ]]; then

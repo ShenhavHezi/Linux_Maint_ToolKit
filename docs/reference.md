@@ -725,6 +725,30 @@ Schemas:
 - `docs/schemas/history.json` — JSON schema for `linux-maint history --json`.
 - `docs/schemas/run_index.json` — JSON schema for each `run_index.jsonl` entry.
 
+### `linux-maint run-index --json` compatibility contract
+
+Top-level keys:
+- `schema_version` (integer, current value: `1`)
+- `run_index_command_json_contract_version` (integer, current value: `1`)
+- `action` (string: `stats` or `prune`)
+- `path` (string path to the index file used)
+- `exists` (boolean)
+- `count` (integer; stats mode only)
+- `last` (object; last run entry, stats mode only)
+- `kept` (integer; prune mode only)
+- `total_before` (integer; prune mode only)
+- `invalid_lines` (integer; count of unreadable JSONL entries skipped)
+- `error` / `message` (strings; present on machine-readable failures such as write failure or not found)
+
+Compatibility policy:
+- Existing keys/types above are treated as stable for contract version `1`.
+- Additive keys may be introduced without breaking compatibility.
+- Breaking shape/type changes require incrementing `run_index_command_json_contract_version`.
+- `run-index --prune` fails with exit code `2` if it cannot rewrite the index file.
+
+Schema:
+- `docs/schemas/run_index_command.json` — JSON schema for `linux-maint run-index --json`.
+
 ### `linux-maint config --json` compatibility contract
 
 Top-level keys:

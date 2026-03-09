@@ -272,6 +272,7 @@ run_required "runtimes_json_fields_test" bash "$ROOT_DIR/tests/runtimes_json_fie
 run_required "summary_json_schema_test" bash "$ROOT_DIR/tests/summary_json_schema_test.sh"
 run_required "run_index_schema_test" bash "$ROOT_DIR/tests/run_index_schema_test.sh"
 run_required "run_index_prune_test" bash "$ROOT_DIR/tests/run_index_prune_test.sh"
+run_required "run_index_prune_write_failure_test" bash "$ROOT_DIR/tests/run_index_prune_write_failure_test.sh"
 fi
 
 # Sudo-gated tests

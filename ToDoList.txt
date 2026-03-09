@@ -27,6 +27,8 @@ Last updated: 2026-03-09
     - Proof: `tests/check_json_schema_test.sh`, `tests/metrics_invalid_status_test.sh`.
   - P0 reporting contract hardening: `trend`/`runtimes`/`export` JSON now carry explicit contract versions, and `export` fails fast on corrupt preferred summary JSON artifacts.
     - Proof: `tests/trend_command_test.sh`, `tests/trend_cache_ttl_test.sh`, `tests/runtimes_json_fields_test.sh`, `tests/export_invalid_summary_json_test.sh`.
+  - P0 run-index hardening: `run-index --prune` now fails on rewrite errors instead of silently reporting success, and `run-index --json` has an explicit contract/schema.
+    - Proof: `tests/run_index_command_test.sh`, `tests/run_index_prune_write_failure_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 
