@@ -4026,7 +4026,6 @@ PY
     fi
         n="${1:-200}"
         if [[ "$MODE" == "repo" ]]; then
-          mkdir -p "$REPO_LOG_DIR"
           [[ -f "$REPO_LATEST_LOG" ]] || { echo "No repo log yet: $REPO_LATEST_LOG"; exit 1; }
           if [[ -t 1 ]]; then
             section "logs (last $n)"
@@ -5161,7 +5160,6 @@ PY
     cfg_dir="/etc/linux_maint"
     if [[ "$MODE" == "repo" ]]; then
       cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
-      mkdir -p "$cfg_dir" 2>/dev/null || true
     fi
     if [[ "$CHECK_JSON" -eq 1 ]]; then
       ok="false"
@@ -7971,7 +7969,6 @@ PY
       cfg_dir="/etc/linux_maint"
       if [[ "$MODE" == "repo" ]]; then
         cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
-        mkdir -p "$cfg_dir" 2>/dev/null || true
       fi
       expected_skips "$cfg_dir"
       echo ""

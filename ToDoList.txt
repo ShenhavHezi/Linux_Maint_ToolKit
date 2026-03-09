@@ -41,6 +41,8 @@ Last updated: 2026-03-09
     - Proof: `tests/check_exit_code_test.sh`, `tests/pack_logs_gpg_prereq_test.sh`, `tests/pack_logs_symlink_test.sh`.
   - P0 reporting path hardening: repo-mode `status`/`report`/`export` now honor `LOG_DIR` instead of silently reading stale `.logs` artifacts.
     - Proof: `tests/reporting_repo_log_dir_override_test.sh`.
+  - P0 read-only command hardening: `logs`, `status --expected-skips`, and `check` no longer create missing repo-local directories as side effects.
+    - Proof: `tests/logs_no_side_effects_test.sh`, `tests/status_expected_skips_no_side_effects_test.sh`, `tests/check_no_side_effects_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 

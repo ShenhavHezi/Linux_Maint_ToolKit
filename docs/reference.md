@@ -512,8 +512,10 @@ Prerequisites (any one):
 
 - `linux-maint status` *(root required)*: show last run metadata plus a compact, severity-sorted problems summary by default. Use `--verbose` for raw summary lines.
   - in repo mode, it honors `LOG_DIR` for `last_status_full`, summary logs, and related artifacts.
+  - read-only status modes do not create missing repo-local config or log directories.
 - `linux-maint check` *(root required)*: run config validation + preflight and show a short OK/WARN/CRIT summary.
   - exits with the highest severity code returned by `config_validate` or `preflight` (`0` OK, `1` WARN, `2` CRIT, `3` UNKNOWN).
+  - does not create missing repo-local config directories as a side effect.
   - `--json`: emit machine-friendly summary and expected SKIPs.
 - `linux-maint config --diff-defaults`: show effective config values that differ from shipped defaults.
 
@@ -1063,6 +1065,7 @@ Example (`export --json`):
 ```
 
 - `linux-maint logs [n]` *(root required)*: tail the latest wrapper log (default `n=200`).
+  - does not create missing repo-local log directories as a side effect.
 
 - `linux-maint preflight` *(root recommended in installed mode)*: check dependencies/SSH/config readiness.
   - honors `LM_CFG_DIR`, `LM_STATE_DIR`, and `LOG_DIR` in repo mode and direct runs.
