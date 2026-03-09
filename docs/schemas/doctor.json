@@ -3,6 +3,8 @@
   "title": "linux-maint doctor --json",
   "type": "object",
   "required": [
+    "schema_version",
+    "doctor_json_contract_version",
     "mode",
     "cfg_dir",
     "config",
@@ -15,6 +17,8 @@
     "next_actions"
   ],
   "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "doctor_json_contract_version": { "type": "integer", "const": 1 },
     "mode": { "type": "string" },
     "strict": { "type": "boolean" },
     "prefix": { "type": "string" },

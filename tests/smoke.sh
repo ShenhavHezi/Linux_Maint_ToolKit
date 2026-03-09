@@ -134,6 +134,7 @@ run_required "self_check_strict_test" bash "$ROOT_DIR/tests/self_check_strict_te
 run_required "help_command_test" bash "$ROOT_DIR/tests/help_command_test.sh"
 run_required "help_menu_command_test" bash "$ROOT_DIR/tests/help_menu_command_test.sh"
 run_required "security_profile_command_test" bash "$ROOT_DIR/tests/security_profile_command_test.sh"
+run_required "security_profile_json_schema_test" bash "$ROOT_DIR/tests/security_profile_json_schema_test.sh"
 run_required "plugin_command_test" bash "$ROOT_DIR/tests/plugin_command_test.sh"
 run_required "plugin_init_test" bash "$ROOT_DIR/tests/plugin_init_test.sh"
 run_required "plugin_update_test" bash "$ROOT_DIR/tests/plugin_update_test.sh"

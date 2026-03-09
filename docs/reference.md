@@ -701,11 +701,20 @@ Schema:
 ### `linux-maint self-check --json` compatibility contract
 
 Top-level keys:
+- `schema_version` (integer, current value: `1`)
+- `self_check_json_contract_version` (integer, current value: `1`)
 - `mode` (string: `repo` or `installed`)
+- `strict` (boolean; reflects `--strict`)
+- `ok` (boolean; overall success of config/path/dependency checks)
 - `cfg_dir` (string path to config root)
 - `config` (object; `dir_exists` plus per-file existence)
 - `paths` (array; log/state/lock paths with `exists`/`writable`)
 - `dependencies` (array; required/optional commands and presence)
+
+Compatibility policy:
+- Existing keys/types above are treated as stable for contract version `1`.
+- Additive keys may be introduced without breaking compatibility.
+- Breaking shape/type changes require incrementing a contract version and schema update.
 
 Schema:
 - `docs/schemas/self_check.json` — JSON schema for `linux-maint self-check --json`.
@@ -789,18 +798,26 @@ Example (`status --json`):
 }
 ```
 
-### `linux-maint doctor --json` keys
+### `linux-maint doctor --json` compatibility contract
 
 Top-level keys:
+- `schema_version` (integer, current value: `1`)
+- `doctor_json_contract_version` (integer, current value: `1`)
 - `mode` (string: `repo` or `installed`)
 - `cfg_dir` (string path)
 - `config` (object with `dir_exists`, `files`, `hosts_configured`)
 - `monitor_gates` (array of monitor gate entries and their `present` status)
 - `dependencies` (array of command availability with package hints)
 - `writable_locations` (array of path checks: `exists`, `writable`)
+- `dir_permissions` (array of directory permission findings and severities)
 - `fix_suggestions` (array of suggested remediation actions)
 - `fix_actions` (array of structured actions taken by `doctor --fix`; empty when no fixes attempted)
 - `next_actions` (array of recommended follow-up commands)
+
+Compatibility policy:
+- Existing keys/types above are treated as stable for contract version `1`.
+- Additive keys may be introduced without breaking compatibility.
+- Breaking shape/type changes require incrementing a contract version and schema update.
 
 Schema:
 - `docs/schemas/doctor.json` — JSON schema for `linux-maint doctor --json`.
@@ -809,6 +826,8 @@ Example (`doctor --json`):
 
 ```json
 {
+  "schema_version": 1,
+  "doctor_json_contract_version": 1,
   "mode": "installed",
   "cfg_dir": "/etc/linux_maint",
   "config": { "dir_exists": true, "hosts_configured": 3, "files": { "servers.txt": true } },
@@ -833,6 +852,24 @@ Example (`doctor --json`):
   ]
 }
 ```
+
+### `linux-maint security-profile --json` compatibility contract
+
+Top-level keys:
+- `schema_version` (integer, current value: `1`)
+- `security_profile_contract_version` (integer, current value: `1`)
+- `mode` (string: `repo` or `installed`)
+- `strict` (boolean; reflects `--strict`)
+- `ok` (boolean; overall success across all posture checks)
+- `checks` (array of named checks with `check`, `ok`, and `detail`)
+
+Compatibility policy:
+- Existing keys/types above are treated as stable for contract version `1`.
+- Additive keys may be introduced without breaking compatibility.
+- Breaking shape/type changes require incrementing a contract version and schema update.
+
+Schema:
+- `docs/schemas/security_profile.json` — JSON schema for `linux-maint security-profile --json`.
 
 
 

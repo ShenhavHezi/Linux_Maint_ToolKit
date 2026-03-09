@@ -33,6 +33,8 @@ Last updated: 2026-03-09
     - Proof: `tests/history_invalid_run_index_test.sh`, `tests/history_sqlite_test.sh`, `tests/history_large_index_perf_test.sh`.
   - P0 config contract hardening: `config --json` now emits structured, versioned error payloads instead of ad hoc unversioned JSON.
     - Proof: `tests/config_no_config_json_test.sh`, `tests/config_source_failure_test.sh`, `tests/config_type_validation_test.sh`.
+  - P0 operator contract hardening: `doctor`, `self-check`, and `security-profile` JSON outputs now expose explicit schema/contract versions with schema-backed tests.
+    - Proof: `tests/doctor_json_schema_test.sh`, `tests/self_check_json_schema_test.sh`, `tests/security_profile_json_schema_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 

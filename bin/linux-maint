@@ -10747,6 +10747,8 @@ for p in [log_dir, summary_dir, state_dir, cfg_dir]:
     )
 
 result = {
+    "schema_version": 1,
+    "doctor_json_contract_version": 1,
     "mode": mode,
     "prefix": prefix,
     "wrapper": wrapper,
@@ -11110,6 +11112,8 @@ missing_deps = any(not d["present"] for d in deps)
 ok = not (missing_cfg or bad_paths or missing_deps)
 
 out = {
+    "schema_version": 1,
+    "self_check_json_contract_version": 1,
     "mode": mode,
     "strict": strict,
     "ok": ok,
@@ -11257,6 +11261,7 @@ add("sha256sum_present", shutil.which("sha256sum") is not None, "required for in
 
 ok = all(c["ok"] for c in checks)
 out = {
+    "schema_version": 1,
     "security_profile_contract_version": 1,
     "mode": mode,
     "strict": strict,

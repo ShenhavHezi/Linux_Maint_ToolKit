@@ -19,7 +19,11 @@ out="$(LM_CFG_DIR="$cfg" LM_STATE_DIR="$workdir/state" LM_LOCKDIR="$workdir/lock
 python3 - <<'PY' "$out"
 import json,sys
 o=json.loads(sys.argv[1])
+assert o["schema_version"] == 1
+assert o["self_check_json_contract_version"] == 1
 assert "mode" in o
+assert "strict" in o
+assert "ok" in o
 assert "cfg_dir" in o
 assert "config" in o and "files" in o["config"]
 assert "paths" in o and isinstance(o["paths"], list)

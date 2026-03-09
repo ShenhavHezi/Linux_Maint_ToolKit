@@ -2,9 +2,21 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "linux-maint self-check --json",
   "type": "object",
-  "required": ["mode", "cfg_dir", "config", "paths", "dependencies"],
+  "required": [
+    "schema_version",
+    "self_check_json_contract_version",
+    "mode",
+    "cfg_dir",
+    "config",
+    "paths",
+    "dependencies"
+  ],
   "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "self_check_json_contract_version": { "type": "integer", "const": 1 },
     "mode": { "type": "string" },
+    "strict": { "type": "boolean" },
+    "ok": { "type": "boolean" },
     "cfg_dir": { "type": "string" },
     "config": {
       "type": "object",

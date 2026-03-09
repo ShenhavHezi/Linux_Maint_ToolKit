@@ -12,6 +12,8 @@ import sys
 obj = json.loads(sys.argv[1])
 
 assert isinstance(obj, dict)
+assert obj["schema_version"] == 1
+assert obj["doctor_json_contract_version"] == 1
 for key in ("mode", "cfg_dir", "config", "monitor_gates", "dependencies", "writable_locations", "fix_suggestions", "fix_actions", "next_actions"):
     assert key in obj, f"missing key: {key}"
 
