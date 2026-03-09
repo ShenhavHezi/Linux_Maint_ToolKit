@@ -956,6 +956,34 @@ tui_section_empty_state_body(){
   esac
 }
 
+tui_fallback_menu_prompt_body(){
+  local prompt="$1" context="${2:-main}" status_json snapshot mode overall age cfg_dir log_dir summary_ready inventory_ready history_ready recommended focus
+  status_json="$(tui_status_snapshot_json)"
+  snapshot="$(tui_context_snapshot "$status_json")"
+  mode="$(tui_snapshot_value "$snapshot" mode)"
+  overall="$(tui_snapshot_value "$snapshot" overall)"
+  age="$(tui_snapshot_value "$snapshot" last_age)"
+  cfg_dir="$(tui_snapshot_value "$snapshot" cfg_dir)"
+  log_dir="$(tui_snapshot_value "$snapshot" log_dir)"
+  summary_ready="$(tui_snapshot_value "$snapshot" summary_ready)"
+  inventory_ready="$(tui_snapshot_value "$snapshot" inventory_ready)"
+  history_ready="$(tui_snapshot_value "$snapshot" history_ready)"
+  recommended="$(tui_section_recommended_action "$context" "$status_json")"
+  focus="$(tui_section_preview_body "$context" "$status_json" | head -n 2 | tail -n 1)"
+  printf '%s\n\n' "$prompt"
+  printf 'Context:\n'
+  printf '  mode=%s  overall=%s  last_run=%s\n' "${mode:-unknown}" "${overall:-UNKNOWN}" "$(tui_format_age_seconds "${age:--1}")"
+  printf '  inventory=%s  summary=%s  history=%s\n' \
+    "$( [[ "${inventory_ready:-0}" == "1" ]] && printf ready || printf missing )" \
+    "$( [[ "${summary_ready:-0}" == "1" ]] && printf yes || printf no )" \
+    "$( [[ "${history_ready:-0}" == "1" ]] && printf yes || printf no )"
+  printf '  cfg=%s\n' "${cfg_dir:-?}"
+  printf '  log=%s\n' "${log_dir:-?}"
+  printf '\nRecommended:\n'
+  printf '  start=%s\n' "${recommended:-overview}"
+  printf '  %s\n' "${focus:-- Start with the landing dashboard}"
+}
+
 tui_gum_status_overview(){
   local status_json="${1:-}" width="${2:-110}"
   tui_gum_status_overview_render "$status_json" "$width" >&2
@@ -1882,6 +1910,158 @@ tui_gum_main_landing_compact(){
   printf '  next=%s\n\n' "$(tui_next_moves_lines "${overall:-UNKNOWN}" "$top_reason" "" | head -n 1 | sed 's/^- //')" >&2
 }
 
+tui_command_preview_reads(){
+  local sub="${1:-}" cmd_text="${2:-}"
+  case "$sub" in
+    run)
+      printf '%s\n' \
+        "- config from $(tui_effective_cfg_dir)" \
+        "- inventory from $(tui_effective_serverlist_path) and $(tui_effective_hosts_dir)" \
+        "- monitor scripts and current policy settings"
+      ;;
+    check)
+      printf '%s\n' \
+        "- config from $(tui_effective_cfg_dir)" \
+        "- preflight and validation monitors" \
+        "- current repo/install readiness paths"
+      ;;
+    doctor)
+      printf '%s\n' \
+        "- config from $(tui_effective_cfg_dir)" \
+        "- writable path, dependency, and service readiness" \
+        "- current repo/install mode and permissions"
+      ;;
+    report|status|summary|trend|runtimes|metrics|export|history|diff|logs)
+      printf '%s\n' \
+        "- latest artifacts under $(tui_effective_log_dir)" \
+        "- history state under $(tui_effective_state_dir) when needed" \
+        "- current config root for hints and metadata"
+      ;;
+    config)
+      printf '%s\n' \
+        "- config from $(tui_effective_cfg_dir)" \
+        "- merged config sources and defaults" \
+        "- lint/type validation when requested"
+      ;;
+    init)
+      printf '%s\n' \
+        "- starter templates from the repo/install template directory" \
+        "- current target config root $(tui_effective_cfg_dir)"
+      ;;
+    baseline)
+      printf '%s\n' \
+        "- current local system state for the selected baseline" \
+        "- baseline files under $(tui_effective_cfg_dir)/baselines"
+      ;;
+    pack-logs)
+      printf '%s\n' \
+        "- logs from $(tui_effective_log_dir)" \
+        "- state files from $(tui_effective_state_dir)" \
+        "- config metadata from $(tui_effective_cfg_dir)"
+      ;;
+    *)
+      printf '%s\n' \
+        "- current config, state, and log roots for this mode" \
+        "- command-specific inputs implied by $cmd_text"
+      ;;
+  esac
+}
+
+tui_command_preview_writes(){
+  local sub="${1:-}" cmd_text="${2:-}"
+  case "$sub" in
+    run)
+      if [[ "$cmd_text" == *"--plan"* || "$cmd_text" == *"--dry-run"* ]]; then
+        printf '%s\n' "- no host changes; plan output only"
+      else
+        printf '%s\n' \
+          "- run artifacts under $(tui_effective_log_dir)" \
+          "- history/index state under $(tui_effective_state_dir)" \
+          "- optional audit records when enabled"
+      fi
+      ;;
+    check|status|report|summary|trend|runtimes|metrics|export|history|diff|logs|config)
+      printf '%s\n' "- read-only output to the terminal unless --output is used"
+      ;;
+    doctor)
+      if [[ "$cmd_text" == *"--fix"* || "$cmd_text" == *"--fix-deps"* ]]; then
+        printf '%s\n' \
+          "- may repair directories, permissions, or dependencies" \
+          "- writes doctor artifacts and any fix actions taken"
+      else
+        printf '%s\n' "- read-only diagnostics and doctor artifacts only"
+      fi
+      ;;
+    init)
+      printf '%s\n' \
+        "- starter config files under $(tui_effective_cfg_dir)" \
+        "- may overwrite existing templates only when --force is set"
+      ;;
+    baseline)
+      if [[ "$cmd_text" == *"--update"* ]]; then
+        printf '%s\n' "- baseline files under $(tui_effective_cfg_dir)/baselines"
+      else
+        printf '%s\n' "- read-only preview/diff output unless --update is used"
+      fi
+      ;;
+    pack-logs)
+      printf '%s\n' "- support bundle artifacts in the selected output directory"
+      ;;
+    *)
+      printf '%s\n' "- command-specific output only"
+      ;;
+  esac
+}
+
+tui_command_next_hint(){
+  local sub="${1:-}" cmd_text="${2:-}"
+  case "$sub" in
+    run)
+      if [[ "$cmd_text" == *"--plan"* || "$cmd_text" == *"--dry-run"* ]]; then
+        printf '%s' "Review scope and expected skips, then execute the live run if it looks correct."
+      else
+        printf '%s' "Use Overview or Export next to review the result and capture any follow-up artifacts."
+      fi
+      ;;
+    check) printf '%s' "If readiness is clean, go to Run -> plan or execute the intended scope." ;;
+    doctor) printf '%s' "Re-run check or a focused status/report after doctor to confirm the outcome." ;;
+    report|status|summary) printf '%s' "If you see failures, move to Investigate or Repair for drilldown and remediation." ;;
+    export|pack-logs) printf '%s' "Share the generated artifact or return to Investigate if you still need more context." ;;
+    init) printf '%s' "Edit inventory, then run check and run --plan before the first live execution." ;;
+    baseline) printf '%s' "After baseline capture, return to Run or Investigate for cleaner drift comparisons." ;;
+    config) printf '%s' "After reviewing config, run check to validate it against the current environment." ;;
+    *) printf '%s' "Return to the menu flow that matches the result: Overview, Investigate, Repair, or Export." ;;
+  esac
+}
+
+tui_command_preview_body(){
+  local title="$1"
+  shift || true
+  local cmd_text="$*" sub="${2:-}"
+  local risk reads writes next_hint
+  risk="$(tui_command_risk_badge "$(tui_command_risk_level "${1:-}" "$sub")")"
+  reads="$(tui_command_preview_reads "$sub" "$cmd_text")"
+  writes="$(tui_command_preview_writes "$sub" "$cmd_text")"
+  next_hint="$(tui_command_next_hint "$sub" "$cmd_text")"
+  printf '%s\n' \
+    "Command preview: $title" \
+    "" \
+    "Command:" \
+    "  $cmd_text" \
+    "" \
+    "Risk:" \
+    "  $risk" \
+    "" \
+    "Reads:" \
+    "$reads" \
+    "" \
+    "Writes:" \
+    "$writes" \
+    "" \
+    "Likely next step:" \
+    "  $next_hint"
+}
+
 tui_menu_prompt(){
   local prompt="$1"
   shift || true
@@ -1958,6 +2138,7 @@ tui_menu_prompt(){
     local max_tag=0
     local -a tags=()
     local -a descs=()
+    local prompt_body
     while [[ $# -gt 0 ]]; do
       local tag="$1"
       local desc="$2"
@@ -1976,10 +2157,13 @@ tui_menu_prompt(){
       padded_tag="$(printf '%-*s' "$max_tag" "$tag")"
       menu_items+=("$padded_tag" "$desc")
     done
+    prompt_body="$(tui_fallback_menu_prompt_body "$prompt" "${TUI_SHORTCUT_CONTEXT:-main}")"
     dialog --clear --backtitle "$TUI_BACKTITLE" --title "$TUI_TITLE" \
-      --menu "$prompt" 20 78 12 "${menu_items[@]}" 3>&1 1>&2 2>&3
+      --menu "$prompt_body" 24 96 14 "${menu_items[@]}" 3>&1 1>&2 2>&3
   else
-    whiptail --title "$TUI_TITLE" --menu "$prompt" 20 78 12 "$@" 3>&1 1>&2 2>&3
+    local prompt_body
+    prompt_body="$(tui_fallback_menu_prompt_body "$prompt" "${TUI_SHORTCUT_CONTEXT:-main}")"
+    whiptail --title "$TUI_TITLE" --menu "$prompt_body" 24 96 14 "$@" 3>&1 1>&2 2>&3
   fi
 }
 
@@ -2180,11 +2364,16 @@ tui_preview_cmd(){
     1|true|TRUE|yes|YES|on|ON) ;;
     *) return 0 ;;
   esac
-  local cmd_text="$*"
+  local title="${TUI_PREVIEW_TITLE:-linux-maint action}" cmd_text="$*"
+  local preview_text
+  preview_text="$(tui_command_preview_body "$title" "$@")"
   if [[ "$TUI_BACKEND" == "gum" ]]; then
-    tui_gum_hint "Will run: $cmd_text"
+    gum style --border rounded --border-foreground "#334155" --padding "1 2" --margin "0 1" \
+      --foreground "#e5e7eb" "$preview_text" >&2
+  elif [[ "$TUI_BACKEND" == "dialog" || "$TUI_BACKEND" == "whiptail" ]]; then
+    tui_msgbox "$preview_text"
   else
-    echo "Will run: $cmd_text" >&2
+    echo "$preview_text" >&2
   fi
 }
 
@@ -2547,7 +2736,9 @@ tui_run_cmd(){
     interactive=1
   fi
   while true; do
-    tui_preview_cmd "$@"
+    if [[ "$interactive" -eq 1 ]]; then
+      TUI_PREVIEW_TITLE="$title" tui_preview_cmd "$@"
+    fi
     if [[ "$interactive" -eq 1 ]] && ! tui_command_confirm_if_needed "$cmd_text" "$risk"; then
       return 130
     fi
@@ -2608,7 +2799,9 @@ tui_run_live(){
   if tui_bool_enabled "${LM_TUI_FORCE_INTERACTIVE:-0}"; then
     interactive=1
   fi
-  tui_preview_cmd "$@"
+  if [[ "$interactive" -eq 1 ]]; then
+    TUI_PREVIEW_TITLE="$title" tui_preview_cmd "$@"
+  fi
   if [[ "$interactive" -eq 1 ]] && ! tui_command_confirm_if_needed "$cmd_text" "$risk"; then
     return 130
   fi

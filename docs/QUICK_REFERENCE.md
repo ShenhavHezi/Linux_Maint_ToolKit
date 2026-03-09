@@ -99,6 +99,8 @@ linux-maint menu
 # smart palette examples: first run, triage, bundle, report, logs, doctor
 # Export -> pack logs opens the guided support-bundle wizard
 # empty states now explain what is missing when no summary/history/logs exist yet
+# dialog/whiptail now show the same context, readiness, and recommended-start summary inline
+# command preview now shows reads, writes, risk, and likely next step before execution
 
 # Optional menu behavior controls
 LM_TUI_DASH_REFRESH=10 linux-maint menu
