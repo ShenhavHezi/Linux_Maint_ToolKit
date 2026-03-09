@@ -6839,6 +6839,7 @@ PY
     fi
     S_HOST="127.0.0.1"
     S_PORT="9910"
+    S_CMD_TIMEOUT="${LM_SERVE_CMD_TIMEOUT:-15}"
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --host) S_HOST="$2"; shift 2;;
@@ -6851,20 +6852,42 @@ PY
       echo "ERROR: --port must be numeric" >&2
       exit 2
     fi
-    S_CLI="$0" python3 - "$S_HOST" "$S_PORT" <<'PY'
+    if [[ ! "$S_CMD_TIMEOUT" =~ ^[0-9]+$ ]] || (( S_CMD_TIMEOUT <= 0 )); then
+      echo "ERROR: LM_SERVE_CMD_TIMEOUT must be a positive integer" >&2
+      exit 2
+    fi
+    exec env S_CLI="${LM_SERVE_CLI:-$0}" S_CMD_TIMEOUT="$S_CMD_TIMEOUT" python3 - "$S_HOST" "$S_PORT" <<'PY'
 import json, os, subprocess, sys
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 host, port = sys.argv[1], int(sys.argv[2])
 cli = os.environ.get("S_CLI", "linux-maint")
+cmd_timeout = int(os.environ.get("S_CMD_TIMEOUT", "15"))
 
 def run_json(args):
     try:
-        out = subprocess.check_output([cli] + args, stderr=subprocess.DEVNULL, universal_newlines=True)
-        return 200, out
-    except subprocess.CalledProcessError as e:
-        return 500, json.dumps({"error": f"command failed: {' '.join(args)}", "rc": e.returncode})
+        proc = subprocess.run(
+            [cli] + args,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=cmd_timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return 504, json.dumps({
+            "error": "command_timeout",
+            "command": " ".join(args),
+            "timeout_seconds": cmd_timeout,
+        })
     except Exception as e:
         return 500, json.dumps({"error": str(e)})
+    if proc.returncode != 0:
+        return 500, json.dumps({
+            "error": "command_failed",
+            "command": " ".join(args),
+            "rc": proc.returncode,
+        })
+    return 200, proc.stdout
 
 class H(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype="application/json"):
@@ -6902,7 +6925,11 @@ class H(BaseHTTPRequestHandler):
             return
         self._send(404, json.dumps({"error":"not_found","path":p}))
 
-HTTPServer((host, port), H).serve_forever()
+class S(ThreadingHTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+S((host, port), H).serve_forever()
 PY
     ;;
 
@@ -7019,21 +7046,34 @@ PY
     done
     [[ -n "$FED_INPUT" ]] || { echo "ERROR: --input file1,file2 is required" >&2; exit 2; }
     FED_INPUT="$FED_INPUT" FED_JSON="$FED_JSON" python3 - <<'PY'
-import json, os
+import json, os, sys
 paths=[p.strip() for p in os.environ.get("FED_INPUT","").split(",") if p.strip()]
 json_mode=os.environ.get("FED_JSON","0")=="1"
 tot={"CRIT":0,"WARN":0,"UNKNOWN":0,"SKIP":0,"OK":0}
 clusters=[]
+errors=[]
 for p in paths:
     try:
-        o=json.load(open(p,encoding="utf-8"))
-    except Exception:
+        with open(p, encoding="utf-8") as fh:
+            o=json.load(fh)
+    except Exception as e:
+        errors.append(f"{p}: {e}")
         continue
     t=o.get("totals") or {}
     for k in tot:
         try: tot[k]+=int(t.get(k,0))
         except Exception: pass
-    clusters.append({"file":p,"overall":(o.get("last_status") or {}).get("overall","UNKNOWN"),"totals":{k:int(t.get(k,0) or 0) for k in tot}})
+    cluster_totals={}
+    for k in tot:
+        try:
+            cluster_totals[k]=int(t.get(k,0) or 0)
+        except Exception:
+            cluster_totals[k]=0
+    clusters.append({"file":p,"overall":(o.get("last_status") or {}).get("overall","UNKNOWN"),"totals":cluster_totals})
+if errors:
+    for err in errors:
+        print(f"ERROR: invalid federate input: {err}", file=sys.stderr)
+    raise SystemExit(2)
 out={"federation_contract_version":1,"clusters":clusters,"totals":tot}
 if json_mode:
     print(json.dumps(out,indent=2,sort_keys=True))

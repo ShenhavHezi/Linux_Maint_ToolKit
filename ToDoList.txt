@@ -121,6 +121,7 @@ Last updated: 2026-03-09
   - Proof: `linux-maint gate --policy`, `tests/gate_command_test.sh`.
 - `DONE` REST API service mode baseline.
   - Proof: `linux-maint serve`, `tests/serve_command_test.sh`.
+  - Hardening: concurrent request handling plus bounded delegated command runtime via `LM_SERVE_CMD_TIMEOUT`.
 - `DONE` Pipeline deployment-block acceptance flow documented end-to-end.
   - Proof: `docs/OPERATIONS.md` section "CI deploy gate (block on health regression)".
 
@@ -133,6 +134,7 @@ Last updated: 2026-03-09
   - Proof: `linux-maint ai-assist`, `tests/ai_assist_command_test.sh`.
 - `DONE` Federation baseline (`federate`).
   - Proof: `tests/federate_command_test.sh`.
+  - Hardening: unreadable or invalid input snapshots now fail fast with rc=2 instead of being silently skipped.
 - `DONE` Predictive score baseline (`predict`).
   - Proof: `tests/predict_command_test.sh`.
 - `PARTIAL` Advanced acceptance closure:

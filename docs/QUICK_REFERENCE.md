@@ -170,6 +170,8 @@ linux-maint audit-log --json --last 200
 
 # Advanced optional modules (disabled by default; opt-in command usage)
 linux-maint serve --host 127.0.0.1 --port 9910
+# Optional: bound delegated serve subcommands
+LM_SERVE_CMD_TIMEOUT=15 linux-maint serve --host 127.0.0.1 --port 9910
 linux-maint agent --once --dry-run
 linux-maint policy init policy.conf
 linux-maint policy lint policy.conf

@@ -820,6 +820,7 @@ Schema:
 - `linux-maint serve [--host H] [--port N]`:
   - starts a local HTTP service exposing `GET /health`, `/status`, `/report`, `/metrics`, `/history`.
   - intended for local automation bridges and controlled internal networks.
+  - request handlers run concurrently, and delegated subcommands are bounded by `LM_SERVE_CMD_TIMEOUT` seconds (default `15`).
 
 - `linux-maint agent [--once] [--interval N] [--max-runs N] [--dry-run]`:
   - lightweight loop runner for periodic checks.
@@ -833,6 +834,7 @@ Schema:
 - `linux-maint federate --input file1,file2[,fileN] [--json]`:
   - merges multiple `status --json` snapshots and outputs a federation summary.
   - useful for multi-cluster or multi-runner reporting.
+  - fails with exit code `2` if any input file is unreadable or invalid JSON.
 
 - `linux-maint ai-assist [--json]`:
   - local heuristic hints from recent status artifacts (`reason_rollup` + `overall`).
@@ -863,7 +865,7 @@ Risk boundaries:
 - `serve`: expose only on trusted interfaces (default `127.0.0.1`), and put behind network ACLs/reverse proxy when remote access is required.
 - `agent`: can create repeated load if intervals are too small; start with `--dry-run` or `--once`.
 - `policy`: should be paired with reviewed policy files in version control.
-- `federate`: trusts input JSON files; use artifacts from trusted runners.
+- `federate`: trusts input JSON files; use artifacts from trusted runners, and treat unreadable or invalid inputs as hard failures.
 - `ai-assist`: provides heuristics only; always validate with `status`, `report`, and logs.
 - `predict`: score is intentionally simple and should not be used as a sole go/no-go signal.
 
