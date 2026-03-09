@@ -47,5 +47,4 @@ grep -q "next=" "$out" || {
   sed -n '1,160p' "$out" >&2 || true
   exit 1
 }
-
 echo "menu tty flow smoke ok"

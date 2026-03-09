@@ -1,0 +1,14 @@
+Section: Overview and status
+
+Controls:
+- numbers 1-9 pick a visible action
+- Enter opens the full chooser
+- ? opens this help overlay
+- / opens the command palette
+- Esc goes back
+- shortcuts are on
+
+Actions:
+- dashboard: View: live operations dashboard [d]
+- status: View: current status snapshot [s]
+- back: Back to main menu [b]

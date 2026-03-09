@@ -41,6 +41,12 @@ linux-maint run --plan
 linux-maint run --plan --json
 ```
 
+## How do I move quickly in the TUI menu?
+Open `linux-maint menu`. In gum mode, use `?` for the help overlay, `/` for action search, `1-9` for the visible actions, and the task sections `Overview / Run / Investigate / Repair / Export / Docs` to stay on the shortest operator path.
+
+## How do I create a support bundle from the menu?
+Open `linux-maint menu`, go to `Export`, then choose `pack logs`. That opens the guided bundle wizard so you can pick the output directory, redaction, hashing, and optional GPG encryption without remembering the CLI flags.
+
 ## How do I produce machine-readable outputs safely?
 Use `--json` and optional redaction:
 

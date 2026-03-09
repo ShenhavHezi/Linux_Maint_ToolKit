@@ -36,5 +36,25 @@ printf '%s\n' "$out" | grep -q 'Repair        incident mode, doctor, check, self
   echo "$out" >&2
   exit 1
 }
+printf '%s\n' "$out" | grep -q '^Global gum controls:$' || {
+  echo "help menu missing gum controls section" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q '/             command palette / action search' || {
+  echo "help menu missing command palette guidance" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q '^Bundle flow:$' || {
+  echo "help menu missing bundle flow section" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q 'Export -> pack_logs opens a guided bundle wizard' || {
+  echo "help menu missing bundle wizard guidance" >&2
+  echo "$out" >&2
+  exit 1
+}
 
 echo "help menu structure ok"

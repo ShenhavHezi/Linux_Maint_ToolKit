@@ -1,0 +1,17 @@
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │  Linux Maint ToolKit                                                                                         │
+ │  Operations console                                                                                          │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+  overview=CRIT  last_run=missing
+  cfg=/tmp/linux_maint_cfg_fixture
+  log=/tmp/linux_maint_menu_render_fixture/logs
+  top_reason=http_failed (1)
+  top_problem=CRIT network_monitor host=web-2 reason=http_failed
+  next=Open Repair for guided connectivity triage
+
+  overview  Overview, status, and next moves [o]
+  run       Run checks, preview a plan, or resume work [r]
+  export    Reports, metrics, runtimes, and bundles [e]
+
+  Type shortcut or number. ? help, / search, Enter browse, Esc back.

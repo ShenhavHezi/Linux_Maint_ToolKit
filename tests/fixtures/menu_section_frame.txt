@@ -1,0 +1,31 @@
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │  Linux Maint ToolKit                                                                                         │
+ │  Overview and status                                                                                         │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+ ╭────────────────────────────────────────────────────╮    ╭────────────────────────────────────────────────────╮
+ │                                                    │    │                                                    │
+ │  Active context                                    │    │  Fleet status                                      │
+ │  mode=repo  overall=CRIT  last_run=missing         │    │  Overall: !! CRIT                                  │
+ │  shortcuts=on  preview=on                          │    │  OK:0  WARN:1  CRIT:1  UNKNOWN:0  SKIP:0           │
+ │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
+ │  log=/tmp/linux_maint_menu_render_fixture/logs     │    ╰────────────────────────────────────────────────────╯
+ │  state=/tmp/linux_maint_state_fixture              │
+ │                                                    │    ╭────────────────────────────────────────────────────╮
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           │  Current pressure                                  │
+ ╭────────────────────────────────────────────────────╮    │  overall=CRIT                                      │
+ │                                                    │    │  top_reason=http_failed                            │
+ │  Recommended start                                 │    │  top_problem=network_monitor host=web-2            │
+ │  Recommended first action: problems                │    │                                                    │
+ │  - Dashboard for the live operations view          │    ╰────────────────────────────────────────────────────╯
+ │  - Problems for the latest non-OK rows             │
+ │  - Report when you need a short operator summary   │
+ │                                                    │
+ ╰────────────────────────────────────────────────────╯
+
+  dashboard  View: live operations dashboard [d]
+  status     View: current status snapshot [s]
+  back       Back to main menu [b]
+
+  Type shortcut or number. ? help, / search, Enter browse, Esc back.

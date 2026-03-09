@@ -48,6 +48,7 @@ linux-maint deps
 linux-maint export --json
 linux-maint export --csv
 linux-maint pack-logs --out /tmp
+# or open: linux-maint menu -> Export -> pack logs
 ```
 
 ## First run expectations (normal SKIPs)

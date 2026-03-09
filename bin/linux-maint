@@ -429,16 +429,53 @@ PY
 }
 
 tui_gum_card(){
-  local title="$1" color="$2" body="$3"
+  local title="$1" color="$2" body="$3" width="${4:-110}"
+  tui_gum_card_render "$title" "$color" "$body" "$width" >&2
+}
+
+tui_gum_card_render(){
+  local title="$1" color="$2" body="$3" width="${4:-110}"
   local title_line content
   title_line="$(gum style --bold --foreground "$color" "$title")"
   content="$(printf '%s\n%s' "$title_line" "$body")"
   gum style --border rounded --border-foreground "$color" --padding "1 2" --margin "0 1" \
-    --foreground "#e5e7eb" --width 110 "$content" >&2
+    --foreground "#e5e7eb" --width "$width" "$content"
+}
+
+tui_render_columns(){
+  local left="${1:-}" right="${2:-}" gutter="${3:-  }"
+  LEFT_BLOCK="$left" RIGHT_BLOCK="$right" GUTTER_BLOCK="$gutter" python3 - <<'PY'
+import os
+import re
+
+ansi_re = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+def visible_len(s):
+    return len(ansi_re.sub("", s))
+
+left = os.environ.get("LEFT_BLOCK", "").splitlines()
+right = os.environ.get("RIGHT_BLOCK", "").splitlines()
+gutter = os.environ.get("GUTTER_BLOCK", "  ")
+left_width = 0
+for line in left:
+    left_width = max(left_width, visible_len(line))
+
+rows = max(len(left), len(right))
+for idx in range(rows):
+    l = left[idx] if idx < len(left) else ""
+    r = right[idx] if idx < len(right) else ""
+    pad = max(0, left_width - visible_len(l))
+    print(f"{l}{' ' * pad}{gutter}{r}".rstrip())
+PY
 }
 
 tui_gum_context_panel(){
-  local status_json="${1:-}"
+  local status_json="${1:-}" width="${2:-110}"
+  tui_gum_context_panel_render "$status_json" "$width" >&2
+}
+
+tui_gum_context_panel_render(){
+  local status_json="${1:-}" width="${2:-110}"
   local snapshot mode cfg_dir log_dir state_dir overall ok warn crit unk skip age shortcuts preview
   snapshot="$(tui_context_snapshot "$status_json")"
   while IFS='=' read -r k v; do
@@ -473,7 +510,7 @@ tui_gum_context_panel(){
   local line1 line2
   line1="mode=${mode:-unknown}  overall=$(gum style --bold --foreground "$overall_color" "${overall:-UNKNOWN}")  last_run=$(tui_format_age_seconds "${age:--1}")  shortcuts=$shortcuts_label  preview=$preview_label"
   line2="cfg=${cfg_dir:-?}  log=${log_dir:-?}  state=${state_dir:-?}"
-  tui_gum_card "Active context" "#334155" "$(printf '%s\n%s' "$line1" "$line2")"
+  tui_gum_card_render "Active context" "#334155" "$(printf '%s\n%s' "$line1" "$line2")" "$width"
 }
 
 resolve_menu_shortcut_tag(){
@@ -526,6 +563,14 @@ tui_gum_read_visible_menu_choice(){
       fi
       return 1
       ;;
+    '?')
+      printf '__help__'
+      return 0
+      ;;
+    '/')
+      printf '__search__'
+      return 0
+      ;;
     *)
       if [[ "${LM_TUI_SHORTCUTS:-1}" =~ ^(1|true|TRUE|yes|YES|on|ON)$ ]]; then
         local mapped
@@ -571,7 +616,12 @@ tui_status_snapshot_json(){
 }
 
 tui_gum_status_overview(){
-  local status_json="${1:-}" overall ok warn crit unk skip summary_file
+  local status_json="${1:-}" width="${2:-110}"
+  tui_gum_status_overview_render "$status_json" "$width" >&2
+}
+
+tui_gum_status_overview_render(){
+  local status_json="${1:-}" width="${2:-110}" overall ok warn crit unk skip summary_file
   [[ -n "$status_json" ]] || status_json="$(tui_status_snapshot_json)"
   overall="UNKNOWN"
   ok=0; warn=0; crit=0; unk=0; skip=0; summary_file=""
@@ -663,7 +713,7 @@ PY
   totals_line="$(gum style --foreground "#e5e7eb" "OK:$ok  WARN:$warn  CRIT:$crit  UNKNOWN:$unk  SKIP:$skip")"
   body="$(gum join --vertical "$overall_line" "$totals_line")"
 
-  tui_gum_card "Fleet status" "$color" "$body"
+  tui_gum_card_render "Fleet status" "$color" "$body" "$width"
 }
 
 tui_top_reason_lines(){
@@ -827,56 +877,287 @@ tui_next_moves_lines(){
   esac
 }
 
-tui_gum_main_landing(){
-  local status_json snapshot overall top_reason top_monitor
-  status_json="$(tui_status_snapshot_json)"
-  snapshot="$(tui_context_snapshot "$status_json")"
-  overall="$(printf '%s\n' "$snapshot" | awk -F= '/^overall=/{print $2; exit}')"
-  top_reason="$(STATUS_JSON="$status_json" python3 - <<'PY'
-import json, os
+tui_status_focus_snapshot(){
+  local status_json="${1:-}"
+  STATUS_JSON="$status_json" python3 - <<'PY'
+import json
+import os
+
 raw = os.environ.get("STATUS_JSON", "")
+overall = "UNKNOWN"
+top_reason = "-"
+top_monitor = "-"
+top_host = "-"
 try:
     data = json.loads(raw) if raw else {}
 except Exception:
     data = {}
+overall = str(
+    (data.get("last_status") or {}).get("overall")
+    or (data.get("meta") or {}).get("overall")
+    or "UNKNOWN"
+)
 rows = data.get("reason_rollup") or []
 if rows:
-    print(str((rows[0] or {}).get("reason") or ""))
+    top_reason = str((rows[0] or {}).get("reason") or "-")
 else:
     for row in data.get("rows") or []:
         status = str((row or {}).get("status") or "")
         reason = str((row or {}).get("reason") or "")
         if status in ("WARN", "CRIT", "UNKNOWN") and reason:
-            print(reason)
+            top_reason = reason
             break
-PY
-)"
-  top_monitor="$(STATUS_JSON="$status_json" python3 - <<'PY'
-import json, os
-raw = os.environ.get("STATUS_JSON", "")
-try:
-    data = json.loads(raw) if raw else {}
-except Exception:
-    data = {}
-rows = data.get("problems") or []
-if rows:
-    print(str((rows[0] or {}).get("monitor") or ""))
+problems = data.get("problems") or []
+if problems:
+    top_monitor = str((problems[0] or {}).get("monitor") or "-")
+    top_host = str((problems[0] or {}).get("host") or "-")
 else:
     for row in data.get("rows") or []:
         status = str((row or {}).get("status") or "")
-        monitor = str((row or {}).get("monitor") or "")
-        if status in ("WARN", "CRIT", "UNKNOWN") and monitor:
-            print(monitor)
+        if status in ("WARN", "CRIT", "UNKNOWN"):
+            top_monitor = str((row or {}).get("monitor") or "-")
+            top_host = str((row or {}).get("host") or "-")
             break
+print(f"overall={overall}")
+print(f"top_reason={top_reason}")
+print(f"top_monitor={top_monitor}")
+print(f"top_host={top_host}")
 PY
-)"
+}
 
-  tui_gum_context_panel "$status_json"
-  tui_gum_status_overview "$status_json"
-  tui_gum_card "Recent problems" "#f59e0b" "$(tui_problem_lines "$status_json" 4)"
-  tui_gum_card "Top reasons" "#60a5fa" "$(tui_top_reason_lines "$status_json" 3)"
-  tui_gum_card "Slow monitors" "#c084fc" "$(tui_runtime_lines "" 3)"
-  tui_gum_card "Next moves" "#22c55e" "$(tui_next_moves_lines "${overall:-UNKNOWN}" "$top_reason" "$top_monitor")"
+tui_section_recommended_action(){
+  local context="${1:-main}" status_json="${2:-}"
+  local focus overall top_reason top_monitor
+  focus="$(tui_status_focus_snapshot "$status_json")"
+  overall="$(printf '%s\n' "$focus" | awk -F= '/^overall=/{print $2; exit}')"
+  top_reason="$(printf '%s\n' "$focus" | awk -F= '/^top_reason=/{print $2; exit}')"
+  top_monitor="$(printf '%s\n' "$focus" | awk -F= '/^top_monitor=/{print $2; exit}')"
+  case "$context" in
+    overview)
+      if [[ "$overall" == "CRIT" || "$overall" == "WARN" || "$overall" == "UNKNOWN" ]]; then
+        printf 'problems'
+      else
+        printf 'dashboard'
+      fi
+      ;;
+    run) printf 'plan' ;;
+    investigate)
+      if [[ -n "$top_reason" && "$top_reason" != "-" ]]; then
+        printf 'drilldown'
+      else
+        printf 'history'
+      fi
+      ;;
+    repair)
+      if [[ "$overall" == "CRIT" || "$overall" == "WARN" || "$overall" == "UNKNOWN" ]]; then
+        printf 'incident'
+      else
+        printf 'check'
+      fi
+      ;;
+    export)
+      if [[ "$overall" == "CRIT" || "$overall" == "WARN" || "$overall" == "UNKNOWN" ]]; then
+        printf 'report'
+      else
+        printf 'export_json'
+      fi
+      ;;
+    docs) printf 'quickref' ;;
+    *) printf 'overview' ;;
+  esac
+}
+
+tui_section_preview_body(){
+  local context="${1:-main}" status_json="${2:-}"
+  local focus overall top_reason top_monitor top_host next_action
+  focus="$(tui_status_focus_snapshot "$status_json")"
+  overall="$(printf '%s\n' "$focus" | awk -F= '/^overall=/{print $2; exit}')"
+  top_reason="$(printf '%s\n' "$focus" | awk -F= '/^top_reason=/{print $2; exit}')"
+  top_monitor="$(printf '%s\n' "$focus" | awk -F= '/^top_monitor=/{print $2; exit}')"
+  top_host="$(printf '%s\n' "$focus" | awk -F= '/^top_host=/{print $2; exit}')"
+  next_action="$(tui_section_recommended_action "$context" "$status_json")"
+  case "$context" in
+    overview)
+      printf '%s\n' \
+        "Recommended first action: $next_action" \
+        "- Dashboard for the live operations view" \
+        "- Problems for the latest non-OK rows" \
+        "- Report when you need a short operator summary"
+      ;;
+    run)
+      printf '%s\n' \
+        "Recommended first action: $next_action" \
+        "- Plan first when config or scope changed" \
+        "- Wizard for group/host targeting and safe previews" \
+        "- Run now when you already know the exact scope"
+      ;;
+    investigate)
+      printf '%s\n' \
+        "Recommended first action: $next_action" \
+        "Top reason: ${top_reason:--}" \
+        "Top problem: ${top_monitor:--} host=${top_host:--}" \
+        "- Follow with logs or diff once you narrow the slice"
+      ;;
+    repair)
+      printf '%s\n' \
+        "Recommended first action: $next_action" \
+        "Current triage: $(tui_incident_recommendation_summary "$top_reason" "$top_monitor" "$top_host")" \
+        "- Doctor validates deeper dependencies and fixes" \
+        "- Check confirms readiness before the next full run"
+      ;;
+    export)
+      printf '%s\n' \
+        "Recommended first action: $next_action" \
+        "- Report for people, export JSON for systems" \
+        "- Metrics and runtimes for dashboards and tuning" \
+        "- Pack logs when you need a support bundle"
+      ;;
+    docs)
+      printf '%s\n' \
+        "Recommended first action: $next_action" \
+        "- Quick reference for the common operator path" \
+        "- Troubleshooting for reason tokens and failures" \
+        "- Config shows the active sources and values"
+      ;;
+    *)
+      printf '%s\n' \
+        "Recommended first action: overview" \
+        "- Start with the landing dashboard"
+      ;;
+  esac
+}
+
+tui_gum_section_focus_card(){
+  local context="${1:-main}" status_json="${2:-}" width="${3:-52}"
+  local color="#22c55e"
+  case "$context" in
+    investigate) color="#60a5fa" ;;
+    repair) color="#ef4444" ;;
+    export) color="#c084fc" ;;
+    docs) color="#f59e0b" ;;
+    run) color="#22c55e" ;;
+  esac
+  tui_gum_card_render "Recommended start" "$color" "$(tui_section_preview_body "$context" "$status_json")" "$width"
+}
+
+tui_gum_current_pressure_card(){
+  local status_json="${1:-}" width="${2:-52}"
+  local focus top_reason top_monitor top_host overall
+  focus="$(tui_status_focus_snapshot "$status_json")"
+  overall="$(printf '%s\n' "$focus" | awk -F= '/^overall=/{print $2; exit}')"
+  top_reason="$(printf '%s\n' "$focus" | awk -F= '/^top_reason=/{print $2; exit}')"
+  top_monitor="$(printf '%s\n' "$focus" | awk -F= '/^top_monitor=/{print $2; exit}')"
+  top_host="$(printf '%s\n' "$focus" | awk -F= '/^top_host=/{print $2; exit}')"
+  tui_gum_card_render "Current pressure" "#f59e0b" "$(printf '%s\n%s\n%s' \
+    "overall=${overall:-UNKNOWN}" \
+    "top_reason=${top_reason:--}" \
+    "top_problem=${top_monitor:--} host=${top_host:--}")" "$width"
+}
+
+tui_menu_help_overlay_text(){
+  local prompt="$1" context="$2" catalog="$3"
+  local shortcuts_label="off"
+  tui_bool_enabled "${LM_TUI_SHORTCUTS:-0}" && shortcuts_label="on"
+  {
+    printf 'Section: %s\n\n' "$prompt"
+    printf 'Controls:\n'
+    printf -- '- numbers 1-9 pick a visible action\n'
+    printf -- '- Enter opens the full chooser\n'
+    printf -- '- ? opens this help overlay\n'
+    printf -- '- / opens the command palette\n'
+    printf -- '- Esc goes back\n'
+    printf -- '- shortcuts are %s\n' "$shortcuts_label"
+    printf '\nActions:\n'
+    while IFS='|' read -r tag desc; do
+      [[ -n "${tag:-}" ]] || continue
+      printf -- '- %s: %s\n' "$tag" "$desc"
+    done <<< "$catalog"
+  }
+}
+
+tui_gum_filter_menu_choice(){
+  local prompt="$1" catalog="$2"
+  local -a items=()
+  local tag desc pick rc
+  while IFS='|' read -r tag desc; do
+    [[ -n "${tag:-}" ]] || continue
+    items+=("${tag} - ${desc}")
+  done <<< "$catalog"
+  [[ "${#items[@]}" -gt 0 ]] || return 1
+  set +e
+  pick="$(gum filter --placeholder "$prompt: search actions" "${items[@]}")"
+  rc=$?
+  set -e
+  [[ "$rc" -eq 0 && -n "${pick:-}" ]] || return 1
+  printf '%s' "${pick%% - *}"
+}
+
+tui_gum_render_menu_items(){
+  local catalog="$1" max_tag="${2:-0}"
+  local tag desc padded_tag color colored_tag line
+  while IFS='|' read -r tag desc; do
+    [[ -n "${tag:-}" ]] || continue
+    padded_tag="$(printf '%-*s' "$max_tag" "$tag")"
+    color="$(tui_tag_color "$tag")"
+    colored_tag="$(gum style --bold --foreground "$color" "$padded_tag")"
+    line="${colored_tag}  ${desc}"
+    printf '  %s\n' "$line" >&2
+  done <<< "$catalog"
+}
+
+tui_gum_render_menu_frame(){
+  local prompt="$1" context="$2" catalog="$3" max_tag="$4"
+  local status_json left_col right_col
+  status_json="$(tui_status_snapshot_json)"
+  if [[ "$prompt" == "Choose your next step" ]]; then
+    if [[ "${TUI_MENU_STYLE:-full}" == "full" ]]; then
+      tui_gum_banner
+      tui_gum_header "Linux Maint ToolKit" "Operations console"
+      tui_gum_main_landing
+    else
+      tui_gum_header "Linux Maint ToolKit" "Operations console"
+      tui_gum_main_landing_compact
+    fi
+  else
+    tui_gum_header "Linux Maint ToolKit" "$prompt"
+    if [[ "${TUI_MENU_STYLE:-full}" == "full" ]]; then
+      left_col="$(printf '%s\n\n%s' \
+        "$(tui_gum_context_panel_render "$status_json" 52)" \
+        "$(tui_gum_section_focus_card "$context" "$status_json" 52)")"
+      right_col="$(printf '%s\n\n%s' \
+        "$(tui_gum_status_overview_render "$status_json" 52)" \
+        "$(tui_gum_current_pressure_card "$status_json" 52)")"
+      tui_render_columns "$left_col" "$right_col" "  " >&2
+      printf '\n' >&2
+    else
+      tui_gum_context_panel "$status_json"
+      printf '  recommended=%s\n' "$(tui_section_recommended_action "$context" "$status_json")" >&2
+      printf '  focus=%s\n\n' "$(tui_section_preview_body "$context" "$status_json" | head -n 2 | tail -n 1)" >&2
+    fi
+  fi
+  tui_gum_render_menu_items "$catalog" "$max_tag"
+  printf '\n' >&2
+  tui_gum_hint "Type shortcut or number. ? help, / search, Enter browse, Esc back."
+}
+
+tui_gum_main_landing(){
+  local status_json snapshot overall top_reason top_monitor
+  status_json="$(tui_status_snapshot_json)"
+  snapshot="$(tui_status_focus_snapshot "$status_json")"
+  overall="$(printf '%s\n' "$snapshot" | awk -F= '/^overall=/{print $2; exit}')"
+  top_reason="$(printf '%s\n' "$snapshot" | awk -F= '/^top_reason=/{print $2; exit}')"
+  top_monitor="$(printf '%s\n' "$snapshot" | awk -F= '/^top_monitor=/{print $2; exit}')"
+  local left_col right_col
+  left_col="$(printf '%s\n\n%s\n\n%s' \
+    "$(tui_gum_context_panel_render "$status_json" 52)" \
+    "$(tui_gum_status_overview_render "$status_json" 52)" \
+    "$(tui_gum_card_render "Next moves" "#22c55e" "$(tui_next_moves_lines "${overall:-UNKNOWN}" "$top_reason" "$top_monitor")" 52)")"
+  right_col="$(printf '%s\n\n%s\n\n%s' \
+    "$(tui_gum_card_render "Recent problems" "#f59e0b" "$(tui_problem_lines "$status_json" 4)" 52)" \
+    "$(tui_gum_card_render "Top reasons" "#60a5fa" "$(tui_top_reason_lines "$status_json" 3)" 52)" \
+    "$(tui_gum_card_render "Slow monitors" "#c084fc" "$(tui_runtime_lines "" 3)" 52)")"
+  tui_render_columns "$left_col" "$right_col" "  " >&2
+  printf '\n' >&2
 }
 
 tui_gum_main_landing_compact(){
@@ -901,9 +1182,9 @@ tui_menu_prompt(){
   local prompt="$1"
   shift || true
   if [[ "$TUI_BACKEND" == "gum" ]]; then
-    local -a items=()
     local -a tags=()
     local -a descs=()
+    local catalog=""
     local max_tag=0
     while [[ $# -gt 0 ]]; do
       local tag="$1"
@@ -911,56 +1192,63 @@ tui_menu_prompt(){
       shift 2
       tags+=("$tag")
       descs+=("$desc")
+      catalog+="${tag}|${desc}"$'\n'
       local tag_len=${#tag}
       if [[ "$tag_len" -gt "$max_tag" ]]; then
         max_tag="$tag_len"
       fi
     done
-    if [[ "$prompt" == "Choose your next step" ]]; then
-      if [[ "${TUI_MENU_STYLE:-full}" == "full" ]]; then
-        tui_gum_banner
-        tui_gum_header "Linux Maint ToolKit" "Operations console"
-        tui_gum_main_landing
-      else
-        tui_gum_header "Linux Maint ToolKit" "Operations console"
-        tui_gum_main_landing_compact
+    while true; do
+      tui_gum_render_menu_frame "$prompt" "${TUI_SHORTCUT_CONTEXT:-main}" "$catalog" "$max_tag"
+      local visible_pick="" visible_rc=0
+      set +e
+      visible_pick="$(tui_gum_read_visible_menu_choice "${TUI_SHORTCUT_CONTEXT:-main}" "${tags[@]}")"
+      visible_rc=$?
+      set -e
+      if [[ "$visible_rc" -eq 0 && -n "$visible_pick" ]]; then
+        case "$visible_pick" in
+          __help__)
+            tui_msgbox "$(tui_menu_help_overlay_text "$prompt" "${TUI_SHORTCUT_CONTEXT:-main}" "$catalog")"
+            continue
+            ;;
+          __search__)
+            local search_pick=""
+            search_pick="$(tui_gum_filter_menu_choice "$prompt" "$catalog" || true)"
+            if [[ -n "$search_pick" ]]; then
+              printf '%s' "$search_pick"
+              return 0
+            fi
+            continue
+            ;;
+          *)
+            printf '%s' "$visible_pick"
+            return 0
+            ;;
+        esac
       fi
-    else
-      tui_gum_header "Linux Maint ToolKit" "$prompt"
-      tui_gum_context_panel
-    fi
-    for i in "${!tags[@]}"; do
-      local tag="${tags[$i]}"
-      local desc="${descs[$i]}"
-      local padded_tag color colored_tag line
-      padded_tag="$(printf '%-*s' "$max_tag" "$tag")"
-      color="$(tui_tag_color "$tag")"
-      colored_tag="$(gum style --bold --foreground "$color" "$padded_tag")"
-      line="${colored_tag}  ${desc}"
-      items+=("${line}|${tag}")
-      printf '%s\n' "  $((i+1)). $line" >&2
+      if [[ "$visible_rc" -eq 130 ]]; then
+        return 130
+      fi
+      local -a items=()
+      local i tag desc padded_tag color colored_tag line
+      for i in "${!tags[@]}"; do
+        tag="${tags[$i]}"
+        desc="${descs[$i]}"
+        padded_tag="$(printf '%-*s' "$max_tag" "$tag")"
+        color="$(tui_tag_color "$tag")"
+        colored_tag="$(gum style --bold --foreground "$color" "$padded_tag")"
+        line="${colored_tag}  ${desc}"
+        items+=("${line}|${tag}")
+      done
+      local menu_h=16
+      if tui_bool_enabled "${LM_TUI_COMPACT:-0}"; then
+        menu_h=12
+      fi
+      gum choose --header "" --height "$menu_h" --cursor "> " --label-delimiter "|" \
+        --cursor-prefix "> " --selected-prefix "* " --unselected-prefix "  " \
+        --show-help=false "${items[@]}"
+      return $?
     done
-    printf '\n' >&2
-    tui_gum_hint "Type shortcut or number. Enter opens arrow navigation. Esc goes back."
-    local visible_pick="" visible_rc=0
-    set +e
-    visible_pick="$(tui_gum_read_visible_menu_choice "${TUI_SHORTCUT_CONTEXT:-main}" "${tags[@]}")"
-    visible_rc=$?
-    set -e
-    if [[ "$visible_rc" -eq 0 && -n "$visible_pick" ]]; then
-      printf '%s' "$visible_pick"
-      return 0
-    fi
-    if [[ "$visible_rc" -eq 130 ]]; then
-      return 130
-    fi
-    local menu_h=16
-    if tui_bool_enabled "${LM_TUI_COMPACT:-0}"; then
-      menu_h=12
-    fi
-    gum choose --header "" --height "$menu_h" --cursor "> " --label-delimiter "|" \
-      --cursor-prefix "> " --selected-prefix "* " --unselected-prefix "  " \
-      --show-help=false "${items[@]}"
   elif [[ "$TUI_BACKEND" == "dialog" ]]; then
     local -a menu_items=()
     local max_tag=0
@@ -1637,19 +1925,115 @@ tui_run_live(){
   tui_run_cmd "$title" "$@"
 }
 
+tui_default_pack_logs_out(){
+  if [[ "$MODE" == "repo" ]]; then
+    printf '%s' "$REPO_ROOT"
+  else
+    printf '.'
+  fi
+}
+
 tui_support_bundle_summary(){
+  local search_dir="${1:-/tmp}" redact="${2:-1}"
   local bundle
-  bundle="$(find /tmp -maxdepth 1 -type f \( -name 'linux_maint_support*.tar.gz' -o -name 'linux_maint*.tar.gz' \) -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 | awk '{print $2}')"
+  bundle="$(find "$search_dir" -maxdepth 1 -type f \( -name 'linux_maint_support*.tar.gz' -o -name 'linux_maint*.tar.gz' -o -name 'linux_maint_support*.tar.gz.gpg' -o -name 'linux_maint*.tar.gz.gpg' \) -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 | awk '{print $2}')"
   [[ -n "$bundle" && -f "$bundle" ]] || return 0
   local sha
   sha="$(sha256sum "$bundle" 2>/dev/null | awk '{print $1}')"
   local msg="Support bundle created:\n$bundle"
   [[ -n "$sha" ]] && msg="${msg}\nsha256=$sha"
-  if [[ -f "$bundle.gpg" ]]; then
+  if [[ "$bundle" == *.gpg ]]; then
+    msg="${msg}\nencrypted=yes"
+  elif [[ -f "$bundle.gpg" ]]; then
     msg="${msg}\nencrypted=$bundle.gpg"
   fi
-  msg="${msg}\nredaction=enabled"
+  if [[ "$redact" -eq 1 ]]; then
+    msg="${msg}\nredaction=enabled"
+  else
+    msg="${msg}\nredaction=disabled"
+  fi
   tui_msgbox "$msg"
+}
+
+tui_pack_logs_wizard(){
+  local out_dir redact hash encrypt recipient keep_plain cmd_display
+  out_dir="$(tui_default_pack_logs_out)"
+  redact=1
+  hash=1
+  encrypt=0
+  recipient=""
+  keep_plain=0
+
+  tui_input_capture "Support bundle output directory" "$out_dir"
+  [[ "$TUI_INPUT_RC" -eq 0 ]] || return 130
+  if [[ -n "${TUI_INPUT_VALUE:-}" ]]; then
+    out_dir="$TUI_INPUT_VALUE"
+  fi
+  [[ -n "$out_dir" ]] || out_dir="$(tui_default_pack_logs_out)"
+
+  if ! tui_yesno "Redact sensitive data in the support bundle?\nRecommended: yes"; then
+    redact=0
+  fi
+  if tui_yesno "Include a SHA256 manifest with the bundle?\nRecommended: yes"; then
+    hash=1
+  else
+    hash=0
+  fi
+  if tui_yesno "Encrypt the bundle with GPG before sharing?"; then
+    encrypt=1
+    tui_input_capture "GPG recipient" "email or key id"
+    [[ "$TUI_INPUT_RC" -eq 0 ]] || return 130
+    recipient="${TUI_INPUT_VALUE:-}"
+    if [[ -z "$recipient" ]]; then
+      tui_msgbox "GPG recipient is required when encryption is enabled."
+      return 1
+    fi
+    if tui_yesno "Keep the plaintext .tar.gz alongside the encrypted .gpg bundle?"; then
+      keep_plain=1
+    fi
+  fi
+
+  local -a cmd=("$0" pack-logs --out "$out_dir")
+  if [[ "$redact" -eq 1 ]]; then
+    cmd+=(--redact)
+  else
+    cmd+=(--no-redact)
+  fi
+  if [[ "$hash" -eq 1 ]]; then
+    cmd+=(--hash)
+  fi
+  if [[ "$encrypt" -eq 1 ]]; then
+    cmd+=(--gpg --gpg-recipient "$recipient")
+    if [[ "$keep_plain" -eq 1 ]]; then
+      cmd+=(--gpg-keep-plaintext)
+    fi
+  fi
+
+  cmd_display="linux-maint pack-logs --out $out_dir"
+  if [[ "$redact" -eq 1 ]]; then
+    cmd_display="$cmd_display --redact"
+  else
+    cmd_display="$cmd_display --no-redact"
+  fi
+  if [[ "$hash" -eq 1 ]]; then
+    cmd_display="$cmd_display --hash"
+  fi
+  if [[ "$encrypt" -eq 1 ]]; then
+    cmd_display="$cmd_display --gpg --gpg-recipient $recipient"
+    if [[ "$keep_plain" -eq 1 ]]; then
+      cmd_display="$cmd_display --gpg-keep-plaintext"
+    fi
+  fi
+
+  if ! tui_yesno "Create support bundle with these settings?\n$cmd_display"; then
+    return 130
+  fi
+  tui_run_cmd "linux-maint pack-logs" "${cmd[@]}"
+  local rc=$?
+  if [[ "$rc" -eq 0 ]]; then
+    tui_support_bundle_summary "$out_dir" "$redact"
+  fi
+  return "$rc"
 }
 
 tui_recent_artifacts_block(){
@@ -1704,8 +2088,7 @@ tui_menu_quick_actions(){
       reasons) tui_run_cmd "linux-maint status --reasons 10" "$0" status --reasons 10 ;;
       logs) tui_run_cmd "linux-maint logs 200" "$0" logs 200 ;;
       pack)
-        tui_run_cmd "linux-maint pack-logs --out /tmp --redact" "$0" pack-logs --out /tmp --redact
-        tui_support_bundle_summary
+        tui_pack_logs_wizard || true
         ;;
       report) tui_run_cmd "linux-maint report --short --no-trend" "$0" report --short --no-trend ;;
       trend) tui_run_cmd "linux-maint trend --last 10" "$0" trend --last 10 ;;
@@ -2390,8 +2773,7 @@ run_menu_tools(){
         tui_run_cmd "linux-maint metrics --json" "$0" metrics --json
         ;;
       pack_logs)
-        tui_run_cmd "linux-maint pack-logs --out /tmp --redact" "$0" pack-logs --out /tmp --redact
-        tui_support_bundle_summary
+        tui_pack_logs_wizard || true
         ;;
       back)
         break
@@ -2596,8 +2978,7 @@ PY
         tui_run_cmd "linux-maint doctor" "$0" doctor
         ;;
       bundle)
-        tui_run_cmd "linux-maint pack-logs --out /tmp --redact --hash" "$0" pack-logs --out /tmp --redact --hash
-        tui_support_bundle_summary
+        tui_pack_logs_wizard || true
         ;;
       short_report)
         tui_run_cmd "linux-maint report --short --no-trend" "$0" report --short --no-trend
@@ -2850,8 +3231,7 @@ run_menu_export(){
       metrics_json) tui_run_cmd "linux-maint metrics --json" "$0" metrics --json ;;
       export_json) tui_run_cmd "linux-maint export --json" "$0" export --json ;;
       pack_logs)
-        tui_run_cmd "linux-maint pack-logs --out /tmp --redact" "$0" pack-logs --out /tmp --redact
-        tui_support_bundle_summary
+        tui_pack_logs_wizard || true
         ;;
       back) break ;;
     esac
@@ -3868,8 +4248,19 @@ Main sections:
   Run           execute checks now, preview plans, or use the run wizard
   Investigate   drilldown, diff, history, logs, reasons, and runtimes
   Repair        incident mode, doctor, check, self-check, and security profile
-  Export        report, trend, metrics, runtimes, export JSON, and support bundles
+  Export        report, trend, metrics, runtimes, export JSON, and the bundle wizard
   Docs          quick reference, troubleshooting, FAQ, config, monitors, settings
+
+Global gum controls:
+  1-9           pick a visible action
+  ?             quick help overlay for the current menu
+  /             command palette / action search
+  Enter         open the full chooser
+  Esc           go back
+
+Bundle flow:
+  Export -> pack_logs opens a guided bundle wizard
+  Incident mode -> bundle uses the same wizard with support defaults
 
 Useful env vars:
   LM_TUI_BACKEND=gum|dialog|whiptail

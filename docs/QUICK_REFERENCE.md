@@ -93,6 +93,10 @@ EOF
 # Interactive TUI menu (gum if present, else dialog/whiptail)
 linux-maint menu
 
+# Main menu layout: Overview / Run / Investigate / Repair / Export / Docs
+# gum controls: ? for help overlay, / for action search, 1-9 for visible actions
+# Export -> pack logs opens the guided support-bundle wizard
+
 # Optional menu behavior controls
 LM_TUI_DASH_REFRESH=10 linux-maint menu
 LM_TUI_DEFAULT_STATUS_VIEW=compact linux-maint menu

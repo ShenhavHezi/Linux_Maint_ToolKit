@@ -181,6 +181,10 @@ Last updated: 2026-03-09
 
 ## Cross-cutting quality bar
 - `PARTIAL` CLI help/docs updates are consistently done for most new features.
+- `DONE` Operator TUI polish:
+  - `linux-maint menu` now has a richer gum landing layout, section-level recommended-start panels, `?` help overlay text, `/` command-palette wiring, and a guided support-bundle wizard.
+  - Added golden coverage for compact/main and full section menu rendering plus overlay/wizard regressions.
+  - Proof: `tests/menu_compact_frame_fixture_test.sh`, `tests/menu_section_frame_fixture_test.sh`, `tests/menu_help_overlay_text_test.sh`, `tests/menu_pack_logs_wizard_test.sh`, `tests/menu_tty_flow_smoke_test.sh`.
 - `PARTIAL` JSON schema coverage is incomplete for some newly added commands.
   - Hardening: `report` and `summary` now fail fast instead of silently degrading when `status --json` is broken.
   - Added schema coverage for `export --jsonl` rows and `ticket/cm-hook/audit-log` JSON contracts.
