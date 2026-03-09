@@ -39,6 +39,8 @@ Last updated: 2026-03-09
     - Proof: `tests/preflight_repo_paths_test.sh`, `tests/init_repo_mode_no_sudo_test.sh`, `tests/verify_install_repo_defaults_test.sh`.
   - P0 readiness/support-bundle hardening: `check` now preserves validation severity in its exit code, and `pack-logs` no longer leaves plaintext bundles on failed `--gpg` setup or stores broken latest-log symlinks.
     - Proof: `tests/check_exit_code_test.sh`, `tests/pack_logs_gpg_prereq_test.sh`, `tests/pack_logs_symlink_test.sh`.
+  - P0 reporting path hardening: repo-mode `status`/`report`/`export` now honor `LOG_DIR` instead of silently reading stale `.logs` artifacts.
+    - Proof: `tests/reporting_repo_log_dir_override_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 

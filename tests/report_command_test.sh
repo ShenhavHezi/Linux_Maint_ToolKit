@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LM="$ROOT_DIR/bin/linux-maint"
 
-out="$(bash "$LM" report 2>&1 || true)"
+out="$(NO_COLOR=1 bash "$LM" report 2>&1 || true)"
 printf '%s\n' "$out" | grep -q '^=== linux-maint report ===' || {
   echo "report header missing" >&2
   echo "$out" >&2
@@ -32,7 +32,7 @@ printf '%s\n' "$compact_out" | grep -q '^totals:' || {
   exit 1
 }
 
-table_out="$(bash "$LM" report --table 2>/dev/null || true)"
+table_out="$(NO_COLOR=1 bash "$LM" report --table 2>/dev/null || true)"
 printf '%s\n' "$table_out" | grep -Eq '^STATUS[[:space:]]+MONITOR' || {
   echo "report --table missing header" >&2
   echo "$table_out" >&2

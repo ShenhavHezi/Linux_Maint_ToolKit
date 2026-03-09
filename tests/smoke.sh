@@ -98,6 +98,7 @@ run_required "runtimes_command_test" bash "$ROOT_DIR/tests/runtimes_command_test
 run_required "runtimes_json_fields_test" bash "$ROOT_DIR/tests/runtimes_json_fields_test.sh"
 run_required "runtime_warn_threshold_test" bash "$ROOT_DIR/tests/runtime_warn_threshold_test.sh"
 run_required "report_command_test" bash "$ROOT_DIR/tests/report_command_test.sh"
+run_required "reporting_repo_log_dir_override_test" bash "$ROOT_DIR/tests/reporting_repo_log_dir_override_test.sh"
 run_required "report_invalid_status_test" bash "$ROOT_DIR/tests/report_invalid_status_test.sh"
 run_required "report_short_test" bash "$ROOT_DIR/tests/report_short_test.sh"
 run_required "report_golden_fixture_test" bash "$ROOT_DIR/tests/report_golden_fixture_test.sh"

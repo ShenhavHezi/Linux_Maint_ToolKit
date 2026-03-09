@@ -511,6 +511,7 @@ Prerequisites (any one):
 - `linux-maint explain monitor <name>`: show monitor purpose, deps, and common `reason=` tokens.
 
 - `linux-maint status` *(root required)*: show last run metadata plus a compact, severity-sorted problems summary by default. Use `--verbose` for raw summary lines.
+  - in repo mode, it honors `LOG_DIR` for `last_status_full`, summary logs, and related artifacts.
 - `linux-maint check` *(root required)*: run config validation + preflight and show a short OK/WARN/CRIT summary.
   - exits with the highest severity code returned by `config_validate` or `preflight` (`0` OK, `1` WARN, `2` CRIT, `3` UNKNOWN).
   - `--json`: emit machine-friendly summary and expected SKIPs.
@@ -533,6 +534,7 @@ Status flags (installed mode):
 - `--output PATH` — write output atomically to `PATH`
 
 - `linux-maint report` *(root required)*: show combined status + trends + runtimes.
+  - in repo mode, it honors `LOG_DIR` for the underlying status/trend/runtime artifacts.
   - `--short` emits a one-screen summary with totals, top problems, and next steps.
   - `--redact` applies best-effort redaction to human output only (not JSON).
   - `--output PATH` writes output atomically to a file.
@@ -911,6 +913,7 @@ Schema:
 - `docs/schemas/trend.json` — JSON schema for `linux-maint trend --json`.
 
 - `linux-maint export --json` *(root required)*: export a single JSON payload containing summary_result/summary_hosts plus raw `monitor=` rows (best for external ingestion).
+  - in repo mode, it honors `LOG_DIR` for summary, status, and latest-log artifacts.
 - `linux-maint export --jsonl` *(root required)*: export newline-delimited JSON monitor rows (best for stream ingestion pipelines).
 - `linux-maint export --csv` *(root required)*: export `monitor,host,status,reason` rows as CSV (easy to import).
 - `linux-maint self-check [--json] [--strict]`: quick validation for config/paths/deps (safe in repo mode).
