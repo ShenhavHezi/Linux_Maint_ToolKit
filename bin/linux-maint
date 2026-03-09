@@ -7095,12 +7095,25 @@ PY
         *) echo "Unknown ai-assist flag: $1" >&2; exit 2;;
       esac
     done
-    st_json="$(NO_COLOR=1 "$0" status --json --reasons 8 --problems 12 2>/dev/null || true)"
-    ST_JSON="$st_json" AA_JSON="$AA_JSON" python3 - <<'PY'
-import json, os
-obj={}
-try: obj=json.loads(os.environ.get("ST_JSON","{}"))
-except Exception: obj={}
+    set +e
+    st_json="$(NO_COLOR=1 "$0" status --json --reasons 8 --problems 12 2>/dev/null)"
+    st_rc=$?
+    set -e
+    ST_JSON="$st_json" ST_RC="$st_rc" AA_JSON="$AA_JSON" python3 - <<'PY'
+import json, os, sys
+source_rc = int(os.environ.get("ST_RC", "0"))
+if source_rc != 0:
+    print("ERROR: ai-assist requires a successful status --json snapshot", file=sys.stderr)
+    raise SystemExit(2)
+raw = os.environ.get("ST_JSON","")
+try:
+    obj=json.loads(raw)
+except Exception:
+    print("ERROR: ai-assist requires valid JSON from status --json", file=sys.stderr)
+    raise SystemExit(2)
+if not isinstance(obj, dict) or "last_status" not in obj:
+    print("ERROR: ai-assist requires status --json contract fields", file=sys.stderr)
+    raise SystemExit(2)
 overall=str((obj.get("last_status") or {}).get("overall","UNKNOWN"))
 reasons=[r.get("reason") for r in (obj.get("reason_rollup") or []) if isinstance(r,dict)]
 hints=[]
@@ -7148,12 +7161,25 @@ PY
     done
     [[ "$P_LAST" =~ ^[0-9]+$ ]] || { echo "ERROR: --last must be integer" >&2; exit 2; }
     (( P_LAST > 0 )) || { echo "ERROR: --last must be a positive integer" >&2; exit 2; }
-    hist_json="$(NO_COLOR=1 "$0" history --json --last "$P_LAST" 2>/dev/null || true)"
-    HIST_JSON="$hist_json" P_JSON="$P_JSON" python3 - <<'PY'
-import json, os
-obj={}
-try: obj=json.loads(os.environ.get("HIST_JSON","{}"))
-except Exception: obj={}
+    set +e
+    hist_json="$(NO_COLOR=1 "$0" history --json --last "$P_LAST" 2>/dev/null)"
+    hist_rc=$?
+    set -e
+    HIST_JSON="$hist_json" HIST_RC="$hist_rc" P_JSON="$P_JSON" python3 - <<'PY'
+import json, os, sys
+source_rc = int(os.environ.get("HIST_RC", "0"))
+if source_rc != 0:
+    print("ERROR: predict requires a successful history --json snapshot", file=sys.stderr)
+    raise SystemExit(2)
+raw = os.environ.get("HIST_JSON","")
+try:
+    obj=json.loads(raw)
+except Exception:
+    print("ERROR: predict requires valid JSON from history --json", file=sys.stderr)
+    raise SystemExit(2)
+if not isinstance(obj, dict) or "runs" not in obj:
+    print("ERROR: predict requires history --json contract fields", file=sys.stderr)
+    raise SystemExit(2)
 runs=obj.get("runs") or []
 crit=sum(int(((r.get("hosts") or {}).get("crit",0) or 0)) for r in runs if isinstance(r,dict))
 warn=sum(int(((r.get("hosts") or {}).get("warn",0) or 0)) for r in runs if isinstance(r,dict))

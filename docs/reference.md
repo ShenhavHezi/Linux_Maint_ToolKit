@@ -841,11 +841,13 @@ Schema:
   - local heuristic hints from recent status artifacts (`reason_rollup` + `overall`).
   - no external model/API calls; local-first behavior.
   - includes a confidence block to indicate heuristic strength.
+  - fails with exit code `2` if `status --json` is unsuccessful or invalid.
 
 - `linux-maint predict [--last N] [--json]`:
   - computes a simple risk score from recent history totals.
   - emits confidence level + recommended action (`observe`, `schedule_investigation`, `open_incident`).
   - `--last` must be a positive integer.
+  - fails with exit code `2` if `history --json` is unsuccessful or invalid.
   - intended as directional signal, not deterministic failure prediction.
 
 Export allowlist:
