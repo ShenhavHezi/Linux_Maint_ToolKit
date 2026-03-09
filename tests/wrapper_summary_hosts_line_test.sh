@@ -29,11 +29,11 @@ bash "$ROOT_DIR/run_full_health_monitor.sh" >/dev/null 2>&1 || true
 log_file="$(find "$log_dir" -maxdepth 1 -type f -name 'full_health_monitor_*.log' ! -name '*latest*' | sort | head -n 1)"
 summary_file="$(find "$summary_dir" -maxdepth 1 -type f -name 'full_health_monitor_summary_*.log' ! -name '*latest*' | sort | head -n 1)"
 
-[ -n "$log_file" ] && [ -n "$summary_file" ] || {
+if [ -z "$log_file" ] || [ -z "$summary_file" ]; then
   echo "wrapper artifacts missing" >&2
   find "$workdir" -maxdepth 3 -type f | sort >&2 || true
   exit 1
-}
+fi
 
 status="$(awk '
   /^monitor=config_validate / {
