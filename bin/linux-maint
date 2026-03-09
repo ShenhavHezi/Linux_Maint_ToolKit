@@ -305,10 +305,175 @@ tui_gum_hint(){
 tui_gum_header(){
   local title="${1:-Linux Maint ToolKit}"
   local subtitle="${2:-Menu}"
-  gum style --border normal --border-foreground "#334155" --foreground "#e2e8f0" \
-    --padding "0 2" --margin "1 1" --align left --width 88 \
+  gum style --border rounded --border-foreground "#1d4ed8" --foreground "#e2e8f0" \
+    --padding "0 2" --margin "1 1" --align left --width 110 \
     "$(gum style --bold --foreground "#e2e8f0" "$title")" \
-    "$(gum style --foreground "#94a3b8" "$subtitle")" >&2
+    "$(gum style --foreground "#93c5fd" "$subtitle")" >&2
+}
+
+tui_effective_cfg_dir(){
+  if [[ "$MODE" == "repo" ]]; then
+    printf '%s' "${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+  else
+    printf '%s' "${LM_CFG_DIR:-/etc/linux_maint}"
+  fi
+}
+
+tui_effective_log_dir(){
+  if [[ "$MODE" == "repo" ]]; then
+    printf '%s' "${LOG_DIR:-$REPO_LOG_DIR}"
+  else
+    printf '%s' "${LOG_DIR:-/var/log/health}"
+  fi
+}
+
+tui_effective_state_dir(){
+  if [[ "$MODE" == "repo" ]]; then
+    printf '%s' "${LM_STATE_DIR:-$REPO_LOG_DIR}"
+  else
+    printf '%s' "${LM_STATE_DIR:-/var/lib/linux_maint}"
+  fi
+}
+
+tui_format_age_seconds(){
+  local age="${1:-}"
+  if [[ -z "$age" || "$age" == "-1" ]]; then
+    printf 'missing'
+    return 0
+  fi
+  if (( age < 60 )); then
+    printf '%ss' "$age"
+  elif (( age < 3600 )); then
+    printf '%sm' $(( age / 60 ))
+  elif (( age < 86400 )); then
+    printf '%sh' $(( age / 3600 ))
+  else
+    printf '%sd' $(( age / 86400 ))
+  fi
+}
+
+tui_context_snapshot(){
+  local status_json="${1:-}"
+  if [[ -z "$status_json" ]]; then
+    status_json="$(tui_status_snapshot_json)"
+  fi
+  local log_file cfg_dir log_dir state_dir
+  log_file="$(tui_latest_log_path)"
+  cfg_dir="$(tui_effective_cfg_dir)"
+  log_dir="$(tui_effective_log_dir)"
+  state_dir="$(tui_effective_state_dir)"
+  STATUS_JSON="$status_json" MODE_LOCAL="$MODE" LOG_FILE="$log_file" CFG_DIR_LOCAL="$cfg_dir" LOG_DIR_LOCAL="$log_dir" STATE_DIR_LOCAL="$state_dir" \
+    SHORTCUTS_LOCAL="${LM_TUI_SHORTCUTS:-1}" PREVIEW_LOCAL="${LM_TUI_PREVIEW:-1}" python3 - <<'PY'
+import json
+import os
+import time
+
+raw = os.environ.get("STATUS_JSON", "")
+overall = "UNKNOWN"
+totals = {"OK": 0, "WARN": 0, "CRIT": 0, "UNKNOWN": 0, "SKIP": 0}
+try:
+    data = json.loads(raw) if raw else {}
+except Exception:
+    data = {}
+totals_in = data.get("totals") or {}
+if not totals_in and (data.get("rows") or []):
+    for row in data.get("rows") or []:
+        st = str((row or {}).get("status") or "")
+        if st in totals:
+            totals[st] += 1
+for key in totals:
+    if totals_in:
+        try:
+            totals[key] = int(totals_in.get(key, 0) or 0)
+        except Exception:
+            totals[key] = 0
+overall = str(
+    (data.get("last_status") or {}).get("overall")
+    or (data.get("meta") or {}).get("overall")
+    or overall
+)
+if not overall or overall == "UNKNOWN":
+    if totals["CRIT"] > 0:
+        overall = "CRIT"
+    elif totals["WARN"] > 0:
+        overall = "WARN"
+    elif totals["UNKNOWN"] > 0:
+        overall = "UNKNOWN"
+    elif totals["OK"] > 0:
+        overall = "OK"
+    else:
+        overall = "UNKNOWN"
+
+log_file = os.environ.get("LOG_FILE", "")
+age_sec = -1
+if log_file:
+    try:
+        age_sec = max(0, int(time.time() - os.path.getmtime(log_file)))
+    except Exception:
+        age_sec = -1
+
+print(f"mode={os.environ.get('MODE_LOCAL', '')}")
+print(f"cfg_dir={os.environ.get('CFG_DIR_LOCAL', '')}")
+print(f"log_dir={os.environ.get('LOG_DIR_LOCAL', '')}")
+print(f"state_dir={os.environ.get('STATE_DIR_LOCAL', '')}")
+print(f"overall={overall}")
+print(f"ok={totals['OK']}")
+print(f"warn={totals['WARN']}")
+print(f"crit={totals['CRIT']}")
+print(f"unknown={totals['UNKNOWN']}")
+print(f"skip={totals['SKIP']}")
+print(f"last_age={age_sec}")
+print(f"shortcuts={os.environ.get('SHORTCUTS_LOCAL', '1')}")
+print(f"preview={os.environ.get('PREVIEW_LOCAL', '1')}")
+PY
+}
+
+tui_gum_card(){
+  local title="$1" color="$2" body="$3"
+  local title_line content
+  title_line="$(gum style --bold --foreground "$color" "$title")"
+  content="$(printf '%s\n%s' "$title_line" "$body")"
+  gum style --border rounded --border-foreground "$color" --padding "1 2" --margin "0 1" \
+    --foreground "#e5e7eb" --width 110 "$content" >&2
+}
+
+tui_gum_context_panel(){
+  local status_json="${1:-}"
+  local snapshot mode cfg_dir log_dir state_dir overall ok warn crit unk skip age shortcuts preview
+  snapshot="$(tui_context_snapshot "$status_json")"
+  while IFS='=' read -r k v; do
+    case "$k" in
+      mode) mode="$v" ;;
+      cfg_dir) cfg_dir="$v" ;;
+      log_dir) log_dir="$v" ;;
+      state_dir) state_dir="$v" ;;
+      overall) overall="$v" ;;
+      ok) ok="$v" ;;
+      warn) warn="$v" ;;
+      crit) crit="$v" ;;
+      unknown) unk="$v" ;;
+      skip) skip="$v" ;;
+      last_age) age="$v" ;;
+      shortcuts) shortcuts="$v" ;;
+      preview) preview="$v" ;;
+    esac
+  done <<< "$snapshot"
+
+  local shortcuts_label="off" preview_label="off"
+  tui_bool_enabled "${shortcuts:-0}" && shortcuts_label="on"
+  tui_bool_enabled "${preview:-0}" && preview_label="on"
+
+  local overall_color="#93c5fd"
+  case "${overall:-UNKNOWN}" in
+    CRIT) overall_color="#ef4444" ;;
+    WARN) overall_color="#f59e0b" ;;
+    OK) overall_color="#22c55e" ;;
+  esac
+
+  local line1 line2
+  line1="mode=${mode:-unknown}  overall=$(gum style --bold --foreground "$overall_color" "${overall:-UNKNOWN}")  last_run=$(tui_format_age_seconds "${age:--1}")  shortcuts=$shortcuts_label  preview=$preview_label"
+  line2="cfg=${cfg_dir:-?}  log=${log_dir:-?}  state=${state_dir:-?}"
+  tui_gum_card "Active context" "#334155" "$(printf '%s\n%s' "$line1" "$line2")"
 }
 
 resolve_menu_shortcut_tag(){
@@ -386,16 +551,28 @@ tui_gum_read_visible_menu_choice(){
 }
 
 tui_latest_log_path(){
-  if [[ "$MODE" == "repo" ]]; then
-    echo "$REPO_LATEST_LOG"
-  else
-    echo "/var/log/health/full_health_monitor_latest.log"
+  local log_dir
+  log_dir="$(tui_effective_log_dir)"
+  echo "$log_dir/full_health_monitor_latest.log"
+}
+
+tui_latest_summary_json_path(){
+  local log_dir
+  log_dir="$(tui_effective_log_dir)"
+  echo "$log_dir/full_health_monitor_summary_latest.json"
+}
+
+tui_status_snapshot_json(){
+  local summary_json
+  summary_json="$(tui_latest_summary_json_path)"
+  if [[ -f "$summary_json" ]]; then
+    cat "$summary_json" 2>/dev/null || true
   fi
 }
 
 tui_gum_status_overview(){
-  local status_json overall ok warn crit unk skip summary_file
-  status_json="$(NO_COLOR=1 "$0" status --json 2>/dev/null || true)"
+  local status_json="${1:-}" overall ok warn crit unk skip summary_file
+  [[ -n "$status_json" ]] || status_json="$(tui_status_snapshot_json)"
   overall="UNKNOWN"
   ok=0; warn=0; crit=0; unk=0; skip=0; summary_file=""
   if [[ -n "$status_json" ]]; then
@@ -421,8 +598,13 @@ try:
     data = json.loads(raw)
 except Exception:
     sys.exit(0)
-
 totals = data.get("totals", {}) or {}
+if not totals and (data.get("rows") or []):
+    totals = {"OK": 0, "WARN": 0, "CRIT": 0, "UNKNOWN": 0, "SKIP": 0}
+    for row in data.get("rows") or []:
+        st = str((row or {}).get("status") or "")
+        if st in totals:
+            totals[st] += 1
 def g(k):
     try:
         return int(totals.get(k, 0) or 0)
@@ -446,7 +628,7 @@ elif ok > 0:
 else:
     overall = "UNKNOWN"
 
-summary = data.get("summary_file") or ""
+summary = data.get("summary_file") or data.get("meta", {}).get("summary_file") or ""
 
 print(f"overall={overall}")
 print(f"ok={ok}")
@@ -481,8 +663,238 @@ PY
   totals_line="$(gum style --foreground "#e5e7eb" "OK:$ok  WARN:$warn  CRIT:$crit  UNKNOWN:$unk  SKIP:$skip")"
   body="$(gum join --vertical "$overall_line" "$totals_line")"
 
-  gum style --border thick --border-foreground "$color" --padding "1 3" \
-    --margin "0 1" --width 110 "$body" >&2
+  tui_gum_card "Fleet status" "$color" "$body"
+}
+
+tui_top_reason_lines(){
+  local status_json="$1" limit="${2:-3}"
+  STATUS_JSON="$status_json" LIMIT_LOCAL="$limit" python3 - <<'PY'
+import json
+import os
+from collections import Counter
+raw = os.environ.get("STATUS_JSON", "")
+limit = int(os.environ.get("LIMIT_LOCAL", "3") or 3)
+try:
+    data = json.loads(raw) if raw else {}
+except Exception:
+    data = {}
+rows = data.get("reason_rollup") or []
+printed = 0
+if rows:
+    for row in rows[:limit]:
+        reason = str((row or {}).get("reason") or "-").replace("\n", " ")
+        count = str((row or {}).get("count") or "0")
+        print(f"- {reason} ({count})")
+        printed += 1
+else:
+    counter = Counter()
+    for row in data.get("rows") or []:
+        status = str((row or {}).get("status") or "")
+        reason = str((row or {}).get("reason") or "").strip()
+        if status not in ("OK", "SKIP") and reason:
+            counter[reason] += 1
+    for reason, count in counter.most_common(limit):
+        print(f"- {reason} ({count})")
+        printed += 1
+if printed == 0:
+    print("- no non-OK reasons yet")
+PY
+}
+
+tui_problem_lines(){
+  local status_json="$1" limit="${2:-4}"
+  STATUS_JSON="$status_json" LIMIT_LOCAL="$limit" python3 - <<'PY'
+import json
+import os
+raw = os.environ.get("STATUS_JSON", "")
+limit = int(os.environ.get("LIMIT_LOCAL", "4") or 4)
+try:
+    data = json.loads(raw) if raw else {}
+except Exception:
+    data = {}
+rows = data.get("problems") or []
+if not rows:
+    rows = [r for r in (data.get("rows") or []) if str((r or {}).get("status") or "") in ("WARN", "CRIT", "UNKNOWN")]
+printed = 0
+for row in rows[:limit]:
+    status = str((row or {}).get("status") or "?")
+    monitor = str((row or {}).get("monitor") or "-")
+    host = str((row or {}).get("host") or "-")
+    reason = str((row or {}).get("reason") or "-").replace("\n", " ")
+    print(f"- {status} {monitor} host={host} reason={reason}")
+    printed += 1
+if printed == 0:
+    print("- no current problems")
+PY
+}
+
+tui_runtime_lines(){
+  local runtimes_json="${1:-}" limit="${2:-3}"
+  local log_file
+  log_file="$(tui_latest_log_path)"
+  if [[ -f "$log_file" ]]; then
+    awk -v limit="$limit" '
+      /Top runtimes \(ms\)/ {capture=1; next}
+      capture && /^\[/ {
+        line=$0
+        sub(/^\[[^]]+\][[:space:]]+/, "", line)
+        if (line ~ /^[A-Za-z0-9_]+ ms=[0-9]+$/) {
+          split(line, parts, / ms=/)
+          printf("- %s (%s ms)\n", parts[1], parts[2])
+          count++
+          if (count >= limit) exit
+          next
+        }
+        if (count > 0) exit
+      }
+      END {
+        if (count == 0) print "- no runtime data yet"
+      }
+    ' "$log_file"
+  else
+    echo "- no runtime data yet"
+  fi
+}
+
+tui_incident_recommendation_key(){
+  local reason="${1:-}" monitor="${2:-}"
+  case "$reason" in
+    ssh_unreachable|dns_*|ping_*|tcp_*|http_*|network_*) printf 'connectivity' ;;
+    config_missing|source_failed|invalid_types|baseline_missing|summary_write_failed|summary_checksum_failed|permission_denied) printf 'config' ;;
+    service_failed|failed_units|service_inactive) printf 'service' ;;
+    security_updates_pending|updates_pending) printf 'patching' ;;
+    runtime_exceeded|timeout) printf 'runtime' ;;
+    *)
+      case "$monitor" in
+        network*|cert*|ntp_*) printf 'connectivity' ;;
+        service*) printf 'service' ;;
+        config_*|ports_baseline*|user_monitor|backup_check) printf 'config' ;;
+        patch*) printf 'patching' ;;
+        *) printf 'general' ;;
+      esac
+      ;;
+  esac
+}
+
+tui_next_moves_lines(){
+  local overall="${1:-UNKNOWN}" reason="${2:-}" monitor="${3:-}"
+  local key
+  key="$(tui_incident_recommendation_key "$reason" "$monitor")"
+  case "$key" in
+    connectivity)
+      printf '%s\n' \
+        "- Open Repair for guided connectivity triage" \
+        "- Open Investigate to inspect diff/logs around the failing host" \
+        "- Re-run focused network checks after access is restored"
+      ;;
+    config)
+      printf '%s\n' \
+        "- Open Repair for config/init and doctor checks" \
+        "- Open Docs for config and monitor requirements" \
+        "- Re-run check before a full fleet run"
+      ;;
+    service)
+      printf '%s\n' \
+        "- Open Repair for service-oriented incident steps" \
+        "- Open Investigate to inspect status drilldown and logs" \
+        "- Re-run focused service checks after remediation"
+      ;;
+    patching)
+      printf '%s\n' \
+        "- Open Investigate to confirm the affected hosts and reasons" \
+        "- Apply your update workflow outside the menu" \
+        "- Re-run status or report after patching"
+      ;;
+    runtime)
+      printf '%s\n' \
+        "- Open Export to inspect recent runtimes" \
+        "- Open Repair to run doctor and readiness checks" \
+        "- Tune thresholds or timeouts before the next run"
+      ;;
+    *)
+      if [[ "$overall" == "CRIT" || "$overall" == "WARN" ]]; then
+        printf '%s\n' \
+          "- Open Repair for doctor and guided incident response" \
+          "- Open Investigate for drilldown, diff, and logs" \
+          "- Create a bundle if you need to escalate"
+      else
+        printf '%s\n' \
+          "- Review trend and runtimes in Export" \
+          "- Open Docs for monitor and reason references" \
+          "- Use Run to plan or execute the next check"
+      fi
+      ;;
+  esac
+}
+
+tui_gum_main_landing(){
+  local status_json snapshot overall top_reason top_monitor
+  status_json="$(tui_status_snapshot_json)"
+  snapshot="$(tui_context_snapshot "$status_json")"
+  overall="$(printf '%s\n' "$snapshot" | awk -F= '/^overall=/{print $2; exit}')"
+  top_reason="$(STATUS_JSON="$status_json" python3 - <<'PY'
+import json, os
+raw = os.environ.get("STATUS_JSON", "")
+try:
+    data = json.loads(raw) if raw else {}
+except Exception:
+    data = {}
+rows = data.get("reason_rollup") or []
+if rows:
+    print(str((rows[0] or {}).get("reason") or ""))
+else:
+    for row in data.get("rows") or []:
+        status = str((row or {}).get("status") or "")
+        reason = str((row or {}).get("reason") or "")
+        if status in ("WARN", "CRIT", "UNKNOWN") and reason:
+            print(reason)
+            break
+PY
+)"
+  top_monitor="$(STATUS_JSON="$status_json" python3 - <<'PY'
+import json, os
+raw = os.environ.get("STATUS_JSON", "")
+try:
+    data = json.loads(raw) if raw else {}
+except Exception:
+    data = {}
+rows = data.get("problems") or []
+if rows:
+    print(str((rows[0] or {}).get("monitor") or ""))
+else:
+    for row in data.get("rows") or []:
+        status = str((row or {}).get("status") or "")
+        monitor = str((row or {}).get("monitor") or "")
+        if status in ("WARN", "CRIT", "UNKNOWN") and monitor:
+            print(monitor)
+            break
+PY
+)"
+
+  tui_gum_context_panel "$status_json"
+  tui_gum_status_overview "$status_json"
+  tui_gum_card "Recent problems" "#f59e0b" "$(tui_problem_lines "$status_json" 4)"
+  tui_gum_card "Top reasons" "#60a5fa" "$(tui_top_reason_lines "$status_json" 3)"
+  tui_gum_card "Slow monitors" "#c084fc" "$(tui_runtime_lines "" 3)"
+  tui_gum_card "Next moves" "#22c55e" "$(tui_next_moves_lines "${overall:-UNKNOWN}" "$top_reason" "$top_monitor")"
+}
+
+tui_gum_main_landing_compact(){
+  local status_json snapshot overall cfg_dir log_dir age top_reason top_monitor
+  status_json="$(tui_status_snapshot_json)"
+  snapshot="$(tui_context_snapshot "$status_json")"
+  overall="$(printf '%s\n' "$snapshot" | awk -F= '/^overall=/{print $2; exit}')"
+  cfg_dir="$(printf '%s\n' "$snapshot" | awk -F= '/^cfg_dir=/{print $2; exit}')"
+  log_dir="$(printf '%s\n' "$snapshot" | awk -F= '/^log_dir=/{print $2; exit}')"
+  age="$(printf '%s\n' "$snapshot" | awk -F= '/^last_age=/{print $2; exit}')"
+  top_reason="$(tui_top_reason_lines "$status_json" 1 | sed 's/^- //')"
+  top_monitor="$(tui_problem_lines "$status_json" 1 | sed 's/^- //')"
+  printf '  overview=%s  last_run=%s\n' "${overall:-UNKNOWN}" "$(tui_format_age_seconds "${age:--1}")" >&2
+  printf '  cfg=%s\n' "${cfg_dir:-?}" >&2
+  printf '  log=%s\n' "${log_dir:-?}" >&2
+  printf '  top_reason=%s\n' "${top_reason:-none}" >&2
+  printf '  top_problem=%s\n' "${top_monitor:-none}" >&2
+  printf '  next=%s\n\n' "$(tui_next_moves_lines "${overall:-UNKNOWN}" "$top_reason" "" | head -n 1 | sed 's/^- //')" >&2
 }
 
 tui_menu_prompt(){
@@ -504,10 +916,18 @@ tui_menu_prompt(){
         max_tag="$tag_len"
       fi
     done
-    if [[ "${TUI_MENU_STYLE:-full}" == "full" ]]; then
-      tui_gum_banner
+    if [[ "$prompt" == "Choose your next step" ]]; then
+      if [[ "${TUI_MENU_STYLE:-full}" == "full" ]]; then
+        tui_gum_banner
+        tui_gum_header "Linux Maint ToolKit" "Operations console"
+        tui_gum_main_landing
+      else
+        tui_gum_header "Linux Maint ToolKit" "Operations console"
+        tui_gum_main_landing_compact
+      fi
     else
       tui_gum_header "Linux Maint ToolKit" "$prompt"
+      tui_gum_context_panel
     fi
     for i in "${!tags[@]}"; do
       local tag="${tags[$i]}"
@@ -521,7 +941,7 @@ tui_menu_prompt(){
       printf '%s\n' "  $((i+1)). $line" >&2
     done
     printf '\n' >&2
-    tui_gum_hint "Type shortcut or number. Enter opens arrow navigation. Esc to go back."
+    tui_gum_hint "Type shortcut or number. Enter opens arrow navigation. Esc goes back."
     local visible_pick="" visible_rc=0
     set +e
     visible_pick="$(tui_gum_read_visible_menu_choice "${TUI_SHORTCUT_CONTEXT:-main}" "${tags[@]}")"
@@ -591,11 +1011,13 @@ tui_tag_color(){
     return 0
   fi
   case "$1" in
+    overview|overview_screen|dashboard|problems|reports|status|summary|runindex) echo "#38bdf8" ;;
     run) echo "#22c55e" ;;
-    reports|report|trend|runtimes|status|dashboard|drilldown|tools|check|summary|diff|history|runindex|metrics_prom|metrics_json|pack_logs) echo "#60a5fa" ;;
+    investigate|drilldown|diff|history|logs|reasons|status_detail|tools) echo "#f59e0b" ;;
+    repair|incident|recommended|doctor|selfcheck|check|secprofile|focused_run|diagnostics|logslive) echo "#fb7185" ;;
+    export|report|trend|runtimes|metrics_prom|metrics_json|pack_logs|export_json) echo "#c084fc" ;;
+    docs|quickref|faq|troubleshooting|about|config|monitors|settings|explain_reason|explain_monitor|explain_status|help|monitors_matrix) echo "#22c55e" ;;
     wizard) echo "#22c55e" ;;
-    diagnostics|doctor|selfcheck|logslive|logs) echo "#f59e0b" ;;
-    config|monitors|settings|help|quickref|faq|reasons|monitors_matrix|explain_reason|explain_monitor|explain_status) echo "#94a3b8" ;;
     exit|back) echo "#64748b" ;;
     *) echo "#94a3b8" ;;
   esac
@@ -630,14 +1052,57 @@ map_menu_shortcut(){
     *) printf '%s' "$choice"; return 0 ;;
   esac
   case "${context}:${choice}" in
+    main:o) printf 'overview' ;;
     main:r) printf 'run' ;;
-    main:s) printf 'reports' ;;
-    main:t) printf 'tools' ;;
-    main:d) printf 'diagnostics' ;;
-    main:h) printf 'help' ;;
-    main:c) printf 'config' ;;
+    main:i) printf 'investigate' ;;
+    main:p) printf 'repair' ;;
+    main:e) printf 'export' ;;
+    main:h) printf 'docs' ;;
+    main:s) printf 'overview' ;;
+    main:t) printf 'investigate' ;;
+    main:d) printf 'repair' ;;
+    main:c) printf 'docs' ;;
     main:x) printf 'exit' ;;
-    main:e) printf 'exit' ;;
+    overview:d) printf 'dashboard' ;;
+    overview:s) printf 'status' ;;
+    overview:p) printf 'problems' ;;
+    overview:r) printf 'report' ;;
+    overview:t) printf 'trend' ;;
+    overview:b) printf 'back' ;;
+    investigate:d) printf 'drilldown' ;;
+    investigate:f) printf 'diff' ;;
+    investigate:h) printf 'history' ;;
+    investigate:l) printf 'logs' ;;
+    investigate:r) printf 'reasons' ;;
+    investigate:u) printf 'runtimes' ;;
+    investigate:b) printf 'back' ;;
+    repair:i) printf 'incident' ;;
+    repair:c) printf 'check' ;;
+    repair:d) printf 'doctor' ;;
+    repair:s) printf 'selfcheck' ;;
+    repair:p) printf 'secprofile' ;;
+    repair:f) printf 'focused_run' ;;
+    repair:b) printf 'back' ;;
+    export:r) printf 'report' ;;
+    export:t) printf 'trend' ;;
+    export:u) printf 'runtimes' ;;
+    export:m) printf 'metrics_prom' ;;
+    export:j) printf 'metrics_json' ;;
+    export:e) printf 'export_json' ;;
+    export:p) printf 'pack_logs' ;;
+    export:b) printf 'back' ;;
+    docs:h) printf 'quickref' ;;
+    docs:t) printf 'troubleshooting' ;;
+    docs:f) printf 'faq' ;;
+    docs:r) printf 'reasons' ;;
+    docs:m) printf 'monitors' ;;
+    docs:e) printf 'explain_reason' ;;
+    docs:o) printf 'explain_monitor' ;;
+    docs:w) printf 'explain_status' ;;
+    docs:c) printf 'config' ;;
+    docs:s) printf 'settings' ;;
+    docs:a) printf 'about' ;;
+    docs:b) printf 'back' ;;
     run:r) printf 'run' ;;
     run:p) printf 'plan' ;;
     run:w) printf 'wizard' ;;
@@ -689,6 +1154,7 @@ map_menu_shortcut(){
     settings:s) printf 'save' ;;
     settings:x) printf 'reset' ;;
     settings:q) printf 'back' ;;
+    incident:c) printf 'recommended' ;;
     incident:f) printf 'focused_run' ;;
     incident:s) printf 'status_reasons' ;;
     incident:d) printf 'doctor' ;;
@@ -1188,15 +1654,11 @@ tui_support_bundle_summary(){
 
 tui_recent_artifacts_block(){
   local summary log statusf
-  if [[ "$MODE" == "repo" ]]; then
-    summary="$REPO_SUMMARY_LATEST"
-    log="$REPO_LATEST_LOG"
-    statusf="$REPO_STATUS_FILE"
-  else
-    summary="$INST_SUMMARY_LATEST"
-    log="/var/log/health/full_health_monitor_latest.log"
-    statusf="/var/log/health/last_status_full"
-  fi
+  local log_dir
+  log_dir="$(tui_effective_log_dir)"
+  summary="$log_dir/full_health_monitor_summary_latest.log"
+  log="$log_dir/full_health_monitor_latest.log"
+  statusf="$log_dir/last_status_full"
   local tmp
   tmp="$(mktemp -p "$TMPDIR" linux_maint_artifacts.XXXXXX)"
   {
@@ -1254,14 +1716,10 @@ tui_menu_quick_actions(){
 
 tui_run_next_steps(){
   local rc="$1"
-  local summary log
-  if [[ "$MODE" == "repo" ]]; then
-    summary="$REPO_SUMMARY_LATEST"
-    log="$REPO_LATEST_LOG"
-  else
-    summary="$INST_SUMMARY_LATEST"
-    log="/var/log/health/full_health_monitor_latest.log"
-  fi
+  local summary log log_dir
+  log_dir="$(tui_effective_log_dir)"
+  summary="$log_dir/full_health_monitor_summary_latest.log"
+  log="$log_dir/full_health_monitor_latest.log"
   local status_json overall
   status_json="$(NO_COLOR=1 "$0" status --json 2>/dev/null || true)"
   overall="$(STATUS_JSON="$status_json" python3 - <<'PY'
@@ -1330,7 +1788,8 @@ tui_gum_dashboard(){
     status_json="$(NO_COLOR=1 "$0" status --json --problems 8 --reasons 6 2>/dev/null || true)"
     clear
     tui_gum_header "Linux Maint ToolKit" "Dashboard"
-    tui_gum_status_overview
+    tui_gum_context_panel "$status_json"
+    tui_gum_status_overview "$status_json"
     tui_recent_artifacts_block
 
     local problems_csv reasons_csv
@@ -2074,7 +2533,7 @@ run_menu_diagnostics(){
 }
 
 run_menu_incident_mode(){
-  local status_json overall top_reason top_monitor summary_text
+  local status_json overall top_reason top_monitor top_host summary_text recommendation
   status_json="$(NO_COLOR=1 "$0" status --json --problems 12 --reasons 6 2>/dev/null || true)"
   summary_text="$(STATUS_JSON="$status_json" python3 - <<'PY'
 import json, os
@@ -2082,6 +2541,7 @@ raw = os.environ.get("STATUS_JSON","")
 overall = "UNKNOWN"
 top_reason = "-"
 top_monitor = "-"
+top_host = "-"
 try:
     obj = json.loads(raw or "{}")
 except Exception:
@@ -2093,20 +2553,25 @@ if rr:
 problems = obj.get("problems") or []
 if problems:
     top_monitor = str((problems[0] or {}).get("monitor") or "-")
+    top_host = str((problems[0] or {}).get("host") or "-")
 print(f"overall={overall}")
 print(f"top_reason={top_reason}")
 print(f"top_monitor={top_monitor}")
+print(f"top_host={top_host}")
 PY
 )"
   overall="$(printf '%s\n' "$summary_text" | awk -F= '/^overall=/{print $2; exit}')"
   top_reason="$(printf '%s\n' "$summary_text" | awk -F= '/^top_reason=/{print $2; exit}')"
   top_monitor="$(printf '%s\n' "$summary_text" | awk -F= '/^top_monitor=/{print $2; exit}')"
-  tui_msgbox "Incident mode context:\noverall=${overall:-UNKNOWN}\ntop_reason=${top_reason:--}\ntop_monitor=${top_monitor:--}\n\nChoose guided next steps."
+  top_host="$(printf '%s\n' "$summary_text" | awk -F= '/^top_host=/{print $2; exit}')"
+  recommendation="$(tui_incident_recommendation_summary "$top_reason" "$top_monitor" "$top_host")"
+  tui_msgbox "Incident mode context:\noverall=${overall:-UNKNOWN}\ntop_reason=${top_reason:--}\ntop_monitor=${top_monitor:--}\ntop_host=${top_host:--}\nrecommended=${recommendation}\n\nChoose guided next steps."
 
   while true; do
     local choice
     TUI_SHORTCUT_CONTEXT="incident"
     choice="$(tui_menu_prompt_safe "Incident mode" \
+      recommended "Execute: recommended triage step [c]" \
       focused_run "Execute: focused health checks [f]" \
       status_reasons "Review: top status reasons (10) [s]" \
       doctor "Diagnose: run doctor [d]" \
@@ -2117,6 +2582,9 @@ PY
     choice="$(normalize_menu_choice "$choice")"
     choice="$(map_menu_shortcut "$choice" "incident")"
     case "$choice" in
+      recommended)
+        tui_incident_run_recommended "$top_reason" "$top_monitor" "$top_host"
+        ;;
       focused_run)
         tui_run_cmd "linux-maint run --only preflight_check,health_monitor,service_monitor,network_monitor --strict" \
           "$0" run --only preflight_check,health_monitor,service_monitor,network_monitor --strict
@@ -2179,6 +2647,292 @@ run_menu_config(){
   done
 }
 
+tui_incident_recommendation_summary(){
+  local reason="${1:-}" monitor="${2:-}" host="${3:-}"
+  case "$(tui_incident_recommendation_key "$reason" "$monitor")" in
+    connectivity) printf 'connectivity triage: reason explain + focused status + network rerun' ;;
+    config) printf 'config remediation: init/config review + doctor + check' ;;
+    service) printf 'service recovery: focused status + logs + service rerun' ;;
+    patching) printf 'patch follow-up: impacted hosts + rerun after updates' ;;
+    runtime) printf 'runtime triage: slow monitors + doctor + timeout review' ;;
+    *) printf 'general triage: reasons + doctor + support bundle if needed' ;;
+  esac
+}
+
+tui_incident_run_recommended(){
+  local reason="${1:-}" monitor="${2:-}" host="${3:-}"
+  local key
+  key="$(tui_incident_recommendation_key "$reason" "$monitor")"
+  case "$key" in
+    connectivity)
+      [[ -n "$reason" ]] && tui_run_cmd "linux-maint explain reason $reason" "$0" explain reason "$reason"
+      if [[ -n "$host" ]]; then
+        tui_run_cmd "linux-maint status --host $host --problems 20 --table" "$0" status --host "$host" --problems 20 --table
+      else
+        tui_run_cmd "linux-maint status --reasons 10" "$0" status --reasons 10
+      fi
+      tui_run_cmd "linux-maint run --only network_monitor --strict" "$0" run --only network_monitor --strict
+      ;;
+    config)
+      [[ -n "$reason" ]] && tui_run_cmd "linux-maint explain reason $reason" "$0" explain reason "$reason"
+      tui_run_cmd "linux-maint config --sources" "$0" config --sources
+      tui_run_cmd "linux-maint doctor" "$0" doctor
+      tui_run_cmd "linux-maint check" "$0" check
+      ;;
+    service)
+      if [[ -n "$host" ]]; then
+        tui_run_cmd "linux-maint status --host $host --monitor service --problems 20 --table" "$0" status --host "$host" --monitor service --problems 20 --table
+      else
+        tui_run_cmd "linux-maint status --monitor service --problems 20 --table" "$0" status --monitor service --problems 20 --table
+      fi
+      tui_run_cmd "linux-maint logs 200" "$0" logs 200
+      tui_run_cmd "linux-maint run --only service_monitor --strict" "$0" run --only service_monitor --strict
+      ;;
+    patching)
+      tui_run_cmd "linux-maint status --reasons 10" "$0" status --reasons 10
+      tui_run_cmd "linux-maint report --short --no-trend" "$0" report --short --no-trend
+      ;;
+    runtime)
+      tui_run_cmd "linux-maint runtimes --last 10" "$0" runtimes --last 10
+      tui_run_cmd "linux-maint doctor" "$0" doctor
+      ;;
+    *)
+      tui_run_cmd "linux-maint status --reasons 10" "$0" status --reasons 10
+      tui_run_cmd "linux-maint doctor" "$0" doctor
+      ;;
+  esac
+}
+
+run_menu_overview(){
+  while true; do
+    local choice
+    TUI_SHORTCUT_CONTEXT="overview"
+    choice="$(tui_menu_prompt_safe "Overview and status" \
+      dashboard "View: live operations dashboard [d]" \
+      status "View: current status snapshot [s]" \
+      problems "Review: recent non-OK rows [p]" \
+      report "Review: short report summary [r]" \
+      trend "Analyze: recent trend (last 10 runs) [t]" \
+      back "Back to main menu [b]")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "overview")"
+    case "$choice" in
+      dashboard)
+        if [[ "$TUI_BACKEND" == "gum" ]]; then
+          tui_gum_dashboard
+        else
+          tui_run_cmd "linux-maint status --table" "$0" status --table
+        fi
+        ;;
+      status)
+        if [[ "${LM_TUI_DEFAULT_STATUS_VIEW:-table}" == "compact" ]]; then
+          tui_run_cmd "linux-maint status --compact" "$0" status --compact
+        else
+          tui_run_cmd "linux-maint status --table" "$0" status --table
+        fi
+        ;;
+      problems)
+        tui_run_cmd "linux-maint status --table --problems ${LM_TUI_DEFAULT_PROBLEMS:-20}" "$0" status --table --problems "${LM_TUI_DEFAULT_PROBLEMS:-20}"
+        ;;
+      report)
+        tui_run_cmd "linux-maint report --short --no-trend" "$0" report --short --no-trend
+        ;;
+      trend)
+        tui_run_cmd "linux-maint trend --last 10" "$0" trend --last 10
+        ;;
+      back)
+        break
+        ;;
+    esac
+    if [[ "${TUI_RETURN_TO_MAIN:-0}" == "1" ]]; then
+      break
+    fi
+  done
+}
+
+run_menu_investigate(){
+  while true; do
+    local choice
+    TUI_SHORTCUT_CONTEXT="investigate"
+    choice="$(tui_menu_prompt_safe "Investigate and drill down" \
+      drilldown "Analyze: filtered status drilldown [d]" \
+      diff "Inspect: changes since previous run [f]" \
+      history "Inspect: recent run history [h]" \
+      logs "Inspect: latest log tail [l]" \
+      reasons "Review: top reason tokens [r]" \
+      runtimes "Analyze: slowest monitors [u]" \
+      back "Back to main menu [b]")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "investigate")"
+    case "$choice" in
+      drilldown) tui_status_drilldown ;;
+      diff) tui_run_cmd "linux-maint diff" "$0" diff ;;
+      history) tui_run_cmd "linux-maint history --table" "$0" history --table ;;
+      logs) tui_run_cmd "linux-maint logs 200" "$0" logs 200 ;;
+      reasons) tui_run_cmd "linux-maint status --reasons 10" "$0" status --reasons 10 ;;
+      runtimes) tui_run_cmd "linux-maint runtimes --last 10" "$0" runtimes --last 10 ;;
+      back) break ;;
+    esac
+    if [[ "${TUI_RETURN_TO_MAIN:-0}" == "1" ]]; then
+      break
+    fi
+  done
+}
+
+run_menu_repair(){
+  while true; do
+    local choice
+    TUI_SHORTCUT_CONTEXT="repair"
+    choice="$(tui_menu_prompt_safe "Repair and recovery" \
+      incident "Guide: incident response workflow [i]" \
+      focused_run "Execute: focused service/network checks [f]" \
+      check "Validate: config and readiness checks [c]" \
+      doctor "Diagnose: doctor checks and fixes [d] [changes]" \
+      selfcheck "Validate: self-check (safe) [s]" \
+      secprofile "Inspect: strict security profile [p]" \
+      back "Back to main menu [b]")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "repair")"
+    case "$choice" in
+      incident) run_menu_incident_mode ;;
+      focused_run)
+        tui_run_cmd "linux-maint run --only preflight_check,health_monitor,service_monitor,network_monitor --strict" \
+          "$0" run --only preflight_check,health_monitor,service_monitor,network_monitor --strict
+        ;;
+      check) tui_run_cmd "linux-maint check" "$0" check ;;
+      doctor) tui_run_cmd "linux-maint doctor" "$0" doctor ;;
+      selfcheck) tui_run_cmd "linux-maint self-check" "$0" self-check ;;
+      secprofile) tui_run_cmd "linux-maint security-profile --strict" "$0" security-profile --strict ;;
+      back) break ;;
+    esac
+    if [[ "${TUI_RETURN_TO_MAIN:-0}" == "1" ]]; then
+      break
+    fi
+  done
+}
+
+run_menu_export(){
+  while true; do
+    local choice
+    TUI_SHORTCUT_CONTEXT="export"
+    choice="$(tui_menu_prompt_safe "Export and share" \
+      report "Export: short report summary [r]" \
+      trend "Export: recent trend (last 10 runs) [t]" \
+      runtimes "Export: runtime summary (last 10 runs) [u]" \
+      metrics_prom "Export: Prometheus metrics [m]" \
+      metrics_json "Export: metrics JSON [j]" \
+      export_json "Export: unified snapshot JSON [e]" \
+      pack_logs "Support: create redacted support bundle [p] [changes]" \
+      back "Back to main menu [b]")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "export")"
+    case "$choice" in
+      report) tui_run_cmd "linux-maint report --short --no-trend" "$0" report --short --no-trend ;;
+      trend) tui_run_cmd "linux-maint trend --last 10" "$0" trend --last 10 ;;
+      runtimes) tui_run_cmd "linux-maint runtimes --last 10" "$0" runtimes --last 10 ;;
+      metrics_prom) tui_run_cmd "linux-maint metrics --prom" "$0" metrics --prom ;;
+      metrics_json) tui_run_cmd "linux-maint metrics --json" "$0" metrics --json ;;
+      export_json) tui_run_cmd "linux-maint export --json" "$0" export --json ;;
+      pack_logs)
+        tui_run_cmd "linux-maint pack-logs --out /tmp --redact" "$0" pack-logs --out /tmp --redact
+        tui_support_bundle_summary
+        ;;
+      back) break ;;
+    esac
+    if [[ "${TUI_RETURN_TO_MAIN:-0}" == "1" ]]; then
+      break
+    fi
+  done
+}
+
+run_menu_docs(){
+  while true; do
+    local choice
+    TUI_SHORTCUT_CONTEXT="docs"
+    choice="$(tui_menu_prompt_safe "Docs and settings" \
+      quickref "Open: quick command reference [h]" \
+      troubleshooting "Open: troubleshooting guide [t]" \
+      faq "Open: FAQ and operator tips [f]" \
+      reasons "Open: reason token catalog [r]" \
+      monitors "Open: monitor matrix and purpose [m]" \
+      explain_reason "Explain: one reason token [e]" \
+      explain_monitor "Explain: one monitor [o]" \
+      explain_status "Explain: status meanings [w]" \
+      config "Inspect: effective config [c]" \
+      settings "Adjust: menu preferences and defaults [s]" \
+      about "Inspect: version and project details [a]" \
+      back "Back to main menu [b]")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "docs")"
+    case "$choice" in
+      quickref) tui_view_file "Quick reference" "$(find_doc_file QUICK_REFERENCE.md)" ;;
+      troubleshooting) tui_view_file "Troubleshooting" "$(find_doc_file troubleshooting.md)" ;;
+      faq) tui_view_file "FAQ" "$(find_doc_file FAQ.md)" ;;
+      reasons) tui_view_file "Reasons" "$(find_doc_file REASONS.md)" ;;
+      monitors) tui_view_file "Monitors matrix" "$(find_doc_file MONITORS_MATRIX.md)" ;;
+      explain_reason)
+        local token
+        tui_input_capture "Reason token" "e.g. disk_full"
+        token="$TUI_INPUT_VALUE"
+        if [[ "$TUI_INPUT_RC" -eq 0 && -n "$token" ]]; then
+          tui_run_cmd "linux-maint explain reason $token" "$0" explain reason "$token"
+        fi
+        ;;
+      explain_monitor)
+        local mon
+        tui_input_capture "Monitor name" "e.g. service_monitor"
+        mon="$TUI_INPUT_VALUE"
+        if [[ "$TUI_INPUT_RC" -eq 0 && -n "$mon" ]]; then
+          tui_run_cmd "linux-maint explain monitor $mon" "$0" explain monitor "$mon"
+        fi
+        ;;
+      explain_status)
+        local s
+        s="$(tui_menu_prompt_safe "Pick status" \
+          OK "Healthy" \
+          WARN "Warning" \
+          CRIT "Critical" \
+          UNKNOWN "Unknown" \
+          SKIP "Skipped" \
+          back "Back")"
+        if [[ "$TUI_MENU_RC" -eq 0 && -n "$s" ]]; then
+          s="$(normalize_menu_choice "$s")"
+          if [[ "$s" != "back" ]]; then
+            tui_run_cmd "linux-maint explain status $s" "$0" explain status "$s"
+          fi
+        fi
+        ;;
+      config) tui_run_cmd "linux-maint config" "$0" config ;;
+      settings) run_menu_settings ;;
+      about) tui_about ;;
+      back) break ;;
+    esac
+    if [[ "${TUI_RETURN_TO_MAIN:-0}" == "1" ]]; then
+      break
+    fi
+  done
+}
+
 run_menu(){
   if ! [[ -t 1 && -t 2 ]]; then
     echo "ERROR: linux-maint menu requires an interactive TTY" >&2
@@ -2195,7 +2949,7 @@ run_menu(){
   TUI_BACKTITLE="Linux Maint ToolKit"
 
   if [[ "$MODE" == "installed" && $EUID -ne 0 ]]; then
-    tui_msgbox $'Some actions (run/doctor/summary) require root.\nRe-run with: sudo linux-maint menu'
+    tui_msgbox $'Some run and repair actions require root in installed mode.\nRe-run with: sudo linux-maint menu'
   fi
 
   TUI_ANIM_TICK=0
@@ -2218,12 +2972,12 @@ run_menu(){
     fi
     TUI_SHORTCUT_CONTEXT="main"
     choice="$(tui_menu_prompt_safe "Choose your next step" \
+      overview "Overview, status, and next moves [o]" \
       run "Run checks, preview a plan, or resume work [r]" \
-      reports "Status, dashboards, reports, and drilldowns [s]" \
-      tools "Validation, diff, history, metrics, and bundles [t]" \
-      diagnostics "Doctor, logs, and guided recovery [d]" \
-      config "Config, monitors, and menu settings [c]" \
-      help "Docs, explainers, and project info [h]" \
+      investigate "Drill down, diff, history, and logs [i]" \
+      repair "Incident response, doctor, and recovery [p]" \
+      export "Reports, metrics, runtimes, and bundles [e]" \
+      docs "Docs, config, and menu settings [h]" \
       exit "Exit [x]")"
     rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
@@ -2232,23 +2986,23 @@ run_menu(){
     choice="$(normalize_menu_choice "$choice")"
     choice="$(map_menu_shortcut "$choice" "main")"
     case "$choice" in
+      overview)
+        run_menu_overview
+        ;;
       run)
         run_menu_run
         ;;
-      reports)
-        run_menu_reports
+      investigate)
+        run_menu_investigate
         ;;
-      tools)
-        run_menu_tools
+      repair)
+        run_menu_repair
         ;;
-      diagnostics)
-        run_menu_diagnostics
+      export)
+        run_menu_export
         ;;
-      config)
-        run_menu_config
-        ;;
-      help)
-        run_menu_help
+      docs)
+        run_menu_docs
         ;;
       exit)
         break
@@ -3103,19 +3857,19 @@ EOF
       cat <<'EOF'
 Usage: linux-maint menu
 
-Interactive TUI for runs, status, diagnostics, config, and docs.
+Interactive TUI for status, runs, investigation, repair, exports, and docs.
 
 Mode:
   repo mode:      linux-maint menu
   installed mode: sudo linux-maint menu
 
 Main sections:
+  Overview      landing dashboard, status snapshot, top problems, and next moves
   Run           execute checks now, preview plans, or use the run wizard
-  Reports       status, dashboard, report, trend, and runtimes
-  Tools         check, diff, history, metrics, and support bundles
-  Diagnostics   doctor, logs, self-check, security profile, incident mode
-  Config        effective config, monitor inventory, menu preferences
-  Help          quick reference, FAQ, explainers, and about
+  Investigate   drilldown, diff, history, logs, reasons, and runtimes
+  Repair        incident mode, doctor, check, self-check, and security profile
+  Export        report, trend, metrics, runtimes, export JSON, and support bundles
+  Docs          quick reference, troubleshooting, FAQ, config, monitors, settings
 
 Useful env vars:
   LM_TUI_BACKEND=gum|dialog|whiptail

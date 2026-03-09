@@ -51,6 +51,8 @@ Last updated: 2026-03-09
     - Proof: `tests/help_repo_usage_test.sh`, `tests/config_source_failure_human_hint_test.sh`, `tests/explain_monitor_repo_text_test.sh`.
   - P1 operator UX/docs polish: menu labels and `help menu` now explain the main operator flows clearly, and the quick reference, troubleshooting guide, and FAQ are repo/install-aware instead of reading as installed-mode-only docs.
     - Proof: `tests/help_menu_structure_test.sh`, `tests/operator_docs_mode_aware_test.sh`, `tests/menu_tty_flow_smoke_test.sh`.
+  - P1 TUI upgrade: `linux-maint menu` now opens with a landing overview, keeps repo/install context visible, uses task-based main sections (`Overview/Run/Investigate/Repair/Export/Docs`), and incident mode can execute a recommended triage flow from the top reason class.
+    - Proof: `tests/menu_tty_flow_smoke_test.sh`, `tests/menu_shortcuts_test.sh`, `tests/menu_main_shortcut_dispatch_test.sh`, `tests/incident_recommendation_test.sh`, `tests/help_menu_structure_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 

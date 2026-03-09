@@ -27,14 +27,24 @@ set -e
   sed -n '1,120p' "$out" >&2 || true
   exit 1
 }
-grep -q "Choose your next step" "$out" || {
-  echo "menu tty flow smoke missing main title in pseudo-TTY output" >&2
+grep -q "Operations console" "$out" || {
+  echo "menu tty flow smoke missing operations console header in pseudo-TTY output" >&2
   sed -n '1,120p' "$out" >&2 || true
   exit 1
 }
-grep -q "Run checks, preview a plan, or resume work" "$out" || {
+grep -q "Overview, status, and next moves" "$out" || {
   echo "menu tty flow smoke missing menu choices in pseudo-TTY output" >&2
   sed -n '1,120p' "$out" >&2 || true
+  exit 1
+}
+grep -q "overview=" "$out" || {
+  echo "menu tty flow smoke missing compact overview line" >&2
+  sed -n '1,160p' "$out" >&2 || true
+  exit 1
+}
+grep -q "next=" "$out" || {
+  echo "menu tty flow smoke missing compact next-step guidance" >&2
+  sed -n '1,160p' "$out" >&2 || true
   exit 1
 }
 

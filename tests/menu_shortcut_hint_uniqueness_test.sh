@@ -13,7 +13,12 @@ text = open(path, "r", encoding="utf-8").read()
 
 prompts = [
     "Choose your next step",
+    "Overview and status",
     "Run checks",
+    "Investigate and drill down",
+    "Repair and recovery",
+    "Export and share",
+    "Docs and settings",
     "Reports and status",
     "Tools and automation",
     "Help and docs",
@@ -25,7 +30,7 @@ prompts = [
 ]
 
 for prompt in prompts:
-    m = re.search(rf'tui_menu_prompt_safe "{re.escape(prompt)}" \\\n(.*?)\)\n', text, re.S)
+    m = re.search(rf'tui_menu_prompt_safe "{re.escape(prompt)}" \\\n(.*?)\)"\n', text, re.S)
     if not m:
         raise SystemExit(f"menu block not found: {prompt}")
     block = m.group(1)

@@ -26,8 +26,13 @@ printf '%s\n' "$out" | grep -q '^Main sections:$' || {
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q 'Diagnostics   doctor, logs, self-check, security profile, incident mode' || {
-  echo "help menu missing diagnostics summary" >&2
+printf '%s\n' "$out" | grep -q 'Overview      landing dashboard, status snapshot, top problems, and next moves' || {
+  echo "help menu missing overview summary" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q 'Repair        incident mode, doctor, check, self-check, and security profile' || {
+  echo "help menu missing repair summary" >&2
   echo "$out" >&2
   exit 1
 }

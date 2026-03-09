@@ -11,19 +11,19 @@ cleanup() { rm -f "$MENU_QUEUE_FILE"; }
 trap cleanup EXIT
 
 RUN_MENU_COUNT=0
-DIAG_MENU_COUNT=0
+REPAIR_MENU_COUNT=0
 EXIT_SEEN=0
 
+run_menu_overview() { :; }
 run_menu_run() { RUN_MENU_COUNT=$((RUN_MENU_COUNT+1)); }
-run_menu_reports() { :; }
-run_menu_tools() { :; }
-run_menu_diagnostics() { DIAG_MENU_COUNT=$((DIAG_MENU_COUNT+1)); }
-run_menu_config() { :; }
-run_menu_help() { :; }
+run_menu_investigate() { :; }
+run_menu_repair() { REPAIR_MENU_COUNT=$((REPAIR_MENU_COUNT+1)); }
+run_menu_export() { :; }
+run_menu_docs() { :; }
 
 cat > "$MENU_QUEUE_FILE" <<'EOF'
 r
-d
+p
 x
 EOF
 
@@ -37,12 +37,12 @@ while true; do
   local_choice="$(normalize_menu_choice "$local_choice")"
   local_choice="$(map_menu_shortcut "$local_choice" "main")"
   case "$local_choice" in
+    overview) run_menu_overview ;;
     run) run_menu_run ;;
-    reports) run_menu_reports ;;
-    tools) run_menu_tools ;;
-    diagnostics) run_menu_diagnostics ;;
-    config) run_menu_config ;;
-    help) run_menu_help ;;
+    investigate) run_menu_investigate ;;
+    repair) run_menu_repair ;;
+    export) run_menu_export ;;
+    docs) run_menu_docs ;;
     exit) EXIT_SEEN=1; break ;;
   esac
 done
@@ -51,8 +51,8 @@ done
   echo "expected run submenu once, got $RUN_MENU_COUNT" >&2
   exit 1
 }
-[[ "$DIAG_MENU_COUNT" -eq 1 ]] || {
-  echo "expected diagnostics submenu once after run, got $DIAG_MENU_COUNT" >&2
+[[ "$REPAIR_MENU_COUNT" -eq 1 ]] || {
+  echo "expected repair submenu once after run, got $REPAIR_MENU_COUNT" >&2
   exit 1
 }
 [[ "$EXIT_SEEN" -eq 1 ]] || {

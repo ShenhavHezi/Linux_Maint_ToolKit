@@ -191,6 +191,7 @@ run_required "menu_choice_normalization_test" bash "$ROOT_DIR/tests/menu_choice_
 run_required "menu_doc_path_resolution_test" bash "$ROOT_DIR/tests/menu_doc_path_resolution_test.sh"
 run_required "menu_config_wiring_test" bash "$ROOT_DIR/tests/menu_config_wiring_test.sh"
 run_required "menu_shortcuts_test" bash "$ROOT_DIR/tests/menu_shortcuts_test.sh"
+run_required "incident_recommendation_test" bash "$ROOT_DIR/tests/incident_recommendation_test.sh"
 run_required "menu_settings_roundtrip_test" bash "$ROOT_DIR/tests/menu_settings_roundtrip_test.sh"
 run_required "menu_settings_validation_test" bash "$ROOT_DIR/tests/menu_settings_validation_test.sh"
 run_required "menu_run_wizard_test" bash "$ROOT_DIR/tests/menu_run_wizard_test.sh"
