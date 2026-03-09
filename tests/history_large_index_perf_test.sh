@@ -31,6 +31,10 @@ elapsed=$((end - start))
 JSON_OUT="$out" python3 - <<'PY'
 import json, os
 obj = json.loads(os.environ["JSON_OUT"])
+assert obj["schema_version"] == 1
+assert obj["history_json_contract_version"] == 1
+assert obj["source"] == "run_index"
+assert obj["invalid_lines"] == 0
 runs = obj.get("runs") or []
 assert len(runs) == 20
 assert runs[-1].get("run_id") == "r099999"

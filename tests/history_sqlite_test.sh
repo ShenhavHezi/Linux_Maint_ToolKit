@@ -32,5 +32,6 @@ printf '%s\n' "$json_out" | grep -q '"runs"' || {
   echo "$json_out" >&2
   exit 1
 }
+printf '%s' "$json_out" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["schema_version"]==1; assert o["history_json_contract_version"]==1; assert o["source"]=="sqlite"; assert o["invalid_lines"]==0'
 
 echo "history sqlite ok"

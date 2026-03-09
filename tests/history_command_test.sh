@@ -30,6 +30,11 @@ printf '%s\n' "$json_out" | grep -q '"runs"' || {
   echo "$json_out" >&2
   exit 1
 }
+printf '%s\n' "$json_out" | grep -q '"schema_version"' || {
+  echo "history --json missing schema version" >&2
+  echo "$json_out" >&2
+  exit 1
+}
 printf '%s\n' "$json_out" | grep -q '"history_json_contract_version"' || {
   echo "history --json missing contract version" >&2
   echo "$json_out" >&2

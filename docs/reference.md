@@ -713,13 +713,17 @@ Schema:
 ### `linux-maint history --json` compatibility contract
 
 Top-level keys:
+- `schema_version` (integer, current value: `1`)
 - `history_json_contract_version` (integer, current value: `1`)
+- `source` (string: `run_index` or `sqlite`)
+- `invalid_lines` (integer; count of invalid JSONL entries, always `0` on successful output)
 - `runs` (array of run index entries; newest first)
 
 Compatibility policy:
 - Existing keys/types above are treated as stable for contract version `1`.
 - Additive keys may be introduced without breaking compatibility.
 - Breaking shape/type changes require incrementing a contract version and schema update.
+- `history --json` fails with exit code `2` if the backing `run_index.jsonl` contains invalid JSON lines.
 
 Schemas:
 - `docs/schemas/history.json` — JSON schema for `linux-maint history --json`.

@@ -1,8 +1,11 @@
 {
   "type": "object",
-  "required": ["history_json_contract_version", "runs"],
+  "required": ["schema_version", "history_json_contract_version", "source", "invalid_lines", "runs"],
   "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
     "history_json_contract_version": { "type": "integer" },
+    "source": { "type": "string", "enum": ["run_index", "sqlite"] },
+    "invalid_lines": { "type": "integer", "minimum": 0 },
     "runs": {
       "type": "array",
       "items": {

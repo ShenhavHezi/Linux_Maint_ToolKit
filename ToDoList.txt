@@ -29,6 +29,8 @@ Last updated: 2026-03-09
     - Proof: `tests/trend_command_test.sh`, `tests/trend_cache_ttl_test.sh`, `tests/runtimes_json_fields_test.sh`, `tests/export_invalid_summary_json_test.sh`.
   - P0 run-index hardening: `run-index --prune` now fails on rewrite errors instead of silently reporting success, and `run-index --json` has an explicit contract/schema.
     - Proof: `tests/run_index_command_test.sh`, `tests/run_index_prune_write_failure_test.sh`.
+  - P0 history hardening: `history --json` now fails on corrupt `run_index.jsonl` input instead of silently dropping bad lines, with explicit source/schema fields.
+    - Proof: `tests/history_invalid_run_index_test.sh`, `tests/history_sqlite_test.sh`, `tests/history_large_index_perf_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 
