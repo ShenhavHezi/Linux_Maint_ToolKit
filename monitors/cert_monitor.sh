@@ -33,7 +33,13 @@ lm_require_cmd "cert_monitor" "localhost" timeout --optional || true
 
 _summary_emitted=0
 emit_summary(){ _summary_emitted=1; lm_summary "cert_monitor" "$@"; }
-trap 'rc=$?; if [ "${_summary_emitted:-0}" -eq 0 ]; then lm_summary "cert_monitor" "localhost" "UNKNOWN" reason=early_exit rc="$rc"; fi' EXIT
+emit_early_exit_summary() {
+  local rc=$?
+  if [ "${_summary_emitted:-0}" -eq 0 ]; then
+    lm_summary "cert_monitor" "localhost" "UNKNOWN" reason=early_exit rc="$rc"
+  fi
+}
+trap emit_early_exit_summary EXIT
 mkdir -p "$(dirname "$LM_LOGFILE")"
 
 MAIL_SUBJECT_PREFIX='[Cert Monitor]'

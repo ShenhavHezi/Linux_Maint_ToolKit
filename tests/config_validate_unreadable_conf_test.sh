@@ -6,6 +6,11 @@ workdir="$(mktemp -d "${TMPDIR:-/tmp}/lm_cfg_validate.XXXXXX")"
 cleanup(){ chmod 0644 "$workdir/linux-maint.conf" 2>/dev/null || true; rm -rf "$workdir"; }
 trap cleanup EXIT
 
+if [ "$(id -u)" -eq 0 ]; then
+  echo "config validate unreadable conf skipped under root"
+  exit 0
+fi
+
 mkdir -p "$workdir/conf.d"
 cat > "$workdir/linux-maint.conf" <<'EOF_CONF'
 LM_DARK_SITE=false
