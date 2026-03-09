@@ -29,6 +29,7 @@ printf '%s' "$json_out" | python3 "$ROOT_DIR/tools/json_schema_validate.py" "$RO
 JSON_OUT="$json_out" python3 - <<'PY'
 import json, os
 data = json.loads(os.environ.get("JSON_OUT", ""))
+assert data.get("schema_version") == 1
 assert data.get("config_json_contract_version") == 1
 assert data.get("values", {}).get("LM_FOO") == "bar"
 assert data.get("values", {}).get("LM_NUM") == "123"

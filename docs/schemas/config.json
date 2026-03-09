@@ -1,16 +1,30 @@
 {
   "type": "object",
-  "required": ["config_json_contract_version", "cfg_dir", "sources", "values"],
+  "required": ["schema_version", "config_json_contract_version", "cfg_dir", "sources"],
   "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
     "config_json_contract_version": { "type": "integer", "minimum": 1 },
     "cfg_dir": { "type": "string" },
     "sources": {
       "type": "array",
       "items": { "type": "string" }
     },
+    "error": { "type": "string" },
+    "message": { "type": "string" },
+    "errors": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
     "values": {
       "type": "object",
       "additionalProperties": { "type": "string" }
-    }
-  }
+    },
+    "diff_defaults": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "diff_defaults_template": { "type": "string" },
+    "diff_defaults_error": { "type": "string" }
+  },
+  "additionalProperties": true
 }

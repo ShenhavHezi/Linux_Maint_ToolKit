@@ -17,4 +17,5 @@ LM_PREFLIGHT_OPT_CMDS="openssl, bad cmd"
 EOF
 
 out="$(LM_CFG_DIR="$cfg" bash "$LM" config --json 2>&1 || true)"
-printf '%s' "$out" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o.get("error")=="invalid_types"; keys={e.get("key") for e in o.get("errors",[])}; assert "LM_MAX_PARALLEL" in keys; assert "LM_NOTIFY" in keys; assert "LM_PREFLIGHT_OPT_CMDS" in keys; print("config type validation ok")'
+printf '%s' "$out" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o.get("schema_version")==1; assert o.get("config_json_contract_version")==1; assert o.get("error")=="invalid_types"; keys={e.get("key") for e in o.get("errors",[])}; assert "LM_MAX_PARALLEL" in keys; assert "LM_NOTIFY" in keys; assert "LM_PREFLIGHT_OPT_CMDS" in keys; print("config type validation ok")'
+printf '%s' "$out" | python3 "$ROOT_DIR/tools/json_schema_validate.py" "$ROOT_DIR/docs/schemas/config.json"

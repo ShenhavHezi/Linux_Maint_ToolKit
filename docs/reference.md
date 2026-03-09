@@ -756,11 +756,15 @@ Schema:
 ### `linux-maint config --json` compatibility contract
 
 Top-level keys:
+- `schema_version` (integer, current value: `1`)
 - `config_json_contract_version` (integer, current value: `1`)
 - `cfg_dir` (string path to the config root)
 - `sources` (array of config file paths used to build the effective config)
-- `values` (object; effective config key/value pairs as strings)
+- `values` (object; effective config key/value pairs as strings; present on successful output)
 - `diff_defaults` (optional array; present when `--diff-defaults` is used)
+- `error` (optional string; stable machine error code such as `no_config`, `no_keys`, `source_failed`, `invalid_types`)
+- `message` (optional string; human-readable error detail)
+- `errors` (optional array; structured validation issues, currently used for `invalid_types`)
 
 Compatibility policy:
 - Existing keys/types above are treated as stable for contract version `1`.
