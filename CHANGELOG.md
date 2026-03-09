@@ -4,12 +4,16 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## Unreleased
 
-- Release v0.3.2
-- Added plugin marketplace attestation verification (`plugin verify-index`) with `sha256|gpg|cosign`.
-- Added trust-policy lifecycle enforcement for index/plugin verification (`LM_PLUGIN_TRUST_POLICY_FILE`, revoked/trusted lists, required-policy gate).
-- Added plugin provenance compliance artifact command (`plugin provenance-report`).
-- Added audit hash-chain tamper verification (`audit-log --verify`).
-- Added `export --jsonl` plus expanded JSON contract/schema coverage for integrations.
+- (add changes here)
+
+## 2026-03-09
+
+- Release v0.3.3
+- Hardened repo-mode path handling across wrapper, monitors, reporting, readiness, packaging, and operator commands.
+- Added fail-fast JSON contract/version handling for status-derived commands and related operator surfaces.
+- Hardened advanced command/integration behavior (`serve`, `agent`, `predict`, `ai-assist`, `federate`, plugin installs, `audit-log`, `notify`, `ticket`).
+- Reworked `linux-maint menu` and CLI help into a more guided operator console with Quickstart, palette/search, previews, and stronger fallback backends.
+- Expanded CI/compat coverage and regression tests across repo-mode, menu/TUI, and command-contract paths.
 
 ## 2026-03-02
 
