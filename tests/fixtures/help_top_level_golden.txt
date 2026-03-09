@@ -1,0 +1,107 @@
+Usage: linux-maint <command> [args]
+
+Start here:
+  (repo mode; git checkout)
+  linux-maint init
+  linux-maint run
+  linux-maint status
+
+  (installed mode; after install.sh)
+  sudo linux-maint init
+  sudo linux-maint run
+  sudo linux-maint status
+
+Most-used operator paths:
+  menu                   Interactive operations console (Quickstart / Overview / Run / Investigate / Repair / Export / Docs)
+  run [flags]            Execute the wrapper, scope runs, or preview a plan
+  status [flags]         Read the current fleet state and top problems
+  report [flags]         One-screen operator summary with trend and runtime context
+  check [--json]         Validate config + readiness and show expected skips
+  doctor [flags]         Diagnose paths, dependencies, and repair guidance
+
+Investigate / export:
+  summary                One-line summary for cron and dashboards
+  trend [flags]          Severity and reason trend rollups
+  runtimes [flags]       Slowest monitors and runtime history
+  export --json|--csv|--jsonl  Export unified artifacts for other systems
+  history [flags]        Recent runs from the run index
+  run-index [flags]      Inspect or prune the run index
+  logs [n]               Tail the latest wrapper log (default n=200)
+  diff [--json]          Changes since the previous run
+  metrics --json|--prom  Machine metrics snapshot (JSON or Prometheus)
+
+Automation / integrations:
+  gate --policy FILE     Evaluate policy thresholds for CI or deploy gates
+  plugin <subcommand>    Manage local plugins and provenance checks
+  notify [flags]         Send test notifications (webhook/slack/teams/email)
+  ticket [flags]         Create Jira or ServiceNow payloads
+  cm-hook [flags]        Trigger config-management hooks (ansible/puppet/salt)
+  audit-log [flags]      Inspect append-only audit events
+  serve [flags]          Local REST API (status/report/metrics/history)
+  agent [flags]          Optional loop runner for scheduled checks
+  policy <subcommand>    Policy-as-code helpers (init/lint/eval)
+  federate [flags]       Aggregate multiple status JSON snapshots
+  ai-assist [flags]      Local heuristic diagnosis assistant
+  predict [flags]        Predictive risk summary from history
+
+Setup / maintenance:
+  init [flags]           Install config templates into <cfg_dir>
+  config [flags]         Show effective config (merged from <cfg_dir>)
+  tune dark-site         Apply recommended dark-site defaults to linux-maint.conf
+  baseline <...> [flags] Capture or preview baselines
+  preflight              Run preflight checks
+  validate               Validate config file formats (best-effort)
+  check                  Run config_validate + preflight + show expected skips
+  deps                   Print required/optional dependency manifest by monitor
+  verify-install         Verify installation layout and systemd wiring (best-effort)
+  pack-logs [flags]      Create a support bundle tar.gz (logs, config redacted, meta)
+
+Release / packaging:
+  version                Print installed BUILD_INFO (if present)
+  make-tarball           Build offline release tarball (tools/make_tarball.sh)
+  verify-release         Verify release tarball integrity (tools/verify_release.sh)
+  install [args]         Run ./install.sh (pass-through)
+  uninstall [args]       Run ./install.sh --uninstall (pass-through)
+
+Help / reference:
+  help [command]          Show help for a command (shortcut for usage)
+  explain reason <token>  Explain a reason= token (from docs/REASONS.md)
+  explain monitor <name>  Explain a monitor (purpose, deps, common reasons)
+  explain status <S>      Explain a status value (OK/WARN/CRIT/UNKNOWN/SKIP)
+  help                    Show this help
+
+Menu sections:
+  Quickstart              First setup, current incident, and escalation workflows
+  Overview                Dashboard, current state, and next moves
+  Run                     Execute checks, preview plans, and scope runs
+  Investigate             Drilldown, diff, history, logs, and runtimes
+  Repair                  Guided triage, doctor, and safety checks
+  Export                  Reports, metrics, JSON, and support bundles
+  Docs                    Reference, config, and menu preferences
+
+Environment:
+  LM_PROGRESS=0         disable progress bar during run
+  NO_COLOR=1            disable colored output
+  LM_LOCAL_ONLY=true    force local-only mode (CI/testing)
+  LM_DARK_SITE=true     enable conservative offline defaults
+  LM_TUI_BACKEND=gum    force menu UI backend (gum|dialog|whiptail)
+  LM_TUI_COMPACT=1      compact menu style (no full banner mode)
+  LM_TUI_LOW_COLOR=1    low-color menu mode
+  LM_TUI_CONFIRM_RISKY=0 disable risky-action confirmations
+
+Examples by task:
+  Inspect current state: linux-maint status --only WARN --reasons 5
+  Review a short summary: linux-maint report --short --no-trend
+  Plan safely first:      NO_COLOR=1 linux-maint run --local-only --plan --json
+  Run focused checks:     linux-maint run --only service_monitor,ntp_drift_monitor
+  Compare runs:           linux-maint diff
+  Export machine data:    NO_COLOR=1 linux-maint trend --last 10 --json
+  Create support bundle:  linux-maint pack-logs --out /tmp --redact
+  Inspect monitor list:   linux-maint list-monitors
+  Validate summary file:  linux-maint lint-summary <summary.log>
+  Work from the menu:     linux-maint menu
+
+Best next commands:
+  See docs/README.md for full docs and flag details
+  linux-maint help <command>
+  NO_COLOR=1 linux-maint report

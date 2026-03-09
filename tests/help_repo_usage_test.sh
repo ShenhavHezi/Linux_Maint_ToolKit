@@ -28,7 +28,7 @@ printf '%s\n' "$out" | grep -q '^  Validate summary file:[[:space:]]\+linux-main
 }
 
 run_help="$(bash "$LM" help run)"
-printf '%s\n' "$run_help" | grep -q '^  --group G            use <cfg_dir>/hosts.d/G.txt$' || {
+printf '%s\n' "$run_help" | grep -q '^  --group G[[:space:]]\+use <cfg_dir>/hosts.d/G.txt$' || {
   echo "run help should describe repo/install-neutral group path" >&2
   echo "$run_help" >&2
   exit 1

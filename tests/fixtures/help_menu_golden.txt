@@ -1,0 +1,56 @@
+Usage: linux-maint menu
+
+Purpose:
+  Open the interactive operations console for guided monitoring, triage, export, and docs.
+
+When to use:
+  - day-to-day operator workflow
+  - first setup and safe first run
+  - current-incident triage
+  - export and escalation flow
+
+Key flags:
+  Main sections:
+    Quickstart    first setup, current incident, and escalation workflows
+    Overview      dashboard, current state, top problems, and next moves
+    Run           execute checks, preview plans, or use the run wizard
+    Investigate   drilldown, diff, history, logs, reasons, and runtimes
+    Repair        guided incident response, doctor, check, self-check, and security profile
+    Export        report, trend, metrics, export JSON, and the bundle wizard
+    Docs          quick reference, troubleshooting, FAQ, config, monitors, and settings
+  Best path by task:
+    First day with the tool?      Quickstart -> first setup
+    Need the current answer fast?  Overview -> status or report
+    Need to understand a failure?  Investigate -> drilldown or logs
+    Need to recover quickly?       Repair -> incident or doctor
+    Need to share data?            Export -> report, export JSON, or pack logs
+  Global gum controls:
+    1-9           pick a visible action
+    ?             quick help overlay for the current menu
+    /             command palette / action search
+    Enter         open the full chooser
+    Esc           go back
+  Useful env vars:
+    LM_TUI_BACKEND=gum|dialog|whiptail
+    LM_TUI_DASH_REFRESH=<seconds>
+    LM_TUI_DEFAULT_STATUS_VIEW=table|compact
+    LM_TUI_DEFAULT_PROBLEMS=<1..100>
+    LM_TUI_DEFAULT_REASONS=<0..20>
+    LM_TUI_PREVIEW=1|0
+    LM_TUI_SHORTCUTS=1|0
+    LM_TUI_COMPACT=1|0
+    LM_TUI_LOW_COLOR=1|0
+    LM_TUI_CONFIRM_RISKY=1|0
+
+Exit behavior:
+  - returns non-zero if no supported TUI backend is available
+  - returns non-zero when interactive TTY requirements are not met
+
+Repo vs installed:
+  repo mode:      linux-maint menu
+  installed mode: sudo linux-maint menu
+
+Examples:
+  linux-maint menu
+  LM_TUI_BACKEND=gum linux-maint menu
+  LM_TUI_COMPACT=1 linux-maint menu

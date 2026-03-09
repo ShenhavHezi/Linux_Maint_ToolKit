@@ -1,0 +1,264 @@
+=== Quickstart ===
+
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │  Linux Maint ToolKit                                                                                         │
+ │  Quickstart                                                                                                  │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+ ╭────────────────────────────────────────────────────╮    ╭────────────────────────────────────────────────────╮
+ │                                                    │    │                                                    │
+ │  Active context                                    │    │  Fleet status                                      │
+ │  mode=repo  overall=CRIT  last_run=missing         │    │  Overall: !! CRIT                                  │
+ │  shortcuts=on  preview=on                          │    │  OK:0  WARN:1  CRIT:1  UNKNOWN:0  SKIP:0           │
+ │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
+ │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
+ │  ogs  state=/tmp/linux_maint_state_fixture         │
+ │                                                    │    ╭────────────────────────────────────────────────────╮
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           │  Current pressure                                  │
+ ╭────────────────────────────────────────────────────╮    │  overall=CRIT                                      │
+ │                                                    │    │  top_reason=http_failed                            │
+ │  Recommended start                                 │    │  top_problem=network_monitor host=web-2            │
+ │  Recommended first action: first_setup             │    │                                                    │
+ │  - First setup for init, check, and safe plan      │    ╰────────────────────────────────────────────────────╯
+ │  review                                            │
+ │  - Current incident for guided triage and repair   │
+ │  - Escalation for report, JSON export, and         │
+ │  support bundle                                    │
+ │                                                    │
+ ╰────────────────────────────────────────────────────╯
+
+  first_setup       Guide: first setup and safe first run [f]
+  current_incident  Guide: current incident triage [i]
+  escalation        Guide: export and escalation workflow [e]
+  back              Back to main menu [b]
+
+  Type shortcut or number. ? help, / search, Enter browse, Esc back.
+=== Overview ===
+
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │  Linux Maint ToolKit                                                                                         │
+ │  Overview                                                                                                    │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+ ╭────────────────────────────────────────────────────╮    ╭────────────────────────────────────────────────────╮
+ │                                                    │    │                                                    │
+ │  Active context                                    │    │  Fleet status                                      │
+ │  mode=repo  overall=CRIT  last_run=missing         │    │  Overall: !! CRIT                                  │
+ │  shortcuts=on  preview=on                          │    │  OK:0  WARN:1  CRIT:1  UNKNOWN:0  SKIP:0           │
+ │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
+ │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
+ │  ogs  state=/tmp/linux_maint_state_fixture         │
+ │                                                    │    ╭────────────────────────────────────────────────────╮
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           │  Current pressure                                  │
+ ╭────────────────────────────────────────────────────╮    │  overall=CRIT                                      │
+ │                                                    │    │  top_reason=http_failed                            │
+ │  Recommended start                                 │    │  top_problem=network_monitor host=web-2            │
+ │  Recommended first action: problems                │    │                                                    │
+ │  - Dashboard for the live operations view          │    ╰────────────────────────────────────────────────────╯
+ │  - Problems for the latest non-OK rows             │
+ │  - Report when you need a short operator summary   │
+ │                                                    │
+ ╰────────────────────────────────────────────────────╯
+
+  dashboard   Open: live operations dashboard [d]
+  status      Open: current status snapshot [s]
+  problems    Review: latest non-OK rows [p]
+  report      Review: short operator summary [r]
+  trend       Analyze: recent trend (last 10 runs) [t]
+  back        Back to main menu [b]
+
+  Type shortcut or number. ? help, / search, Enter browse, Esc back.
+=== Run checks ===
+
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │  Linux Maint ToolKit                                                                                         │
+ │  Run checks                                                                                                  │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+ ╭────────────────────────────────────────────────────╮    ╭────────────────────────────────────────────────────╮
+ │                                                    │    │                                                    │
+ │  Active context                                    │    │  Fleet status                                      │
+ │  mode=repo  overall=CRIT  last_run=missing         │    │  Overall: !! CRIT                                  │
+ │  shortcuts=on  preview=on                          │    │  OK:0  WARN:1  CRIT:1  UNKNOWN:0  SKIP:0           │
+ │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
+ │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
+ │  ogs  state=/tmp/linux_maint_state_fixture         │
+ │                                                    │    ╭────────────────────────────────────────────────────╮
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           │  Current pressure                                  │
+ ╭────────────────────────────────────────────────────╮    │  overall=CRIT                                      │
+ │                                                    │    │  top_reason=http_failed                            │
+ │  Recommended start                                 │    │  top_problem=network_monitor host=web-2            │
+ │  Recommended first action: plan                    │    │                                                    │
+ │  - Plan first when config or scope changed         │    ╰────────────────────────────────────────────────────╯
+ │  - Wizard for group/host targeting and safe        │
+ │  previews                                          │
+ │  - Run now when you already know the exact scope   │
+ │                                                    │
+ ╰────────────────────────────────────────────────────╯
+
+  run       Execute: run checks now (live output) [r] [changes]
+  plan      Preview: resolved run plan only [p]
+  wizard    Guide: guided run setup wizard [w]
+  back      Back to main menu [b]
+
+  Type shortcut or number. ? help, / search, Enter browse, Esc back.
+=== Investigate ===
+
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │  Linux Maint ToolKit                                                                                         │
+ │  Investigate                                                                                                 │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+ ╭────────────────────────────────────────────────────╮    ╭────────────────────────────────────────────────────╮
+ │                                                    │    │                                                    │
+ │  Active context                                    │    │  Fleet status                                      │
+ │  mode=repo  overall=CRIT  last_run=missing         │    │  Overall: !! CRIT                                  │
+ │  shortcuts=on  preview=on                          │    │  OK:0  WARN:1  CRIT:1  UNKNOWN:0  SKIP:0           │
+ │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
+ │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
+ │  ogs  state=/tmp/linux_maint_state_fixture         │
+ │                                                    │    ╭────────────────────────────────────────────────────╮
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           │  Current pressure                                  │
+ ╭────────────────────────────────────────────────────╮    │  overall=CRIT                                      │
+ │                                                    │    │  top_reason=http_failed                            │
+ │  Recommended start                                 │    │  top_problem=network_monitor host=web-2            │
+ │  Recommended first action: drilldown               │    │                                                    │
+ │  Top reason: http_failed                           │    ╰────────────────────────────────────────────────────╯
+ │  Top problem: network_monitor host=web-2           │
+ │  - Follow with logs or diff once you narrow the    │
+ │  slice                                             │
+ │                                                    │
+ ╰────────────────────────────────────────────────────╯
+
+  drilldown   Analyze: filtered status drilldown [d]
+  diff        Inspect: changes since previous run [f]
+  history     Inspect: recent run history [h]
+  logs        Inspect: latest wrapper log [l]
+  reasons     Review: top reason tokens [r]
+  runtimes    Analyze: slowest monitors [u]
+  back        Back to main menu [b]
+
+  Type shortcut or number. ? help, / search, Enter browse, Esc back.
+=== Repair ===
+
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │  Linux Maint ToolKit                                                                                         │
+ │  Repair                                                                                                      │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+ ╭────────────────────────────────────────────────────╮    ╭────────────────────────────────────────────────────╮
+ │                                                    │    │                                                    │
+ │  Active context                                    │    │  Fleet status                                      │
+ │  mode=repo  overall=CRIT  last_run=missing         │    │  Overall: !! CRIT                                  │
+ │  shortcuts=on  preview=on                          │    │  OK:0  WARN:1  CRIT:1  UNKNOWN:0  SKIP:0           │
+ │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
+ │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
+ │  ogs  state=/tmp/linux_maint_state_fixture         │
+ │                                                    │    ╭────────────────────────────────────────────────────╮
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           │  Current pressure                                  │
+ ╭────────────────────────────────────────────────────╮    │  overall=CRIT                                      │
+ │                                                    │    │  top_reason=http_failed                            │
+ │  Recommended start                                 │    │  top_problem=network_monitor host=web-2            │
+ │  Recommended first action: incident                │    │                                                    │
+ │  Current triage: connectivity triage: reason       │    ╰────────────────────────────────────────────────────╯
+ │  explain + focused status + network rerun          │
+ │  - Doctor validates deeper dependencies and fixes  │
+ │  - Check confirms readiness before the next full   │
+ │  run                                               │
+ │                                                    │
+ ╰────────────────────────────────────────────────────╯
+
+  incident      Guide: incident response workflow [i]
+  focused_run   Execute: focused service and network checks [f]
+  check         Validate: config and readiness checks [c]
+  doctor        Diagnose: doctor checks and fixes [d] [changes]
+  selfcheck     Validate: self-check (safe) [s]
+  secprofile    Inspect: strict security profile [p]
+  back          Back to main menu [b]
+
+  Type shortcut or number. ? help, / search, Enter browse, Esc back.
+=== Export ===
+
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │  Linux Maint ToolKit                                                                                         │
+ │  Export                                                                                                      │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+ ╭────────────────────────────────────────────────────╮    ╭────────────────────────────────────────────────────╮
+ │                                                    │    │                                                    │
+ │  Active context                                    │    │  Fleet status                                      │
+ │  mode=repo  overall=CRIT  last_run=missing         │    │  Overall: !! CRIT                                  │
+ │  shortcuts=on  preview=on                          │    │  OK:0  WARN:1  CRIT:1  UNKNOWN:0  SKIP:0           │
+ │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
+ │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
+ │  ogs  state=/tmp/linux_maint_state_fixture         │
+ │                                                    │    ╭────────────────────────────────────────────────────╮
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           │  Current pressure                                  │
+ ╭────────────────────────────────────────────────────╮    │  overall=CRIT                                      │
+ │                                                    │    │  top_reason=http_failed                            │
+ │  Recommended start                                 │    │  top_problem=network_monitor host=web-2            │
+ │  Recommended first action: report                  │    │                                                    │
+ │  - Report for people, export JSON for systems      │    ╰────────────────────────────────────────────────────╯
+ │  - Metrics and runtimes for dashboards and tuning  │
+ │  - Pack logs when you need a support bundle        │
+ │                                                    │
+ ╰────────────────────────────────────────────────────╯
+
+  report        Open: short report summary [r]
+  trend         Open: recent trend (last 10 runs) [t]
+  runtimes      Open: runtime summary (last 10 runs) [u]
+  metrics_prom  Export: Prometheus metrics [m]
+  metrics_json  Export: metrics JSON [j]
+  export_json   Export: unified snapshot JSON [e]
+  pack_logs     Support: guided support bundle wizard [p] [changes]
+  back          Back to main menu [b]
+
+  Type shortcut or number. ? help, / search, Enter browse, Esc back.
+=== Docs ===
+
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │  Linux Maint ToolKit                                                                                         │
+ │  Docs                                                                                                        │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+ ╭────────────────────────────────────────────────────╮    ╭────────────────────────────────────────────────────╮
+ │                                                    │    │                                                    │
+ │  Active context                                    │    │  Fleet status                                      │
+ │  mode=repo  overall=CRIT  last_run=missing         │    │  Overall: !! CRIT                                  │
+ │  shortcuts=on  preview=on                          │    │  OK:0  WARN:1  CRIT:1  UNKNOWN:0  SKIP:0           │
+ │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
+ │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
+ │  ogs  state=/tmp/linux_maint_state_fixture         │
+ │                                                    │    ╭────────────────────────────────────────────────────╮
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           │  Current pressure                                  │
+ ╭────────────────────────────────────────────────────╮    │  overall=CRIT                                      │
+ │                                                    │    │  top_reason=http_failed                            │
+ │  Recommended start                                 │    │  top_problem=network_monitor host=web-2            │
+ │  Recommended first action: quickref                │    │                                                    │
+ │  - Quick reference for the common operator path    │    ╰────────────────────────────────────────────────────╯
+ │  - Troubleshooting for reason tokens and failures  │
+ │  - Config shows the active sources and values      │
+ │                                                    │
+ ╰────────────────────────────────────────────────────╯
+
+  quickref          Open: quick command reference [h]
+  troubleshooting   Open: troubleshooting guide [t]
+  faq               Open: FAQ and operator tips [f]
+  reasons           Open: reason token catalog [r]
+  monitors          Open: monitor matrix and purpose [m]
+  explain_reason    Explain: one reason token [e]
+  explain_monitor   Explain: one monitor [o]
+  explain_status    Explain: status meanings [w]
+  config            Inspect: effective config [c]
+  settings          Adjust: menu preferences and defaults [s]
+  about             Inspect: version and project details [a]
+  back              Back to main menu [b]
+
+  Type shortcut or number. ? help, / search, Enter browse, Esc back.

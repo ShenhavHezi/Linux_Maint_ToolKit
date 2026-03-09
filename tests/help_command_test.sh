@@ -10,8 +10,13 @@ printf '%s\n' "$out" | grep -q '^Usage: linux-maint status' || {
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q '^Filters:' || {
-  echo "help status missing Filters section" >&2
+printf '%s\n' "$out" | grep -q '^Purpose:$' || {
+  echo "help status missing purpose section" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q '^Key flags:$' || {
+  echo "help status missing key flags section" >&2
   echo "$out" >&2
   exit 1
 }

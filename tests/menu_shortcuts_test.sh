@@ -15,6 +15,7 @@ assert_eq() {
 }
 
 LM_TUI_SHORTCUTS=1
+assert_eq "$(map_menu_shortcut q main)" "quickstart" "main q"
 assert_eq "$(map_menu_shortcut o main)" "overview" "main o"
 assert_eq "$(map_menu_shortcut r main)" "run" "main r"
 assert_eq "$(map_menu_shortcut i main)" "investigate" "main i"
@@ -39,6 +40,9 @@ assert_eq "$(map_menu_shortcut q incident)" "back" "incident q"
 assert_eq "$(map_menu_shortcut c incident)" "recommended" "incident c"
 assert_eq "$(map_menu_shortcut x drilldown)" "explain_top" "drilldown x"
 assert_eq "$(map_menu_shortcut w run)" "wizard" "run w"
+assert_eq "$(map_menu_shortcut f quickstart)" "first_setup" "quickstart f"
+assert_eq "$(map_menu_shortcut i quickstart)" "current_incident" "quickstart i"
+assert_eq "$(map_menu_shortcut e quickstart)" "escalation" "quickstart e"
 
 LM_TUI_SHORTCUTS=0
 assert_eq "$(map_menu_shortcut r main)" "r" "disabled shortcuts passthrough"

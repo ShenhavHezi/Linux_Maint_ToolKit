@@ -189,6 +189,11 @@ Last updated: 2026-03-09
   - top-level `linux-maint help` is now workflow-first, grouped by operator task, includes menu-section orientation, and uses clearer examples-by-task instead of a flat command dump.
   - main menu and submenu labels now use shorter, more professional operator wording aligned with the help text.
   - Proof: `tests/help_top_level_structure_test.sh`, `tests/help_repo_usage_test.sh`, `tests/help_menu_structure_test.sh`, `tests/menu_compact_frame_fixture_test.sh`, `tests/menu_section_frame_fixture_test.sh`.
+- `DONE` Help + quickstart hardening:
+  - normalized key operator `help <command>` pages around consistent sections (`Purpose`, `When to use`, `Key flags`, `Examples`, and mode/exit notes where relevant).
+  - added a dedicated `Quickstart` menu path for first setup, current incident triage, and escalation/export workflow.
+  - expanded golden coverage for top-level help, `help menu`, and all main menu sub-sections.
+  - Proof: `tests/help_command_consistency_test.sh`, `tests/help_top_level_golden_test.sh`, `tests/help_menu_golden_test.sh`, `tests/menu_all_sections_fixture_test.sh`.
 - `PARTIAL` JSON schema coverage is incomplete for some newly added commands.
   - Hardening: `report` and `summary` now fail fast instead of silently degrading when `status --json` is broken.
   - Added schema coverage for `export --jsonl` rows and `ticket/cm-hook/audit-log` JSON contracts.

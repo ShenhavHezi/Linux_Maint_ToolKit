@@ -36,8 +36,13 @@ printf '%s\n' "$out" | grep -q '^Best next commands:$' || {
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q '^  menu[[:space:]]\+Interactive operations console (Overview / Run / Investigate / Repair / Export / Docs)$' || {
+printf '%s\n' "$out" | grep -q '^  menu[[:space:]]\+Interactive operations console (Quickstart / Overview / Run / Investigate / Repair / Export / Docs)$' || {
   echo "top-level help missing polished menu description" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q '^  Quickstart[[:space:]]\+First setup, current incident, and escalation workflows$' || {
+  echo "top-level help missing quickstart menu section" >&2
   echo "$out" >&2
   exit 1
 }

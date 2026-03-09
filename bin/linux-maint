@@ -933,6 +933,7 @@ tui_section_recommended_action(){
   top_reason="$(printf '%s\n' "$focus" | awk -F= '/^top_reason=/{print $2; exit}')"
   top_monitor="$(printf '%s\n' "$focus" | awk -F= '/^top_monitor=/{print $2; exit}')"
   case "$context" in
+    quickstart) printf 'first_setup' ;;
     overview)
       if [[ "$overall" == "CRIT" || "$overall" == "WARN" || "$overall" == "UNKNOWN" ]]; then
         printf 'problems'
@@ -977,6 +978,13 @@ tui_section_preview_body(){
   top_host="$(printf '%s\n' "$focus" | awk -F= '/^top_host=/{print $2; exit}')"
   next_action="$(tui_section_recommended_action "$context" "$status_json")"
   case "$context" in
+    quickstart)
+      printf '%s\n' \
+        "Recommended first action: $next_action" \
+        "- First setup for init, check, and safe plan review" \
+        "- Current incident for guided triage and repair" \
+        "- Escalation for report, JSON export, and support bundle"
+      ;;
     overview)
       printf '%s\n' \
         "Recommended first action: $next_action" \
@@ -1031,6 +1039,7 @@ tui_gum_section_focus_card(){
   local context="${1:-main}" status_json="${2:-}" width="${3:-52}"
   local color="#22c55e"
   case "$context" in
+    quickstart) color="#14b8a6" ;;
     investigate) color="#60a5fa" ;;
     repair) color="#ef4444" ;;
     export) color="#c084fc" ;;
@@ -1038,6 +1047,48 @@ tui_gum_section_focus_card(){
     run) color="#22c55e" ;;
   esac
   tui_gum_card_render "Recommended start" "$color" "$(tui_section_preview_body "$context" "$status_json")" "$width"
+}
+
+tui_quickstart_first_setup(){
+  tui_msgbox "First setup flow:\n1. initialize config templates\n2. validate config and readiness\n3. preview a run plan\n4. review monitor requirements"
+  tui_run_cmd "linux-maint init" "$0" init
+  tui_run_cmd "linux-maint check" "$0" check
+  tui_run_cmd "linux-maint run --plan" "$0" run --plan
+  tui_run_cmd "linux-maint list-monitors" "$0" list-monitors
+}
+
+tui_quickstart_escalation(){
+  tui_msgbox "Escalation flow:\n1. capture a short human summary\n2. export machine-readable JSON\n3. create a support bundle"
+  tui_run_cmd "linux-maint report --short --no-trend" "$0" report --short --no-trend
+  tui_run_cmd "linux-maint export --json" "$0" export --json
+  tui_pack_logs_wizard || true
+}
+
+run_menu_quickstart(){
+  while true; do
+    local choice
+    TUI_SHORTCUT_CONTEXT="quickstart"
+    choice="$(tui_menu_prompt_safe "Quickstart" \
+      first_setup "Guide: first setup and safe first run [f]" \
+      current_incident "Guide: current incident triage [i]" \
+      escalation "Guide: export and escalation workflow [e]" \
+      back "Back to main menu [b]")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "quickstart")"
+    case "$choice" in
+      first_setup) tui_quickstart_first_setup ;;
+      current_incident) run_menu_incident_mode ;;
+      escalation) tui_quickstart_escalation ;;
+      back) break ;;
+    esac
+    if [[ "${TUI_RETURN_TO_MAIN:-0}" == "1" ]]; then
+      break
+    fi
+  done
 }
 
 tui_gum_current_pressure_card(){
@@ -1299,6 +1350,7 @@ tui_tag_color(){
     return 0
   fi
   case "$1" in
+    quickstart|first_setup|current_incident|escalation) echo "#14b8a6" ;;
     overview|overview_screen|dashboard|problems|reports|status|summary|runindex) echo "#38bdf8" ;;
     run) echo "#22c55e" ;;
     investigate|drilldown|diff|history|logs|reasons|status_detail|tools) echo "#f59e0b" ;;
@@ -1340,6 +1392,7 @@ map_menu_shortcut(){
     *) printf '%s' "$choice"; return 0 ;;
   esac
   case "${context}:${choice}" in
+    main:q) printf 'quickstart' ;;
     main:o) printf 'overview' ;;
     main:r) printf 'run' ;;
     main:i) printf 'investigate' ;;
@@ -1391,6 +1444,10 @@ map_menu_shortcut(){
     docs:s) printf 'settings' ;;
     docs:a) printf 'about' ;;
     docs:b) printf 'back' ;;
+    quickstart:f) printf 'first_setup' ;;
+    quickstart:i) printf 'current_incident' ;;
+    quickstart:e) printf 'escalation' ;;
+    quickstart:b) printf 'back' ;;
     run:r) printf 'run' ;;
     run:p) printf 'plan' ;;
     run:w) printf 'wizard' ;;
@@ -3135,6 +3192,32 @@ run_menu_overview(){
   done
 }
 
+run_help_block(){
+  local usage_line="$1" purpose="$2" when_to_use="${3:-}" key_flags="${4:-}" examples="${5:-}" exit_behavior="${6:-}" repo_note="${7:-}"
+  printf 'Usage: %s\n\n' "$usage_line"
+  printf 'Purpose:\n  %s\n' "$purpose"
+  if [[ -n "$when_to_use" ]]; then
+    printf '\nWhen to use:\n'
+    printf '%b\n' "$when_to_use"
+  fi
+  if [[ -n "$key_flags" ]]; then
+    printf '\nKey flags:\n'
+    printf '%b\n' "$key_flags"
+  fi
+  if [[ -n "$exit_behavior" ]]; then
+    printf '\nExit behavior:\n'
+    printf '%b\n' "$exit_behavior"
+  fi
+  if [[ -n "$repo_note" ]]; then
+    printf '\nRepo vs installed:\n'
+    printf '%b\n' "$repo_note"
+  fi
+  if [[ -n "$examples" ]]; then
+    printf '\nExamples:\n'
+    printf '%b\n' "$examples"
+  fi
+}
+
 run_menu_investigate(){
   while true; do
     local choice
@@ -3352,6 +3435,7 @@ run_menu(){
     fi
     TUI_SHORTCUT_CONTEXT="main"
     choice="$(tui_menu_prompt_safe "Choose your next step" \
+      quickstart "First setup, incident triage, and escalation [q]" \
       overview "Dashboard, current state, and next moves [o]" \
       run "Execute checks, preview plans, and scope runs [r]" \
       investigate "Drilldown, diff, history, and logs [i]" \
@@ -3366,6 +3450,9 @@ run_menu(){
     choice="$(normalize_menu_choice "$choice")"
     choice="$(map_menu_shortcut "$choice" "main")"
     case "$choice" in
+      quickstart)
+        run_menu_quickstart
+        ;;
       overview)
         run_menu_overview
         ;;
@@ -4089,7 +4176,7 @@ ${C_CYAN}Start here${C_RESET}:
   sudo linux-maint status
 
 ${C_CYAN}Most-used operator paths${C_RESET}:
-  menu                   Interactive operations console (Overview / Run / Investigate / Repair / Export / Docs)
+  menu                   Interactive operations console (Quickstart / Overview / Run / Investigate / Repair / Export / Docs)
   run [flags]            Execute the wrapper, scope runs, or preview a plan
   status [flags]         Read the current fleet state and top problems
   report [flags]         One-screen operator summary with trend and runtime context
@@ -4148,6 +4235,7 @@ ${C_CYAN}Help / reference${C_RESET}:
   help                    Show this help
 
 ${C_CYAN}Menu sections${C_RESET}:
+  Quickstart              First setup, current incident, and escalation workflows
   Overview                Dashboard, current state, and next moves
   Run                     Execute checks, preview plans, and scope runs
   Investigate             Drilldown, diff, history, logs, and runtimes
@@ -4190,222 +4278,91 @@ command_usage(){
     ""|help|-h|--help)
       usage; return 0;;
     run)
-      cat <<EOF
-Usage: linux-maint run [flags]
-
-Key flags:
-  --group G            use <cfg_dir>/hosts.d/G.txt
-  --hosts a,b          ad-hoc host list
-  --exclude a,b        exclude hosts
-  --parallel N         max parallel SSH
-  --local-only         run checks locally only
-  --ssh-opts "..."     override SSH options
-  --retry N            SSH retries per host (maps to LM_SSH_RETRY)
-  --host-timeout N     SSH timeout seconds (maps to LM_SSH_TIMEOUT)
-  --only a,b           run only selected monitors (names with/without _monitor)
-  --skip a,b           skip selected monitors
-  --strategy S         execution strategy: fail-soft|fail-fast|quorum
-  --quorum-percent N   quorum success percent for --strategy quorum
-  --respect-maintenance skip execution outside configured maintenance window
-  --drain-file PATH    hosts drain file to exclude from runs
-  --plan               show resolved hosts/monitors without executing
-  --json               with --plan, emit JSON
-  --dry-run            alias for --plan
-  --strict             fail if any monitor emits malformed summary lines
-  --resume RUN_ID      resume an interrupted run_id (or use 'latest')
-  --allow-concurrent   allow overlapping runs (skip lock)
-  --lock-timeout N     wait up to N seconds for run lock (default: 60)
-  # Optional privilege policy file:
-  #   ${LM_MONITOR_PRIV_POLICY_FILE:-<cfg_dir>/monitor_privilege_policy.conf}
-  #   lines: monitor=requires_root|allow_sudo|no_sudo
-  --progress|--no-progress  progress bar control
-
-Examples:
-  linux-maint run --group prod --parallel 10 --progress
-  linux-maint run --only service_monitor,ntp_drift_monitor
-  linux-maint run --skip inventory_export,backup_check
-  linux-maint run --strategy quorum --quorum-percent 80
-  linux-maint run --retry 2 --host-timeout 10
-  linux-maint run --resume latest
-  linux-maint run --lock-timeout 120
-  NO_COLOR=1 linux-maint run --local-only --plan
-  NO_COLOR=1 linux-maint run --local-only --plan --json
-EOF
+      run_help_block \
+        "linux-maint run [flags]" \
+        "Execute checks across the resolved scope, or preview the exact plan without running it." \
+        "  - full fleet or group runs\n  - focused monitor reruns\n  - safe plan previews before execution\n  - resume an interrupted run from history" \
+        "  --group G              use <cfg_dir>/hosts.d/G.txt\n  --hosts a,b            ad-hoc host list\n  --exclude a,b          exclude hosts\n  --parallel N           max parallel SSH\n  --local-only           run checks locally only\n  --ssh-opts \"...\"       override SSH options\n  --retry N              SSH retries per host (maps to LM_SSH_RETRY)\n  --host-timeout N       SSH timeout seconds (maps to LM_SSH_TIMEOUT)\n  --only a,b             run only selected monitors (names with/without _monitor)\n  --skip a,b             skip selected monitors\n  --strategy S           execution strategy: fail-soft|fail-fast|quorum\n  --quorum-percent N     quorum success percent for --strategy quorum\n  --respect-maintenance  skip execution outside configured maintenance window\n  --drain-file PATH      hosts drain file to exclude from runs\n  --plan                 show resolved hosts/monitors without executing\n  --json                 with --plan, emit JSON\n  --dry-run              alias for --plan\n  --strict               fail if any monitor emits malformed summary lines\n  --resume RUN_ID        resume an interrupted run_id (or use 'latest')\n  --allow-concurrent     allow overlapping runs (skip lock)\n  --lock-timeout N       wait up to N seconds for run lock (default: 60)\n  --progress|--no-progress  progress bar control\n  Optional privilege policy file:\n    ${LM_MONITOR_PRIV_POLICY_FILE:-<cfg_dir>/monitor_privilege_policy.conf}\n    lines: monitor=requires_root|allow_sudo|no_sudo" \
+        "  linux-maint run --group prod --parallel 10 --progress\n  linux-maint run --only service_monitor,ntp_drift_monitor\n  linux-maint run --skip inventory_export,backup_check\n  linux-maint run --strategy quorum --quorum-percent 80\n  linux-maint run --retry 2 --host-timeout 10\n  linux-maint run --resume latest\n  linux-maint run --lock-timeout 120\n  NO_COLOR=1 linux-maint run --local-only --plan\n  NO_COLOR=1 linux-maint run --local-only --plan --json" \
+        "  - rc=0 when execution or plan completes without non-OK wrapper failure\n  - rc reflects the wrapper result for real runs\n  - rc=2 for flag or plan contract errors" \
+        "  - repo mode reads repo-local defaults unless overridden\n  - installed mode typically targets /etc/linux_maint and system-owned paths"
       ;;
     menu)
-      cat <<'EOF'
-Usage: linux-maint menu
-
-Interactive operations console for status, runs, investigation, repair, exports, and docs.
-
-Mode:
-  repo mode:      linux-maint menu
-  installed mode: sudo linux-maint menu
-
-Main sections:
-  Overview      dashboard, current state, top problems, and next moves
-  Run           execute checks, preview plans, or use the run wizard
-  Investigate   drilldown, diff, history, logs, reasons, and runtimes
-  Repair        guided incident response, doctor, check, self-check, and security profile
-  Export        report, trend, metrics, export JSON, and the bundle wizard
-  Docs          quick reference, troubleshooting, FAQ, config, monitors, and settings
-
-Best path by task:
-  Need the current answer fast?  Overview -> status or report
-  Need to understand a failure?  Investigate -> drilldown or logs
-  Need to recover quickly?       Repair -> incident or doctor
-  Need to share data?            Export -> report, export JSON, or pack logs
-
-Global gum controls:
-  1-9           pick a visible action
-  ?             quick help overlay for the current menu
-  /             command palette / action search
-  Enter         open the full chooser
-  Esc           go back
-
-Bundle flow:
-  Export -> pack_logs opens a guided bundle wizard
-  Incident mode -> bundle uses the same wizard with support defaults
-
-Useful env vars:
-  LM_TUI_BACKEND=gum|dialog|whiptail
-  LM_TUI_DASH_REFRESH=<seconds>
-  LM_TUI_DEFAULT_STATUS_VIEW=table|compact
-  LM_TUI_DEFAULT_PROBLEMS=<1..100>
-  LM_TUI_DEFAULT_REASONS=<0..20>
-  LM_TUI_PREVIEW=1|0
-  LM_TUI_SHORTCUTS=1|0
-  LM_TUI_COMPACT=1|0
-  LM_TUI_LOW_COLOR=1|0
-  LM_TUI_CONFIRM_RISKY=1|0
-EOF
+      run_help_block \
+        "linux-maint menu" \
+        "Open the interactive operations console for guided monitoring, triage, export, and docs." \
+        "  - day-to-day operator workflow\n  - first setup and safe first run\n  - current-incident triage\n  - export and escalation flow" \
+        "  Main sections:\n    Quickstart    first setup, current incident, and escalation workflows\n    Overview      dashboard, current state, top problems, and next moves\n    Run           execute checks, preview plans, or use the run wizard\n    Investigate   drilldown, diff, history, logs, reasons, and runtimes\n    Repair        guided incident response, doctor, check, self-check, and security profile\n    Export        report, trend, metrics, export JSON, and the bundle wizard\n    Docs          quick reference, troubleshooting, FAQ, config, monitors, and settings\n  Best path by task:\n    First day with the tool?      Quickstart -> first setup\n    Need the current answer fast?  Overview -> status or report\n    Need to understand a failure?  Investigate -> drilldown or logs\n    Need to recover quickly?       Repair -> incident or doctor\n    Need to share data?            Export -> report, export JSON, or pack logs\n  Global gum controls:\n    1-9           pick a visible action\n    ?             quick help overlay for the current menu\n    /             command palette / action search\n    Enter         open the full chooser\n    Esc           go back\n  Useful env vars:\n    LM_TUI_BACKEND=gum|dialog|whiptail\n    LM_TUI_DASH_REFRESH=<seconds>\n    LM_TUI_DEFAULT_STATUS_VIEW=table|compact\n    LM_TUI_DEFAULT_PROBLEMS=<1..100>\n    LM_TUI_DEFAULT_REASONS=<0..20>\n    LM_TUI_PREVIEW=1|0\n    LM_TUI_SHORTCUTS=1|0\n    LM_TUI_COMPACT=1|0\n    LM_TUI_LOW_COLOR=1|0\n    LM_TUI_CONFIRM_RISKY=1|0" \
+        "  linux-maint menu\n  LM_TUI_BACKEND=gum linux-maint menu\n  LM_TUI_COMPACT=1 linux-maint menu" \
+        "  - returns non-zero if no supported TUI backend is available\n  - returns non-zero when interactive TTY requirements are not met" \
+        "  repo mode:      linux-maint menu\n  installed mode: sudo linux-maint menu"
       ;;
     list-monitors)
       echo "Usage: linux-maint list-monitors [--json]";;
     lint-summary)
       echo "Usage: linux-maint lint-summary <summary_or_log_file> [--json]";;
     status)
-      cat <<'EOF'
-Usage: linux-maint status [flags]
-
-Filters:
-  --only OK|WARN|CRIT|UNKNOWN|SKIP
-  --host PATTERN            filter by host
-  --monitor PATTERN         filter by monitor
-  --match-mode contains|exact|regex
-  --since 15m|2h|1d|30s     recent artifacts only
-
-Output:
-  --summary                one-line summary
-  --json                   machine JSON
-  --prom                   Prometheus textfile format
-  --output PATH            write output atomically to PATH
-  --table                  table output
-  --group-by host|monitor|reason
-  --top N                  limit group-by rows (requires --group-by)
-  --problems N             cap problem list (max 100)
-  --reasons N              top reasons rollup (max 20)
-  --strict                 fail if summary lines are malformed
-
-Examples:
-  linux-maint status --compact
-  linux-maint status --reasons 5
-  linux-maint status --host web --monitor service --only WARN
-  linux-maint status --json
-EOF
+      run_help_block \
+        "linux-maint status [flags]" \
+        "Read the latest run artifacts and present the current fleet state." \
+        "  - quick human check after a run\n  - filtered drilldown by host, monitor, or status\n  - machine-readable status export" \
+        "  Filters:\n    --only OK|WARN|CRIT|UNKNOWN|SKIP\n    --host PATTERN            filter by host\n    --monitor PATTERN         filter by monitor\n    --match-mode contains|exact|regex\n    --since 15m|2h|1d|30s     recent artifacts only\n  Output:\n    --summary                 one-line summary\n    --json                    machine JSON\n    --prom                    Prometheus textfile format\n    --output PATH             write output atomically to PATH\n    --table                   table output\n    --group-by host|monitor|reason\n    --top N                   limit group-by rows (requires --group-by)\n    --problems N              cap problem list (max 100)\n    --reasons N               top reasons rollup (max 20)\n    --strict                  fail if summary lines are malformed" \
+        "  linux-maint status --compact\n  linux-maint status --reasons 5\n  linux-maint status --host web --monitor service --only WARN\n  linux-maint status --json" \
+        "  - rc follows status severity handling for strict or machine-facing modes\n  - rc=2 for invalid flags or malformed upstream artifacts in strict paths"
       ;;
     report)
-      cat <<'EOF'
-Usage: linux-maint report [flags]
-
-Output:
-  --short        one-screen summary
-  --compact      minimal output
-  --table        table formatting
-  --json         machine JSON
-  --redact       redact secrets in human output only
-  --output PATH  write output atomically to PATH
-  --no-trend     suppress trend section
-  --no-slow      suppress slow monitors
-  --no-reasons   suppress reason rollup
-  --no-problems  suppress problem list
-
-Examples:
-  linux-maint report --short --no-trend
-  NO_COLOR=1 linux-maint report --compact
-EOF
+      run_help_block \
+        "linux-maint report [flags]" \
+        "Build a unified operator report from status, trend, and runtime artifacts." \
+        "  - short handoff summary\n  - copy/paste output for tickets or incidents\n  - structured JSON export for automation" \
+        "  --short         one-screen summary\n  --compact       minimal output\n  --table         table formatting\n  --json          machine JSON\n  --redact        redact secrets in human output only\n  --output PATH   write output atomically to PATH\n  --no-trend      suppress trend section\n  --no-slow       suppress slow monitors\n  --no-reasons    suppress reason rollup\n  --no-problems   suppress problem list" \
+        "  linux-maint report --short --no-trend\n  NO_COLOR=1 linux-maint report --compact\n  linux-maint report --json" \
+        "  - rc=2 when delegated status data is unavailable or invalid for machine-facing paths"
       ;;
     metrics)
       echo "Usage: linux-maint metrics --json|--prom [--output PATH]";;
     config)
-      cat <<'EOF'
-Usage: linux-maint config [--json] [--sources] [--lint] [--diff-defaults]
-
-Read the effective config from <cfg_dir>.
-- repo mode: repo-local fallback config (or LM_CFG_DIR)
-- installed mode: /etc/linux_maint unless overridden
-
-Flags:
-  --json           machine-readable output
-  --sources        show source file order in human output
-  --lint           parse and validate config files only
-  --diff-defaults  show values that differ from built-in defaults
-
-Examples:
-  linux-maint config
-  linux-maint config --sources
-  linux-maint config --lint
-  linux-maint config --json
-EOF
+      run_help_block \
+        "linux-maint config [--json] [--sources] [--lint] [--diff-defaults]" \
+        "Read the effective merged configuration from the active config root." \
+        "  - confirm effective values before a run\n  - check config source order\n  - lint config without executing checks" \
+        "  --json           machine-readable output\n  --sources        show source file order in human output\n  --lint           parse and validate config files only\n  --diff-defaults  show values that differ from built-in defaults" \
+        "  linux-maint config\n  linux-maint config --sources\n  linux-maint config --lint\n  linux-maint config --json" \
+        "  - rc=2 for structured config errors such as source failure or invalid types" \
+        "  - repo mode: repo-local fallback config (or LM_CFG_DIR)\n  - installed mode: /etc/linux_maint unless overridden"
       ;;
     doctor)
-      cat <<'EOF'
-Usage: linux-maint doctor [--json] [--compact] [--fix] [--fix-deps] [--fix-deps-optional] [--yes] [--dry-run]
-
-Read-only mode:
-  default         inspect layout, config, writable paths, and dependencies
-  --compact       shorter human summary
-  --json          machine-readable output
-
-Fix mode:
-  --fix                 repair directories and permissions
-  --fix-deps            also try to install required dependencies
-  --fix-deps-optional   also try to install optional dependencies
-  --dry-run             preview fix actions only
-  --yes                 skip interactive confirmation
-
-Notes:
-  - --fix requires root.
-  - In repo mode, doctor targets repo-local paths; in installed mode it targets system paths.
-
-Examples:
-  linux-maint doctor
-  linux-maint doctor --compact
-  linux-maint doctor --json
-  sudo linux-maint doctor --fix --yes
-EOF
+      run_help_block \
+        "linux-maint doctor [--json] [--compact] [--fix] [--fix-deps] [--fix-deps-optional] [--yes] [--dry-run]" \
+        "Inspect layout, writable paths, dependencies, and readiness, with optional repair actions." \
+        "  - investigate missing paths or permissions\n  - confirm dependencies before production use\n  - repair layout issues in installed mode" \
+        "  Read-only mode:\n    default              inspect layout, config, writable paths, and dependencies\n    --compact            shorter human summary\n    --json               machine-readable output\n  Fix mode:\n    --fix                repair directories and permissions\n    --fix-deps           also try to install required dependencies\n    --fix-deps-optional  also try to install optional dependencies\n    --dry-run            preview fix actions only\n    --yes                skip interactive confirmation" \
+        "  linux-maint doctor\n  linux-maint doctor --compact\n  linux-maint doctor --json\n  sudo linux-maint doctor --fix --yes" \
+        "  - non-zero when critical readiness checks fail\n  - fix mode may modify system state and usually requires root" \
+        "  - In repo mode, doctor targets repo-local paths\n  - In installed mode, doctor targets system paths"
       ;;
     self-check)
-      echo "Usage: linux-maint self-check [--json] [--compact] [--strict]";;
+      run_help_block \
+        "linux-maint self-check [--json] [--compact] [--strict]" \
+        "Run a lightweight sanity check over the current operator environment." \
+        "  - quick confidence check before deeper runs\n  - CI or local smoke validation" \
+        "  --json      machine-readable output\n  --compact   shorter human summary\n  --strict    fail on warnings that are advisory by default" \
+        "  linux-maint self-check\n  linux-maint self-check --strict\n  linux-maint self-check --json" ;;
     security-profile)
-      echo "Usage: linux-maint security-profile [--json] [--strict]";;
+      run_help_block \
+        "linux-maint security-profile [--json] [--strict]" \
+        "Inspect security-sensitive configuration, permissions, and policy posture." \
+        "  - verify secure defaults after setup\n  - audit operator posture before rollout" \
+        "  --json      machine-readable output\n  --strict    raise the bar for advisory findings" \
+        "  linux-maint security-profile\n  linux-maint security-profile --strict\n  linux-maint security-profile --json" ;;
     check)
-      cat <<'EOF'
-Usage: linux-maint check [--json]
-
-Runs:
-  1. config_validate
-  2. preflight
-  3. expected-skip summary
-
-Notes:
-  - Exit code follows the highest underlying severity.
-  - Use --json for automation-safe output.
-
-Examples:
-  linux-maint check
-  linux-maint check --json
-EOF
+      run_help_block \
+        "linux-maint check [--json]" \
+        "Run config validation and readiness checks as the safest operator preflight." \
+        "  - before the first run\n  - after config changes\n  - before escalation to a full fleet execution" \
+        "  Runs:\n    1. config_validate\n    2. preflight\n    3. expected-skip summary\n  --json      automation-safe output" \
+        "  linux-maint check\n  linux-maint check --json" \
+        "  - Exit code follows the highest underlying severity.\n  - rc=2 for invalid delegated status/config paths in machine-facing flows"
       ;;
     gate)
       echo "Usage: linux-maint gate --policy <file> [--json]";;
@@ -4486,49 +4443,60 @@ EOF
     predict)
       echo "Usage: linux-maint predict [--last N] [--json]";;
     history)
-      cat <<'EOF'
-Usage: linux-maint history [flags]
-
-  --last N      number of runs (default 10)
-  --json        machine JSON
-  --table       table output
-  --compact     one-line latest run
-  --sqlite      read from sqlite history index (or set LM_HISTORY_SQLITE=1)
-EOF
+      run_help_block \
+        "linux-maint history [flags]" \
+        "Read recent run metadata from the run index without parsing full logs." \
+        "  - inspect recent run outcomes quickly\n  - feed automation from run history\n  - compare the latest run against prior activity" \
+        "  --last N      number of runs (default 10)\n  --json        machine JSON\n  --table       table output\n  --compact     one-line latest run\n  --sqlite      read from sqlite history index (or set LM_HISTORY_SQLITE=1)" \
+        "  linux-maint history --last 10\n  linux-maint history --table\n  linux-maint history --json" \
+        "  - rc=2 when the run index is corrupt or unreadable for machine-facing paths" \
+        "  - repo mode reads repo-local state unless LM_RUN_INDEX_FILE overrides it\n  - installed mode reads the installed state dir by default"
       ;;
     run-index)
-      cat <<'EOF'
-Usage: linux-maint run-index [flags]
-
-  --stats            show run index stats (default)
-  --prune            prune to last N entries (default keep=200)
-  --keep N           number of entries to retain
-  --json             machine JSON
-EOF
+      run_help_block \
+        "linux-maint run-index [flags]" \
+        "Inspect and maintain the lightweight run index used by history and trend features." \
+        "  - check index size and freshness\n  - prune retained entries safely\n  - export machine-readable index stats" \
+        "  --stats      show run index stats (default)\n  --prune      prune to last N entries (default keep=200)\n  --keep N     number of entries to retain\n  --json       machine JSON" \
+        "  linux-maint run-index --stats\n  linux-maint run-index --prune --keep 200\n  linux-maint run-index --json" \
+        "  - rc=2 if prune cannot rewrite the index safely"
       ;;
     summary)
       echo "Usage: linux-maint summary [--no-color]";;
     trend)
-      cat <<'EOF'
-Usage: linux-maint trend [--last N] [--since DATE] [--until DATE] [--json|--csv|--export csv|json] [--redact] [--output PATH]
-
-Anomaly options:
-  --anomaly                  enable anomaly detection against recent baseline
-  --anomaly-z N              z-score threshold (default: 2.0)
-  --anomaly-window N         baseline run window size (default: 5, min: 2)
-
-Examples:
-  linux-maint trend --last 10
-  linux-maint trend --last 20 --anomaly --anomaly-window 7
-  NO_COLOR=1 linux-maint trend --last 10 --json
-EOF
+      run_help_block \
+        "linux-maint trend [--last N] [--since DATE] [--until DATE] [--json|--csv|--export csv|json] [--redact] [--output PATH]" \
+        "Roll up severity and reason movement across recent runs." \
+        "  - spot worsening monitors or reasons\n  - hand off recent change context\n  - export trend data to dashboards" \
+        "  --last N           number of runs to analyze\n  --since DATE       lower time bound\n  --until DATE       upper time bound\n  --json|--csv       machine-friendly export\n  --export csv|json  explicit export mode\n  --redact           redact exported content\n  --output PATH      write output atomically to PATH\n  Anomaly options:\n    --anomaly           enable anomaly detection against recent baseline\n    --anomaly-z N       z-score threshold (default: 2.0)\n    --anomaly-window N  baseline run window size (default: 5, min: 2)" \
+        "  linux-maint trend --last 10\n  linux-maint trend --last 20 --anomaly --anomaly-window 7\n  NO_COLOR=1 linux-maint trend --last 10 --json" \
+        "  - rc=2 on invalid export combinations or broken backing artifacts"
       ;;
     runtimes)
-      echo "Usage: linux-maint runtimes [--last N] [--json]";;
+      run_help_block \
+        "linux-maint runtimes [--last N] [--json]" \
+        "Show slowest monitors and recent runtime history." \
+        "  - identify monitors that need timeout or threshold tuning\n  - compare run cost over time" \
+        "  --last N    number of runs to inspect\n  --json      machine-readable output" \
+        "  linux-maint runtimes --last 10\n  linux-maint runtimes --json" ;;
     export)
-      echo "Usage: linux-maint export --json|--csv|--jsonl";;
+      run_help_block \
+        "linux-maint export --json|--csv|--jsonl" \
+        "Export unified status artifacts for people or downstream systems." \
+        "  - generate a single JSON snapshot\n  - hand off CSV or JSONL rows to other tools\n  - package the latest summary data cleanly" \
+        "  --json     unified JSON payload\n  --csv      summary rows as CSV\n  --jsonl    summary rows as JSONL" \
+        "  linux-maint export --json\n  linux-maint export --csv\n  linux-maint export --jsonl" \
+        "  - rc=2 when preferred summary JSON exists but is corrupt"
+        ;;
     init)
-      echo "Usage: linux-maint init [--minimal] [--force]";;
+      run_help_block \
+        "linux-maint init [--minimal] [--force]" \
+        "Install config templates into the active config root." \
+        "  - first setup in repo mode or installed mode\n  - refresh starter templates after upgrade" \
+        "  --minimal   install only the core starter files\n  --force     overwrite existing templates" \
+        "  linux-maint init\n  linux-maint init --minimal\n  linux-maint init --force" \
+        "" \
+        "  - repo mode initializes the repo-local config root without sudo\n  - installed mode usually needs sudo for system paths" ;;
     tune)
       echo "Usage: linux-maint tune dark-site";;
     baseline)
@@ -4549,19 +4517,22 @@ EOF
     deps)
       echo "Usage: linux-maint deps";;
     verify-install)
-      echo "Usage: linux-maint verify-install";;
+      run_help_block \
+        "linux-maint verify-install" \
+        "Verify the expected install or repo layout without mutating state." \
+        "  - confirm the binary, wrapper, and paths are wired correctly\n  - inspect mode-specific readiness after install or checkout" \
+        "" \
+        "  linux-maint verify-install" \
+        "  - non-zero when required layout checks fail" \
+        "  - repo mode verifies repo-local defaults and writable paths\n  - installed mode verifies installed layout and service wiring" ;;
     pack-logs)
-      cat <<'EOF'
-Usage: linux-maint pack-logs [flags]
-
-  --out DIR            output directory
-  --redact|--no-redact redact sensitive data
-  --progress|--no-progress
-  --hash               include SHA256 manifest
-  --gpg                encrypt bundle (requires --gpg-recipient)
-  --gpg-recipient ID   GPG recipient (email or key id)
-  --gpg-keep-plaintext keep the .tar.gz alongside the .gpg
-EOF
+      run_help_block \
+        "linux-maint pack-logs [flags]" \
+        "Create a support bundle with logs, config context, and optional encryption." \
+        "  - escalate an incident to another team\n  - capture artifacts before cleanup or remediation\n  - export an offline-friendly support package" \
+        "  --out DIR             output directory\n  --redact|--no-redact  redact sensitive data\n  --progress|--no-progress\n  --hash                include SHA256 manifest\n  --gpg                 encrypt bundle (requires --gpg-recipient)\n  --gpg-recipient ID    GPG recipient (email or key id)\n  --gpg-keep-plaintext  keep the .tar.gz alongside the .gpg" \
+        "  linux-maint pack-logs --out /tmp --redact\n  linux-maint pack-logs --out /tmp --hash\n  linux-maint pack-logs --out /tmp --gpg --gpg-recipient ops@example.com" \
+        "  - non-zero if packaging, hashing, or encryption prerequisites fail\n  - preflight validation prevents leaving unintended plaintext output behind"
       ;;
     version)
       echo "Usage: linux-maint version";;

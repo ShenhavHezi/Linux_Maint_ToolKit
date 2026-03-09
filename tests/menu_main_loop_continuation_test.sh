@@ -11,9 +11,11 @@ cleanup() { rm -f "$MENU_QUEUE_FILE"; }
 trap cleanup EXIT
 
 RUN_MENU_COUNT=0
+QUICKSTART_MENU_COUNT=0
 REPAIR_MENU_COUNT=0
 EXIT_SEEN=0
 
+run_menu_quickstart() { QUICKSTART_MENU_COUNT=$((QUICKSTART_MENU_COUNT+1)); }
 run_menu_overview() { :; }
 run_menu_run() { RUN_MENU_COUNT=$((RUN_MENU_COUNT+1)); }
 run_menu_investigate() { :; }
@@ -22,6 +24,7 @@ run_menu_export() { :; }
 run_menu_docs() { :; }
 
 cat > "$MENU_QUEUE_FILE" <<'EOF'
+q
 r
 p
 x
@@ -37,6 +40,7 @@ while true; do
   local_choice="$(normalize_menu_choice "$local_choice")"
   local_choice="$(map_menu_shortcut "$local_choice" "main")"
   case "$local_choice" in
+    quickstart) run_menu_quickstart ;;
     overview) run_menu_overview ;;
     run) run_menu_run ;;
     investigate) run_menu_investigate ;;
@@ -47,6 +51,10 @@ while true; do
   esac
 done
 
+[[ "$QUICKSTART_MENU_COUNT" -eq 1 ]] || {
+  echo "expected quickstart submenu once, got $QUICKSTART_MENU_COUNT" >&2
+  exit 1
+}
 [[ "$RUN_MENU_COUNT" -eq 1 ]] || {
   echo "expected run submenu once, got $RUN_MENU_COUNT" >&2
   exit 1
