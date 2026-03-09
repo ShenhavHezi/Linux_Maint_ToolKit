@@ -57,8 +57,20 @@ if [[ "$base" =~ Linux_Maint_ToolKit-(v[0-9]+\.[0-9]+\.[0-9]+)-([0-9a-f]+)\.tgz$
   tar_sha="${BASH_REMATCH[2]}"
 fi
 
-build_info="$(tar -xOf "$TARBALL" BUILD_INFO 2>/dev/null || true)"
-version_file="$(tar -xOf "$TARBALL" VERSION 2>/dev/null || true)"
+extract_tar_member(){
+  local tarball="$1" member="$2"
+  local value=""
+  value="$(tar -xOf "$tarball" "$member" 2>/dev/null || true)"
+  if [[ -n "$value" ]]; then
+    printf '%s' "$value"
+    return 0
+  fi
+  value="$(tar -xOf "$tarball" "./$member" 2>/dev/null || true)"
+  printf '%s' "$value"
+}
+
+build_info="$(extract_tar_member "$TARBALL" BUILD_INFO)"
+version_file="$(extract_tar_member "$TARBALL" VERSION)"
 if [[ -z "$build_info" || -z "$version_file" ]]; then
   echo "ERROR: tarball missing BUILD_INFO or VERSION" >&2
   exit 1

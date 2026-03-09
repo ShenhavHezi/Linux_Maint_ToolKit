@@ -14,6 +14,7 @@ This project uses a lightweight changelog. Each release should add a short entry
 - Hardened advanced command/integration behavior (`serve`, `agent`, `predict`, `ai-assist`, `federate`, plugin installs, `audit-log`, `notify`, `ticket`).
 - Reworked `linux-maint menu` and CLI help into a more guided operator console with Quickstart, palette/search, previews, and stronger fallback backends.
 - Expanded CI/compat coverage and regression tests across repo-mode, menu/TUI, and command-contract paths.
+- Fixed release tarball verification so `verify-release` accepts the archive layout emitted by `make_tarball.sh`.
 
 ## 2026-03-02
 

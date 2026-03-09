@@ -110,6 +110,7 @@
 ## CI, compatibility, and test coverage
 - Fixed CI regressions in ShellCheck, root-compat tests, and Ubuntu/Debian compatibility jobs.
 - Restored Python 3.6 compatibility where needed for the compat matrix.
+- Fixed `verify-release` to accept tarballs with root `./BUILD_INFO` and `./VERSION` entries emitted by `make_tarball.sh`.
 - Added broad regression coverage across:
   - repo-mode path behavior
   - command-contract/error-path handling

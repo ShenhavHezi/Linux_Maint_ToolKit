@@ -13,7 +13,7 @@ tarball="$workdir/dist/Linux_Maint_ToolKit-test.tgz"
 printf 'hello\n' > "$workdir/payload.txt"
 printf 'version=0.0.0\ncommit=deadbeef\n' > "$workdir/BUILD_INFO"
 printf '0.0.0\n' > "$workdir/VERSION"
-( cd "$workdir" && tar -czf "$tarball" payload.txt BUILD_INFO VERSION )
+( cd "$workdir" && tar -czf "$tarball" ./payload.txt ./BUILD_INFO ./VERSION )
 
 ( cd "$workdir/dist" && sha256sum "$(basename "$tarball")" > SHA256SUMS )
 
