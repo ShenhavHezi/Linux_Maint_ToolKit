@@ -41,7 +41,7 @@ render_one() {
 }
 
 {
-  render_one "Quickstart" "quickstart" $'first_setup|Guide: first setup and safe first run [f]\ncurrent_incident|Guide: current incident triage [i]\nescalation|Guide: export and escalation workflow [e]\nback|Back to main menu [b]\n' 16
+  render_one "Quickstart" "quickstart" $'first_setup|Guide: first setup and safe first run [f]\ncurrent_incident|Guide: current incident triage [i]\nescalation|Guide: export and escalation workflow [e]\ninventory|Edit: servers.txt inventory [s]\ngroups|Open: hosts.d groups overview [g]\ndocs|Open: setup docs [d]\nback|Back to main menu [b]\n' 16
   render_one "Overview" "overview" $'dashboard|Open: live operations dashboard [d]\nstatus|Open: current status snapshot [s]\nproblems|Review: latest non-OK rows [p]\nreport|Review: short operator summary [r]\ntrend|Analyze: recent trend (last 10 runs) [t]\nback|Back to main menu [b]\n' 10
   render_one "Run checks" "run" $'run|Execute: run checks now (live output) [r] [changes]\nplan|Preview: resolved run plan only [p]\nwizard|Guide: guided run setup wizard [w]\nback|Back to main menu [b]\n' 8
   render_one "Investigate" "investigate" $'drilldown|Analyze: filtered status drilldown [d]\ndiff|Inspect: changes since previous run [f]\nhistory|Inspect: recent run history [h]\nlogs|Inspect: latest wrapper log [l]\nreasons|Review: top reason tokens [r]\nruntimes|Analyze: slowest monitors [u]\nback|Back to main menu [b]\n' 10

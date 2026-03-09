@@ -202,6 +202,10 @@ Last updated: 2026-03-09
   - `dialog`/`whiptail` menus now render the same context/readiness/recommended-start summary as the richer gum flow instead of a bare prompt.
   - command execution previews now summarize reads, writes, risk, and likely next step before running.
   - Proof: `tests/menu_fallback_prompt_test.sh`, `tests/menu_command_preview_test.sh`, `tests/menu_return_to_main_after_failure_test.sh`.
+- `DONE` In-menu action preview + Quickstart shortcuts:
+  - gum menus now support visible action previews from inside the menu before selection, and the full section layout shows a recommended action preview card.
+  - Quickstart now has direct shortcuts for editing `servers.txt`, opening `hosts.d`, and opening key setup docs.
+  - Proof: `tests/menu_action_preview_text_test.sh`, `tests/menu_quickstart_shortcuts_test.sh`, `tests/menu_help_overlay_text_test.sh`, `tests/menu_all_sections_fixture_test.sh`.
 - `PARTIAL` JSON schema coverage is incomplete for some newly added commands.
   - Hardening: `report` and `summary` now fail fast instead of silently degrading when `status --json` is broken.
   - Added schema coverage for `export --jsonl` rows and `ticket/cm-hook/audit-log` JSON contracts.

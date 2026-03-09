@@ -15,28 +15,42 @@
  │  ogs  state=/tmp/linux_maint_state_fixture         │
  │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
  │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Current pressure                                  │
- ╰────────────────────────────────────────────────────╯    │  overall=CRIT                                      │
-                                                           │  top_reason=http_failed                            │
- ╭────────────────────────────────────────────────────╮    │  top_problem=network_monitor host=web-2            │
- │                                                    │    │                                                    │
- │  Recommended start                                 │    ╰────────────────────────────────────────────────────╯
- │  Recommended first action: first_setup             │
- │  - Use the bootstrap wizard to create config,      │
- │  validate readiness, and preview the first run     │
- │  - Current incident is best after you already      │
- │  have a summary or active failure                  │
- │  - Escalation is most useful once report, JSON,    │
- │  or bundle artifacts exist                         │
- │                                                    │
- ╰────────────────────────────────────────────────────╯
+ │                                                    │    │  Action preview                                    │
+ ╰────────────────────────────────────────────────────╯    │  Command preview: Quickstart: first setup          │
+                                                           │                                                    │
+ ╭────────────────────────────────────────────────────╮    │  Command:                                          │
+ │                                                    │    │    linux-maint init --minimal                      │
+ │  Recommended start                                 │    │                                                    │
+ │  Recommended first action: first_setup             │    │  Risk:                                             │
+ │  - Use the bootstrap wizard to create config,      │    │    Changes system                                  │
+ │  validate readiness, and preview the first run     │    │                                                    │
+ │  - Current incident is best after you already      │    │  Reads:                                            │
+ │  have a summary or active failure                  │    │  - starter templates from the repo/install         │
+ │  - Escalation is most useful once report, JSON,    │    │  template directory                                │
+ │  or bundle artifacts exist                         │    │  - current target config root                      │
+ │                                                    │    │  /tmp/linux_maint_cfg_fixture                      │
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           │  Writes:                                           │
+                                                           │  - starter config files under                      │
+                                                           │  /tmp/linux_maint_cfg_fixture                      │
+                                                           │  - may overwrite existing templates only when --   │
+                                                           │  force is set                                      │
+                                                           │                                                    │
+                                                           │  Likely next step:                                 │
+                                                           │    Edit inventory, then run check and run --plan   │
+                                                           │  before the first live execution.                  │
+                                                           │                                                    │
+                                                           ╰────────────────────────────────────────────────────╯
 
   first_setup       Guide: first setup and safe first run [f]
   current_incident  Guide: current incident triage [i]
   escalation        Guide: export and escalation workflow [e]
+  inventory         Edit: servers.txt inventory [s]
+  groups            Open: hosts.d groups overview [g]
+  docs              Open: setup docs [d]
   back              Back to main menu [b]
 
-  Type shortcut or number. ? help, / search, Enter browse, Esc back.
+  Type shortcut or number. ? help, / search, . previews, Enter browse, Esc back.
 === Overview ===
 
  ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -54,18 +68,21 @@
  │  ogs  state=/tmp/linux_maint_state_fixture         │
  │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
  │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Current pressure                                  │
- ╰────────────────────────────────────────────────────╯    │  overall=CRIT                                      │
-                                                           │  top_reason=http_failed                            │
- ╭────────────────────────────────────────────────────╮    │  top_problem=network_monitor host=web-2            │
- │                                                    │    │                                                    │
- │  Recommended start                                 │    ╰────────────────────────────────────────────────────╯
- │  Recommended first action: first_setup             │
- │  - Dashboard for the live operations view          │
- │  - Problems for the latest non-OK rows             │
- │  - Report when you need a short operator summary   │
- │                                                    │
- ╰────────────────────────────────────────────────────╯
+ │                                                    │    │  Action preview                                    │
+ ╰────────────────────────────────────────────────────╯    │  Opens the live dashboard view.                    │
+                                                           │                                                    │
+ ╭────────────────────────────────────────────────────╮    │  Reads:                                            │
+ │                                                    │    │  - latest status/report artifacts from             │
+ │  Recommended start                                 │    │  /tmp/linux_maint_menu_render_fixture_probe/logs   │
+ │  Recommended first action: first_setup             │    │                                                    │
+ │  - Dashboard for the live operations view          │    │  Writes:                                           │
+ │  - Problems for the latest non-OK rows             │    │  - none                                            │
+ │  - Report when you need a short operator summary   │    │                                                    │
+ │                                                    │    │  Likely next step:                                 │
+ ╰────────────────────────────────────────────────────╯    │    Jump to problems or report if you need a        │
+                                                           │  narrower answer.                                  │
+                                                           │                                                    │
+                                                           ╰────────────────────────────────────────────────────╯
 
   dashboard   Open: live operations dashboard [d]
   status      Open: current status snapshot [s]
@@ -74,7 +91,7 @@
   trend       Analyze: recent trend (last 10 runs) [t]
   back        Back to main menu [b]
 
-  Type shortcut or number. ? help, / search, Enter browse, Esc back.
+  Type shortcut or number. ? help, / search, . previews, Enter browse, Esc back.
 === Run checks ===
 
  ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -92,28 +109,41 @@
  │  ogs  state=/tmp/linux_maint_state_fixture         │
  │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
  │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Current pressure                                  │
- ╰────────────────────────────────────────────────────╯    │  overall=CRIT                                      │
-                                                           │  top_reason=http_failed                            │
- ╭────────────────────────────────────────────────────╮    │  top_problem=network_monitor host=web-2            │
- │                                                    │    │                                                    │
- │  Recommended start                                 │    ╰────────────────────────────────────────────────────╯
- │  Recommended first action: first_setup             │
- │  - Before a live run, create or review config in   │
- │  /tmp/linux_maint_cfg_fixture                      │
- │  - Add targets in                                  │
- │  /tmp/linux_maint_cfg_fixture/servers.txt or       │
- │  under /tmp/linux_maint_cfg_fixture/hosts.d        │
- │  - Use plan once the inventory is ready            │
- │                                                    │
- ╰────────────────────────────────────────────────────╯
+ │                                                    │    │  Action preview                                    │
+ ╰────────────────────────────────────────────────────╯    │  Command preview: linux-maint run                  │
+                                                           │                                                    │
+ ╭────────────────────────────────────────────────────╮    │  Command:                                          │
+ │                                                    │    │    linux-maint run                                 │
+ │  Recommended start                                 │    │                                                    │
+ │  Recommended first action: first_setup             │    │  Risk:                                             │
+ │  - Before a live run, create or review config in   │    │    Changes system                                  │
+ │  /tmp/linux_maint_cfg_fixture                      │    │                                                    │
+ │  - Add targets in                                  │    │  Reads:                                            │
+ │  /tmp/linux_maint_cfg_fixture/servers.txt or       │    │  - config from /tmp/linux_maint_cfg_fixture        │
+ │  under /tmp/linux_maint_cfg_fixture/hosts.d        │    │  - inventory from                                  │
+ │  - Use plan once the inventory is ready            │    │  /tmp/linux_maint_cfg_fixture/servers.txt and      │
+ │                                                    │    │  /tmp/linux_maint_cfg_fixture/hosts.d              │
+ ╰────────────────────────────────────────────────────╯    │  - monitor scripts and current policy settings     │
+                                                           │                                                    │
+                                                           │  Writes:                                           │
+                                                           │  - run artifacts under                             │
+                                                           │  /tmp/linux_maint_menu_render_fixture_probe/logs   │
+                                                           │  - history/index state under                       │
+                                                           │  /tmp/linux_maint_state_fixture                    │
+                                                           │  - optional audit records when enabled             │
+                                                           │                                                    │
+                                                           │  Likely next step:                                 │
+                                                           │    Use Overview or Export next to review the       │
+                                                           │  result and capture any follow-up artifacts.       │
+                                                           │                                                    │
+                                                           ╰────────────────────────────────────────────────────╯
 
   run       Execute: run checks now (live output) [r] [changes]
   plan      Preview: resolved run plan only [p]
   wizard    Guide: guided run setup wizard [w]
   back      Back to main menu [b]
 
-  Type shortcut or number. ? help, / search, Enter browse, Esc back.
+  Type shortcut or number. ? help, / search, . previews, Enter browse, Esc back.
 === Investigate ===
 
  ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -131,20 +161,22 @@
  │  ogs  state=/tmp/linux_maint_state_fixture         │
  │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
  │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Current pressure                                  │
- ╰────────────────────────────────────────────────────╯    │  overall=CRIT                                      │
-                                                           │  top_reason=http_failed                            │
- ╭────────────────────────────────────────────────────╮    │  top_problem=network_monitor host=web-2            │
- │                                                    │    │                                                    │
- │  Recommended start                                 │    ╰────────────────────────────────────────────────────╯
- │  Recommended first action: first_setup             │
- │  - Investigate needs either a summary, a log, or   │
- │  history artifacts                                 │
- │  - summary=yes  logs=no  history=no                │
- │  - Run check and a safe plan first, then come      │
- │  back for drilldown                                │
- │                                                    │
- ╰────────────────────────────────────────────────────╯
+ │                                                    │    │  Action preview                                    │
+ ╰────────────────────────────────────────────────────╯    │  Opens filtered status drilldown with host,        │
+                                                           │  monitor, reason, and status filters.              │
+ ╭────────────────────────────────────────────────────╮    │                                                    │
+ │                                                    │    │  Reads:                                            │
+ │  Recommended start                                 │    │  - status JSON snapshot from                       │
+ │  Recommended first action: first_setup             │    │  /tmp/linux_maint_menu_render_fixture_probe/logs   │
+ │  - Investigate needs either a summary, a log, or   │    │                                                    │
+ │  history artifacts                                 │    │  Writes:                                           │
+ │  - summary=yes  logs=no  history=no                │    │  - none                                            │
+ │  - Run check and a safe plan first, then come      │    │                                                    │
+ │  back for drilldown                                │    │  Likely next step:                                 │
+ │                                                    │    │    Narrow to one host or monitor, then explain     │
+ ╰────────────────────────────────────────────────────╯    │  the top reason or monitor.                        │
+                                                           │                                                    │
+                                                           ╰────────────────────────────────────────────────────╯
 
   drilldown   Analyze: filtered status drilldown [d]
   diff        Inspect: changes since previous run [f]
@@ -154,7 +186,7 @@
   runtimes    Analyze: slowest monitors [u]
   back        Back to main menu [b]
 
-  Type shortcut or number. ? help, / search, Enter browse, Esc back.
+  Type shortcut or number. ? help, / search, . previews, Enter browse, Esc back.
 === Repair ===
 
  ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -172,20 +204,21 @@
  │  ogs  state=/tmp/linux_maint_state_fixture         │
  │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
  │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Current pressure                                  │
- ╰────────────────────────────────────────────────────╯    │  overall=CRIT                                      │
-                                                           │  top_reason=http_failed                            │
- ╭────────────────────────────────────────────────────╮    │  top_problem=network_monitor host=web-2            │
- │                                                    │    │                                                    │
- │  Recommended start                                 │    ╰────────────────────────────────────────────────────╯
- │  Recommended first action: first_setup             │
- │  Current triage: connectivity triage: reason       │
- │  explain + focused status + network rerun          │
- │  - Doctor validates deeper dependencies and fixes  │
- │  - Check confirms readiness before the next full   │
- │  run                                               │
- │                                                    │
- ╰────────────────────────────────────────────────────╯
+ │                                                    │    │  Action preview                                    │
+ ╰────────────────────────────────────────────────────╯    │  Opens guided incident response based on the       │
+                                                           │  latest top reason and monitor.                    │
+ ╭────────────────────────────────────────────────────╮    │                                                    │
+ │                                                    │    │  Reads:                                            │
+ │  Recommended start                                 │    │  - summary, reasons, problems, and logs            │
+ │  Recommended first action: first_setup             │    │                                                    │
+ │  Current triage: connectivity triage: reason       │    │  Writes:                                           │
+ │  explain + focused status + network rerun          │    │  - none until you choose a follow-up action        │
+ │  - Doctor validates deeper dependencies and fixes  │    │                                                    │
+ │  - Check confirms readiness before the next full   │    │  Likely next step:                                 │
+ │  run                                               │    │    Use this when you want the fastest recommended  │
+ │                                                    │    │  recovery path.                                    │
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           ╰────────────────────────────────────────────────────╯
 
   incident      Guide: incident response workflow [i]
   focused_run   Execute: focused service and network checks [f]
@@ -195,7 +228,7 @@
   secprofile    Inspect: strict security profile [p]
   back          Back to main menu [b]
 
-  Type shortcut or number. ? help, / search, Enter browse, Esc back.
+  Type shortcut or number. ? help, / search, . previews, Enter browse, Esc back.
 === Export ===
 
  ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -213,18 +246,32 @@
  │  ogs  state=/tmp/linux_maint_state_fixture         │
  │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
  │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Current pressure                                  │
- ╰────────────────────────────────────────────────────╯    │  overall=CRIT                                      │
-                                                           │  top_reason=http_failed                            │
- ╭────────────────────────────────────────────────────╮    │  top_problem=network_monitor host=web-2            │
- │                                                    │    │                                                    │
- │  Recommended start                                 │    ╰────────────────────────────────────────────────────╯
- │  Recommended first action: report                  │
- │  - Report for people, export JSON for systems      │
- │  - Metrics and runtimes for dashboards and tuning  │
- │  - Pack logs when you need a support bundle        │
- │                                                    │
- ╰────────────────────────────────────────────────────╯
+ │                                                    │    │  Action preview                                    │
+ ╰────────────────────────────────────────────────────╯    │  Command preview: linux-maint report --short --    │
+                                                           │  no-trend                                          │
+ ╭────────────────────────────────────────────────────╮    │                                                    │
+ │                                                    │    │  Command:                                          │
+ │  Recommended start                                 │    │    linux-maint report --short --no-trend           │
+ │  Recommended first action: report                  │    │                                                    │
+ │  - Report for people, export JSON for systems      │    │  Risk:                                             │
+ │  - Metrics and runtimes for dashboards and tuning  │    │    Read-only                                       │
+ │  - Pack logs when you need a support bundle        │    │                                                    │
+ │                                                    │    │  Reads:                                            │
+ ╰────────────────────────────────────────────────────╯    │  - latest artifacts under                          │
+                                                           │  /tmp/linux_maint_menu_render_fixture_probe/logs   │
+                                                           │  - history state under                             │
+                                                           │  /tmp/linux_maint_state_fixture when needed        │
+                                                           │  - current config root for hints and metadata      │
+                                                           │                                                    │
+                                                           │  Writes:                                           │
+                                                           │  - read-only output to the terminal unless --      │
+                                                           │  output is used                                    │
+                                                           │                                                    │
+                                                           │  Likely next step:                                 │
+                                                           │    If you see failures, move to Investigate or     │
+                                                           │  Repair for drilldown and remediation.             │
+                                                           │                                                    │
+                                                           ╰────────────────────────────────────────────────────╯
 
   report        Open: short report summary [r]
   trend         Open: recent trend (last 10 runs) [t]
@@ -235,7 +282,7 @@
   pack_logs     Support: guided support bundle wizard [p] [changes]
   back          Back to main menu [b]
 
-  Type shortcut or number. ? help, / search, Enter browse, Esc back.
+  Type shortcut or number. ? help, / search, . previews, Enter browse, Esc back.
 === Docs ===
 
  ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -253,21 +300,22 @@
  │  ogs  state=/tmp/linux_maint_state_fixture         │
  │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
  │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Current pressure                                  │
- ╰────────────────────────────────────────────────────╯    │  overall=CRIT                                      │
-                                                           │  top_reason=http_failed                            │
- ╭────────────────────────────────────────────────────╮    │  top_problem=network_monitor host=web-2            │
- │                                                    │    │                                                    │
- │  Recommended start                                 │    ╰────────────────────────────────────────────────────╯
- │  Recommended first action: first_setup             │
- │  - Open quick reference and config docs before     │
- │  editing /tmp/linux_maint_cfg_fixture              │
- │  - Use docs to understand monitor inputs and       │
- │  expected skip behavior                            │
- │  - Then return to Quickstart for the guided        │
- │  bootstrap                                         │
- │                                                    │
- ╰────────────────────────────────────────────────────╯
+ │                                                    │    │  Action preview                                    │
+ ╰────────────────────────────────────────────────────╯    │  Opens the operator quick reference.               │
+                                                           │                                                    │
+ ╭────────────────────────────────────────────────────╮    │  Reads:                                            │
+ │                                                    │    │  -                                                 │
+ │  Recommended start                                 │    │  /home/shenhav/Linux_Maint_ToolKit/docs/QUICK_REF  │
+ │  Recommended first action: first_setup             │    │  ERENCE.md                                         │
+ │  - Open quick reference and config docs before     │    │                                                    │
+ │  editing /tmp/linux_maint_cfg_fixture              │    │  Writes:                                           │
+ │  - Use docs to understand monitor inputs and       │    │  - none                                            │
+ │  expected skip behavior                            │    │                                                    │
+ │  - Then return to Quickstart for the guided        │    │  Likely next step:                                 │
+ │  bootstrap                                         │    │    Return to the menu and follow the relevant      │
+ │                                                    │    │  task path.                                        │
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           ╰────────────────────────────────────────────────────╯
 
   quickref          Open: quick command reference [h]
   troubleshooting   Open: troubleshooting guide [t]
@@ -282,4 +330,4 @@
   about             Inspect: version and project details [a]
   back              Back to main menu [b]
 
-  Type shortcut or number. ? help, / search, Enter browse, Esc back.
+  Type shortcut or number. ? help, / search, . previews, Enter browse, Esc back.

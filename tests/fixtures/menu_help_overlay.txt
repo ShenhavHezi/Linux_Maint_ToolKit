@@ -5,6 +5,7 @@ Controls:
 - Enter opens the full chooser
 - ? opens this help overlay
 - / opens the smart command palette (names, aliases, task words)
+- . opens action previews for the visible menu
 - Esc goes back
 - shortcuts are on
 

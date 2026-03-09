@@ -668,6 +668,10 @@ tui_gum_read_visible_menu_choice(){
       printf '__search__'
       return 0
       ;;
+    '.')
+      printf '__preview__'
+      return 0
+      ;;
     *)
       if [[ "${LM_TUI_SHORTCUTS:-1}" =~ ^(1|true|TRUE|yes|YES|on|ON)$ ]]; then
         local mapped
@@ -957,7 +961,7 @@ tui_section_empty_state_body(){
 }
 
 tui_fallback_menu_prompt_body(){
-  local prompt="$1" context="${2:-main}" status_json snapshot mode overall age cfg_dir log_dir summary_ready inventory_ready history_ready recommended focus
+  local prompt="$1" context="${2:-main}" status_json snapshot mode overall age cfg_dir log_dir summary_ready inventory_ready history_ready recommended focus preview_line
   status_json="$(tui_status_snapshot_json)"
   snapshot="$(tui_context_snapshot "$status_json")"
   mode="$(tui_snapshot_value "$snapshot" mode)"
@@ -970,6 +974,7 @@ tui_fallback_menu_prompt_body(){
   history_ready="$(tui_snapshot_value "$snapshot" history_ready)"
   recommended="$(tui_section_recommended_action "$context" "$status_json")"
   focus="$(tui_section_preview_body "$context" "$status_json" | head -n 2 | tail -n 1)"
+  preview_line="$(tui_menu_action_preview_body "$context" "$recommended" "" | sed -n '1p')"
   printf '%s\n\n' "$prompt"
   printf 'Context:\n'
   printf '  mode=%s  overall=%s  last_run=%s\n' "${mode:-unknown}" "${overall:-UNKNOWN}" "$(tui_format_age_seconds "${age:--1}")"
@@ -982,6 +987,8 @@ tui_fallback_menu_prompt_body(){
   printf '\nRecommended:\n'
   printf '  start=%s\n' "${recommended:-overview}"
   printf '  %s\n' "${focus:-- Start with the landing dashboard}"
+  printf '\nAction preview:\n'
+  printf '  %s\n' "${preview_line:-Open the recommended action for more detail.}"
 }
 
 tui_gum_status_overview(){
@@ -1416,7 +1423,8 @@ tui_section_preview_body(){
         "Recommended first action: $next_action" \
         "- First setup for init, check, and safe plan review" \
         "- Current incident for guided triage and repair" \
-        "- Escalation for report, JSON export, and support bundle"
+        "- Escalation for report, JSON export, and support bundle" \
+        "- Direct shortcuts: inventory edit, hosts.d overview, and setup docs"
       ;;
     overview)
       printf '%s\n' \
@@ -1622,6 +1630,9 @@ run_menu_quickstart(){
       first_setup "Guide: first setup and safe first run [f]" \
       current_incident "Guide: current incident triage [i]" \
       escalation "Guide: export and escalation workflow [e]" \
+      inventory "Edit: servers.txt inventory [s]" \
+      groups "Open: hosts.d groups overview [g]" \
+      docs "Open: setup docs [d]" \
       back "Back to main menu [b]")"
     local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
@@ -1633,6 +1644,9 @@ run_menu_quickstart(){
       first_setup) tui_quickstart_first_setup ;;
       current_incident) tui_quickstart_current_incident ;;
       escalation) tui_quickstart_escalation ;;
+      inventory) tui_quickstart_inventory_edit ;;
+      groups) tui_quickstart_groups_overview ;;
+      docs) tui_quickstart_docs ;;
       back) break ;;
     esac
     if [[ "${TUI_RETURN_TO_MAIN:-0}" == "1" ]]; then
@@ -1673,6 +1687,7 @@ tui_menu_help_overlay_text(){
     printf -- '- Enter opens the full chooser\n'
     printf -- '- ? opens this help overlay\n'
     printf -- '- / opens the smart command palette (names, aliases, task words)\n'
+    printf -- '- . opens action previews for the visible menu\n'
     printf -- '- Esc goes back\n'
     printf -- '- shortcuts are %s\n' "$shortcuts_label"
     printf '\nPalette examples:\n'
@@ -1685,12 +1700,100 @@ tui_menu_help_overlay_text(){
   }
 }
 
+tui_textbox_text(){
+  local title="$1" content="$2"
+  local tmp
+  tmp="$(mktemp -p "$TMPDIR" linux_maint_textbox.XXXXXX)"
+  printf '%s\n' "$content" > "$tmp"
+  tui_textbox "$title" "$tmp"
+  rm -f "$tmp" 2>/dev/null || true
+}
+
+tui_preferred_editor(){
+  local editor="${VISUAL:-${EDITOR:-}}"
+  if [[ -n "$editor" ]] && command -v "${editor%% *}" >/dev/null 2>&1; then
+    printf '%s' "$editor"
+    return 0
+  fi
+  local candidate
+  for candidate in sensible-editor editor nano vi vim; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+tui_edit_file(){
+  local title="$1" file="$2"
+  mkdir -p "$(dirname "$file")" 2>/dev/null || true
+  touch "$file" 2>/dev/null || true
+  local editor
+  if ! editor="$(tui_preferred_editor)"; then
+    tui_view_file "$title" "$file"
+    return 0
+  fi
+  clear 2>/dev/null || true
+  echo "Opening $file with $editor" >&2
+  "$editor" "$file" </dev/tty >/dev/tty 2>/dev/tty || true
+}
+
+tui_hosts_dir_overview_text(){
+  local hosts_dir="${1:-$(tui_effective_hosts_dir)}"
+  printf 'hosts.d overview\n\n'
+  printf 'Path: %s\n\n' "$hosts_dir"
+  if [[ -d "$hosts_dir" ]] && compgen -G "$hosts_dir/*.txt" >/dev/null 2>&1; then
+    printf 'Current group files:\n'
+    find "$hosts_dir" -maxdepth 1 -type f -name '*.txt' -printf '  - %f\n' | sort
+  else
+    printf 'Current group files:\n'
+    printf '  - none yet\n'
+  fi
+  printf '\nExpected usage:\n'
+  printf '  - one group per file\n'
+  printf '  - file name becomes the --group target\n'
+  printf '  - each file contains one host per line\n'
+}
+
+tui_quickstart_inventory_edit(){
+  local serverlist
+  serverlist="$(tui_effective_serverlist_path)"
+  tui_edit_file "servers.txt inventory" "$serverlist"
+}
+
+tui_quickstart_groups_overview(){
+  local hosts_dir
+  hosts_dir="$(tui_effective_hosts_dir)"
+  mkdir -p "$hosts_dir" 2>/dev/null || true
+  tui_textbox_text "hosts.d groups" "$(tui_hosts_dir_overview_text "$hosts_dir")"
+}
+
+tui_quickstart_docs(){
+  local choice quickref troubleshooting
+  quickref="$(find_doc_file QUICK_REFERENCE.md)"
+  troubleshooting="$(find_doc_file troubleshooting.md)"
+  choice="$(tui_menu_prompt_safe "Quickstart docs" \
+    quickref "Open quick reference" \
+    troubleshooting "Open troubleshooting guide" \
+    back "Back")"
+  [[ "$TUI_MENU_RC" -eq 0 && -n "${choice:-}" ]] || return 0
+  choice="$(normalize_menu_choice "$choice")"
+  case "$choice" in
+    quickref) tui_view_file "Quick reference" "$quickref" ;;
+    troubleshooting) tui_view_file "Troubleshooting" "$troubleshooting" ;;
+  esac
+}
+
 tui_palette_aliases(){
   local tag="$1" context="${2:-main}"
   case "$tag" in
     quickstart|first_setup) printf 'setup bootstrap init first run onboarding config' ;;
     current_incident|incident|recommended) printf 'incident triage outage emergency fix recover' ;;
     escalation|pack_logs) printf 'bundle support share escalate escalation archive logs' ;;
+    inventory) printf 'servers inventory targets edit hosts bootstrap' ;;
+    groups) printf 'hosts groups hosts.d inventory open group files' ;;
+    quickref) printf 'docs help reference quick reference bootstrap guide' ;;
     overview|dashboard) printf 'overview dashboard home landing status current state' ;;
     problems) printf 'problems alerts failures issues urgent bad hosts' ;;
     status|status_detail) printf 'status snapshot table current fleet' ;;
@@ -1702,12 +1805,350 @@ tui_palette_aliases(){
     investigate|drilldown|diff|history|logs|reasons) printf 'investigate debug drilldown logs diff history reasons root cause' ;;
     repair|doctor|selfcheck|check|secprofile|focused_run) printf 'repair recover doctor validate fix readiness security focused rerun' ;;
     export|export_json|metrics_prom|metrics_json) printf 'export json metrics prometheus automation api' ;;
-    docs|quickref|faq|troubleshooting|config|monitors|about) printf 'docs help reference explain faq troubleshooting config monitors' ;;
+    docs|faq|troubleshooting|config|monitors|about) printf 'docs help reference explain faq troubleshooting config monitors' ;;
     settings) printf 'settings preferences backend shortcuts compact colors' ;;
     back) printf 'back return previous menu' ;;
     exit) printf 'exit quit close menu' ;;
     *) printf '%s' "$context" ;;
   esac
+}
+
+tui_menu_action_preview_body(){
+  local context="${1:-main}" tag="$2" desc="${3:-}"
+  local title body
+  case "$context:$tag" in
+    main:quickstart)
+      printf '%s\n' \
+        "Opens the Quickstart workflow hub." \
+        "" \
+        "Reads:" \
+        "- current config readiness, summary, logs, and history state" \
+        "" \
+        "Writes:" \
+        "- none by itself; it routes into setup, incident, or escalation flows" \
+        "" \
+        "Likely next step:" \
+        "  Start with first_setup if this is a fresh repo or new environment."
+      ;;
+    main:overview)
+      printf '%s\n' \
+        "Opens the current-state dashboard and operator summary tools." \
+        "" \
+        "Reads:" \
+        "- latest artifacts under $(tui_effective_log_dir)" \
+        "" \
+        "Writes:" \
+        "- none; read-only investigation path" \
+        "" \
+        "Likely next step:" \
+        "  Use status, report, or problems depending on urgency."
+      ;;
+    main:run)
+      printf '%s\n' \
+        "Opens execution planning and live-run controls." \
+        "" \
+        "Reads:" \
+        "- config and inventory from $(tui_effective_cfg_dir)" \
+        "" \
+        "Writes:" \
+        "- none until you actually choose a run action" \
+        "" \
+        "Likely next step:" \
+        "  Plan first when config or scope changed."
+      ;;
+    main:investigate)
+      printf '%s\n' \
+        "Opens drilldown, diff, history, logs, and reason analysis." \
+        "" \
+        "Reads:" \
+        "- summary, logs, and history artifacts" \
+        "" \
+        "Writes:" \
+        "- none; read-only investigation path" \
+        "" \
+        "Likely next step:" \
+        "  Start with drilldown or logs when you already have an active failure."
+      ;;
+    main:repair)
+      printf '%s\n' \
+        "Opens incident, doctor, check, and recovery-oriented actions." \
+        "" \
+        "Reads:" \
+        "- current state plus config/readiness inputs" \
+        "" \
+        "Writes:" \
+        "- none until you choose a repair action" \
+        "" \
+        "Likely next step:" \
+        "  Use incident or doctor when you need a guided recovery flow."
+      ;;
+    main:export)
+      printf '%s\n' \
+        "Opens report, JSON export, metrics, and support-bundle actions." \
+        "" \
+        "Reads:" \
+        "- latest artifacts and history summaries" \
+        "" \
+        "Writes:" \
+        "- none until you export or package artifacts" \
+        "" \
+        "Likely next step:" \
+        "  Use report for people, export_json for systems, or pack_logs for escalation."
+      ;;
+    main:docs)
+      printf '%s\n' \
+        "Opens operator docs, explanations, and menu settings." \
+        "" \
+        "Reads:" \
+        "- local docs plus effective config metadata" \
+        "" \
+        "Writes:" \
+        "- none unless you change menu settings" \
+        "" \
+        "Likely next step:" \
+        "  Use quick reference for speed or config to inspect the active sources."
+      ;;
+    quickstart:first_setup)
+      tui_command_preview_body "Quickstart: first setup" linux-maint init --minimal
+      ;;
+    quickstart:current_incident)
+      printf '%s\n' \
+        "Opens the incident workflow with recommended triage based on the latest failure." \
+        "" \
+        "Reads:" \
+        "- current summary, logs, and top reasons" \
+        "" \
+        "Writes:" \
+        "- none until you choose a follow-up action" \
+        "" \
+        "Likely next step:" \
+        "  Use this after you already have a summary or wrapper log."
+      ;;
+    quickstart:escalation)
+      tui_command_preview_body "Quickstart: escalation" linux-maint pack-logs --out .
+      ;;
+    quickstart:inventory)
+      printf '%s\n' \
+        "Opens your main servers inventory file in an editor." \
+        "" \
+        "Reads:" \
+        "- $(tui_effective_serverlist_path)" \
+        "" \
+        "Writes:" \
+        "- the same servers.txt file if you save changes" \
+        "" \
+        "Likely next step:" \
+        "  Add targets, then run check and run --plan."
+      ;;
+    quickstart:groups)
+      printf '%s\n' \
+        "Shows the hosts.d group layout and current group files." \
+        "" \
+        "Reads:" \
+        "- $(tui_effective_hosts_dir)" \
+        "" \
+        "Writes:" \
+        "- none; overview only" \
+        "" \
+        "Likely next step:" \
+        "  Create a group file there if you want --group targeting."
+      ;;
+    quickstart:docs)
+      printf '%s\n' \
+        "Opens key setup docs from the Quickstart path." \
+        "" \
+        "Reads:" \
+        "- quick reference and troubleshooting docs" \
+        "" \
+        "Writes:" \
+        "- none" \
+        "" \
+        "Likely next step:" \
+        "  Return to first_setup after checking the docs."
+      ;;
+    overview:dashboard)
+      printf '%s\n' \
+        "Opens the live dashboard view." \
+        "" \
+        "Reads:" \
+        "- latest status/report artifacts from $(tui_effective_log_dir)" \
+        "" \
+        "Writes:" \
+        "- none" \
+        "" \
+        "Likely next step:" \
+        "  Jump to problems or report if you need a narrower answer."
+      ;;
+    overview:status) tui_command_preview_body "linux-maint status --table" linux-maint status --table ;;
+    overview:problems) tui_command_preview_body "linux-maint status --table --problems ${LM_TUI_DEFAULT_PROBLEMS:-20}" linux-maint status --table --problems "${LM_TUI_DEFAULT_PROBLEMS:-20}" ;;
+    overview:report) tui_command_preview_body "linux-maint report --short --no-trend" linux-maint report --short --no-trend ;;
+    overview:trend) tui_command_preview_body "linux-maint trend --last 10" linux-maint trend --last 10 ;;
+    run:run) tui_command_preview_body "linux-maint run" linux-maint run ;;
+    run:plan) tui_command_preview_body "linux-maint run --plan" linux-maint run --plan ;;
+    run:wizard)
+      printf '%s\n' \
+        "Opens the guided run wizard for scope, target, and mode." \
+        "" \
+        "Reads:" \
+        "- config and inventory from $(tui_effective_cfg_dir)" \
+        "" \
+        "Writes:" \
+        "- none until you confirm a run or plan at the end" \
+        "" \
+        "Likely next step:" \
+        "  Use this when you want guardrails around targeting."
+      ;;
+    investigate:drilldown)
+      printf '%s\n' \
+        "Opens filtered status drilldown with host, monitor, reason, and status filters." \
+        "" \
+        "Reads:" \
+        "- status JSON snapshot from $(tui_effective_log_dir)" \
+        "" \
+        "Writes:" \
+        "- none" \
+        "" \
+        "Likely next step:" \
+        "  Narrow to one host or monitor, then explain the top reason or monitor."
+      ;;
+    investigate:diff) tui_command_preview_body "linux-maint diff" linux-maint diff ;;
+    investigate:history) tui_command_preview_body "linux-maint history --table" linux-maint history --table ;;
+    investigate:logs) tui_command_preview_body "linux-maint logs 200" linux-maint logs 200 ;;
+    investigate:reasons) tui_command_preview_body "linux-maint status --reasons 10" linux-maint status --reasons 10 ;;
+    investigate:runtimes) tui_command_preview_body "linux-maint runtimes --last 10" linux-maint runtimes --last 10 ;;
+    repair:incident)
+      printf '%s\n' \
+        "Opens guided incident response based on the latest top reason and monitor." \
+        "" \
+        "Reads:" \
+        "- summary, reasons, problems, and logs" \
+        "" \
+        "Writes:" \
+        "- none until you choose a follow-up action" \
+        "" \
+        "Likely next step:" \
+        "  Use this when you want the fastest recommended recovery path."
+      ;;
+    repair:focused_run) tui_command_preview_body "linux-maint run --only preflight_check,health_monitor,service_monitor,network_monitor --strict" linux-maint run --only preflight_check,health_monitor,service_monitor,network_monitor --strict ;;
+    repair:check) tui_command_preview_body "linux-maint check" linux-maint check ;;
+    repair:doctor) tui_command_preview_body "linux-maint doctor" linux-maint doctor ;;
+    repair:selfcheck) tui_command_preview_body "linux-maint self-check" linux-maint self-check ;;
+    repair:secprofile) tui_command_preview_body "linux-maint security-profile --strict" linux-maint security-profile --strict ;;
+    export:report) tui_command_preview_body "linux-maint report --short --no-trend" linux-maint report --short --no-trend ;;
+    export:trend) tui_command_preview_body "linux-maint trend --last 10" linux-maint trend --last 10 ;;
+    export:runtimes) tui_command_preview_body "linux-maint runtimes --last 10" linux-maint runtimes --last 10 ;;
+    export:metrics_prom) tui_command_preview_body "linux-maint metrics --prom" linux-maint metrics --prom ;;
+    export:metrics_json) tui_command_preview_body "linux-maint metrics --json" linux-maint metrics --json ;;
+    export:export_json) tui_command_preview_body "linux-maint export --json" linux-maint export --json ;;
+    export:pack_logs) tui_command_preview_body "linux-maint pack-logs" linux-maint pack-logs --out . ;;
+    docs:quickref)
+      printf '%s\n' \
+        "Opens the operator quick reference." \
+        "" \
+        "Reads:" \
+        "- $(find_doc_file QUICK_REFERENCE.md)" \
+        "" \
+        "Writes:" \
+        "- none" \
+        "" \
+        "Likely next step:" \
+        "  Return to the menu and follow the relevant task path."
+      ;;
+    docs:troubleshooting)
+      printf '%s\n' \
+        "Opens the troubleshooting guide." \
+        "" \
+        "Reads:" \
+        "- $(find_doc_file troubleshooting.md)" \
+        "" \
+        "Writes:" \
+        "- none" \
+        "" \
+        "Likely next step:" \
+        "  Use explain reason or Repair once you identify the class of failure."
+      ;;
+    docs:config) tui_command_preview_body "linux-maint config" linux-maint config ;;
+    docs:settings)
+      printf '%s\n' \
+        "Opens menu preferences and default operator behavior." \
+        "" \
+        "Reads:" \
+        "- current menu settings from $(menu_settings_path)" \
+        "" \
+        "Writes:" \
+        "- settings file only if you save changes" \
+        "" \
+        "Likely next step:" \
+        "  Adjust backend, preview, shortcuts, or compact mode."
+      ;;
+    *:back)
+      printf '%s\n' \
+        "Returns to the previous menu level." \
+        "" \
+        "Reads:" \
+        "- none" \
+        "" \
+        "Writes:" \
+        "- none" \
+        "" \
+        "Likely next step:" \
+        "  Use this to step back without leaving the menu."
+      ;;
+    main:exit)
+      printf '%s\n' \
+        "Exits linux-maint menu and returns to the CLI." \
+        "" \
+        "Reads:" \
+        "- none" \
+        "" \
+        "Writes:" \
+        "- none" \
+        "" \
+        "Likely next step:" \
+        "  Continue with direct CLI commands if you already know what you need."
+      ;;
+    *)
+      printf '%s\n' \
+        "$desc" \
+        "" \
+        "Reads:" \
+        "- context-dependent inputs for this action" \
+        "" \
+        "Writes:" \
+        "- none until the action resolves into a command" \
+        "" \
+        "Likely next step:" \
+        "  Open the action if it matches your current operator task."
+      ;;
+  esac
+}
+
+tui_menu_action_previews_text(){
+  local prompt="$1" context="$2" catalog="$3"
+  local tag desc
+  printf 'Action previews for %s\n' "$prompt"
+  while IFS='|' read -r tag desc; do
+    [[ -n "${tag:-}" ]] || continue
+    printf '\n[%s] %s\n' "$tag" "$desc"
+    printf '%s\n' "$(tui_menu_action_preview_body "$context" "$tag" "$desc")"
+  done <<< "$catalog"
+}
+
+tui_menu_recommended_action_preview_card(){
+  local context="$1" catalog="$2" width="${3:-52}" status_json="${4:-}"
+  local recommended desc line tag
+  recommended="$(tui_section_recommended_action "$context" "$status_json")"
+  desc=""
+  while IFS='|' read -r tag line; do
+    [[ "$tag" == "$recommended" ]] || continue
+    desc="$line"
+    break
+  done <<< "$catalog"
+  if [[ -z "$desc" ]]; then
+    recommended="$(printf '%s\n' "$catalog" | awk -F'|' 'NF>=2 {print $1; exit}')"
+    desc="$(printf '%s\n' "$catalog" | awk -F'|' 'NF>=2 {print $2; exit}')"
+  fi
+  tui_gum_card_render "Action preview" "#334155" "$(tui_menu_action_preview_body "$context" "$recommended" "$desc")" "$width"
 }
 
 tui_palette_rank(){
@@ -1828,18 +2269,19 @@ tui_gum_render_menu_frame(){
         "$(tui_gum_section_focus_card "$context" "$status_json" 52)")"
       right_col="$(printf '%s\n\n%s' \
         "$(tui_gum_status_overview_render "$status_json" 52)" \
-        "$(tui_gum_current_pressure_card "$status_json" 52)")"
+        "$(tui_menu_recommended_action_preview_card "$context" "$catalog" 52 "$status_json")")"
       tui_render_columns "$left_col" "$right_col" "  " >&2
       printf '\n' >&2
     else
       tui_gum_context_panel "$status_json"
       printf '  recommended=%s\n' "$(tui_section_recommended_action "$context" "$status_json")" >&2
-      printf '  focus=%s\n\n' "$(tui_section_preview_body "$context" "$status_json" | head -n 2 | tail -n 1)" >&2
+      printf '  focus=%s\n' "$(tui_section_preview_body "$context" "$status_json" | head -n 2 | tail -n 1)" >&2
+      printf '  preview=%s\n\n' "$(tui_section_recommended_action "$context" "$status_json")" >&2
     fi
   fi
   tui_gum_render_menu_items "$catalog" "$max_tag"
   printf '\n' >&2
-  tui_gum_hint "Type shortcut or number. ? help, / search, Enter browse, Esc back."
+  tui_gum_hint "Type shortcut or number. ? help, / search, . previews, Enter browse, Esc back."
 }
 
 tui_gum_main_landing(){
@@ -2039,7 +2481,7 @@ tui_command_preview_body(){
   shift || true
   local cmd_text="$*" sub="${2:-}"
   local risk reads writes next_hint
-  risk="$(tui_command_risk_badge "$(tui_command_risk_level "${1:-}" "$sub")")"
+  risk="$(tui_command_risk_badge "$(tui_command_risk_level "${1:-}" "$sub" "$cmd_text")")"
   reads="$(tui_command_preview_reads "$sub" "$cmd_text")"
   writes="$(tui_command_preview_writes "$sub" "$cmd_text")"
   next_hint="$(tui_command_next_hint "$sub" "$cmd_text")"
@@ -2093,6 +2535,10 @@ tui_menu_prompt(){
         case "$visible_pick" in
           __help__)
             tui_msgbox "$(tui_menu_help_overlay_text "$prompt" "${TUI_SHORTCUT_CONTEXT:-main}" "$catalog")"
+            continue
+            ;;
+          __preview__)
+            tui_textbox_text "Action previews" "$(tui_menu_action_previews_text "$prompt" "${TUI_SHORTCUT_CONTEXT:-main}" "$catalog")"
             continue
             ;;
           __search__)
@@ -2284,6 +2730,9 @@ map_menu_shortcut(){
     quickstart:f) printf 'first_setup' ;;
     quickstart:i) printf 'current_incident' ;;
     quickstart:e) printf 'escalation' ;;
+    quickstart:s) printf 'inventory' ;;
+    quickstart:g) printf 'groups' ;;
+    quickstart:d) printf 'docs' ;;
     quickstart:b) printf 'back' ;;
     run:r) printf 'run' ;;
     run:p) printf 'plan' ;;
@@ -2500,10 +2949,16 @@ menu_settings_reset_defaults(){
 }
 
 tui_command_risk_level(){
-  local argv0="${1:-}" sub="${2:-}"
+  local argv0="${1:-}" sub="${2:-}" cmd_text="${3:-}"
   case "$sub" in
-    run|doctor) printf 'changes' ;;
-    pack-logs) printf 'changes' ;;
+    run|doctor|pack-logs|init) printf 'changes' ;;
+    baseline)
+      if [[ "$cmd_text" == *"--update"* ]]; then
+        printf 'changes'
+      else
+        printf 'read-only'
+      fi
+      ;;
     *) printf 'read-only' ;;
   esac
 }
@@ -2727,7 +3182,7 @@ tui_run_cmd(){
   local cmd_text="$*"
   local sub="${2:-}"
   local risk
-  risk="$(tui_command_risk_level "${1:-}" "$sub")"
+  risk="$(tui_command_risk_level "${1:-}" "$sub" "$cmd_text")"
   local interactive=1
   if ! [[ -t 0 && -t 1 && -t 2 ]]; then
     interactive=0
@@ -2791,7 +3246,7 @@ tui_run_live(){
   local cmd_text="$*"
   local sub="${2:-}"
   local risk
-  risk="$(tui_command_risk_level "${1:-}" "$sub")"
+  risk="$(tui_command_risk_level "${1:-}" "$sub" "$cmd_text")"
   local interactive=1
   if ! [[ -t 0 && -t 1 && -t 2 ]]; then
     interactive=0
@@ -5148,7 +5603,7 @@ command_usage(){
         "linux-maint menu" \
         "Open the interactive operations console for guided monitoring, triage, export, and docs." \
         "  - day-to-day operator workflow\n  - first setup and safe first run\n  - current-incident triage\n  - export and escalation flow" \
-        "  Main sections:\n    Quickstart    first setup, current incident, and escalation workflows\n    Overview      dashboard, current state, top problems, and next moves\n    Run           execute checks, preview plans, or use the run wizard\n    Investigate   drilldown, diff, history, logs, reasons, and runtimes\n    Repair        guided incident response, doctor, check, self-check, and security profile\n    Export        report, trend, metrics, export JSON, and the bundle wizard\n    Docs          quick reference, troubleshooting, FAQ, config, monitors, and settings\n  Best path by task:\n    First day with the tool?       Quickstart -> first setup\n    Need the current answer fast?  Overview -> status or report\n    Need to understand a failure?  Investigate -> drilldown or logs\n    Need to recover quickly?       Repair -> incident or doctor\n    Need to share data?            Export -> report, export JSON, or pack logs\n  Quickstart bootstrap:\n    first_setup guides init, config review, check, plan, and starter baselines\n    current_incident is best after you have a summary or wrapper log\n    escalation is best after report/JSON/log artifacts exist\n  Global gum controls:\n    1-9           pick a visible action\n    ?             quick help overlay for the current menu\n    /             smart command palette (search by names, aliases, task words)\n                  examples: first run, triage, bundle, report, logs, doctor\n    Enter         open the full chooser\n    Esc           go back\n  Useful env vars:\n    LM_TUI_BACKEND=gum|dialog|whiptail\n    LM_TUI_DASH_REFRESH=<seconds>\n    LM_TUI_DEFAULT_STATUS_VIEW=table|compact\n    LM_TUI_DEFAULT_PROBLEMS=<1..100>\n    LM_TUI_DEFAULT_REASONS=<0..20>\n    LM_TUI_PREVIEW=1|0\n    LM_TUI_SHORTCUTS=1|0\n    LM_TUI_COMPACT=1|0\n    LM_TUI_LOW_COLOR=1|0\n    LM_TUI_CONFIRM_RISKY=1|0" \
+        "  Main sections:\n    Quickstart    first setup, current incident, and escalation workflows\n    Overview      dashboard, current state, top problems, and next moves\n    Run           execute checks, preview plans, or use the run wizard\n    Investigate   drilldown, diff, history, logs, reasons, and runtimes\n    Repair        guided incident response, doctor, check, self-check, and security profile\n    Export        report, trend, metrics, export JSON, and the bundle wizard\n    Docs          quick reference, troubleshooting, FAQ, config, monitors, and settings\n  Best path by task:\n    First day with the tool?       Quickstart -> first setup\n    Need the current answer fast?  Overview -> status or report\n    Need to understand a failure?  Investigate -> drilldown or logs\n    Need to recover quickly?       Repair -> incident or doctor\n    Need to share data?            Export -> report, export JSON, or pack logs\n  Quickstart shortcuts:\n    inventory      edit servers.txt directly from the Quickstart menu\n    groups         open the hosts.d group overview directly from Quickstart\n    docs           open quick reference and troubleshooting from Quickstart\n  Quickstart bootstrap:\n    first_setup guides init, config review, check, plan, and starter baselines\n    current_incident is best after you have a summary or wrapper log\n    escalation is best after report/JSON/log artifacts exist\n  Global gum controls:\n    1-9           pick a visible action\n    ?             quick help overlay for the current menu\n    /             smart command palette (search by names, aliases, task words)\n                  examples: first run, triage, bundle, report, logs, doctor\n    .             preview visible actions before selecting one\n    Enter         open the full chooser\n    Esc           go back\n  Useful env vars:\n    LM_TUI_BACKEND=gum|dialog|whiptail\n    LM_TUI_DASH_REFRESH=<seconds>\n    LM_TUI_DEFAULT_STATUS_VIEW=table|compact\n    LM_TUI_DEFAULT_PROBLEMS=<1..100>\n    LM_TUI_DEFAULT_REASONS=<0..20>\n    LM_TUI_PREVIEW=1|0\n    LM_TUI_SHORTCUTS=1|0\n    LM_TUI_COMPACT=1|0\n    LM_TUI_LOW_COLOR=1|0\n    LM_TUI_CONFIRM_RISKY=1|0" \
         "  linux-maint menu\n  LM_TUI_BACKEND=gum linux-maint menu\n  LM_TUI_COMPACT=1 linux-maint menu" \
         "  - returns non-zero if no supported TUI backend is available\n  - returns non-zero when interactive TTY requirements are not met" \
         "  repo mode:      linux-maint menu\n  installed mode: sudo linux-maint menu"

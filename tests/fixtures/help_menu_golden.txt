@@ -24,6 +24,10 @@ Key flags:
     Need to understand a failure?  Investigate -> drilldown or logs
     Need to recover quickly?       Repair -> incident or doctor
     Need to share data?            Export -> report, export JSON, or pack logs
+  Quickstart shortcuts:
+    inventory      edit servers.txt directly from the Quickstart menu
+    groups         open the hosts.d group overview directly from Quickstart
+    docs           open quick reference and troubleshooting from Quickstart
   Quickstart bootstrap:
     first_setup guides init, config review, check, plan, and starter baselines
     current_incident is best after you have a summary or wrapper log
@@ -33,6 +37,7 @@ Key flags:
     ?             quick help overlay for the current menu
     /             smart command palette (search by names, aliases, task words)
                   examples: first run, triage, bundle, report, logs, doctor
+    .             preview visible actions before selecting one
     Enter         open the full chooser
     Esc           go back
   Useful env vars:

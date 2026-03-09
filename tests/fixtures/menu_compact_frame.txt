@@ -15,4 +15,4 @@
   run         Execute checks, preview plans, and scope runs [r]
   export      Reports, metrics, JSON, and bundles [e]
 
-  Type shortcut or number. ? help, / search, Enter browse, Esc back.
+  Type shortcut or number. ? help, / search, . previews, Enter browse, Esc back.

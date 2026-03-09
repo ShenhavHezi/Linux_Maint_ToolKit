@@ -43,6 +43,9 @@ assert_eq "$(map_menu_shortcut w run)" "wizard" "run w"
 assert_eq "$(map_menu_shortcut f quickstart)" "first_setup" "quickstart f"
 assert_eq "$(map_menu_shortcut i quickstart)" "current_incident" "quickstart i"
 assert_eq "$(map_menu_shortcut e quickstart)" "escalation" "quickstart e"
+assert_eq "$(map_menu_shortcut s quickstart)" "inventory" "quickstart s"
+assert_eq "$(map_menu_shortcut g quickstart)" "groups" "quickstart g"
+assert_eq "$(map_menu_shortcut d quickstart)" "docs" "quickstart d"
 
 LM_TUI_SHORTCUTS=0
 assert_eq "$(map_menu_shortcut r main)" "r" "disabled shortcuts passthrough"

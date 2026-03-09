@@ -202,6 +202,8 @@ run_required "menu_empty_state_preview_test" bash "$ROOT_DIR/tests/menu_empty_st
 run_required "menu_first_setup_wizard_test" bash "$ROOT_DIR/tests/menu_first_setup_wizard_test.sh"
 run_required "menu_fallback_prompt_test" bash "$ROOT_DIR/tests/menu_fallback_prompt_test.sh"
 run_required "menu_command_preview_test" bash "$ROOT_DIR/tests/menu_command_preview_test.sh"
+run_required "menu_action_preview_text_test" bash "$ROOT_DIR/tests/menu_action_preview_text_test.sh"
+run_required "menu_quickstart_shortcuts_test" bash "$ROOT_DIR/tests/menu_quickstart_shortcuts_test.sh"
 run_required "menu_return_to_main_after_failure_test" bash "$ROOT_DIR/tests/menu_return_to_main_after_failure_test.sh"
 run_required "incident_recommendation_test" bash "$ROOT_DIR/tests/incident_recommendation_test.sh"
 run_required "menu_settings_roundtrip_test" bash "$ROOT_DIR/tests/menu_settings_roundtrip_test.sh"
