@@ -26,13 +26,23 @@ printf '%s\n' "$out" | grep -q '^Main sections:$' || {
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q 'Overview      landing dashboard, status snapshot, top problems, and next moves' || {
+printf '%s\n' "$out" | grep -q 'Overview      dashboard, current state, top problems, and next moves' || {
   echo "help menu missing overview summary" >&2
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q 'Repair        incident mode, doctor, check, self-check, and security profile' || {
+printf '%s\n' "$out" | grep -q 'Repair        guided incident response, doctor, check, self-check, and security profile' || {
   echo "help menu missing repair summary" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q '^Best path by task:$' || {
+  echo "help menu missing best path section" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q 'Need to recover quickly?       Repair -> incident or doctor' || {
+  echo "help menu missing recovery path guidance" >&2
   echo "$out" >&2
   exit 1
 }

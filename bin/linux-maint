@@ -3088,11 +3088,11 @@ run_menu_overview(){
   while true; do
     local choice
     TUI_SHORTCUT_CONTEXT="overview"
-    choice="$(tui_menu_prompt_safe "Overview and status" \
-      dashboard "View: live operations dashboard [d]" \
-      status "View: current status snapshot [s]" \
-      problems "Review: recent non-OK rows [p]" \
-      report "Review: short report summary [r]" \
+    choice="$(tui_menu_prompt_safe "Overview" \
+      dashboard "Open: live operations dashboard [d]" \
+      status "Open: current status snapshot [s]" \
+      problems "Review: latest non-OK rows [p]" \
+      report "Review: short operator summary [r]" \
       trend "Analyze: recent trend (last 10 runs) [t]" \
       back "Back to main menu [b]")"
     local rc=$TUI_MENU_RC
@@ -3139,11 +3139,11 @@ run_menu_investigate(){
   while true; do
     local choice
     TUI_SHORTCUT_CONTEXT="investigate"
-    choice="$(tui_menu_prompt_safe "Investigate and drill down" \
+    choice="$(tui_menu_prompt_safe "Investigate" \
       drilldown "Analyze: filtered status drilldown [d]" \
       diff "Inspect: changes since previous run [f]" \
       history "Inspect: recent run history [h]" \
-      logs "Inspect: latest log tail [l]" \
+      logs "Inspect: latest wrapper log [l]" \
       reasons "Review: top reason tokens [r]" \
       runtimes "Analyze: slowest monitors [u]" \
       back "Back to main menu [b]")"
@@ -3172,9 +3172,9 @@ run_menu_repair(){
   while true; do
     local choice
     TUI_SHORTCUT_CONTEXT="repair"
-    choice="$(tui_menu_prompt_safe "Repair and recovery" \
+    choice="$(tui_menu_prompt_safe "Repair" \
       incident "Guide: incident response workflow [i]" \
-      focused_run "Execute: focused service/network checks [f]" \
+      focused_run "Execute: focused service and network checks [f]" \
       check "Validate: config and readiness checks [c]" \
       doctor "Diagnose: doctor checks and fixes [d] [changes]" \
       selfcheck "Validate: self-check (safe) [s]" \
@@ -3208,14 +3208,14 @@ run_menu_export(){
   while true; do
     local choice
     TUI_SHORTCUT_CONTEXT="export"
-    choice="$(tui_menu_prompt_safe "Export and share" \
-      report "Export: short report summary [r]" \
-      trend "Export: recent trend (last 10 runs) [t]" \
-      runtimes "Export: runtime summary (last 10 runs) [u]" \
+    choice="$(tui_menu_prompt_safe "Export" \
+      report "Open: short report summary [r]" \
+      trend "Open: recent trend (last 10 runs) [t]" \
+      runtimes "Open: runtime summary (last 10 runs) [u]" \
       metrics_prom "Export: Prometheus metrics [m]" \
       metrics_json "Export: metrics JSON [j]" \
       export_json "Export: unified snapshot JSON [e]" \
-      pack_logs "Support: create redacted support bundle [p] [changes]" \
+      pack_logs "Support: guided support bundle wizard [p] [changes]" \
       back "Back to main menu [b]")"
     local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
@@ -3245,7 +3245,7 @@ run_menu_docs(){
   while true; do
     local choice
     TUI_SHORTCUT_CONTEXT="docs"
-    choice="$(tui_menu_prompt_safe "Docs and settings" \
+    choice="$(tui_menu_prompt_safe "Docs" \
       quickref "Open: quick command reference [h]" \
       troubleshooting "Open: troubleshooting guide [t]" \
       faq "Open: FAQ and operator tips [f]" \
@@ -3352,12 +3352,12 @@ run_menu(){
     fi
     TUI_SHORTCUT_CONTEXT="main"
     choice="$(tui_menu_prompt_safe "Choose your next step" \
-      overview "Overview, status, and next moves [o]" \
-      run "Run checks, preview a plan, or resume work [r]" \
-      investigate "Drill down, diff, history, and logs [i]" \
-      repair "Incident response, doctor, and recovery [p]" \
-      export "Reports, metrics, runtimes, and bundles [e]" \
-      docs "Docs, config, and menu settings [h]" \
+      overview "Dashboard, current state, and next moves [o]" \
+      run "Execute checks, preview plans, and scope runs [r]" \
+      investigate "Drilldown, diff, history, and logs [i]" \
+      repair "Guided triage, doctor, and safety checks [p]" \
+      export "Reports, metrics, JSON, and bundles [e]" \
+      docs "Reference, config, and menu settings [h]" \
       exit "Exit [x]")"
     rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
@@ -4077,7 +4077,7 @@ usage(){
   cat <<EOF
 Usage: linux-maint <command> [args]
 
-${C_CYAN}Quick start${C_RESET}:
+${C_CYAN}Start here${C_RESET}:
   (repo mode; git checkout)
   linux-maint init
   linux-maint run
@@ -4088,40 +4088,38 @@ ${C_CYAN}Quick start${C_RESET}:
   sudo linux-maint run
   sudo linux-maint status
 
-${C_CYAN}Common commands${C_RESET}:
-  run [flags]            Run the full wrapper
-  menu                   Interactive terminal UI (TUI)
-  list-monitors [flags]  List available monitors and config requirements
-  lint-summary <file>    Validate summary/monitor lines against contract
-  status [flags]         Show last run status and summary
-  report [flags]         Unified report (status + trend + runtimes)
-  doctor [flags]         Diagnose installation/config/state
-  self-check [flags]     Quick validation (safe without sudo)
-  security-profile [flags]  Security posture checks (config/perms/ssh policy)
-  summary                One-line summary (cron/dashboards)
-  metrics --json|--prom  Snapshot status+trend+runtimes (JSON) or Prometheus text
-  check [--json]         Run config_validate + preflight + show expected skips
-  gate --policy FILE     Evaluate health policy thresholds for automation gates
-  plugin <subcommand>    Manage local plugins (list/search/install/update/verify/remove)
+${C_CYAN}Most-used operator paths${C_RESET}:
+  menu                   Interactive operations console (Overview / Run / Investigate / Repair / Export / Docs)
+  run [flags]            Execute the wrapper, scope runs, or preview a plan
+  status [flags]         Read the current fleet state and top problems
+  report [flags]         One-screen operator summary with trend and runtime context
+  check [--json]         Validate config + readiness and show expected skips
+  doctor [flags]         Diagnose paths, dependencies, and repair guidance
+
+${C_CYAN}Investigate / export${C_RESET}:
+  summary                One-line summary for cron and dashboards
+  trend [flags]          Severity and reason trend rollups
+  runtimes [flags]       Slowest monitors and runtime history
+  export --json|--csv|--jsonl  Export unified artifacts for other systems
+  history [flags]        Recent runs from the run index
+  run-index [flags]      Inspect or prune the run index
+  logs [n]               Tail the latest wrapper log (default n=200)
+  diff [--json]          Changes since the previous run
+  metrics --json|--prom  Machine metrics snapshot (JSON or Prometheus)
+
+${C_CYAN}Automation / integrations${C_RESET}:
+  gate --policy FILE     Evaluate policy thresholds for CI or deploy gates
+  plugin <subcommand>    Manage local plugins and provenance checks
   notify [flags]         Send test notifications (webhook/slack/teams/email)
-  ticket [flags]         Create Jira/ServiceNow ticket payloads (dry-run supported)
+  ticket [flags]         Create Jira or ServiceNow payloads
   cm-hook [flags]        Trigger config-management hooks (ansible/puppet/salt)
-  audit-log [flags]      Show append-only audit events for critical actions
+  audit-log [flags]      Inspect append-only audit events
   serve [flags]          Local REST API (status/report/metrics/history)
   agent [flags]          Optional loop runner for scheduled checks
   policy <subcommand>    Policy-as-code helpers (init/lint/eval)
   federate [flags]       Aggregate multiple status JSON snapshots
   ai-assist [flags]      Local heuristic diagnosis assistant
   predict [flags]        Predictive risk summary from history
-
-${C_CYAN}Analysis / reporting${C_RESET}:
-  trend [flags]         Aggregate severity/reason trends
-  runtimes [flags]      Show per-monitor runtimes
-  export --json|--csv|--jsonl   Export summary payload/rows for external ingestion
-  history [flags]       Show recent runs (run index; faster than log scan)
-  run-index [flags]     Inspect or prune the run index
-  logs [n]              Tail latest wrapper log (default n=200)
-  diff [--json]         Show diff since last run (uses wrapper diff state)
 
 ${C_CYAN}Setup / maintenance${C_RESET}:
   init [flags]           Install config templates into <cfg_dir>
@@ -4142,12 +4140,20 @@ ${C_CYAN}Release / packaging${C_RESET}:
   install [args]         Run ./install.sh (pass-through)
   uninstall [args]       Run ./install.sh --uninstall (pass-through)
 
-${C_CYAN}Help${C_RESET}:
+${C_CYAN}Help / reference${C_RESET}:
   help [command]          Show help for a command (shortcut for usage)
   explain reason <token>  Explain a reason= token (from docs/REASONS.md)
   explain monitor <name>  Explain a monitor (purpose, deps, common reasons)
   explain status <S>      Explain a status value (OK/WARN/CRIT/UNKNOWN/SKIP)
   help                    Show this help
+
+${C_CYAN}Menu sections${C_RESET}:
+  Overview                Dashboard, current state, and next moves
+  Run                     Execute checks, preview plans, and scope runs
+  Investigate             Drilldown, diff, history, logs, and runtimes
+  Repair                  Guided triage, doctor, and safety checks
+  Export                  Reports, metrics, JSON, and support bundles
+  Docs                    Reference, config, and menu preferences
 
 ${C_CYAN}Environment${C_RESET}:
   LM_PROGRESS=0         disable progress bar during run
@@ -4159,26 +4165,19 @@ ${C_CYAN}Environment${C_RESET}:
   LM_TUI_LOW_COLOR=1    low-color menu mode
   LM_TUI_CONFIRM_RISKY=0 disable risky-action confirmations
 
-${C_CYAN}Examples${C_RESET}:
-  linux-maint run --group prod --parallel 10 --progress
-  linux-maint run --only service_monitor,ntp_drift_monitor
-  linux-maint run --skip inventory_export,backup_check
-  NO_COLOR=1 linux-maint run --local-only --plan
-  NO_COLOR=1 linux-maint run --local-only --plan --json
-  linux-maint status --only WARN --reasons 5
-  linux-maint report --short --no-trend
-  NO_COLOR=1 linux-maint report --compact
-  linux-maint check --json
-  linux-maint trend --last 10
-  NO_COLOR=1 linux-maint trend --last 10 --json
-  linux-maint diff
-  NO_COLOR=1 linux-maint diff --json
-  linux-maint pack-logs --out /tmp --redact
-  linux-maint list-monitors
-  linux-maint lint-summary <summary.log>
-  linux-maint menu
+${C_CYAN}Examples by task${C_RESET}:
+  Inspect current state: linux-maint status --only WARN --reasons 5
+  Review a short summary: linux-maint report --short --no-trend
+  Plan safely first:      NO_COLOR=1 linux-maint run --local-only --plan --json
+  Run focused checks:     linux-maint run --only service_monitor,ntp_drift_monitor
+  Compare runs:           linux-maint diff
+  Export machine data:    NO_COLOR=1 linux-maint trend --last 10 --json
+  Create support bundle:  linux-maint pack-logs --out /tmp --redact
+  Inspect monitor list:   linux-maint list-monitors
+  Validate summary file:  linux-maint lint-summary <summary.log>
+  Work from the menu:     linux-maint menu
 
-${C_CYAN}Tips${C_RESET}:
+${C_CYAN}Best next commands${C_RESET}:
   See docs/README.md for full docs and flag details
   linux-maint help <command>
   NO_COLOR=1 linux-maint report
@@ -4237,19 +4236,25 @@ EOF
       cat <<'EOF'
 Usage: linux-maint menu
 
-Interactive TUI for status, runs, investigation, repair, exports, and docs.
+Interactive operations console for status, runs, investigation, repair, exports, and docs.
 
 Mode:
   repo mode:      linux-maint menu
   installed mode: sudo linux-maint menu
 
 Main sections:
-  Overview      landing dashboard, status snapshot, top problems, and next moves
-  Run           execute checks now, preview plans, or use the run wizard
+  Overview      dashboard, current state, top problems, and next moves
+  Run           execute checks, preview plans, or use the run wizard
   Investigate   drilldown, diff, history, logs, reasons, and runtimes
-  Repair        incident mode, doctor, check, self-check, and security profile
-  Export        report, trend, metrics, runtimes, export JSON, and the bundle wizard
-  Docs          quick reference, troubleshooting, FAQ, config, monitors, settings
+  Repair        guided incident response, doctor, check, self-check, and security profile
+  Export        report, trend, metrics, export JSON, and the bundle wizard
+  Docs          quick reference, troubleshooting, FAQ, config, monitors, and settings
+
+Best path by task:
+  Need the current answer fast?  Overview -> status or report
+  Need to understand a failure?  Investigate -> drilldown or logs
+  Need to recover quickly?       Repair -> incident or doctor
+  Need to share data?            Export -> report, export JSON, or pack logs
 
 Global gum controls:
   1-9           pick a visible action

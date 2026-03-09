@@ -34,7 +34,7 @@ TUI_BACKEND=gum
 TUI_MENU_STYLE=compact
 NO_COLOR=1
 
-tui_gum_render_menu_frame "Choose your next step" "main" $'overview|Overview, status, and next moves [o]\nrun|Run checks, preview a plan, or resume work [r]\nexport|Reports, metrics, runtimes, and bundles [e]\n' 8 2>"$out"
+tui_gum_render_menu_frame "Choose your next step" "main" $'overview|Dashboard, current state, and next moves [o]\nrun|Execute checks, preview plans, and scope runs [r]\nexport|Reports, metrics, JSON, and bundles [e]\n' 8 2>"$out"
 
 python3 - "$out" >"$norm" <<'PY'
 import re

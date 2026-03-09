@@ -10,8 +10,8 @@
   top_problem=CRIT network_monitor host=web-2 reason=http_failed
   next=Open Repair for guided connectivity triage
 
-  overview  Overview, status, and next moves [o]
-  run       Run checks, preview a plan, or resume work [r]
-  export    Reports, metrics, runtimes, and bundles [e]
+  overview  Dashboard, current state, and next moves [o]
+  run       Execute checks, preview plans, and scope runs [r]
+  export    Reports, metrics, JSON, and bundles [e]
 
   Type shortcut or number. ? help, / search, Enter browse, Esc back.

@@ -1,6 +1,6 @@
  ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
  │  Linux Maint ToolKit                                                                                         │
- │  Overview and status                                                                                         │
+ │  Overview                                                                                                    │
  ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
  ╭────────────────────────────────────────────────────╮    ╭────────────────────────────────────────────────────╮
@@ -24,8 +24,8 @@
  │                                                    │
  ╰────────────────────────────────────────────────────╯
 
-  dashboard  View: live operations dashboard [d]
-  status     View: current status snapshot [s]
+  dashboard  Open: live operations dashboard [d]
+  status     Open: current status snapshot [s]
   back       Back to main menu [b]
 
   Type shortcut or number. ? help, / search, Enter browse, Esc back.

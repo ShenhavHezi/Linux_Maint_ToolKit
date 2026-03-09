@@ -34,7 +34,7 @@ TUI_BACKEND=gum
 TUI_MENU_STYLE=full
 NO_COLOR=1
 
-tui_gum_render_menu_frame "Overview and status" "overview" $'dashboard|View: live operations dashboard [d]\nstatus|View: current status snapshot [s]\nback|Back to main menu [b]\n' 9 2>"$out"
+tui_gum_render_menu_frame "Overview" "overview" $'dashboard|Open: live operations dashboard [d]\nstatus|Open: current status snapshot [s]\nback|Back to main menu [b]\n' 9 2>"$out"
 
 python3 - "$out" >"$norm" <<'PY'
 import re

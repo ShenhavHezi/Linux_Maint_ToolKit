@@ -1,4 +1,4 @@
-Section: Overview and status
+Section: Overview
 
 Controls:
 - numbers 1-9 pick a visible action
@@ -9,6 +9,6 @@ Controls:
 - shortcuts are on
 
 Actions:
-- dashboard: View: live operations dashboard [d]
-- status: View: current status snapshot [s]
+- dashboard: Open: live operations dashboard [d]
+- status: Open: current status snapshot [s]
 - back: Back to main menu [b]

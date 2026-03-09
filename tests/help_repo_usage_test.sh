@@ -21,8 +21,8 @@ printf '%s\n' "$out" | grep -q '^  config \[flags\][[:space:]]\+Show effective c
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q '^  linux-maint lint-summary <summary.log>$' || {
-  echo "top-level help should use generic lint-summary example" >&2
+printf '%s\n' "$out" | grep -q '^  Validate summary file:[[:space:]]\+linux-maint lint-summary <summary.log>$' || {
+  echo "top-level help missing labeled lint-summary example" >&2
   echo "$out" >&2
   exit 1
 }

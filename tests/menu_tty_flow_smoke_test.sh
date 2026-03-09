@@ -32,7 +32,7 @@ grep -q "Operations console" "$out" || {
   sed -n '1,120p' "$out" >&2 || true
   exit 1
 }
-grep -q "Overview, status, and next moves" "$out" || {
+grep -q "Dashboard, current state, and next moves" "$out" || {
   echo "menu tty flow smoke missing menu choices in pseudo-TTY output" >&2
   sed -n '1,120p' "$out" >&2 || true
   exit 1
