@@ -21,6 +21,8 @@ Last updated: 2026-03-09
     - Proof: `tests/plugin_force_install_rollback_test.sh`.
   - P0 integration hardening: `notify`/`ticket` curl calls now use bounded connect/total timeouts with regression tests.
     - Proof: `tests/notify_curl_timeout_test.sh`, `tests/ticket_curl_timeout_test.sh`.
+  - P0 audit hardening: audit chain writes are now serialized so concurrent operations preserve a valid append-only chain.
+    - Proof: `tests/audit_log_concurrency_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 

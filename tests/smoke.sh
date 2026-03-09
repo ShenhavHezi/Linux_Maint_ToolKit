@@ -147,6 +147,7 @@ run_required "cm_hook_command_test" bash "$ROOT_DIR/tests/cm_hook_command_test.s
 run_required "cm_hook_json_schema_test" bash "$ROOT_DIR/tests/cm_hook_json_schema_test.sh"
 run_required "audit_log_command_test" bash "$ROOT_DIR/tests/audit_log_command_test.sh"
 run_required "audit_log_verify_tamper_test" bash "$ROOT_DIR/tests/audit_log_verify_tamper_test.sh"
+run_required "audit_log_concurrency_test" bash "$ROOT_DIR/tests/audit_log_concurrency_test.sh"
 run_required "audit_log_json_schema_test" bash "$ROOT_DIR/tests/audit_log_json_schema_test.sh"
 run_required "serve_command_test" bash "$ROOT_DIR/tests/serve_command_test.sh"
 run_required "agent_command_test" bash "$ROOT_DIR/tests/agent_command_test.sh"

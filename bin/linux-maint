@@ -2856,6 +2856,10 @@ audit_log_append(){
   file="$(audit_log_path)"
   MODE="$MODE" ACTION="$action" STATUS="$status" DETAILS="$details" AUDIT_FILE="$file" python3 - <<'PY' >/dev/null 2>&1 || true
 import datetime, getpass, hashlib, json, os, socket
+try:
+    import fcntl
+except Exception:
+    fcntl = None
 
 mode = os.environ.get("MODE", "")
 action = os.environ.get("ACTION", "unknown")
@@ -2865,21 +2869,6 @@ path = os.environ.get("AUDIT_FILE", "")
 if not path:
     raise SystemExit(0)
 os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-
-prev_hash = ""
-if os.path.exists(path):
-    try:
-        with open(path, "rb") as f:
-            data = f.read().splitlines()
-        if data:
-            last = data[-1]
-            try:
-                obj = json.loads(last.decode("utf-8", "ignore"))
-                prev_hash = str(obj.get("chain_hash", "") or "")
-            except Exception:
-                prev_hash = hashlib.sha256(last).hexdigest()
-    except Exception:
-        prev_hash = ""
 
 evt = {
     "ts_utc": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -2894,14 +2883,48 @@ evt = {
     "host": socket.gethostname(),
     "cwd": os.getcwd(),
 }
-material = (prev_hash + "|" + json.dumps(evt, sort_keys=True, separators=(",", ":"))).encode("utf-8", "ignore")
-evt["prev_hash"] = prev_hash
-evt["chain_hash"] = hashlib.sha256(material).hexdigest()
 
-fd = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
+fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
 try:
+    if fcntl is not None:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+    try:
+        os.fchmod(fd, 0o600)
+    except Exception:
+        pass
+    os.lseek(fd, 0, os.SEEK_SET)
+    data = b""
+    while True:
+        chunk = os.read(fd, 65536)
+        if not chunk:
+            break
+        data += chunk
+    prev_hash = ""
+    lines = data.splitlines()
+    if lines:
+        last = lines[-1]
+        try:
+            obj = json.loads(last.decode("utf-8", "ignore"))
+            prev_hash = str(obj.get("chain_hash", "") or "")
+        except Exception:
+            prev_hash = hashlib.sha256(last).hexdigest()
+
+    material = (prev_hash + "|" + json.dumps(evt, sort_keys=True, separators=(",", ":"))).encode("utf-8", "ignore")
+    evt["prev_hash"] = prev_hash
+    evt["chain_hash"] = hashlib.sha256(material).hexdigest()
+
+    os.lseek(fd, 0, os.SEEK_END)
     os.write(fd, (json.dumps(evt, sort_keys=True) + "\n").encode("utf-8"))
+    try:
+        os.fsync(fd)
+    except Exception:
+        pass
 finally:
+    if fcntl is not None:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        except Exception:
+            pass
     os.close(fd)
 PY
 }
