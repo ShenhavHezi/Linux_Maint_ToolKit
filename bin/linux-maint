@@ -6952,6 +6952,7 @@ PY
       esac
     done
     [[ "$A_INTERVAL" =~ ^[0-9]+$ ]] || { echo "ERROR: --interval must be integer" >&2; exit 2; }
+    (( A_INTERVAL > 0 )) || { echo "ERROR: --interval must be a positive integer" >&2; exit 2; }
     [[ "$A_MAX_RUNS" =~ ^[0-9]+$ ]] || { echo "ERROR: --max-runs must be integer" >&2; exit 2; }
     runs=0
     while true; do
@@ -7146,6 +7147,7 @@ PY
       esac
     done
     [[ "$P_LAST" =~ ^[0-9]+$ ]] || { echo "ERROR: --last must be integer" >&2; exit 2; }
+    (( P_LAST > 0 )) || { echo "ERROR: --last must be a positive integer" >&2; exit 2; }
     hist_json="$(NO_COLOR=1 "$0" history --json --last "$P_LAST" 2>/dev/null || true)"
     HIST_JSON="$hist_json" P_JSON="$P_JSON" python3 - <<'PY'
 import json, os

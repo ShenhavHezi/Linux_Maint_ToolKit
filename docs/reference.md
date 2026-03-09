@@ -825,6 +825,7 @@ Schema:
 - `linux-maint agent [--once] [--interval N] [--max-runs N] [--dry-run]`:
   - lightweight loop runner for periodic checks.
   - defaults to interval `300` seconds.
+  - `--interval` must be a positive integer.
 
 - `linux-maint policy <init|lint|eval>`:
   - `init [file]` writes a gate policy template.
@@ -844,6 +845,7 @@ Schema:
 - `linux-maint predict [--last N] [--json]`:
   - computes a simple risk score from recent history totals.
   - emits confidence level + recommended action (`observe`, `schedule_investigation`, `open_incident`).
+  - `--last` must be a positive integer.
   - intended as directional signal, not deterministic failure prediction.
 
 Export allowlist:

@@ -128,6 +128,7 @@ Last updated: 2026-03-09
 ## P4 - Advanced capabilities
 - `DONE` Optional lightweight agent baseline.
   - Proof: `linux-maint agent`, `tests/agent_command_test.sh`.
+  - Hardening: reject `--interval 0` so agent mode cannot spin in a tight loop.
 - `DONE` Policy-as-code baseline (`policy init/lint/eval`).
   - Proof: `tests/policy_command_test.sh`.
 - `DONE` AI-assist baseline (local heuristic hints).
@@ -137,6 +138,7 @@ Last updated: 2026-03-09
   - Hardening: unreadable or invalid input snapshots now fail fast with rc=2 instead of being silently skipped.
 - `DONE` Predictive score baseline (`predict`).
   - Proof: `tests/predict_command_test.sh`.
+  - Hardening: reject `--last 0` instead of silently degrading to an empty-history result.
 - `PARTIAL` Advanced acceptance closure:
   - modules are optional and docs include risk boundaries.
   - confidence outputs added to `ai-assist` and `predict`.
