@@ -1619,7 +1619,7 @@ tui_run_wizard(){
     [[ "$TUI_INPUT_RC" -eq 0 && -n "${skip:-}" ]] || return 0
   fi
 
-  c="$(tui_menu_prompt_safe "Run wizard: target" local "Local only" group "Group from groups.d" hosts "Ad-hoc hosts list" back "Back")"
+  c="$(tui_menu_prompt_safe "Run wizard: target" local "Local only" group "Group from hosts.d" hosts "Ad-hoc hosts list" back "Back")"
   [[ "$TUI_MENU_RC" -eq 0 && -n "${c:-}" ]] || return 0
   c="$(normalize_menu_choice "$c")"
   [[ "$c" == "back" ]] && return 0
@@ -2939,6 +2939,11 @@ usage(){
 Usage: linux-maint <command> [args]
 
 ${C_CYAN}Quick start${C_RESET}:
+  (repo mode; git checkout)
+  linux-maint init
+  linux-maint run
+  linux-maint status
+
   (installed mode; after install.sh)
   sudo linux-maint init
   sudo linux-maint run
@@ -2980,8 +2985,8 @@ ${C_CYAN}Analysis / reporting${C_RESET}:
   diff [--json]         Show diff since last run (uses wrapper diff state)
 
 ${C_CYAN}Setup / maintenance${C_RESET}:
-  init [flags]           Install /etc/linux_maint templates (from repo checkout)
-  config [flags]         Show effective config (merged from /etc/linux_maint)
+  init [flags]           Install config templates into <cfg_dir>
+  config [flags]         Show effective config (merged from <cfg_dir>)
   tune dark-site         Apply recommended dark-site defaults to linux-maint.conf
   baseline <...> [flags] Capture or preview baselines
   preflight              Run preflight checks
@@ -3031,7 +3036,7 @@ ${C_CYAN}Examples${C_RESET}:
   NO_COLOR=1 linux-maint diff --json
   linux-maint pack-logs --out /tmp --redact
   linux-maint list-monitors
-  linux-maint lint-summary /var/log/health/full_health_monitor_summary_latest.log
+  linux-maint lint-summary <summary.log>
   linux-maint menu
 
 ${C_CYAN}Tips${C_RESET}:
@@ -4996,7 +5001,7 @@ else:
         }, indent=2, sort_keys=True))
     else:
         print(f"ERROR: {msg}")
-        print(c("Hint: run 'sudo linux-maint config'", "1;33"))
+        print(c("Hint: fix the config file and rerun 'linux-maint config'", "1;33"))
     sys.exit(1)
 
 values = {k: env.get(k, "") for k in keys}
@@ -10134,7 +10139,7 @@ EOF_DEPS
             reasons="missing_dependency missing_optional_cmd ssh_unreachable"
             ;;
           config_validate)
-            purpose="Validate /etc/linux_maint config formats"
+            purpose="Validate config file formats"
             reasons="config_invalid config_missing"
             ;;
           health_monitor)

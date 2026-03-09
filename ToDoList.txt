@@ -47,6 +47,8 @@ Last updated: 2026-03-09
     - Proof: `tests/doctor_repo_paths_test.sh`, `tests/doctor_verify_install_no_side_effects_test.sh`, `tests/repo_cfg_default_operator_test.sh`, `tests/pack_logs_repo_override_test.sh`.
   - P0 repo-mode operator guidance hardening: `run --plan`, `status`, `history`, and `explain` now use repo-local host/config defaults and repo-appropriate hints instead of leaking installed-mode `/etc` and `sudo` guidance.
     - Proof: `tests/run_plan_repo_cfg_defaults_test.sh`, `tests/status_repo_missing_summary_hints_test.sh`, `tests/history_repo_hint_test.sh`, `tests/explain_config_missing_repo_test.sh`.
+  - P1 operator UX/help hardening: top-level help, run help, config source-failure hints, and monitor explanations now use repo/install-neutral wording instead of installed-only paths.
+    - Proof: `tests/help_repo_usage_test.sh`, `tests/config_source_failure_human_hint_test.sh`, `tests/explain_monitor_repo_text_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 
