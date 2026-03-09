@@ -32,7 +32,7 @@ grep -q "Choose your next step" "$out" || {
   sed -n '1,120p' "$out" >&2 || true
   exit 1
 }
-grep -q "Run checks or preview a plan" "$out" || {
+grep -q "Run checks, preview a plan, or resume work" "$out" || {
   echo "menu tty flow smoke missing menu choices in pseudo-TTY output" >&2
   sed -n '1,120p' "$out" >&2 || true
   exit 1

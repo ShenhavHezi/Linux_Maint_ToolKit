@@ -49,6 +49,8 @@ Last updated: 2026-03-09
     - Proof: `tests/run_plan_repo_cfg_defaults_test.sh`, `tests/status_repo_missing_summary_hints_test.sh`, `tests/history_repo_hint_test.sh`, `tests/explain_config_missing_repo_test.sh`.
   - P1 operator UX/help hardening: top-level help, run help, config source-failure hints, and monitor explanations now use repo/install-neutral wording instead of installed-only paths.
     - Proof: `tests/help_repo_usage_test.sh`, `tests/config_source_failure_human_hint_test.sh`, `tests/explain_monitor_repo_text_test.sh`.
+  - P1 operator UX/docs polish: menu labels and `help menu` now explain the main operator flows clearly, and the quick reference, troubleshooting guide, and FAQ are repo/install-aware instead of reading as installed-mode-only docs.
+    - Proof: `tests/help_menu_structure_test.sh`, `tests/operator_docs_mode_aware_test.sh`, `tests/menu_tty_flow_smoke_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 

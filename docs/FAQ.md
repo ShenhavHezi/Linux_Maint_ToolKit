@@ -13,7 +13,7 @@ Then populate the missing files or treat them as expected for your environment.
 The runner could not SSH to the target host. Check DNS, firewall rules, keys, and `LM_SSH_OPTS`.
 
 ## What does `reason=config_missing` mean?
-A required config file is missing. Run `sudo linux-maint init` and populate the missing file.
+A required config file is missing. Run `linux-maint init` in repo mode, or `sudo linux-maint init` in installed mode, then populate the missing file.
 
 ## What does `reason=baseline_missing` mean?
 A baseline file hasn’t been created yet. Generate it with:

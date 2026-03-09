@@ -1,104 +1,129 @@
 # linux-maint — Operator Quick Reference
 
-This page is meant for day-to-day operational use. In installed mode, most commands require `sudo`.
+This page is meant for day-to-day operational use.
+
+## How to read the examples
+
+- Examples below use repo-mode form: `linux-maint ...`
+- In installed mode, prepend `sudo` when the command reads or writes root-owned paths such as `/etc/linux_maint` or `/var/log/health`.
+- `<cfg_dir>` means your effective config root: repo fallback config in repo mode, `/etc/linux_maint` in installed mode unless overridden.
+
+## First-run workflow
+
+Repo mode:
+1. `linux-maint init`
+2. `linux-maint run`
+3. `linux-maint status`
+4. Review expected SKIPs: `linux-maint status --expected-skips`
+
+Installed mode:
+1. `sudo linux-maint init`
+2. `sudo linux-maint run`
+3. `sudo linux-maint status`
+4. Review expected SKIPs: `sudo linux-maint status --expected-skips`
 
 ## Common commands
 
 ```bash
-# Run full suite (installed mode)
-sudo linux-maint run
+# Run full suite
+linux-maint run
 
-# Quick health view (compact)
-sudo linux-maint status
+# Quick health view
+linux-maint status
+linux-maint status --compact
 
 # Show expected SKIPs based on missing optional config
-sudo linux-maint status --expected-skips
+linux-maint status --expected-skips
 
 # Show more problems (max 100)
-sudo linux-maint status --problems 100
+linux-maint status --problems 100
 
 # Top reason tokens (non-OK only)
-sudo linux-maint status --reasons 5
+linux-maint status --reasons 5
 
 # Raw summary lines
-sudo linux-maint status --verbose
+linux-maint status --verbose
 
 # Status in JSON (automation)
-sudo linux-maint status --json
+linux-maint status --json
 
 # Status JSON with redaction
-LM_REDACT_JSON=1 sudo linux-maint status --json
-LM_REDACT_JSON_STRICT=1 sudo linux-maint status --json
+LM_REDACT_JSON=1 linux-maint status --json
+LM_REDACT_JSON_STRICT=1 linux-maint status --json
 
-# Status as Prometheus textfile metrics
-sudo linux-maint status --prom
+# Status as Prometheus text metrics
+linux-maint status --prom
 
 # Unified report (status + trends + runtimes)
-sudo linux-maint report
-sudo linux-maint report --json
-sudo linux-maint report --compact
-sudo linux-maint report --short
-sudo linux-maint report --table
-sudo linux-maint report --redact
+linux-maint report
+linux-maint report --json
+linux-maint report --compact
+linux-maint report --short
+linux-maint report --table
+linux-maint report --redact
 
 # Preflight + validate + expected SKIPs
-sudo linux-maint check
-sudo linux-maint check --json
+linux-maint check
+linux-maint check --json
 
 # Run only selected monitors (names with or without _monitor)
-sudo linux-maint run --only service_monitor,ntp_drift_monitor
+linux-maint run --only service_monitor,ntp_drift_monitor
 
 # Skip selected monitors
-sudo linux-maint run --skip inventory_export,backup_check
+linux-maint run --skip inventory_export,backup_check
 
 # Plan only (no execution)
-sudo linux-maint run --plan
-sudo linux-maint run --plan --json
+linux-maint run --plan
+linux-maint run --plan --json
+
 # Fleet execution controls
-sudo linux-maint run --retry 2 --host-timeout 10
-sudo linux-maint run --strategy quorum --quorum-percent 80
-sudo linux-maint run --drain-file /etc/linux_maint/hosts_drain.txt --plan
+linux-maint run --retry 2 --host-timeout 10
+linux-maint run --strategy quorum --quorum-percent 80
+linux-maint run --drain-file <cfg_dir>/hosts_drain.txt --plan
+
 # Resume a previous interrupted run (explicit id or latest from history)
-sudo linux-maint run --resume latest
-# Optional monitor privilege policy (in cfg dir)
-cat >/etc/linux_maint/monitor_privilege_policy.conf <<'EOF'
+linux-maint run --resume latest
+
+# Optional monitor privilege policy (in <cfg_dir>)
+cat >"<cfg_dir>/monitor_privilege_policy.conf" <<'EOF'
 health_monitor=requires_root
 service_monitor=no_sudo
 EOF
 
-# Interactive TUI menu (uses gum if installed, else dialog/whiptail)
-sudo linux-maint menu
+# Interactive TUI menu (gum if present, else dialog/whiptail)
+linux-maint menu
 
 # Optional menu behavior controls
-LM_TUI_DASH_REFRESH=10 sudo linux-maint menu
-LM_TUI_DEFAULT_STATUS_VIEW=compact sudo linux-maint menu
-LM_TUI_PREVIEW=0 sudo linux-maint menu
-LM_TUI_SHORTCUTS=1 sudo linux-maint menu
+LM_TUI_DASH_REFRESH=10 linux-maint menu
+LM_TUI_DEFAULT_STATUS_VIEW=compact linux-maint menu
+LM_TUI_PREVIEW=0 linux-maint menu
+LM_TUI_SHORTCUTS=1 linux-maint menu
 
 # List monitors and config requirements
-sudo linux-maint list-monitors
+linux-maint list-monitors
 
 # Lint a summary file
-sudo linux-maint lint-summary /var/log/health/full_health_monitor_summary_latest.log
+linux-maint lint-summary <summary.log>
 
 # Initialize config templates (won't overwrite unless --force)
-sudo linux-maint init
-sudo linux-maint init --minimal
-sudo linux-maint init --force
+linux-maint init
+linux-maint init --minimal
+linux-maint init --force
 
 # Run history (fast; uses run_index.jsonl)
-sudo linux-maint history --last 10
-sudo linux-maint history --json
-sudo linux-maint history --table
-sudo linux-maint history --table --no-color
-sudo linux-maint history --compact
+linux-maint history --last 10
+linux-maint history --json
+linux-maint history --table
+linux-maint history --table --no-color
+linux-maint history --compact
+
 # SQLite history prototype (feature flag or explicit flag)
-LM_HISTORY_SQLITE=1 sudo linux-maint history --last 10
-sudo linux-maint history --sqlite --json
+LM_HISTORY_SQLITE=1 linux-maint history --last 10
+linux-maint history --sqlite --json
 
 # Run index maintenance
-sudo linux-maint run-index --stats
-sudo linux-maint run-index --prune --keep 200
+linux-maint run-index --stats
+linux-maint run-index --prune --keep 200
 
 # History usage tips
 # - Text view: quick skim of recent runs in terminals
@@ -106,26 +131,24 @@ sudo linux-maint run-index --prune --keep 200
 # - JSON view: automation/dashboards (parse with jq)
 
 # One-line summary (cron/dashboards)
-sudo linux-maint summary
-sudo linux-maint status --summary
-
-# Table format for problems
-sudo linux-maint status --table
-sudo linux-maint status --compact
+linux-maint summary
+linux-maint status --summary
 
 # Grouped fleet summary
-sudo linux-maint status --group-by host
-sudo linux-maint status --group-by monitor
-sudo linux-maint status --group-by reason
-sudo linux-maint status --group-by host --top 10
+linux-maint status --group-by host
+linux-maint status --group-by monitor
+linux-maint status --group-by reason
+linux-maint status --group-by host --top 10
 
 # Compact diagnostics
-sudo linux-maint doctor --compact
-sudo linux-maint self-check --compact
-sudo linux-maint self-check --strict
+linux-maint doctor --compact
+linux-maint self-check --compact
+linux-maint self-check --strict
+
 # Security posture profile
-sudo linux-maint security-profile
-sudo linux-maint security-profile --strict
+linux-maint security-profile
+linux-maint security-profile --strict
+
 # Policy gate for CI/deploy checks
 linux-maint gate --policy policy.conf
 linux-maint gate --policy policy.conf --json
@@ -136,15 +159,15 @@ linux-maint plugin search --index plugins/index.json --strict
 linux-maint plugin lint-index --index plugins/index.json --strict
 linux-maint plugin verify-index --index plugins/index.json --strict
 LM_PLUGIN_REQUIRE_ATTEST=1 linux-maint plugin verify-index --index plugins/index.json --strict
-LM_PLUGIN_TRUST_POLICY_FILE=/etc/linux_maint/plugin_trust_policy.json linux-maint plugin verify-index --index plugins/index.json --strict
-LM_PLUGIN_REQUIRE_TRUST_POLICY=1 LM_PLUGIN_TRUST_POLICY_FILE=/etc/linux_maint/plugin_trust_policy.json linux-maint plugin verify-index --index plugins/index.json --strict
-LM_PLUGIN_REQUIRE_ATTEST=1 LM_PLUGIN_REQUIRE_TRUST_POLICY=1 LM_PLUGIN_TRUST_POLICY_FILE=/etc/linux_maint/plugin_trust_policy.json linux-maint plugin provenance-report --index plugins/index.json --json --strict
-LM_PLUGIN_REQUIRE_ATTEST=1 LM_PLUGIN_REQUIRE_TRUST_POLICY=1 LM_PLUGIN_TRUST_POLICY_FILE=/etc/linux_maint/plugin_trust_policy.json linux-maint plugin provenance-report --index plugins/index.json --out ./plugin_provenance_report.json --strict
+LM_PLUGIN_TRUST_POLICY_FILE=<cfg_dir>/plugin_trust_policy.json linux-maint plugin verify-index --index plugins/index.json --strict
+LM_PLUGIN_REQUIRE_TRUST_POLICY=1 LM_PLUGIN_TRUST_POLICY_FILE=<cfg_dir>/plugin_trust_policy.json linux-maint plugin verify-index --index plugins/index.json --strict
+LM_PLUGIN_REQUIRE_ATTEST=1 LM_PLUGIN_REQUIRE_TRUST_POLICY=1 LM_PLUGIN_TRUST_POLICY_FILE=<cfg_dir>/plugin_trust_policy.json linux-maint plugin provenance-report --index plugins/index.json --json --strict
+LM_PLUGIN_REQUIRE_ATTEST=1 LM_PLUGIN_REQUIRE_TRUST_POLICY=1 LM_PLUGIN_TRUST_POLICY_FILE=<cfg_dir>/plugin_trust_policy.json linux-maint plugin provenance-report --index plugins/index.json --out ./plugin_provenance_report.json --strict
 linux-maint plugin init my_plugin --out .
 linux-maint plugin install ./my-plugin
 linux-maint plugin update my-plugin --source ./my-plugin
 linux-maint plugin verify my-plugin
-LM_PLUGIN_TRUST_POLICY_FILE=/etc/linux_maint/plugin_trust_policy.json linux-maint plugin verify my-plugin
+LM_PLUGIN_TRUST_POLICY_FILE=<cfg_dir>/plugin_trust_policy.json linux-maint plugin verify my-plugin
 linux-maint plugin remove my-plugin
 
 # Audit stream integrity
@@ -186,53 +209,53 @@ docs/schemas/history.json
 docs/schemas/run_index.json
 
 # Filter by host/monitor/status
-sudo linux-maint status --host web --monitor service --only WARN
+linux-maint status --host web --monitor service --only WARN
 
 # Regex matching mode for host/monitor filters
-sudo linux-maint status --host '^web-[0-9]+$' --match-mode regex
+linux-maint status --host '^web-[0-9]+$' --match-mode regex
 
-# Seed known_hosts for strict SSH mode
+# Seed known_hosts for strict SSH mode (installed mode path shown)
 sudo /usr/local/libexec/linux_maint/seed_known_hosts.sh --hosts-file /etc/linux_maint/servers.txt
 
 # Focus on recent run artifacts only
-sudo linux-maint status --since 2h
+linux-maint status --since 2h
 
 # Diff since last run
-sudo linux-maint diff
+linux-maint diff
 
 # Trend over recent summary runs
-sudo linux-maint trend --last 10
+linux-maint trend --last 10
 
 # Trend in JSON
-sudo linux-maint trend --last 10 --json
-sudo linux-maint trend --last 10 --csv
-sudo linux-maint trend --since 2026-02-01 --until 2026-02-24
+linux-maint trend --last 10 --json
+linux-maint trend --last 10 --csv
+linux-maint trend --since 2026-02-01 --until 2026-02-24
 # Trend anomaly detection (z-score over recent baseline window)
-sudo linux-maint trend --last 20 --anomaly --anomaly-window 7 --anomaly-z 2.0
+linux-maint trend --last 20 --anomaly --anomaly-window 7 --anomaly-z 2.0
 
 # Monitor runtimes from wrapper logs
-sudo linux-maint runtimes
-sudo linux-maint runtimes --last 3 --json
+linux-maint runtimes
+linux-maint runtimes --last 3 --json
 
 # Export a unified JSON payload
-sudo linux-maint export --json
+linux-maint export --json
 
 # Export newline-delimited JSON rows (JSONL)
-sudo linux-maint export --jsonl
+linux-maint export --jsonl
 
 # Export JSON with redaction
-LM_REDACT_JSON=1 sudo linux-maint export --json
+LM_REDACT_JSON=1 linux-maint export --json
 
 # Metrics snapshot (status + trend + runtimes)
-sudo linux-maint metrics --json
-sudo linux-maint metrics --prom
-LM_METRICS_TOP_SLOW=10 sudo linux-maint metrics --json
+linux-maint metrics --json
+linux-maint metrics --prom
+LM_METRICS_TOP_SLOW=10 linux-maint metrics --json
 
 # Export JSON with row allowlist
-LM_EXPORT_ALLOWLIST=monitor,host,status,reason sudo linux-maint export --json
+LM_EXPORT_ALLOWLIST=monitor,host,status,reason linux-maint export --json
 
 # Export summary rows as CSV
-sudo linux-maint export --csv
+linux-maint export --csv
 
 # Prometheus textfile output (written by wrapper)
 # Default: /var/lib/node_exporter/textfile_collector/linux_maint.prom
@@ -240,18 +263,18 @@ sudo linux-maint export --csv
 # Contract notes: status labels are stable (ok|warn|crit|unknown|skipped); reason labels are top-N only.
 
 # Diff in JSON (automation)
-sudo linux-maint diff --json
+linux-maint diff --json
 
 # Latest logs
-sudo linux-maint logs 200
+linux-maint logs 200
 
 # Diagnostics
-sudo linux-maint doctor
-sudo linux-maint doctor --fix
-sudo linux-maint doctor --fix --dry-run
+linux-maint doctor
+linux-maint doctor --fix
+linux-maint doctor --fix --dry-run
 
 # Diagnostics (JSON for automation)
-sudo linux-maint doctor --json
+linux-maint doctor --json
 
 # Quick self-check (safe without sudo)
 linux-maint self-check
@@ -272,63 +295,63 @@ linux-maint explain monitor health_monitor
 linux-maint help status
 
 # Offline dependency manifest (required vs optional tools)
-sudo linux-maint deps
+linux-maint deps
 
 # Config linting (detect invalid lines / duplicates)
-sudo linux-maint config --lint
+linux-maint config --lint
 
 # Baseline workflows
-sudo linux-maint baseline ports --update
-sudo linux-maint baseline configs --update
-sudo linux-maint baseline users --update
-sudo linux-maint baseline sudoers --update
+linux-maint baseline ports --update
+linux-maint baseline configs --update
+linux-maint baseline users --update
+linux-maint baseline sudoers --update
 
 # Progress controls (force disable)
-LM_PROGRESS=0 sudo linux-maint run
-LM_PROGRESS=0 sudo linux-maint pack-logs --out /tmp
-LM_PACK_LOGS_HASH=1 sudo linux-maint pack-logs --out /tmp
-LM_PACK_LOGS_GPG=1 LM_PACK_LOGS_GPG_RECIPIENT="ops@example.com" sudo linux-maint pack-logs --out /tmp
+LM_PROGRESS=0 linux-maint run
+LM_PROGRESS=0 linux-maint pack-logs --out /tmp
+LM_PACK_LOGS_HASH=1 linux-maint pack-logs --out /tmp
+LM_PACK_LOGS_GPG=1 LM_PACK_LOGS_GPG_RECIPIENT="ops@example.com" linux-maint pack-logs --out /tmp
 
 # Pack logs redaction control
-sudo linux-maint pack-logs --out /tmp --redact
-sudo linux-maint pack-logs --out /tmp --no-redact
-sudo linux-maint pack-logs --out /tmp --gpg --gpg-recipient ops@example.com
+linux-maint pack-logs --out /tmp --redact
+linux-maint pack-logs --out /tmp --no-redact
+linux-maint pack-logs --out /tmp --gpg --gpg-recipient ops@example.com
 ```
 
 ## Fleet runs (monitoring node)
 
 ```bash
 # Plan only (no execution)
-sudo linux-maint run --group prod --plan
+linux-maint run --group prod --plan
 
 # Run group with parallelism
-sudo linux-maint run --group prod --parallel 10
+linux-maint run --group prod --parallel 10
 
 # Ad-hoc list
-sudo linux-maint run --hosts server-a,server-b --exclude server-c
+linux-maint run --hosts server-a,server-b --exclude server-c
 ```
 
-## First-run workflow (installed mode)
+## Operator triage order
 
-1. `sudo linux-maint init`
-2. `sudo linux-maint run`
-3. `sudo linux-maint status`
-4. Review expected SKIPs: `sudo linux-maint status --expected-skips`
+1. `linux-maint status --verbose`
+2. `linux-maint diff`
+3. `linux-maint doctor`
+4. `linux-maint pack-logs --out /tmp`
 
 ## Baselines (one-time)
 
 ```bash
-sudo linux-maint baseline ports --update
-sudo linux-maint baseline configs --update
-sudo linux-maint baseline users --update
-sudo linux-maint baseline sudoers --update
+linux-maint baseline ports --update
+linux-maint baseline configs --update
+linux-maint baseline users --update
+linux-maint baseline sudoers --update
 ```
 
 ## What to check when something is wrong
 
-1. `sudo linux-maint status --verbose`
-2. `sudo linux-maint logs 200`
-3. `sudo linux-maint doctor`
+1. `linux-maint status --verbose`
+2. `linux-maint logs 200`
+3. `linux-maint doctor`
 
 ## Example outputs (truncated)
 
@@ -393,16 +416,23 @@ No-color output (diff):
 ## Troubleshooting decision tree
 
 1. If `status` shows `CRIT`:
-   `sudo linux-maint status --verbose`
+   `linux-maint status --verbose`
 2. If the issue is new or unclear:
-   `sudo linux-maint diff`
+   `linux-maint diff`
 3. If the issue is config- or dependency-related:
-   `sudo linux-maint doctor`
+   `linux-maint doctor`
 4. If you need a shareable bundle:
-   `sudo linux-maint pack-logs --out /tmp`
+   `linux-maint pack-logs --out /tmp`
 
-## Artifacts (installed mode)
+## Artifacts
 
+Repo mode:
+- Full log: `.logs/full_health_monitor_latest.log`
+- Summary log: `.logs/full_health_monitor_summary_latest.log`
+- Summary JSON: `.logs/full_health_monitor_summary_latest.json`
+- Last status file: `.logs/last_status_full`
+
+Installed mode:
 - Full log: `/var/log/health/full_health_monitor_latest.log`
 - Summary log: `/var/log/health/full_health_monitor_summary_latest.log`
 - Summary JSON: `/var/log/health/full_health_monitor_summary_latest.json`

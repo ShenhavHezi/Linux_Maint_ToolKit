@@ -665,6 +665,7 @@ map_menu_shortcut(){
     diagnostics:b) printf 'back' ;;
     help:h) printf 'quickref' ;;
     help:f) printf 'faq' ;;
+    help:t) printf 'troubleshooting' ;;
     help:r) printf 'reasons' ;;
     help:m) printf 'monitors' ;;
     help:a) printf 'about' ;;
@@ -1223,15 +1224,15 @@ tui_menu_quick_actions(){
     local choice
     if [[ "$overall" == "CRIT" || "$overall" == "WARN" || "$rc" -ne 0 ]]; then
       choice="$(tui_menu_prompt_safe "Quick actions" \
-        doctor "Run doctor diagnostics" \
-        reasons "Show top reasons (10)" \
-        logs "Show latest logs (200 lines)" \
-        pack "Create support bundle" \
+        doctor "Diagnose: run doctor checks" \
+        reasons "Review: top reasons (10)" \
+        logs "Inspect: latest logs (200 lines)" \
+        pack "Support: create redacted bundle" \
         back "Back")"
     else
       choice="$(tui_menu_prompt_safe "Quick actions" \
-        report "Show short report" \
-        trend "Show trend (last 10)" \
+        report "Review: short report" \
+        trend "Analyze: trend (last 10 runs)" \
         back "Back")"
     fi
     [[ "$TUI_MENU_RC" -eq 0 && -n "${choice:-}" ]] || break
@@ -1797,9 +1798,9 @@ run_menu_run(){
     local choice
     TUI_SHORTCUT_CONTEXT="run"
     choice="$(tui_menu_prompt_safe "Run checks" \
-      run "Execute: run full checks now (live output) [r] [changes]" \
-      plan "Execute: preview execution plan only [p]" \
-      wizard "Guide: guided run setup [w]" \
+      run "Execute: run checks now (live output) [r] [changes]" \
+      plan "Preview: resolved run plan only [p]" \
+      wizard "Guide: guided run setup wizard [w]" \
       back "Back to main menu [b]")"
     local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
@@ -1837,12 +1838,12 @@ run_menu_reports(){
     local choice
     TUI_SHORTCUT_CONTEXT="reports"
     choice="$(tui_menu_prompt_safe "Reports and status" \
-      dashboard "View: live dashboard overview [d]" \
       status "View: current status snapshot [s]" \
-      drilldown "Analyze: drill down by status, monitor, and reason [l]" \
-      report "Analyze: short report summary [r]" \
-      trend "Analyze: status trend (last 10 runs) [t]" \
-      runtimes "Analyze: monitor runtimes (last 10 runs) [u]" \
+      dashboard "View: live dashboard overview [d]" \
+      drilldown "Analyze: drill down by status, monitor, host, and reason [l]" \
+      report "Review: short report summary [r]" \
+      trend "Analyze: severity trend across recent runs [t]" \
+      runtimes "Analyze: slowest monitors across recent runs [u]" \
       back "Back to main menu [b]")"
     local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
@@ -1892,13 +1893,13 @@ run_menu_tools(){
     local choice
     TUI_SHORTCUT_CONTEXT="tools"
     choice="$(tui_menu_prompt_safe "Tools and automation" \
-      check "Validate: preflight checks and validation [c]" \
+      check "Validate: config and readiness checks [c]" \
       summary "Inspect: one-line health summary [s]" \
-      diff "Inspect: compare current run vs previous run [d]" \
-      history "Inspect: run history table [h]" \
-      runindex "Inspect: run index statistics [r]" \
-      metrics_prom "Export: metrics (Prometheus text) [m]" \
-      metrics_json "Export: metrics (JSON) [j]" \
+      diff "Inspect: changes since previous run [d]" \
+      history "Inspect: recent run history [h]" \
+      runindex "Inspect: run index stats and retention [r]" \
+      metrics_prom "Export: Prometheus metrics [m]" \
+      metrics_json "Export: metrics JSON [j]" \
       pack_logs "Support: create redacted support bundle [p] [changes]" \
       back "Back to main menu [b]")"
     local rc=$TUI_MENU_RC
@@ -1948,14 +1949,15 @@ run_menu_help(){
     local choice
     TUI_SHORTCUT_CONTEXT="help"
     choice="$(tui_menu_prompt_safe "Help and docs" \
-      quickref "Quick command reference [h]" \
-      faq "Frequently asked questions [f]" \
-      reasons "Reason token catalog [r]" \
-      monitors "Monitors matrix and purpose [m]" \
-      about "Version and project details [a]" \
-      explain_reason "Explain a reason token [e]" \
-      explain_monitor "Explain one monitor [o]" \
-      explain_status "Explain status meanings [s]" \
+      quickref "Open: quick command reference [h]" \
+      faq "Open: FAQ and operator tips [f]" \
+      troubleshooting "Open: troubleshooting guide [t]" \
+      reasons "Open: reason token catalog [r]" \
+      monitors "Open: monitor matrix and purpose [m]" \
+      about "Inspect: version and project details [a]" \
+      explain_reason "Explain: one reason token [e]" \
+      explain_monitor "Explain: one monitor [o]" \
+      explain_status "Explain: status meanings [s]" \
       back "Back to main menu [b]")"
     local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
@@ -1969,6 +1971,9 @@ run_menu_help(){
         ;;
       faq)
         tui_view_file "FAQ" "$(find_doc_file FAQ.md)"
+        ;;
+      troubleshooting)
+        tui_view_file "Troubleshooting" "$(find_doc_file troubleshooting.md)"
         ;;
       reasons)
         tui_view_file "Reasons" "$(find_doc_file REASONS.md)"
@@ -2026,12 +2031,12 @@ run_menu_diagnostics(){
     local choice
     TUI_SHORTCUT_CONTEXT="diagnostics"
     choice="$(tui_menu_prompt_safe "Diagnostics and recovery" \
-      incident "Guided incident response mode [i]" \
-      logslive "Stream latest logs live [l]" \
-      logs "Show latest log tail [g]" \
-      doctor "Run doctor diagnostics [d] [changes]" \
-      selfcheck "Run self-check (safe) [s]" \
-      secprofile "Show strict security profile [p]" \
+      incident "Guide: incident response workflow [i]" \
+      doctor "Diagnose: doctor checks and fixes [d] [changes]" \
+      selfcheck "Validate: self-check (safe) [s]" \
+      secprofile "Inspect: strict security profile [p]" \
+      logslive "Stream: latest wrapper log live [l]" \
+      logs "View: latest log tail [g]" \
       back "Back to main menu [b]")"
     local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
@@ -2102,11 +2107,11 @@ PY
     local choice
     TUI_SHORTCUT_CONTEXT="incident"
     choice="$(tui_menu_prompt_safe "Incident mode" \
-      focused_run "Run focused health checks [f]" \
-      status_reasons "Show status reasons (top 10) [s]" \
-      doctor "Run doctor [d]" \
-      bundle "Create redacted support bundle [b]" \
-      short_report "Show short report [r]" \
+      focused_run "Execute: focused health checks [f]" \
+      status_reasons "Review: top status reasons (10) [s]" \
+      doctor "Diagnose: run doctor [d]" \
+      bundle "Support: create redacted bundle [b]" \
+      short_report "Review: short report [r]" \
       back "Back [q]")"
     [[ "$TUI_MENU_RC" -eq 0 && -n "${choice:-}" ]] || break
     choice="$(normalize_menu_choice "$choice")"
@@ -2144,9 +2149,9 @@ run_menu_config(){
     local choice
     TUI_SHORTCUT_CONTEXT="config"
     choice="$(tui_menu_prompt_safe "Config and inventory" \
-      config "Show current config [c]" \
-      monitors "List available monitors [m]" \
-      settings "Menu preferences and defaults [s]" \
+      config "Inspect: effective config [c]" \
+      monitors "Inspect: monitor inventory and requirements [m]" \
+      settings "Adjust: menu preferences and defaults [s]" \
       back "Back to main menu [b]")"
     local rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
@@ -2213,12 +2218,12 @@ run_menu(){
     fi
     TUI_SHORTCUT_CONTEXT="main"
     choice="$(tui_menu_prompt_safe "Choose your next step" \
-      run "Run checks or preview a plan [r]" \
-      reports "Status, reports, trends, and runtimes [s]" \
-      tools "Validation, history, metrics, and bundles [t]" \
-      diagnostics "Logs, doctor, and self-check [d]" \
-      config "Config, monitor list, and menu settings [c]" \
-      help "Quick docs and explainers [h]" \
+      run "Run checks, preview a plan, or resume work [r]" \
+      reports "Status, dashboards, reports, and drilldowns [s]" \
+      tools "Validation, diff, history, metrics, and bundles [t]" \
+      diagnostics "Doctor, logs, and guided recovery [d]" \
+      config "Config, monitors, and menu settings [c]" \
+      help "Docs, explainers, and project info [h]" \
       exit "Exit [x]")"
     rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
@@ -3098,7 +3103,19 @@ EOF
       cat <<'EOF'
 Usage: linux-maint menu
 
-Interactive TUI with optional shortcuts and persisted settings.
+Interactive TUI for runs, status, diagnostics, config, and docs.
+
+Mode:
+  repo mode:      linux-maint menu
+  installed mode: sudo linux-maint menu
+
+Main sections:
+  Run           execute checks now, preview plans, or use the run wizard
+  Reports       status, dashboard, report, trend, and runtimes
+  Tools         check, diff, history, metrics, and support bundles
+  Diagnostics   doctor, logs, self-check, security profile, incident mode
+  Config        effective config, monitor inventory, menu preferences
+  Help          quick reference, FAQ, explainers, and about
 
 Useful env vars:
   LM_TUI_BACKEND=gum|dialog|whiptail
@@ -3139,6 +3156,12 @@ Output:
   --problems N             cap problem list (max 100)
   --reasons N              top reasons rollup (max 20)
   --strict                 fail if summary lines are malformed
+
+Examples:
+  linux-maint status --compact
+  linux-maint status --reasons 5
+  linux-maint status --host web --monitor service --only WARN
+  linux-maint status --json
 EOF
       ;;
     report)
@@ -3165,15 +3188,75 @@ EOF
     metrics)
       echo "Usage: linux-maint metrics --json|--prom [--output PATH]";;
     config)
-      echo "Usage: linux-maint config [--json] [--sources] [--lint] [--diff-defaults]";;
+      cat <<'EOF'
+Usage: linux-maint config [--json] [--sources] [--lint] [--diff-defaults]
+
+Read the effective config from <cfg_dir>.
+- repo mode: repo-local fallback config (or LM_CFG_DIR)
+- installed mode: /etc/linux_maint unless overridden
+
+Flags:
+  --json           machine-readable output
+  --sources        show source file order in human output
+  --lint           parse and validate config files only
+  --diff-defaults  show values that differ from built-in defaults
+
+Examples:
+  linux-maint config
+  linux-maint config --sources
+  linux-maint config --lint
+  linux-maint config --json
+EOF
+      ;;
     doctor)
-      echo "Usage: linux-maint doctor [--json] [--compact] [--fix] [--fix-deps] [--fix-deps-optional] [--yes] [--dry-run]";;
+      cat <<'EOF'
+Usage: linux-maint doctor [--json] [--compact] [--fix] [--fix-deps] [--fix-deps-optional] [--yes] [--dry-run]
+
+Read-only mode:
+  default         inspect layout, config, writable paths, and dependencies
+  --compact       shorter human summary
+  --json          machine-readable output
+
+Fix mode:
+  --fix                 repair directories and permissions
+  --fix-deps            also try to install required dependencies
+  --fix-deps-optional   also try to install optional dependencies
+  --dry-run             preview fix actions only
+  --yes                 skip interactive confirmation
+
+Notes:
+  - --fix requires root.
+  - In repo mode, doctor targets repo-local paths; in installed mode it targets system paths.
+
+Examples:
+  linux-maint doctor
+  linux-maint doctor --compact
+  linux-maint doctor --json
+  sudo linux-maint doctor --fix --yes
+EOF
+      ;;
     self-check)
       echo "Usage: linux-maint self-check [--json] [--compact] [--strict]";;
     security-profile)
       echo "Usage: linux-maint security-profile [--json] [--strict]";;
     check)
-      echo "Usage: linux-maint check [--json]";;
+      cat <<'EOF'
+Usage: linux-maint check [--json]
+
+Runs:
+  1. config_validate
+  2. preflight
+  3. expected-skip summary
+
+Notes:
+  - Exit code follows the highest underlying severity.
+  - Use --json for automation-safe output.
+
+Examples:
+  linux-maint check
+  linux-maint check --json
+EOF
+      ;;
     gate)
       echo "Usage: linux-maint gate --policy <file> [--json]";;
     plugin)
