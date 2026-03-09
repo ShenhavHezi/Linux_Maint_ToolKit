@@ -6858,7 +6858,13 @@ PY
     fi
     exec env S_CLI="${LM_SERVE_CLI:-$0}" S_CMD_TIMEOUT="$S_CMD_TIMEOUT" python3 - "$S_HOST" "$S_PORT" <<'PY'
 import json, os, subprocess, sys
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
+try:
+    from http.server import ThreadingHTTPServer
+except ImportError:
+    from socketserver import ThreadingMixIn
+    class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+        pass
 host, port = sys.argv[1], int(sys.argv[2])
 cli = os.environ.get("S_CLI", "linux-maint")
 cmd_timeout = int(os.environ.get("S_CMD_TIMEOUT", "15"))
@@ -7170,10 +7176,33 @@ PY
     done
     [[ "$P_LAST" =~ ^[0-9]+$ ]] || { echo "ERROR: --last must be integer" >&2; exit 2; }
     (( P_LAST > 0 )) || { echo "ERROR: --last must be a positive integer" >&2; exit 2; }
-    set +e
-    hist_json="$(NO_COLOR=1 "$0" history --json --last "$P_LAST" 2>/dev/null)"
-    hist_rc=$?
-    set -e
+    if [[ "$MODE" == "repo" ]]; then
+      predict_state_dir="${LM_STATE_DIR:-$REPO_LOG_DIR}"
+    else
+      predict_state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
+    fi
+    predict_history_db="${LM_HISTORY_DB:-$predict_state_dir/run_index.sqlite}"
+    predict_history_index="${LM_RUN_INDEX_FILE:-$predict_state_dir/run_index.jsonl}"
+    predict_has_history=0
+    if [[ -f "$predict_history_db" || -f "$predict_history_index" ]]; then
+      predict_has_history=1
+    elif [[ -z "${LM_HISTORY_DB:-}" && -z "${LM_RUN_INDEX_FILE:-}" ]]; then
+      for alt in /var/tmp/run_index.jsonl /var/tmp/linux_maint/run_index.jsonl /tmp/linux_maint/run_index.jsonl; do
+        if [[ -f "$alt" ]]; then
+          predict_has_history=1
+          break
+        fi
+      done
+    fi
+    if [[ "$predict_has_history" -eq 0 ]]; then
+      hist_json='{"history_json_contract_version":1,"runs":[]}'
+      hist_rc=0
+    else
+      set +e
+      hist_json="$(NO_COLOR=1 "$0" history --json --last "$P_LAST" 2>/dev/null)"
+      hist_rc=$?
+      set -e
+    fi
     HIST_JSON="$hist_json" HIST_RC="$hist_rc" P_JSON="$P_JSON" python3 - <<'PY'
 import json, os, sys
 source_rc = int(os.environ.get("HIST_RC", "0"))

@@ -160,6 +160,7 @@ run_required "federate_invalid_input_test" bash "$ROOT_DIR/tests/federate_invali
 run_required "ai_assist_command_test" bash "$ROOT_DIR/tests/ai_assist_command_test.sh"
 run_required "ai_assist_invalid_status_test" bash "$ROOT_DIR/tests/ai_assist_invalid_status_test.sh"
 run_required "predict_command_test" bash "$ROOT_DIR/tests/predict_command_test.sh"
+run_required "predict_no_history_test" bash "$ROOT_DIR/tests/predict_no_history_test.sh"
 run_required "predict_last_validation_test" bash "$ROOT_DIR/tests/predict_last_validation_test.sh"
 run_required "predict_invalid_history_test" bash "$ROOT_DIR/tests/predict_invalid_history_test.sh"
 run_required "menu_choice_normalization_test" bash "$ROOT_DIR/tests/menu_choice_normalization_test.sh"

@@ -848,6 +848,7 @@ Schema:
   - computes a simple risk score from recent history totals.
   - emits confidence level + recommended action (`observe`, `schedule_investigation`, `open_incident`).
   - `--last` must be a positive integer.
+  - when no history index exists yet, returns an empty-history low-risk result instead of failing.
   - fails with exit code `2` if `history --json` is unsuccessful or invalid.
   - intended as directional signal, not deterministic failure prediction.
 

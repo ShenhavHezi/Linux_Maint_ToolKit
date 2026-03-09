@@ -141,6 +141,7 @@ Last updated: 2026-03-09
 - `DONE` Predictive score baseline (`predict`).
   - Proof: `tests/predict_command_test.sh`.
   - Hardening: reject `--last 0` instead of silently degrading to an empty-history result.
+  - Hardening: no-history environments now return a valid empty-history prediction instead of failing the command.
   - Hardening: fail fast if delegated `history --json` data is unavailable or invalid.
 - `PARTIAL` Advanced acceptance closure:
   - modules are optional and docs include risk boundaries.
