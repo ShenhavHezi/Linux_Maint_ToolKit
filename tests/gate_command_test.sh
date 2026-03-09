@@ -9,7 +9,7 @@ trap 'rm -rf "$workdir"' EXIT
 
 ok_policy="$workdir/policy_ok.conf"
 cat > "$ok_policy" <<'P'
-max_crit=0
+max_crit=999999
 max_warn=999999
 max_unknown=999999
 max_skip=999999

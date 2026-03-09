@@ -132,6 +132,7 @@ Last updated: 2026-03-09
   - Hardening: finite agent runs now preserve delegated `run` failures in their exit code.
 - `DONE` Policy-as-code baseline (`policy init/lint/eval`).
   - Proof: `tests/policy_command_test.sh`.
+  - Hardening: `gate`/`policy eval` now fail fast if delegated `status --json` data is unavailable or invalid.
 - `DONE` AI-assist baseline (local heuristic hints).
   - Proof: `linux-maint ai-assist`, `tests/ai_assist_command_test.sh`.
   - Hardening: fail fast if delegated `status --json` data is unavailable or invalid.
@@ -151,6 +152,7 @@ Last updated: 2026-03-09
 ## Cross-cutting quality bar
 - `PARTIAL` CLI help/docs updates are consistently done for most new features.
 - `PARTIAL` JSON schema coverage is incomplete for some newly added commands.
+  - Hardening: `report` and `summary` now fail fast instead of silently degrading when `status --json` is broken.
   - Added schema coverage for `export --jsonl` rows and `ticket/cm-hook/audit-log` JSON contracts.
   - Added schema coverage for `plugin verify-index --json` and `plugin verify --json`.
   - Remaining: extend schemas to all advanced optional command JSON outputs.

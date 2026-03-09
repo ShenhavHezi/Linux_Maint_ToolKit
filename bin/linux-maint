@@ -4097,7 +4097,8 @@ PY
     tmp_trend="$(mktemp -p "$TMPDIR" linux_maint_report_trend.XXXXXX.json)"
     tmp_runtimes="$(mktemp -p "$TMPDIR" linux_maint_report_runtimes.XXXXXX.json)"
 
-    "$0" status --json --problems 20 --reasons 10 >"$tmp_status" 2>/dev/null || printf '{}' >"$tmp_status"
+    status_rc=0
+    "$0" status --json --problems 20 --reasons 10 >"$tmp_status" 2>/dev/null || status_rc=$?
     "$0" trend --last 10 --json >"$tmp_trend" 2>/dev/null || printf '{}' >"$tmp_trend"
     "$0" runtimes --last 1 --json >"$tmp_runtimes" 2>/dev/null || printf '{}' >"$tmp_runtimes"
 
@@ -4112,13 +4113,14 @@ PY
       fi
     fi
 
-    LM_COLOR="$REPORT_COLOR" REPORT_COMPACT="$REPORT_COMPACT" REPORT_SHORT="$REPORT_SHORT" REPORT_TABLE="$REPORT_TABLE" REPORT_NO_TREND="$REPORT_NO_TREND" REPORT_NO_SLOW="$REPORT_NO_SLOW" REPORT_NO_REASONS="$REPORT_NO_REASONS" REPORT_NO_PROBLEMS="$REPORT_NO_PROBLEMS" REPORT_EXPECTED_SKIPS="$REPORT_EXPECTED_SKIPS" REPORT_REDACT="$REPORT_REDACT" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
+    LM_COLOR="$REPORT_COLOR" REPORT_COMPACT="$REPORT_COMPACT" REPORT_SHORT="$REPORT_SHORT" REPORT_TABLE="$REPORT_TABLE" REPORT_NO_TREND="$REPORT_NO_TREND" REPORT_NO_SLOW="$REPORT_NO_SLOW" REPORT_NO_REASONS="$REPORT_NO_REASONS" REPORT_NO_PROBLEMS="$REPORT_NO_PROBLEMS" REPORT_EXPECTED_SKIPS="$REPORT_EXPECTED_SKIPS" REPORT_REDACT="$REPORT_REDACT" REPORT_STATUS_RC="$status_rc" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
 import json, os, sys, re
 import re
 import builtins
 
 status_path, trend_path, runtimes_path, json_mode = sys.argv[1:5]
 json_mode = json_mode == "1"
+status_rc = int(os.environ.get("REPORT_STATUS_RC", "0"))
 color = os.environ.get("LM_COLOR","1") == "1"
 compact = os.environ.get("REPORT_COMPACT","0") == "1"
 short = os.environ.get("REPORT_SHORT","0") == "1"
@@ -4213,6 +4215,13 @@ def read_json(p):
 status = read_json(status_path)
 trend = read_json(trend_path)
 runtimes = read_json(runtimes_path)
+
+if status_rc != 0:
+    print("ERROR: report requires a successful status --json snapshot", file=sys.stderr)
+    raise SystemExit(2)
+if not isinstance(status, dict) or "last_status" not in status or "totals" not in status:
+    print("ERROR: report requires valid JSON from status --json", file=sys.stderr)
+    raise SystemExit(2)
 
 if json_mode:
     run_id = ""
@@ -5144,11 +5153,15 @@ PY
       exit 2
     fi
 
-    status_json="$(NO_COLOR=1 "$0" status --json 2>/dev/null || true)"
-    GATE_POLICY_FILE="$GATE_POLICY" GATE_STATUS_JSON="$status_json" GATE_JSON="$GATE_JSON" python3 - <<'PY'
+    set +e
+    status_json="$(NO_COLOR=1 "$0" status --json 2>/dev/null)"
+    gate_status_rc=$?
+    set -e
+    GATE_POLICY_FILE="$GATE_POLICY" GATE_STATUS_JSON="$status_json" GATE_STATUS_RC="$gate_status_rc" GATE_JSON="$GATE_JSON" python3 - <<'PY'
 import json, os, sys
 policy_file = os.environ.get("GATE_POLICY_FILE","")
 status_raw = os.environ.get("GATE_STATUS_JSON","{}")
+status_rc = int(os.environ.get("GATE_STATUS_RC", "0"))
 json_mode = os.environ.get("GATE_JSON","0") == "1"
 
 def parse_policy(path):
@@ -5177,10 +5190,17 @@ def parse_policy(path):
     return p
 
 policy = parse_policy(policy_file)
+if status_rc != 0:
+    print("ERROR: gate requires a successful status --json snapshot", file=sys.stderr)
+    raise SystemExit(2)
 try:
     status = json.loads(status_raw or "{}")
 except Exception:
-    status = {}
+    print("ERROR: gate requires valid JSON from status --json", file=sys.stderr)
+    raise SystemExit(2)
+if not isinstance(status, dict) or "last_status" not in status or "totals" not in status:
+    print("ERROR: gate requires status --json contract fields", file=sys.stderr)
+    raise SystemExit(2)
 totals = status.get("totals") or {}
 overall = str((status.get("last_status") or {}).get("overall") or "UNKNOWN").upper()
 
@@ -7707,13 +7727,15 @@ PY
     color_enabled || SUMMARY_COLOR=0
 
     tmp_status="$(mktemp -p "$TMPDIR" linux_maint_summary_status.XXXXXX.json)"
-    "$0" status --json --problems 0 >"$tmp_status" 2>/dev/null || printf '{}' >"$tmp_status"
+    status_rc=0
+    "$0" status --json --problems 0 >"$tmp_status" 2>/dev/null || status_rc=$?
 
-    LM_COLOR="$SUMMARY_COLOR" python3 - "$tmp_status" <<'PY'
+    LM_COLOR="$SUMMARY_COLOR" SUMMARY_STATUS_RC="$status_rc" python3 - "$tmp_status" <<'PY'
 import json, os, sys
 
 path = sys.argv[1]
 color = os.environ.get("LM_COLOR","1") == "1"
+status_rc = int(os.environ.get("SUMMARY_STATUS_RC", "0"))
 
 def c(s, code):
     if not color:
@@ -7738,7 +7760,14 @@ try:
     with open(path, "r", encoding="utf-8") as f:
         status = json.load(f)
 except Exception:
-    status = {}
+    print("ERROR: summary requires valid JSON from status --json", file=sys.stderr)
+    raise SystemExit(2)
+if status_rc != 0:
+    print("ERROR: summary requires a successful status --json snapshot", file=sys.stderr)
+    raise SystemExit(2)
+if not isinstance(status, dict) or "last_status" not in status or "totals" not in status:
+    print("ERROR: summary requires status --json contract fields", file=sys.stderr)
+    raise SystemExit(2)
 
 last = status.get("last_status", {})
 overall = last.get("overall", "UNKNOWN")

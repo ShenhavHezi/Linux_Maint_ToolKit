@@ -579,6 +579,7 @@ Compatibility policy:
 - Existing keys/types above are treated as stable for contract version `1`.
 - Additive keys may be introduced without breaking compatibility.
 - Breaking shape/type changes require incrementing `report_json_contract_version`.
+- `report` requires a valid `status --json` payload; `trend` and `runtimes` remain best-effort adjuncts.
 
 Schema:
 - `docs/schemas/report.json` — JSON schema for `linux-maint report --json`.
@@ -768,6 +769,7 @@ Schema:
 - `linux-maint gate --policy FILE [--json]`:
   - evaluates current `status --json` totals against policy thresholds for automation gates.
   - policy keys: `max_crit`, `max_warn`, `max_unknown`, `max_skip`, `require_overall`.
+  - fails with exit code `2` if `status --json` is unsuccessful or invalid.
   - exits `0` on pass, `2` on policy violation.
 
 - `linux-maint plugin <subcommand>`:
