@@ -9,6 +9,7 @@ TUI_MENU_RC=0
 TUI_TITLE="${TUI_TITLE:-linux-maint menu}"
 TUI_BACKTITLE="${TUI_BACKTITLE:-Linux Maint ToolKit}"
 TUI_RETURN_TO_MAIN="${TUI_RETURN_TO_MAIN:-0}"
+TUI_LAST_CMD_RC="${TUI_LAST_CMD_RC:-0}"
 
 # If any command requests JSON, disable color and progress globally.
 for arg in "$@"; do
@@ -2542,6 +2543,9 @@ tui_run_cmd(){
   if ! [[ -t 0 && -t 1 && -t 2 ]]; then
     interactive=0
   fi
+  if tui_bool_enabled "${LM_TUI_FORCE_INTERACTIVE:-0}"; then
+    interactive=1
+  fi
   while true; do
     tui_preview_cmd "$@"
     if [[ "$interactive" -eq 1 ]] && ! tui_command_confirm_if_needed "$cmd_text" "$risk"; then
@@ -2555,6 +2559,7 @@ tui_run_cmd(){
     NO_COLOR=1 "$@" >"$out" 2>&1 </dev/null
     local rc=$?
     set -e
+    TUI_LAST_CMD_RC="$rc"
     end_ts="$(date +%s)"
     elapsed=$(( end_ts - start_ts ))
     local label="$title"
@@ -2583,6 +2588,7 @@ tui_run_cmd(){
         rerun) continue ;;
         main) TUI_RETURN_TO_MAIN=1 ;;
       esac
+      return 0
     fi
     return $rc
   done
@@ -2599,6 +2605,9 @@ tui_run_live(){
   if ! [[ -t 0 && -t 1 && -t 2 ]]; then
     interactive=0
   fi
+  if tui_bool_enabled "${LM_TUI_FORCE_INTERACTIVE:-0}"; then
+    interactive=1
+  fi
   tui_preview_cmd "$@"
   if [[ "$interactive" -eq 1 ]] && ! tui_command_confirm_if_needed "$cmd_text" "$risk"; then
     return 130
@@ -2613,6 +2622,7 @@ tui_run_live(){
     env LM_PROGRESS=1 LM_PROGRESS_MODE=plain LM_PROGRESS_FORCE=1 LM_PROGRESS_WIDTH=32 "$@" </dev/null
     local rc=$?
     set -e
+    TUI_LAST_CMD_RC="$rc"
     end_ts="$(date +%s)"
     elapsed=$(( end_ts - start_ts ))
     if [[ "$interactive" -eq 1 ]]; then
@@ -2623,6 +2633,7 @@ tui_run_live(){
         rerun) tui_run_live "$title" "$@"; return $? ;;
         main) TUI_RETURN_TO_MAIN=1 ;;
       esac
+      return 0
     fi
     return $rc
   fi
@@ -3363,7 +3374,7 @@ run_menu_run(){
       run)
         local run_rc=0
         tui_run_live "linux-maint run" "$0" run
-        run_rc=$?
+        run_rc="${TUI_LAST_CMD_RC:-0}"
         if [[ "$run_rc" -ne 130 ]]; then
           tui_run_next_steps "$run_rc"
         fi
