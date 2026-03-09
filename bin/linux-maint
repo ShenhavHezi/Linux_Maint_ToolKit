@@ -5929,12 +5929,6 @@ if os.path.exists(dest) and not force:
     raise SystemExit(2)
 tmp_dest = tempfile.mkdtemp(prefix=".plugin_", dir=root)
 tmp_copy = os.path.join(tmp_dest, name)
-if os.path.exists(dest) and force:
-    shutil.rmtree(dest, ignore_errors=True)
-# Python 3.6 compatibility: dirs_exist_ok is only available in 3.8+.
-shutil.copytree(src, tmp_copy)
-os.replace(tmp_copy, dest)
-shutil.rmtree(tmp_dest, ignore_errors=True)
 
 registry = {"plugins": []}
 if os.path.exists(reg_file):
@@ -5950,8 +5944,47 @@ plugins = [p for p in plugins if str(p.get("name","")) != name]
 meta["installed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
 plugins.append(meta)
 registry["plugins"] = sorted(plugins, key=lambda p: str(p.get("name","")))
-with open(reg_file, "w", encoding="utf-8") as f:
-    json.dump(registry, f, indent=2, sort_keys=True)
+
+backup_dir = ""
+installed = False
+registry_tmp = ""
+had_dest = os.path.exists(dest)
+try:
+    # Copy into a staging directory first so source-side failures do not damage the current install.
+    shutil.copytree(src, tmp_copy)
+    if had_dest:
+        backup_dir = tempfile.mkdtemp(prefix=".plugin_prev_", dir=root)
+        os.rmdir(backup_dir)
+        os.replace(dest, backup_dir)
+    os.replace(tmp_copy, dest)
+    installed = True
+
+    os.makedirs(os.path.dirname(reg_file) or ".", exist_ok=True)
+    fd, registry_tmp = tempfile.mkstemp(prefix=".plugin_registry.", dir=os.path.dirname(reg_file) or ".")
+    os.close(fd)
+    with open(registry_tmp, "w", encoding="utf-8") as f:
+        json.dump(registry, f, indent=2, sort_keys=True)
+        f.write("\n")
+    os.replace(registry_tmp, reg_file)
+    registry_tmp = ""
+except Exception:
+    if registry_tmp and os.path.exists(registry_tmp):
+        os.unlink(registry_tmp)
+    if backup_dir and os.path.exists(backup_dir):
+        if os.path.exists(dest):
+            shutil.rmtree(dest, ignore_errors=True)
+        try:
+            os.replace(backup_dir, dest)
+        except Exception:
+            pass
+    elif not had_dest and os.path.exists(dest):
+        shutil.rmtree(dest, ignore_errors=True)
+    raise
+finally:
+    shutil.rmtree(tmp_dest, ignore_errors=True)
+    if installed and backup_dir and os.path.exists(backup_dir):
+        shutil.rmtree(backup_dir, ignore_errors=True)
+
 print(f"installed plugin {name} -> {dest}")
 PY
         audit_log_append "plugin-install" "success" "source=$src name=${pname:-auto} root=$plug_root"
@@ -6358,6 +6391,8 @@ PY
     NP_SUBJECT="linux-maint notification"
     NP_MESSAGE="linux-maint test notification"
     NP_DRY_RUN=0
+    NP_CONNECT_TIMEOUT="${LM_NOTIFY_CONNECT_TIMEOUT:-5}"
+    NP_MAX_TIME="${LM_NOTIFY_MAX_TIME:-15}"
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --provider) NP_PROVIDER="$2"; shift 2;;
@@ -6373,6 +6408,8 @@ PY
         *) echo "Unknown notify flag: $1" >&2; exit 2;;
       esac
     done
+    [[ "$NP_CONNECT_TIMEOUT" =~ ^[0-9]+([.][0-9]+)?$ ]] || { echo "ERROR: LM_NOTIFY_CONNECT_TIMEOUT must be numeric" >&2; exit 2; }
+    [[ "$NP_MAX_TIME" =~ ^[0-9]+([.][0-9]+)?$ ]] || { echo "ERROR: LM_NOTIFY_MAX_TIME must be numeric" >&2; exit 2; }
     case "$NP_PROVIDER" in
       webhook|slack|teams|email|pagerduty) ;;
       *)
@@ -6426,7 +6463,7 @@ PY
         echo "ERROR: curl command not found" >&2
         exit 2
       fi
-      curl -fsS -X POST -H 'Content-Type: application/json' --data "$payload" "$NP_URL" >/dev/null
+      curl -fsS --connect-timeout "$NP_CONNECT_TIMEOUT" --max-time "$NP_MAX_TIME" -X POST -H 'Content-Type: application/json' --data "$payload" "$NP_URL" >/dev/null
       echo "notification sent via $NP_PROVIDER"
       exit 0
     fi
@@ -6445,7 +6482,7 @@ PY
       echo "ERROR: curl command not found" >&2
       exit 2
     fi
-    curl -fsS -X POST -H 'Content-Type: application/json' --data "$payload" "$NP_URL" >/dev/null
+    curl -fsS --connect-timeout "$NP_CONNECT_TIMEOUT" --max-time "$NP_MAX_TIME" -X POST -H 'Content-Type: application/json' --data "$payload" "$NP_URL" >/dev/null
     echo "notification sent via $NP_PROVIDER"
     ;;
 
@@ -6458,6 +6495,8 @@ PY
     TK_ISSUE_TYPE="Task"
     TK_JSON=0
     TK_DRY_RUN=0
+    TK_CONNECT_TIMEOUT="${LM_TICKET_CONNECT_TIMEOUT:-5}"
+    TK_MAX_TIME="${LM_TICKET_MAX_TIME:-15}"
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --provider) TK_PROVIDER="$2"; shift 2;;
@@ -6472,6 +6511,8 @@ PY
         *) echo "Unknown ticket flag: $1" >&2; exit 2;;
       esac
     done
+    [[ "$TK_CONNECT_TIMEOUT" =~ ^[0-9]+([.][0-9]+)?$ ]] || { echo "ERROR: LM_TICKET_CONNECT_TIMEOUT must be numeric" >&2; exit 2; }
+    [[ "$TK_MAX_TIME" =~ ^[0-9]+([.][0-9]+)?$ ]] || { echo "ERROR: LM_TICKET_MAX_TIME must be numeric" >&2; exit 2; }
     case "$TK_PROVIDER" in
       jira|servicenow) ;;
       *) echo "ERROR: --provider must be jira|servicenow" >&2; exit 2;;
@@ -6528,7 +6569,7 @@ PY
       echo "ERROR: curl command not found" >&2
       exit 2
     fi
-    curl -fsS -X POST -H 'Content-Type: application/json' --data "$payload" "$TK_URL" >/dev/null
+    curl -fsS --connect-timeout "$TK_CONNECT_TIMEOUT" --max-time "$TK_MAX_TIME" -X POST -H 'Content-Type: application/json' --data "$payload" "$TK_URL" >/dev/null
     if [[ "$TK_JSON" -eq 1 ]]; then
       python3 - "$TK_PROVIDER" "$TK_URL" <<'PY'
 import json, sys

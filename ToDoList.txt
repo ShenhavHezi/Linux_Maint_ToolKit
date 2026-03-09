@@ -17,6 +17,10 @@ Last updated: 2026-03-09
   - P3 provenance reporting: `plugin provenance-report` with strict gating and artifact output.
   - P0 repo/runtime hardening: non-root wrapper logfile fallback, `LM_CFG_DIR` propagation, summary host-count fix, and monitor regression tests.
     - Proof: `tests/wrapper_repo_logfile_default_test.sh`, `tests/wrapper_cfg_dir_fallback_cert_monitor_test.sh`, `tests/wrapper_summary_hosts_line_test.sh`, `tests/config_validate_unreadable_conf_test.sh`, `tests/config_drift_allowlist_test.sh`.
+  - P0 plugin lifecycle hardening: forced plugin installs now preserve the previous plugin on source-copy failure.
+    - Proof: `tests/plugin_force_install_rollback_test.sh`.
+  - P0 integration hardening: `notify`/`ticket` curl calls now use bounded connect/total timeouts with regression tests.
+    - Proof: `tests/notify_curl_timeout_test.sh`, `tests/ticket_curl_timeout_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 

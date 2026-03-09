@@ -31,6 +31,8 @@ Dark-site tip:
 - `LM_LOCAL_ONLY=true` (force local-only; useful for CI)
 - `LM_DARK_SITE=true` (optional profile for conservative defaults)
 - `LM_CFG_DIR=/path` (override config root for repo/dev/CI runs)
+- `LM_NOTIFY_CONNECT_TIMEOUT=5`, `LM_NOTIFY_MAX_TIME=15` (timeouts for `linux-maint notify`)
+- `LM_TICKET_CONNECT_TIMEOUT=5`, `LM_TICKET_MAX_TIME=15` (timeouts for `linux-maint ticket`)
 - `LM_MAX_PARALLEL` (max parallel SSH fan-out)
 - `LM_MAX_PARALLEL_CAP` (safety cap for LM_MAX_PARALLEL; default 25)
 - `LM_TREND_CACHE=1` (opt-in cache for `linux-maint trend`)

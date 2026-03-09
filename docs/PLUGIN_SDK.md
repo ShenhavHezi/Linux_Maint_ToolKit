@@ -39,6 +39,7 @@ A plugin directory should include `plugin.json`:
 - In repo mode, plugin root defaults to `./plugins`.
 - In installed mode, plugin root defaults to `/var/lib/linux_maint/plugins`.
 - Override plugin root with `LM_PLUGIN_DIR`.
+- Forced plugin installs/updates are staged into a temporary directory and only swapped into place after the copy succeeds, so a failed replacement should preserve the previously installed plugin.
 - `plugin search --strict` and `plugin lint-index --strict` fail on invalid marketplace metadata.
 - Marketplace index attestation is supported via top-level `attestation`:
   - `type=sha256` with `target` and `value`
