@@ -512,6 +512,7 @@ Prerequisites (any one):
 
 - `linux-maint status` *(root required)*: show last run metadata plus a compact, severity-sorted problems summary by default. Use `--verbose` for raw summary lines.
 - `linux-maint check` *(root required)*: run config validation + preflight and show a short OK/WARN/CRIT summary.
+  - exits with the highest severity code returned by `config_validate` or `preflight` (`0` OK, `1` WARN, `2` CRIT, `3` UNKNOWN).
   - `--json`: emit machine-friendly summary and expected SKIPs.
 - `linux-maint config --diff-defaults`: show effective config values that differ from shipped defaults.
 
@@ -717,6 +718,7 @@ Compatibility policy:
 - Existing keys/types above are treated as stable for contract version `1`.
 - Additive keys may be introduced without breaking compatibility.
 - Breaking shape/type changes require incrementing a contract version and schema update.
+- `check --json` exits with the highest severity code returned by `config_validate` or `preflight`.
 
 Schema:
 - `docs/schemas/self_check.json` — JSON schema for `linux-maint self-check --json`.
@@ -1719,3 +1721,4 @@ CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).
   - `--redact|--no-redact`: override `LM_REDACT_LOGS` for this bundle only.
   - `--hash`: include `meta/bundle_hashes.txt` (SHA256 per file) in the bundle.
   - `meta/bundle_integrity.txt` is always included when `sha256sum` and `stat` are available.
+  - `--gpg` validates its prerequisites before writing a bundle, so failed encryption setup does not leave plaintext artifacts behind.

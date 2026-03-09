@@ -5124,6 +5124,19 @@ PY
         *) echo "UNKNOWN" ;;
       esac
     }
+    aggregate_check_rc() {
+      local best=0 rc
+      for rc in "$@"; do
+        case "$rc" in
+          0|1|2|3) ;;
+          *) rc=3 ;;
+        esac
+        if [[ "$rc" -gt "$best" ]]; then
+          best="$rc"
+        fi
+      done
+      printf '%s\n' "$best"
+    }
 
     set +e
     if [[ "$CHECK_JSON" -eq 1 ]]; then
@@ -5164,6 +5177,7 @@ PY
     else
       expected_skips "$cfg_dir"
     fi
+    exit "$(aggregate_check_rc "$cv_rc" "$pf_rc")"
     ;;
 
   gate)

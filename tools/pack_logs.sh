@@ -67,6 +67,17 @@ case "${LM_PACK_LOGS_GPG_KEEP_PLAINTEXT:-0}" in
   1|true|TRUE|yes|YES) gpg_keep_plaintext=1 ;;
 esac
 
+if [[ "$gpg_enabled" -eq 1 ]]; then
+  if ! command -v gpg >/dev/null 2>&1; then
+    echo "ERROR: gpg not found (requested --gpg)" >&2
+    exit 2
+  fi
+  if [[ -z "$gpg_recipient" ]]; then
+    echo "ERROR: --gpg requires --gpg-recipient (email or key id)" >&2
+    exit 2
+  fi
+fi
+
 # Redaction is intentionally simple and conservative.
 # We only redact common key patterns in *.conf and *.txt.
 redact_file() {
@@ -109,7 +120,7 @@ copy_log() {
         ;;
     esac
   fi
-  cp -a "$src" "$dest_dir/" 2>/dev/null || true
+  cp -Lf "$src" "$dest_dir/$base" 2>/dev/null || true
 }
 
 list_latest() {
@@ -287,14 +298,6 @@ tar -C "$bundle_root" -czf "$out_path" .
 progress_step "compress"
 
 if [[ "$gpg_enabled" -eq 1 ]]; then
-  if ! command -v gpg >/dev/null 2>&1; then
-    echo "ERROR: gpg not found (requested --gpg)" >&2
-    exit 2
-  fi
-  if [[ -z "$gpg_recipient" ]]; then
-    echo "ERROR: --gpg requires --gpg-recipient (email or key id)" >&2
-    exit 2
-  fi
   gpg_out="${out_path}.gpg"
   if gpg --batch --yes --recipient "$gpg_recipient" --output "$gpg_out" --encrypt "$out_path"; then
     progress_step "gpg"
