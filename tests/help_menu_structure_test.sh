@@ -31,17 +31,17 @@ printf '%s\n' "$out" | grep -q 'Main sections:' || {
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q 'Quickstart    first setup, current incident, and escalation workflows' || {
+printf '%s\n' "$out" | grep -Eq 'Quickstart[[:space:]]+first setup, current incident, and escalation workflows' || {
   echo "help menu missing quickstart summary" >&2
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q 'Overview      dashboard, current state, top problems, and next moves' || {
+printf '%s\n' "$out" | grep -Eq 'Overview[[:space:]]+dashboard, current state, top problems, and next moves' || {
   echo "help menu missing overview summary" >&2
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q 'Repair        guided incident response, doctor, check, self-check, and security profile' || {
+printf '%s\n' "$out" | grep -Eq 'Repair[[:space:]]+guided incident response, doctor, check, self-check, and security profile' || {
   echo "help menu missing repair summary" >&2
   echo "$out" >&2
   exit 1
@@ -51,7 +51,7 @@ printf '%s\n' "$out" | grep -q 'Best path by task:' || {
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q 'First day with the tool?      Quickstart -> first setup' || {
+printf '%s\n' "$out" | grep -Eq 'First day with the tool\?[[:space:]]+Quickstart -> first setup' || {
   echo "help menu missing quickstart path guidance" >&2
   echo "$out" >&2
   exit 1
@@ -66,8 +66,23 @@ printf '%s\n' "$out" | grep -q 'Global gum controls:' || {
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q '/             command palette / action search' || {
+printf '%s\n' "$out" | grep -q 'Quickstart bootstrap:' || {
+  echo "help menu missing quickstart bootstrap section" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q 'first_setup guides init, config review, check, plan, and starter baselines' || {
+  echo "help menu missing first_setup bootstrap guidance" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q '/             smart command palette (search by names, aliases, task words)' || {
   echo "help menu missing command palette guidance" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q 'examples: first run, triage, bundle, report, logs, doctor' || {
+  echo "help menu missing command palette examples" >&2
   echo "$out" >&2
   exit 1
 }

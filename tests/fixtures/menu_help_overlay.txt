@@ -4,9 +4,12 @@ Controls:
 - numbers 1-9 pick a visible action
 - Enter opens the full chooser
 - ? opens this help overlay
-- / opens the command palette
+- / opens the smart command palette (names, aliases, task words)
 - Esc goes back
 - shortcuts are on
+
+Palette examples:
+- try: first run, triage, bundle, report, logs, doctor
 
 Actions:
 - dashboard: Open: live operations dashboard [d]

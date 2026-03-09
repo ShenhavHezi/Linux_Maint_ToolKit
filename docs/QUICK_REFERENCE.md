@@ -93,9 +93,12 @@ EOF
 # Interactive TUI menu (gum if present, else dialog/whiptail)
 linux-maint menu
 
-# Main menu layout: Overview / Run / Investigate / Repair / Export / Docs
-# gum controls: ? for help overlay, / for action search, 1-9 for visible actions
+# Main menu layout: Quickstart / Overview / Run / Investigate / Repair / Export / Docs
+# Quickstart -> first setup guides init, config review, check, plan, and starter baselines
+# gum controls: ? for help overlay, / for smart action search, 1-9 for visible actions
+# smart palette examples: first run, triage, bundle, report, logs, doctor
 # Export -> pack logs opens the guided support-bundle wizard
+# empty states now explain what is missing when no summary/history/logs exist yet
 
 # Optional menu behavior controls
 LM_TUI_DASH_REFRESH=10 linux-maint menu

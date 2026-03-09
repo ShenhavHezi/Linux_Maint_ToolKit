@@ -335,6 +335,69 @@ tui_effective_state_dir(){
   fi
 }
 
+tui_effective_serverlist_path(){
+  local cfg_dir
+  cfg_dir="$(tui_effective_cfg_dir)"
+  printf '%s' "${LM_SERVERLIST:-$cfg_dir/servers.txt}"
+}
+
+tui_effective_hosts_dir(){
+  local cfg_dir
+  cfg_dir="$(tui_effective_cfg_dir)"
+  printf '%s' "$cfg_dir/hosts.d"
+}
+
+tui_effective_history_db_path(){
+  local state_dir
+  state_dir="$(tui_effective_state_dir)"
+  printf '%s' "${LM_HISTORY_DB:-$state_dir/run_index.sqlite}"
+}
+
+tui_effective_run_index_path(){
+  local state_dir index_file alt
+  state_dir="$(tui_effective_state_dir)"
+  index_file="${LM_RUN_INDEX_FILE:-$state_dir/run_index.jsonl}"
+  if [[ ! -f "$index_file" && -z "${LM_RUN_INDEX_FILE:-}" && -z "${LM_STATE_DIR:-}" ]]; then
+    for alt in /var/tmp/run_index.jsonl /var/tmp/linux_maint/run_index.jsonl /tmp/linux_maint/run_index.jsonl; do
+      if [[ -f "$alt" ]]; then
+        index_file="$alt"
+        break
+      fi
+    done
+  fi
+  printf '%s' "$index_file"
+}
+
+tui_has_inventory_config(){
+  local serverlist hosts_dir
+  serverlist="$(tui_effective_serverlist_path)"
+  [[ -s "$serverlist" ]] && return 0
+  hosts_dir="$(tui_effective_hosts_dir)"
+  if [[ -d "$hosts_dir" ]] && compgen -G "$hosts_dir/*.txt" >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+tui_has_summary_snapshot(){
+  local summary_json
+  summary_json="$(tui_latest_summary_json_path)"
+  [[ -s "$summary_json" ]]
+}
+
+tui_has_latest_log(){
+  local log_file
+  log_file="$(tui_latest_log_path)"
+  [[ -s "$log_file" ]]
+}
+
+tui_has_history_artifacts(){
+  local index_file history_db
+  index_file="$(tui_effective_run_index_path)"
+  history_db="$(tui_effective_history_db_path)"
+  [[ -s "$index_file" || -s "$history_db" ]]
+}
+
 tui_format_age_seconds(){
   local age="${1:-}"
   if [[ -z "$age" || "$age" == "-1" ]]; then
@@ -357,13 +420,24 @@ tui_context_snapshot(){
   if [[ -z "$status_json" ]]; then
     status_json="$(tui_status_snapshot_json)"
   fi
-  local log_file cfg_dir log_dir state_dir
+  local log_file cfg_dir log_dir state_dir config_dir_exists inventory_ready summary_ready log_ready history_ready
   log_file="$(tui_latest_log_path)"
   cfg_dir="$(tui_effective_cfg_dir)"
   log_dir="$(tui_effective_log_dir)"
   state_dir="$(tui_effective_state_dir)"
+  config_dir_exists=0
+  inventory_ready=0
+  summary_ready=0
+  log_ready=0
+  history_ready=0
+  [[ -d "$cfg_dir" ]] && config_dir_exists=1
+  tui_has_inventory_config && inventory_ready=1
+  tui_has_summary_snapshot && summary_ready=1
+  tui_has_latest_log && log_ready=1
+  tui_has_history_artifacts && history_ready=1
   STATUS_JSON="$status_json" MODE_LOCAL="$MODE" LOG_FILE="$log_file" CFG_DIR_LOCAL="$cfg_dir" LOG_DIR_LOCAL="$log_dir" STATE_DIR_LOCAL="$state_dir" \
-    SHORTCUTS_LOCAL="${LM_TUI_SHORTCUTS:-1}" PREVIEW_LOCAL="${LM_TUI_PREVIEW:-1}" python3 - <<'PY'
+    SHORTCUTS_LOCAL="${LM_TUI_SHORTCUTS:-1}" PREVIEW_LOCAL="${LM_TUI_PREVIEW:-1}" CONFIG_DIR_EXISTS_LOCAL="$config_dir_exists" \
+    INVENTORY_READY_LOCAL="$inventory_ready" SUMMARY_READY_LOCAL="$summary_ready" LOG_READY_LOCAL="$log_ready" HISTORY_READY_LOCAL="$history_ready" python3 - <<'PY'
 import json
 import os
 import time
@@ -425,7 +499,17 @@ print(f"skip={totals['SKIP']}")
 print(f"last_age={age_sec}")
 print(f"shortcuts={os.environ.get('SHORTCUTS_LOCAL', '1')}")
 print(f"preview={os.environ.get('PREVIEW_LOCAL', '1')}")
+print(f"config_dir_exists={os.environ.get('CONFIG_DIR_EXISTS_LOCAL', '0')}")
+print(f"inventory_ready={os.environ.get('INVENTORY_READY_LOCAL', '0')}")
+print(f"summary_ready={os.environ.get('SUMMARY_READY_LOCAL', '0')}")
+print(f"log_ready={os.environ.get('LOG_READY_LOCAL', '0')}")
+print(f"history_ready={os.environ.get('HISTORY_READY_LOCAL', '0')}")
 PY
+}
+
+tui_snapshot_value(){
+  local snapshot="${1:-}" key="${2:-}"
+  printf '%s\n' "$snapshot" | awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }'
 }
 
 tui_gum_card(){
@@ -476,7 +560,7 @@ tui_gum_context_panel(){
 
 tui_gum_context_panel_render(){
   local status_json="${1:-}" width="${2:-110}"
-  local snapshot mode cfg_dir log_dir state_dir overall ok warn crit unk skip age shortcuts preview
+  local snapshot mode cfg_dir log_dir state_dir overall ok warn crit unk skip age shortcuts preview config_dir_exists inventory_ready summary_ready log_ready history_ready
   snapshot="$(tui_context_snapshot "$status_json")"
   while IFS='=' read -r k v; do
     case "$k" in
@@ -493,12 +577,23 @@ tui_gum_context_panel_render(){
       last_age) age="$v" ;;
       shortcuts) shortcuts="$v" ;;
       preview) preview="$v" ;;
+      config_dir_exists) config_dir_exists="$v" ;;
+      inventory_ready) inventory_ready="$v" ;;
+      summary_ready) summary_ready="$v" ;;
+      log_ready) log_ready="$v" ;;
+      history_ready) history_ready="$v" ;;
     esac
   done <<< "$snapshot"
 
   local shortcuts_label="off" preview_label="off"
   tui_bool_enabled "${shortcuts:-0}" && shortcuts_label="on"
   tui_bool_enabled "${preview:-0}" && preview_label="on"
+  local config_label="missing" inventory_label="missing" summary_label="no" history_label="no" logs_label="no"
+  [[ "${config_dir_exists:-0}" == "1" ]] && config_label="ready"
+  [[ "${inventory_ready:-0}" == "1" ]] && inventory_label="ready"
+  [[ "${summary_ready:-0}" == "1" ]] && summary_label="yes"
+  [[ "${history_ready:-0}" == "1" ]] && history_label="yes"
+  [[ "${log_ready:-0}" == "1" ]] && logs_label="yes"
 
   local overall_color="#93c5fd"
   case "${overall:-UNKNOWN}" in
@@ -507,10 +602,11 @@ tui_gum_context_panel_render(){
     OK) overall_color="#22c55e" ;;
   esac
 
-  local line1 line2
+  local line1 line2 line3
   line1="mode=${mode:-unknown}  overall=$(gum style --bold --foreground "$overall_color" "${overall:-UNKNOWN}")  last_run=$(tui_format_age_seconds "${age:--1}")  shortcuts=$shortcuts_label  preview=$preview_label"
   line2="cfg=${cfg_dir:-?}  log=${log_dir:-?}  state=${state_dir:-?}"
-  tui_gum_card_render "Active context" "#334155" "$(printf '%s\n%s' "$line1" "$line2")" "$width"
+  line3="config=$config_label  inventory=$inventory_label  summary=$summary_label  history=$history_label  logs=$logs_label"
+  tui_gum_card_render "Active context" "#334155" "$(printf '%s\n%s\n%s' "$line1" "$line2" "$line3")" "$width"
 }
 
 resolve_menu_shortcut_tag(){
@@ -615,6 +711,250 @@ tui_status_snapshot_json(){
   fi
 }
 
+tui_bootstrap_state_snapshot(){
+  local cfg_dir serverlist hosts_dir summary_json log_file index_file history_db
+  local config_dir_exists=0 inventory_ready=0 summary_ready=0 log_ready=0 history_ready=0 optional_skips_present=0
+  cfg_dir="$(tui_effective_cfg_dir)"
+  serverlist="$(tui_effective_serverlist_path)"
+  hosts_dir="$(tui_effective_hosts_dir)"
+  summary_json="$(tui_latest_summary_json_path)"
+  log_file="$(tui_latest_log_path)"
+  index_file="$(tui_effective_run_index_path)"
+  history_db="$(tui_effective_history_db_path)"
+  [[ -d "$cfg_dir" ]] && config_dir_exists=1
+  tui_has_inventory_config && inventory_ready=1
+  [[ -s "$summary_json" ]] && summary_ready=1
+  [[ -s "$log_file" ]] && log_ready=1
+  tui_has_history_artifacts && history_ready=1
+  if expected_skips_text "$cfg_dir" >/dev/null 2>&1; then
+    optional_skips_present=1
+  fi
+  printf 'cfg_dir=%s\n' "$cfg_dir"
+  printf 'serverlist=%s\n' "$serverlist"
+  printf 'hosts_dir=%s\n' "$hosts_dir"
+  printf 'summary_json=%s\n' "$summary_json"
+  printf 'log_file=%s\n' "$log_file"
+  printf 'run_index=%s\n' "$index_file"
+  printf 'history_db=%s\n' "$history_db"
+  printf 'config_dir_exists=%s\n' "$config_dir_exists"
+  printf 'inventory_ready=%s\n' "$inventory_ready"
+  printf 'summary_ready=%s\n' "$summary_ready"
+  printf 'log_ready=%s\n' "$log_ready"
+  printf 'history_ready=%s\n' "$history_ready"
+  printf 'optional_skips_present=%s\n' "$optional_skips_present"
+}
+
+tui_optional_skip_lines(){
+  local cfg_dir="${1:-$(tui_effective_cfg_dir)}" limit="${2:-4}"
+  local out
+  if ! out="$(expected_skips_text "$cfg_dir" 2>/dev/null)"; then
+    printf '%s\n' "- none: optional monitor inputs are already present"
+    return 0
+  fi
+  printf '%s\n' "$out" | awk 'NR>1 {print}' | head -n "$limit"
+}
+
+tui_bootstrap_missing_lines(){
+  local snapshot="${1:-}"
+  [[ -n "$snapshot" ]] || snapshot="$(tui_bootstrap_state_snapshot)"
+  local cfg_dir serverlist hosts_dir summary_json log_file run_index config_dir_exists inventory_ready summary_ready log_ready history_ready optional_skips_present printed
+  cfg_dir="$(tui_snapshot_value "$snapshot" cfg_dir)"
+  serverlist="$(tui_snapshot_value "$snapshot" serverlist)"
+  hosts_dir="$(tui_snapshot_value "$snapshot" hosts_dir)"
+  summary_json="$(tui_snapshot_value "$snapshot" summary_json)"
+  log_file="$(tui_snapshot_value "$snapshot" log_file)"
+  run_index="$(tui_snapshot_value "$snapshot" run_index)"
+  config_dir_exists="$(tui_snapshot_value "$snapshot" config_dir_exists)"
+  inventory_ready="$(tui_snapshot_value "$snapshot" inventory_ready)"
+  summary_ready="$(tui_snapshot_value "$snapshot" summary_ready)"
+  log_ready="$(tui_snapshot_value "$snapshot" log_ready)"
+  history_ready="$(tui_snapshot_value "$snapshot" history_ready)"
+  optional_skips_present="$(tui_snapshot_value "$snapshot" optional_skips_present)"
+  printed=0
+  if [[ "$config_dir_exists" != "1" ]]; then
+    printf '%s\n' "- config dir missing: $cfg_dir"
+    printed=1
+  fi
+  if [[ "$inventory_ready" != "1" ]]; then
+    printf '%s\n' "- inventory not configured: $serverlist or $hosts_dir/*.txt"
+    printed=1
+  fi
+  if [[ "$summary_ready" != "1" ]]; then
+    printf '%s\n' "- no summary snapshot yet: $summary_json"
+    printed=1
+  fi
+  if [[ "$log_ready" != "1" ]]; then
+    printf '%s\n' "- no wrapper log yet: $log_file"
+    printed=1
+  fi
+  if [[ "$history_ready" != "1" ]]; then
+    printf '%s\n' "- no history index yet: $run_index"
+    printed=1
+  fi
+  if [[ "$optional_skips_present" == "1" ]]; then
+    printf '%s\n' "- optional monitor inputs are still unset for some checks"
+    printed=1
+  fi
+  if [[ "$printed" -eq 0 ]]; then
+    printf '%s\n' "- ready: config, logs, summary, and history are present"
+  fi
+}
+
+tui_bootstrap_next_steps_lines(){
+  local snapshot="${1:-}"
+  [[ -n "$snapshot" ]] || snapshot="$(tui_bootstrap_state_snapshot)"
+  local serverlist hosts_dir config_dir_exists inventory_ready summary_ready history_ready
+  serverlist="$(tui_snapshot_value "$snapshot" serverlist)"
+  hosts_dir="$(tui_snapshot_value "$snapshot" hosts_dir)"
+  config_dir_exists="$(tui_snapshot_value "$snapshot" config_dir_exists)"
+  inventory_ready="$(tui_snapshot_value "$snapshot" inventory_ready)"
+  summary_ready="$(tui_snapshot_value "$snapshot" summary_ready)"
+  history_ready="$(tui_snapshot_value "$snapshot" history_ready)"
+  if [[ "$config_dir_exists" != "1" || "$inventory_ready" != "1" ]]; then
+    printf '%s\n' \
+      "- Use Quickstart -> first setup to create starter config safely" \
+      "- Add targets in $serverlist or create groups under $hosts_dir" \
+      "- Run check, then run --plan before the first live execution"
+    return 0
+  fi
+  if [[ "$summary_ready" != "1" ]]; then
+    printf '%s\n' \
+      "- Run check to validate config and readiness" \
+      "- Run run --plan to confirm scope and expected skips" \
+      "- Execute run when the preview looks right"
+    return 0
+  fi
+  if [[ "$history_ready" != "1" ]]; then
+    printf '%s\n' \
+      "- Run again after the next change so history and trend can compare runs" \
+      "- Use Overview for the current answer and Export for JSON/report output" \
+      "- Capture starter baselines if you want cleaner drift monitoring"
+    return 0
+  fi
+  printf '%s\n' \
+    "- Use Overview for the current answer fast" \
+    "- Use Investigate for drilldown and logs" \
+    "- Use Export when you need a report, JSON, or support bundle"
+}
+
+tui_section_uses_empty_state(){
+  local context="${1:-main}" snapshot="${2:-}"
+  [[ -n "$snapshot" ]] || snapshot="$(tui_bootstrap_state_snapshot)"
+  local config_dir_exists inventory_ready summary_ready log_ready history_ready
+  config_dir_exists="$(tui_snapshot_value "$snapshot" config_dir_exists)"
+  inventory_ready="$(tui_snapshot_value "$snapshot" inventory_ready)"
+  summary_ready="$(tui_snapshot_value "$snapshot" summary_ready)"
+  log_ready="$(tui_snapshot_value "$snapshot" log_ready)"
+  history_ready="$(tui_snapshot_value "$snapshot" history_ready)"
+  case "$context" in
+    quickstart)
+      return 0
+      ;;
+    overview|main)
+      [[ "$summary_ready" == "1" ]] && return 1
+      return 0
+      ;;
+    run)
+      [[ "$config_dir_exists" == "1" && "$inventory_ready" == "1" ]] && return 1
+      return 0
+      ;;
+    investigate)
+      if [[ "$summary_ready" == "1" && ( "$history_ready" == "1" || "$log_ready" == "1" ) ]]; then
+        return 1
+      fi
+      return 0
+      ;;
+    repair)
+      if [[ "$summary_ready" == "1" || "$inventory_ready" == "1" ]]; then
+        return 1
+      fi
+      return 0
+      ;;
+    export)
+      if [[ "$summary_ready" == "1" || "$log_ready" == "1" || "$history_ready" == "1" ]]; then
+        return 1
+      fi
+      return 0
+      ;;
+    docs)
+      [[ "$config_dir_exists" == "1" ]] && return 1
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+tui_section_empty_state_body(){
+  local context="${1:-overview}" snapshot="${2:-}"
+  [[ -n "$snapshot" ]] || snapshot="$(tui_bootstrap_state_snapshot)"
+  local cfg_dir serverlist hosts_dir summary_json summary_ready log_ready history_ready
+  cfg_dir="$(tui_snapshot_value "$snapshot" cfg_dir)"
+  serverlist="$(tui_snapshot_value "$snapshot" serverlist)"
+  hosts_dir="$(tui_snapshot_value "$snapshot" hosts_dir)"
+  summary_json="$(tui_snapshot_value "$snapshot" summary_json)"
+  summary_ready="$(tui_snapshot_value "$snapshot" summary_ready)"
+  log_ready="$(tui_snapshot_value "$snapshot" log_ready)"
+  history_ready="$(tui_snapshot_value "$snapshot" history_ready)"
+  case "$context" in
+    quickstart)
+      printf '%s\n' \
+        "Recommended first action: first_setup" \
+        "- Use the bootstrap wizard to create config, validate readiness, and preview the first run" \
+        "- Current incident is best after you already have a summary or active failure" \
+        "- Escalation is most useful once report, JSON, or bundle artifacts exist"
+      ;;
+    overview|main)
+      printf '%s\n' \
+        "Recommended first action: first_setup" \
+        "- No current summary yet at $summary_json" \
+        "- Start in Quickstart, then run check and run --plan before the first live run" \
+        "- Overview becomes the fast answer screen after the first successful execution"
+      ;;
+    run)
+      printf '%s\n' \
+        "Recommended first action: first_setup" \
+        "- Before a live run, create or review config in $cfg_dir" \
+        "- Add targets in $serverlist or under $hosts_dir" \
+        "- Use plan once the inventory is ready"
+      ;;
+    investigate)
+      printf '%s\n' \
+        "Recommended first action: first_setup" \
+        "- Investigate needs either a summary, a log, or history artifacts" \
+        "- summary=$( [[ "$summary_ready" == "1" ]] && printf yes || printf no )  logs=$( [[ "$log_ready" == "1" ]] && printf yes || printf no )  history=$( [[ "$history_ready" == "1" ]] && printf yes || printf no )" \
+        "- Run check and a safe plan first, then come back for drilldown"
+      ;;
+    repair)
+      printf '%s\n' \
+        "Recommended first action: first_setup" \
+        "- Repair can validate config even before the first live run" \
+        "- Start with check and doctor once the starter config is in place" \
+        "- Incident mode is strongest after you have an actual failure snapshot"
+      ;;
+    export)
+      printf '%s\n' \
+        "Recommended first action: first_setup" \
+        "- Export needs current artifacts before it becomes useful" \
+        "- Generate a summary or log first with check/run and then return for reports or bundles" \
+        "- After the first run you can export JSON, metrics, or a support bundle"
+      ;;
+    docs)
+      printf '%s\n' \
+        "Recommended first action: first_setup" \
+        "- Open quick reference and config docs before editing $cfg_dir" \
+        "- Use docs to understand monitor inputs and expected skip behavior" \
+        "- Then return to Quickstart for the guided bootstrap"
+      ;;
+    *)
+      printf '%s\n' \
+        "Recommended first action: first_setup" \
+        "- Start with the bootstrap wizard"
+      ;;
+  esac
+}
+
 tui_gum_status_overview(){
   local status_json="${1:-}" width="${2:-110}"
   tui_gum_status_overview_render "$status_json" "$width" >&2
@@ -623,6 +963,15 @@ tui_gum_status_overview(){
 tui_gum_status_overview_render(){
   local status_json="${1:-}" width="${2:-110}" overall ok warn crit unk skip summary_file
   [[ -n "$status_json" ]] || status_json="$(tui_status_snapshot_json)"
+  if ! tui_has_summary_snapshot; then
+    local empty_body
+    empty_body="$(printf '%s\n%s\n%s' \
+      "$(gum style --bold --foreground "#14b8a6" "Overall: .. Not started")" \
+      "No current summary yet. Start with Quickstart -> first setup." \
+      "Then run check and run --plan before the first live execution.")"
+    tui_gum_card_render "Fleet status" "#14b8a6" "$empty_body" "$width"
+    return 0
+  fi
   overall="UNKNOWN"
   ok=0; warn=0; crit=0; unk=0; skip=0; summary_file=""
   if [[ -n "$status_json" ]]; then
@@ -927,11 +1276,61 @@ PY
 
 tui_section_recommended_action(){
   local context="${1:-main}" status_json="${2:-}"
-  local focus overall top_reason top_monitor
+  local focus overall top_reason top_monitor boot_snapshot config_dir_exists inventory_ready summary_ready log_ready history_ready
   focus="$(tui_status_focus_snapshot "$status_json")"
   overall="$(printf '%s\n' "$focus" | awk -F= '/^overall=/{print $2; exit}')"
   top_reason="$(printf '%s\n' "$focus" | awk -F= '/^top_reason=/{print $2; exit}')"
   top_monitor="$(printf '%s\n' "$focus" | awk -F= '/^top_monitor=/{print $2; exit}')"
+  boot_snapshot="$(tui_bootstrap_state_snapshot)"
+  config_dir_exists="$(tui_snapshot_value "$boot_snapshot" config_dir_exists)"
+  inventory_ready="$(tui_snapshot_value "$boot_snapshot" inventory_ready)"
+  summary_ready="$(tui_snapshot_value "$boot_snapshot" summary_ready)"
+  log_ready="$(tui_snapshot_value "$boot_snapshot" log_ready)"
+  history_ready="$(tui_snapshot_value "$boot_snapshot" history_ready)"
+  if [[ "$context" != "quickstart" ]]; then
+    case "$context" in
+      overview)
+        if [[ "$config_dir_exists" != "1" || "$inventory_ready" != "1" || "$summary_ready" != "1" ]]; then
+          printf 'first_setup'
+          return 0
+        fi
+        ;;
+      run)
+        if [[ "$config_dir_exists" != "1" || "$inventory_ready" != "1" ]]; then
+          printf 'first_setup'
+          return 0
+        fi
+        ;;
+      repair)
+        if [[ "$config_dir_exists" != "1" || "$inventory_ready" != "1" ]]; then
+          printf 'first_setup'
+          return 0
+        fi
+        if [[ "$summary_ready" != "1" ]]; then
+          printf 'check'
+          return 0
+        fi
+        ;;
+      docs)
+        if [[ "$config_dir_exists" != "1" ]]; then
+          printf 'first_setup'
+          return 0
+        fi
+        ;;
+      investigate)
+        if [[ "$summary_ready" != "1" || ( "$history_ready" != "1" && "$log_ready" != "1" ) ]]; then
+          printf 'first_setup'
+          return 0
+        fi
+        ;;
+      export)
+        if [[ "$summary_ready" != "1" && "$log_ready" != "1" && "$history_ready" != "1" ]]; then
+          printf 'first_setup'
+          return 0
+        fi
+        ;;
+    esac
+  fi
   case "$context" in
     quickstart) printf 'first_setup' ;;
     overview)
@@ -970,7 +1369,12 @@ tui_section_recommended_action(){
 
 tui_section_preview_body(){
   local context="${1:-main}" status_json="${2:-}"
-  local focus overall top_reason top_monitor top_host next_action
+  local focus overall top_reason top_monitor top_host next_action boot_snapshot
+  boot_snapshot="$(tui_bootstrap_state_snapshot)"
+  if tui_section_uses_empty_state "$context" "$boot_snapshot"; then
+    tui_section_empty_state_body "$context" "$boot_snapshot"
+    return 0
+  fi
   focus="$(tui_status_focus_snapshot "$status_json")"
   overall="$(printf '%s\n' "$focus" | awk -F= '/^overall=/{print $2; exit}')"
   top_reason="$(printf '%s\n' "$focus" | awk -F= '/^top_reason=/{print $2; exit}')"
@@ -1049,15 +1453,132 @@ tui_gum_section_focus_card(){
   tui_gum_card_render "Recommended start" "$color" "$(tui_section_preview_body "$context" "$status_json")" "$width"
 }
 
+tui_bootstrap_baseline_wizard(){
+  local choice
+  TUI_SHORTCUT_CONTEXT="quickstart"
+  choice="$(tui_menu_prompt_safe "Starter baselines" \
+    all "Create local baselines for ports, configs, users, and sudoers" \
+    ports "Capture local ports baseline" \
+    configs "Capture local config drift baseline" \
+    users "Capture local users baseline" \
+    sudoers "Capture local sudoers baseline" \
+    skip "Skip baseline capture for now")"
+  choice="$(normalize_menu_choice "$choice")"
+  case "$choice" in
+    all)
+      tui_run_cmd "linux-maint baseline ports --update --local-only" "$0" baseline ports --update --local-only
+      tui_run_cmd "linux-maint baseline configs --update --local-only" "$0" baseline configs --update --local-only
+      tui_run_cmd "linux-maint baseline users --update --local-only" "$0" baseline users --update --local-only
+      tui_run_cmd "linux-maint baseline sudoers --update --local-only" "$0" baseline sudoers --update --local-only
+      ;;
+    ports|configs|users|sudoers)
+      tui_run_cmd "linux-maint baseline $choice --update --local-only" "$0" baseline "$choice" --update --local-only
+      ;;
+  esac
+}
+
 tui_quickstart_first_setup(){
-  tui_msgbox "First setup flow:\n1. initialize config templates\n2. validate config and readiness\n3. preview a run plan\n4. review monitor requirements"
-  tui_run_cmd "linux-maint init" "$0" init
-  tui_run_cmd "linux-maint check" "$0" check
-  tui_run_cmd "linux-maint run --plan" "$0" run --plan
-  tui_run_cmd "linux-maint list-monitors" "$0" list-monitors
+  local boot_snapshot cfg_dir serverlist hosts_dir config_dir_exists inventory_ready summary_ready history_ready optional_skips_present
+  local init_choice choice optional_banner quickref
+  boot_snapshot="$(tui_bootstrap_state_snapshot)"
+  cfg_dir="$(tui_snapshot_value "$boot_snapshot" cfg_dir)"
+  serverlist="$(tui_snapshot_value "$boot_snapshot" serverlist)"
+  hosts_dir="$(tui_snapshot_value "$boot_snapshot" hosts_dir)"
+  config_dir_exists="$(tui_snapshot_value "$boot_snapshot" config_dir_exists)"
+  inventory_ready="$(tui_snapshot_value "$boot_snapshot" inventory_ready)"
+  summary_ready="$(tui_snapshot_value "$boot_snapshot" summary_ready)"
+  history_ready="$(tui_snapshot_value "$boot_snapshot" history_ready)"
+  optional_skips_present="$(tui_snapshot_value "$boot_snapshot" optional_skips_present)"
+
+  tui_msgbox "$(printf 'First setup assistant\n\nMode: %s\nConfig dir: %s\nInventory ready: %s\nCurrent summary: %s\nHistory: %s\n\nWhat is missing now:\n%s' \
+    "$MODE" \
+    "$cfg_dir" \
+    "$( [[ "$inventory_ready" == "1" ]] && printf yes || printf no )" \
+    "$( [[ "$summary_ready" == "1" ]] && printf yes || printf no )" \
+    "$( [[ "$history_ready" == "1" ]] && printf yes || printf no )" \
+    "$(tui_bootstrap_missing_lines "$boot_snapshot")")"
+
+  if [[ "$config_dir_exists" != "1" || "$inventory_ready" != "1" ]]; then
+    TUI_SHORTCUT_CONTEXT="quickstart"
+    init_choice="$(tui_menu_prompt_safe "First setup: config bootstrap" \
+      full "Create core and optional starter templates" \
+      minimal "Create only the core starter files" \
+      review "Inspect effective config and docs first" \
+      skip "Keep current files and continue")"
+    init_choice="$(normalize_menu_choice "$init_choice")"
+    case "$init_choice" in
+      full)
+        tui_run_cmd "linux-maint init" "$0" init
+        ;;
+      minimal)
+        tui_run_cmd "linux-maint init --minimal" "$0" init --minimal
+        ;;
+      review)
+        tui_run_cmd "linux-maint config --sources" "$0" config --sources
+        ;;
+    esac
+  elif tui_yesno "Starter config already exists at $cfg_dir.\nReview effective config sources before the first run?"; then
+    tui_run_cmd "linux-maint config --sources" "$0" config --sources
+  fi
+
+  if [[ "$inventory_ready" != "1" ]]; then
+    tui_msgbox "Add targets before the first run:\n- edit $serverlist\n- or create group files under $hosts_dir"
+  fi
+
+  quickref="$(find_doc_file QUICK_REFERENCE.md)"
+  if tui_yesno "Open the quick reference before the first live run?"; then
+    tui_view_file "Quick reference" "$quickref"
+  fi
+
+  if [[ "$optional_skips_present" == "1" ]]; then
+    optional_banner="$(tui_optional_skip_lines "$cfg_dir" 6)"
+    tui_msgbox "Optional monitor inputs still missing:\n$optional_banner\n\nThis is expected unless you want those checks enabled from day one."
+  fi
+
+  if tui_yesno "Run readiness checks now?\nRecommended before the first live run."; then
+    tui_run_cmd "linux-maint check" "$0" check
+  fi
+
+  if tui_yesno "Preview the first run plan now?"; then
+    tui_run_cmd "linux-maint run --plan" "$0" run --plan
+  fi
+
+  choice="$(tui_menu_prompt_safe "First setup: next guide" \
+    monitors "Review monitor requirements and optional inputs" \
+    baselines "Capture starter local baselines" \
+    finish "Finish bootstrap")"
+  choice="$(normalize_menu_choice "$choice")"
+  case "$choice" in
+    monitors)
+      tui_run_cmd "linux-maint list-monitors" "$0" list-monitors
+      ;;
+    baselines)
+      tui_bootstrap_baseline_wizard
+      ;;
+  esac
+
+  tui_msgbox "Bootstrap complete.\n\nRecommended next steps:\n$(tui_bootstrap_next_steps_lines)"
+}
+
+tui_quickstart_current_incident(){
+  if ! tui_has_summary_snapshot && ! tui_has_latest_log; then
+    tui_msgbox "Current incident mode is strongest after you have at least one summary or wrapper log.\n\nStart with first setup, run check, and preview the first run first."
+    if tui_yesno "Open first setup now?"; then
+      tui_quickstart_first_setup
+    fi
+    return 0
+  fi
+  run_menu_incident_mode
 }
 
 tui_quickstart_escalation(){
+  if ! tui_has_summary_snapshot && ! tui_has_latest_log && ! tui_has_history_artifacts; then
+    tui_msgbox "There are no current artifacts to export yet.\n\nStart with first setup, then run check or a real run before using escalation."
+    if tui_yesno "Open first setup now?"; then
+      tui_quickstart_first_setup
+    fi
+    return 0
+  fi
   tui_msgbox "Escalation flow:\n1. capture a short human summary\n2. export machine-readable JSON\n3. create a support bundle"
   tui_run_cmd "linux-maint report --short --no-trend" "$0" report --short --no-trend
   tui_run_cmd "linux-maint export --json" "$0" export --json
@@ -1081,7 +1602,7 @@ run_menu_quickstart(){
     choice="$(map_menu_shortcut "$choice" "quickstart")"
     case "$choice" in
       first_setup) tui_quickstart_first_setup ;;
-      current_incident) run_menu_incident_mode ;;
+      current_incident) tui_quickstart_current_incident ;;
       escalation) tui_quickstart_escalation ;;
       back) break ;;
     esac
@@ -1093,6 +1614,13 @@ run_menu_quickstart(){
 
 tui_gum_current_pressure_card(){
   local status_json="${1:-}" width="${2:-52}"
+  if ! tui_has_summary_snapshot; then
+    tui_gum_card_render "Current pressure" "#14b8a6" "$(printf '%s\n%s\n%s' \
+      "no active snapshot yet" \
+      "Use first setup to get config, check, and plan into a known-good state." \
+      "Then return here for live incident focus.")" "$width"
+    return 0
+  fi
   local focus top_reason top_monitor top_host overall
   focus="$(tui_status_focus_snapshot "$status_json")"
   overall="$(printf '%s\n' "$focus" | awk -F= '/^overall=/{print $2; exit}')"
@@ -1115,9 +1643,11 @@ tui_menu_help_overlay_text(){
     printf -- '- numbers 1-9 pick a visible action\n'
     printf -- '- Enter opens the full chooser\n'
     printf -- '- ? opens this help overlay\n'
-    printf -- '- / opens the command palette\n'
+    printf -- '- / opens the smart command palette (names, aliases, task words)\n'
     printf -- '- Esc goes back\n'
     printf -- '- shortcuts are %s\n' "$shortcuts_label"
+    printf '\nPalette examples:\n'
+    printf -- '- try: first run, triage, bundle, report, logs, doctor\n'
     printf '\nActions:\n'
     while IFS='|' read -r tag desc; do
       [[ -n "${tag:-}" ]] || continue
@@ -1126,21 +1656,113 @@ tui_menu_help_overlay_text(){
   }
 }
 
+tui_palette_aliases(){
+  local tag="$1" context="${2:-main}"
+  case "$tag" in
+    quickstart|first_setup) printf 'setup bootstrap init first run onboarding config' ;;
+    current_incident|incident|recommended) printf 'incident triage outage emergency fix recover' ;;
+    escalation|pack_logs) printf 'bundle support share escalate escalation archive logs' ;;
+    overview|dashboard) printf 'overview dashboard home landing status current state' ;;
+    problems) printf 'problems alerts failures issues urgent bad hosts' ;;
+    status|status_detail) printf 'status snapshot table current fleet' ;;
+    report) printf 'report summary brief handoff ticket' ;;
+    trend) printf 'trend history change compare drift last runs' ;;
+    runtimes) printf 'runtime slow monitors performance latency' ;;
+    run) printf 'run execute checks live start now' ;;
+    plan|wizard) printf 'plan preview safe dry run scope target' ;;
+    investigate|drilldown|diff|history|logs|reasons) printf 'investigate debug drilldown logs diff history reasons root cause' ;;
+    repair|doctor|selfcheck|check|secprofile|focused_run) printf 'repair recover doctor validate fix readiness security focused rerun' ;;
+    export|export_json|metrics_prom|metrics_json) printf 'export json metrics prometheus automation api' ;;
+    docs|quickref|faq|troubleshooting|config|monitors|about) printf 'docs help reference explain faq troubleshooting config monitors' ;;
+    settings) printf 'settings preferences backend shortcuts compact colors' ;;
+    back) printf 'back return previous menu' ;;
+    exit) printf 'exit quit close menu' ;;
+    *) printf '%s' "$context" ;;
+  esac
+}
+
+tui_palette_rank(){
+  local tag="$1" context="${2:-main}" status_json="${3:-}" boot_snapshot="${4:-}"
+  local score=50 recommended overall summary_ready log_ready history_ready config_dir_exists inventory_ready
+  recommended="$(tui_section_recommended_action "$context" "$status_json")"
+  [[ -n "$boot_snapshot" ]] || boot_snapshot="$(tui_bootstrap_state_snapshot)"
+  config_dir_exists="$(tui_snapshot_value "$boot_snapshot" config_dir_exists)"
+  inventory_ready="$(tui_snapshot_value "$boot_snapshot" inventory_ready)"
+  summary_ready="$(tui_snapshot_value "$boot_snapshot" summary_ready)"
+  log_ready="$(tui_snapshot_value "$boot_snapshot" log_ready)"
+  history_ready="$(tui_snapshot_value "$boot_snapshot" history_ready)"
+  overall="$(tui_snapshot_value "$(tui_context_snapshot "$status_json")" overall)"
+  [[ "$tag" == "$recommended" ]] && score=$((score + 35))
+  case "$context:$tag" in
+    main:quickstart|quickstart:first_setup|overview:dashboard|run:plan|investigate:drilldown|repair:incident|export:report|docs:quickref)
+      score=$((score + 18))
+      ;;
+    run:wizard|repair:doctor|export:pack_logs|investigate:logs|docs:troubleshooting)
+      score=$((score + 12))
+      ;;
+  esac
+  if [[ "$config_dir_exists" != "1" || "$inventory_ready" != "1" || "$summary_ready" != "1" ]]; then
+    case "$tag" in
+      quickstart|first_setup|plan|wizard|check|config|quickref)
+        score=$((score + 25))
+        ;;
+      trend|history|runtimes|metrics_prom|metrics_json|export_json|report)
+        score=$((score - 12))
+        ;;
+    esac
+  fi
+  if [[ "$history_ready" == "1" ]]; then
+    case "$tag" in
+      history|trend|runtimes) score=$((score + 8)) ;;
+    esac
+  fi
+  if [[ "$log_ready" == "1" ]]; then
+    case "$tag" in
+      logs|pack_logs) score=$((score + 8)) ;;
+    esac
+  fi
+  case "$overall" in
+    CRIT|WARN|UNKNOWN)
+      case "$tag" in
+        problems|report|incident|doctor|logs|pack_logs|status|drilldown)
+          score=$((score + 10))
+          ;;
+      esac
+      ;;
+  esac
+  case "$tag" in
+    back|exit|about) score=$((score - 25)) ;;
+    settings) score=$((score - 12)) ;;
+  esac
+  printf '%s' "$score"
+}
+
 tui_gum_filter_menu_choice(){
-  local prompt="$1" catalog="$2"
+  local prompt="$1" catalog="$2" context="${3:-main}"
   local -a items=()
-  local tag desc pick rc
+  local tag desc aliases pick rc score display recommended status_json boot_snapshot badge
+  status_json="$(tui_status_snapshot_json)"
+  boot_snapshot="$(tui_bootstrap_state_snapshot)"
+  recommended="$(tui_section_recommended_action "$context" "$status_json")"
   while IFS='|' read -r tag desc; do
     [[ -n "${tag:-}" ]] || continue
-    items+=("${tag} - ${desc}")
+    aliases="$(tui_palette_aliases "$tag" "$context")"
+    score="$(tui_palette_rank "$tag" "$context" "$status_json" "$boot_snapshot")"
+    badge=""
+    [[ "$tag" == "$recommended" ]] && badge="recommended"
+    display="${tag} :: ${desc}"
+    [[ -n "$badge" ]] && display="${display} :: ${badge}"
+    [[ -n "$aliases" ]] && display="${display} :: aliases=${aliases}"
+    items+=("$(printf '%05d|%s' "$score" "$display")")
   done <<< "$catalog"
   [[ "${#items[@]}" -gt 0 ]] || return 1
+  mapfile -t items < <(printf '%s\n' "${items[@]}" | sort -t'|' -k1,1nr | cut -d'|' -f2-)
   set +e
-  pick="$(gum filter --placeholder "$prompt: search actions" "${items[@]}")"
+  pick="$(gum filter --placeholder "$prompt: search commands, aliases, or tasks" "${items[@]}")"
   rc=$?
   set -e
   [[ "$rc" -eq 0 && -n "${pick:-}" ]] || return 1
-  printf '%s' "${pick%% - *}"
+  printf '%s' "${pick%% :: *}"
 }
 
 tui_gum_render_menu_items(){
@@ -1194,6 +1816,24 @@ tui_gum_render_menu_frame(){
 tui_gum_main_landing(){
   local status_json snapshot overall top_reason top_monitor
   status_json="$(tui_status_snapshot_json)"
+  if ! tui_has_summary_snapshot; then
+    local boot_snapshot left_col right_col
+    boot_snapshot="$(tui_bootstrap_state_snapshot)"
+    left_col="$(printf '%s\n\n%s\n\n%s' \
+      "$(tui_gum_context_panel_render "$status_json" 52)" \
+      "$(tui_gum_card_render "Start here" "#14b8a6" "$(tui_bootstrap_next_steps_lines "$boot_snapshot")" 52)" \
+      "$(tui_gum_card_render "What's missing" "#f59e0b" "$(tui_bootstrap_missing_lines "$boot_snapshot")" 52)")"
+    right_col="$(printf '%s\n\n%s\n\n%s' \
+      "$(tui_gum_card_render "Optional inputs" "#60a5fa" "$(tui_optional_skip_lines "$(tui_snapshot_value "$boot_snapshot" cfg_dir)" 5)" 52)" \
+      "$(tui_gum_card_render "Why the dashboard is empty" "#c084fc" "$(tui_section_empty_state_body overview "$boot_snapshot" | awk 'NR>1 {print}')" 52)" \
+      "$(tui_gum_card_render "Recommended flow" "#22c55e" "$(printf '%s\n%s\n%s' \
+        "- Quickstart -> first setup" \
+        "- Repair -> check when config is ready" \
+        "- Run -> plan before the first live execution")" 52)")"
+    tui_render_columns "$left_col" "$right_col" "  " >&2
+    printf '\n' >&2
+    return 0
+  fi
   snapshot="$(tui_status_focus_snapshot "$status_json")"
   overall="$(printf '%s\n' "$snapshot" | awk -F= '/^overall=/{print $2; exit}')"
   top_reason="$(printf '%s\n' "$snapshot" | awk -F= '/^top_reason=/{print $2; exit}')"
@@ -1214,6 +1854,18 @@ tui_gum_main_landing(){
 tui_gum_main_landing_compact(){
   local status_json snapshot overall cfg_dir log_dir age top_reason top_monitor
   status_json="$(tui_status_snapshot_json)"
+  if ! tui_has_summary_snapshot; then
+    local boot_snapshot
+    boot_snapshot="$(tui_bootstrap_state_snapshot)"
+    printf '  overview=NOT_STARTED  last_run=missing\n' >&2
+    printf '  cfg=%s\n' "$(tui_snapshot_value "$boot_snapshot" cfg_dir)" >&2
+    printf '  inventory=%s\n' "$( [[ "$(tui_snapshot_value "$boot_snapshot" inventory_ready)" == "1" ]] && printf ready || printf missing )" >&2
+    printf '  summary=no  history=%s  logs=%s\n' \
+      "$( [[ "$(tui_snapshot_value "$boot_snapshot" history_ready)" == "1" ]] && printf yes || printf no )" \
+      "$( [[ "$(tui_snapshot_value "$boot_snapshot" log_ready)" == "1" ]] && printf yes || printf no )" >&2
+    printf '  next=%s\n\n' "$(tui_bootstrap_next_steps_lines "$boot_snapshot" | head -n 1 | sed 's/^- //')" >&2
+    return 0
+  fi
   snapshot="$(tui_context_snapshot "$status_json")"
   overall="$(printf '%s\n' "$snapshot" | awk -F= '/^overall=/{print $2; exit}')"
   cfg_dir="$(printf '%s\n' "$snapshot" | awk -F= '/^cfg_dir=/{print $2; exit}')"
@@ -1264,7 +1916,7 @@ tui_menu_prompt(){
             ;;
           __search__)
             local search_pick=""
-            search_pick="$(tui_gum_filter_menu_choice "$prompt" "$catalog" || true)"
+            search_pick="$(tui_gum_filter_menu_choice "$prompt" "$catalog" "${TUI_SHORTCUT_CONTEXT:-main}" || true)"
             if [[ -n "$search_pick" ]]; then
               printf '%s' "$search_pick"
               return 0
@@ -4292,7 +4944,7 @@ command_usage(){
         "linux-maint menu" \
         "Open the interactive operations console for guided monitoring, triage, export, and docs." \
         "  - day-to-day operator workflow\n  - first setup and safe first run\n  - current-incident triage\n  - export and escalation flow" \
-        "  Main sections:\n    Quickstart    first setup, current incident, and escalation workflows\n    Overview      dashboard, current state, top problems, and next moves\n    Run           execute checks, preview plans, or use the run wizard\n    Investigate   drilldown, diff, history, logs, reasons, and runtimes\n    Repair        guided incident response, doctor, check, self-check, and security profile\n    Export        report, trend, metrics, export JSON, and the bundle wizard\n    Docs          quick reference, troubleshooting, FAQ, config, monitors, and settings\n  Best path by task:\n    First day with the tool?      Quickstart -> first setup\n    Need the current answer fast?  Overview -> status or report\n    Need to understand a failure?  Investigate -> drilldown or logs\n    Need to recover quickly?       Repair -> incident or doctor\n    Need to share data?            Export -> report, export JSON, or pack logs\n  Global gum controls:\n    1-9           pick a visible action\n    ?             quick help overlay for the current menu\n    /             command palette / action search\n    Enter         open the full chooser\n    Esc           go back\n  Useful env vars:\n    LM_TUI_BACKEND=gum|dialog|whiptail\n    LM_TUI_DASH_REFRESH=<seconds>\n    LM_TUI_DEFAULT_STATUS_VIEW=table|compact\n    LM_TUI_DEFAULT_PROBLEMS=<1..100>\n    LM_TUI_DEFAULT_REASONS=<0..20>\n    LM_TUI_PREVIEW=1|0\n    LM_TUI_SHORTCUTS=1|0\n    LM_TUI_COMPACT=1|0\n    LM_TUI_LOW_COLOR=1|0\n    LM_TUI_CONFIRM_RISKY=1|0" \
+        "  Main sections:\n    Quickstart    first setup, current incident, and escalation workflows\n    Overview      dashboard, current state, top problems, and next moves\n    Run           execute checks, preview plans, or use the run wizard\n    Investigate   drilldown, diff, history, logs, reasons, and runtimes\n    Repair        guided incident response, doctor, check, self-check, and security profile\n    Export        report, trend, metrics, export JSON, and the bundle wizard\n    Docs          quick reference, troubleshooting, FAQ, config, monitors, and settings\n  Best path by task:\n    First day with the tool?       Quickstart -> first setup\n    Need the current answer fast?  Overview -> status or report\n    Need to understand a failure?  Investigate -> drilldown or logs\n    Need to recover quickly?       Repair -> incident or doctor\n    Need to share data?            Export -> report, export JSON, or pack logs\n  Quickstart bootstrap:\n    first_setup guides init, config review, check, plan, and starter baselines\n    current_incident is best after you have a summary or wrapper log\n    escalation is best after report/JSON/log artifacts exist\n  Global gum controls:\n    1-9           pick a visible action\n    ?             quick help overlay for the current menu\n    /             smart command palette (search by names, aliases, task words)\n                  examples: first run, triage, bundle, report, logs, doctor\n    Enter         open the full chooser\n    Esc           go back\n  Useful env vars:\n    LM_TUI_BACKEND=gum|dialog|whiptail\n    LM_TUI_DASH_REFRESH=<seconds>\n    LM_TUI_DEFAULT_STATUS_VIEW=table|compact\n    LM_TUI_DEFAULT_PROBLEMS=<1..100>\n    LM_TUI_DEFAULT_REASONS=<0..20>\n    LM_TUI_PREVIEW=1|0\n    LM_TUI_SHORTCUTS=1|0\n    LM_TUI_COMPACT=1|0\n    LM_TUI_LOW_COLOR=1|0\n    LM_TUI_CONFIRM_RISKY=1|0" \
         "  linux-maint menu\n  LM_TUI_BACKEND=gum linux-maint menu\n  LM_TUI_COMPACT=1 linux-maint menu" \
         "  - returns non-zero if no supported TUI backend is available\n  - returns non-zero when interactive TTY requirements are not met" \
         "  repo mode:      linux-maint menu\n  installed mode: sudo linux-maint menu"

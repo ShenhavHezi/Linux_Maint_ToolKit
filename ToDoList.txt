@@ -194,6 +194,10 @@ Last updated: 2026-03-09
   - added a dedicated `Quickstart` menu path for first setup, current incident triage, and escalation/export workflow.
   - expanded golden coverage for top-level help, `help menu`, and all main menu sub-sections.
   - Proof: `tests/help_command_consistency_test.sh`, `tests/help_top_level_golden_test.sh`, `tests/help_menu_golden_test.sh`, `tests/menu_all_sections_fixture_test.sh`.
+- `DONE` Menu onboarding + palette depth:
+  - `linux-maint menu` now has a smarter `/` palette with task-word aliases and context-aware ranking, section-specific empty states for missing summary/log/history/config, and a guided first-setup bootstrap wizard with optional baseline capture.
+  - updated help/docs so the new bootstrap and smart palette behavior is discoverable from `help menu` and the quick reference.
+  - Proof: `tests/menu_palette_rank_test.sh`, `tests/menu_empty_state_preview_test.sh`, `tests/menu_first_setup_wizard_test.sh`, `tests/menu_help_overlay_text_test.sh`, `tests/help_menu_golden_test.sh`.
 - `PARTIAL` JSON schema coverage is incomplete for some newly added commands.
   - Hardening: `report` and `summary` now fail fast instead of silently degrading when `status --json` is broken.
   - Added schema coverage for `export --jsonl` rows and `ticket/cm-hook/audit-log` JSON contracts.
