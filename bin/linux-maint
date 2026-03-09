@@ -9686,6 +9686,10 @@ PY
     done
 
     CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+    init_runner=()
+    if [[ "$MODE" == "installed" ]]; then
+      init_runner=(sudo)
+    fi
     # Prefer repo templates in repo mode; in installed mode use PREFIX share templates.
     SRC_DIR="$REPO_ROOT/etc/linux_maint"
     if [[ "$MODE" == "installed" ]]; then
@@ -9701,9 +9705,9 @@ PY
       exit 1
     fi
 
-    sudo mkdir -p "$CFG_DIR"
+    "${init_runner[@]}" mkdir -p "$CFG_DIR"
     if [[ "$INIT_MINIMAL" -eq 0 ]]; then
-      sudo mkdir -p "$CFG_DIR/baselines" "$CFG_DIR/baselines/ports" "$CFG_DIR/baselines/configs" "$CFG_DIR/baselines/users" "$CFG_DIR/baselines/sudoers"
+      "${init_runner[@]}" mkdir -p "$CFG_DIR/baselines" "$CFG_DIR/baselines/ports" "$CFG_DIR/baselines/configs" "$CFG_DIR/baselines/users" "$CFG_DIR/baselines/sudoers"
     fi
 
     if [[ "$INIT_MINIMAL" -eq 1 ]]; then
@@ -9730,13 +9734,13 @@ PY
       if [[ "${LM_INIT_USE_CP:-0}" == "1" ]]; then
         # Some environments emit noisy SELinux warnings when using install(1).
         if [[ "$INIT_FORCE" -eq 1 ]]; then
-          sudo cp -f "$f" "$dest"
+          "${init_runner[@]}" cp -f "$f" "$dest"
         else
-          sudo cp "$f" "$dest"
+          "${init_runner[@]}" cp "$f" "$dest"
         fi
-        sudo chmod 0644 "$dest"
+        "${init_runner[@]}" chmod 0644 "$dest"
       else
-        sudo install -m 0644 "$f" "$dest"
+        "${init_runner[@]}" install -m 0644 "$f" "$dest"
       fi
       if [[ "$existed" -eq 1 && "$INIT_FORCE" -eq 1 ]]; then
         echo "overwrite: $dest"
@@ -9748,9 +9752,17 @@ PY
     echo ""
     echo "Next steps:"
     echo "  - Edit $CFG_DIR/servers.txt"
-    echo "  - Run: sudo linux-maint doctor"
+    if [[ "$MODE" == "installed" ]]; then
+      echo "  - Run: sudo linux-maint doctor"
+    else
+      echo "  - Run: linux-maint doctor"
+    fi
     if [[ "$INIT_MINIMAL" -eq 1 ]]; then
-      echo "  - Optional later: run 'sudo linux-maint init' to install full optional templates"
+      if [[ "$MODE" == "installed" ]]; then
+        echo "  - Optional later: run 'sudo linux-maint init' to install full optional templates"
+      else
+        echo "  - Optional later: run 'linux-maint init' to install full optional templates"
+      fi
     fi
     ;;
 
@@ -10332,7 +10344,17 @@ EOF_DEPS
     fi
 
     echo "== Config =="
-    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+    if [[ "$MODE" == "repo" ]]; then
+      CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+      VERIFY_LOCKDIR="${LM_LOCKDIR:-/tmp}"
+      VERIFY_STATE_DIR="${LM_STATE_DIR:-/tmp}"
+      VERIFY_LOG_DIR="${LOG_DIR:-$REPO_LOG_DIR}"
+    else
+      CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+      VERIFY_LOCKDIR="${LM_LOCKDIR:-/var/lock}"
+      VERIFY_STATE_DIR="${LM_STATE_DIR:-/var/lib/linux_maint}"
+      VERIFY_LOG_DIR="${LOG_DIR:-/var/log/health}"
+    fi
     echo "cfg_dir=$CFG_DIR"
     if [[ -d "$CFG_DIR" ]]; then
       check_file "servers" "$CFG_DIR/servers.txt"
@@ -10343,9 +10365,9 @@ EOF_DEPS
     fi
 
     echo "== Writable locations =="
-    check_writable_dir "lockdir" "${LM_LOCKDIR:-/var/lock}"
-    check_writable_dir "state" "${LM_STATE_DIR:-/var/lib/linux_maint}"
-    check_writable_dir "logs" "${LOG_DIR:-/var/log/health}"
+    check_writable_dir "lockdir" "$VERIFY_LOCKDIR"
+    check_writable_dir "state" "$VERIFY_STATE_DIR"
+    check_writable_dir "logs" "$VERIFY_LOG_DIR"
 
     echo "== Version =="
     "$0" version || true

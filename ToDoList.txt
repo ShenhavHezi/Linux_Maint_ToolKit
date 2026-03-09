@@ -35,6 +35,8 @@ Last updated: 2026-03-09
     - Proof: `tests/config_no_config_json_test.sh`, `tests/config_source_failure_test.sh`, `tests/config_type_validation_test.sh`.
   - P0 operator contract hardening: `doctor`, `self-check`, and `security-profile` JSON outputs now expose explicit schema/contract versions with schema-backed tests.
     - Proof: `tests/doctor_json_schema_test.sh`, `tests/self_check_json_schema_test.sh`, `tests/security_profile_json_schema_test.sh`.
+  - P0 repo/install readiness hardening: `preflight` now respects repo-local config/state/log paths, `init` no longer requires `sudo` in repo mode, and `verify-install` uses repo-mode writable defaults.
+    - Proof: `tests/preflight_repo_paths_test.sh`, `tests/init_repo_mode_no_sudo_test.sh`, `tests/verify_install_repo_defaults_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 

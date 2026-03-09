@@ -45,7 +45,11 @@ if [[ "${LM_EMAIL_ENABLED:-false}" != "true" && "${LM_NOTIFY:-0}" != "1" ]]; the
   OPT_CMDS=("${tmp_opt[@]}")
 fi
 
-ensure_dirs(){ mkdir -p "$(dirname "$LM_LOGFILE")" /var/lib/linux_maint 2>/dev/null || true; }
+state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
+health_log_dir="${LOG_DIR:-/var/log/health}"
+cfg_dir="${LM_CFG_DIR:-/etc/linux_maint}"
+
+ensure_dirs(){ mkdir -p "$(dirname "$LM_LOGFILE")" "$state_dir" "$health_log_dir" 2>/dev/null || true; }
 
 has(){ lm_has_cmd "$1"; }
 
@@ -93,9 +97,9 @@ main(){
 
   # Check state/log dirs are writable
   local writable_state=1 writable_logs=1
-  touch /var/lib/linux_maint/.wtest 2>/dev/null && rm -f /var/lib/linux_maint/.wtest 2>/dev/null || writable_state=0
-  mkdir -p /var/log/health 2>/dev/null || true
-  touch /var/log/health/.wtest 2>/dev/null && rm -f /var/log/health/.wtest 2>/dev/null || writable_logs=0
+  touch "$state_dir/.wtest" 2>/dev/null && rm -f "$state_dir/.wtest" 2>/dev/null || writable_state=0
+  mkdir -p "$health_log_dir" 2>/dev/null || true
+  touch "$health_log_dir/.wtest" 2>/dev/null && rm -f "$health_log_dir/.wtest" 2>/dev/null || writable_logs=0
 
   # Check SSH reachability for hosts
   local unreachable=0 total=0
@@ -110,7 +114,7 @@ main(){
 
   # Check config gates presence (informational)
   local missing_cfg=0
-  for f in /etc/linux_maint/certs.txt /etc/linux_maint/config_paths.txt /etc/linux_maint/ports_baseline.txt /etc/linux_maint/network_targets.txt /etc/linux_maint/backup_targets.csv; do
+  for f in "$cfg_dir/certs.txt" "$cfg_dir/config_paths.txt" "$cfg_dir/ports_baseline.txt" "$cfg_dir/network_targets.txt" "$cfg_dir/backup_targets.csv"; do
     [ -s "$f" ] || missing_cfg=$((missing_cfg+1))
   done
 

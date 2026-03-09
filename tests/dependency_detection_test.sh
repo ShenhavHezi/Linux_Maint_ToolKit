@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
+TMPDIR="${TMPDIR:-/tmp}"
+mkdir -p "$TMPDIR"
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 LIB="$ROOT_DIR/lib/linux_maint.sh"
+workdir="$(mktemp -d -p "$TMPDIR")"
+trap 'rm -rf "$workdir"' EXIT
+export LINUX_MAINT_LIB="$LIB"
 
 # Ensure we can source the lib
 # shellcheck source=/dev/null
@@ -12,6 +17,9 @@ LIB="$ROOT_DIR/lib/linux_maint.sh"
 export LM_MODE="repo"
 export LM_LOG_DIR="$ROOT_DIR/.logs"
 mkdir -p "$LM_LOG_DIR"
+export LOG_DIR="$workdir/logs"
+export LM_STATE_DIR="$workdir/state"
+mkdir -p "$LOG_DIR" "$LM_STATE_DIR"
 
 # 1) missing required dep => UNKNOWN reason=missing_dependency and rc=3
 export LM_FORCE_MISSING_DEPS="ssh"

@@ -40,6 +40,7 @@ run_required "linux-maint help" bash "$ROOT_DIR/bin/linux-maint" help
 
 # Preflight should not hard-fail just because optional tools are missing
 LM_LOGFILE=${TMPDIR}/preflight_check.log LM_LOCKDIR="${TMPDIR}" bash "$ROOT_DIR/monitors/preflight_check.sh" >/dev/null || true
+run_required "preflight_repo_paths_test" bash "$ROOT_DIR/tests/preflight_repo_paths_test.sh"
 
 # Validate config formats (should succeed even if config files are absent; best-effort)
 LM_LOGFILE=${TMPDIR}/config_validate.log LM_LOCKDIR="${TMPDIR}" bash "$ROOT_DIR/monitors/config_validate.sh" >/dev/null || true
@@ -241,8 +242,10 @@ run_required "ntp_chrony_parsing_variants_test" bash "$ROOT_DIR/tests/ntp_chrony
 run_required "log_spike_fixture_test" bash "$ROOT_DIR/tests/log_spike_fixture_test.sh"
 run_required "cert_monitor_scan_dir_test" bash "$ROOT_DIR/tests/cert_monitor_scan_dir_test.sh"
 run_required "verify_install_test" bash "$ROOT_DIR/tests/verify_install_test.sh"
+run_required "verify_install_repo_defaults_test" bash "$ROOT_DIR/tests/verify_install_repo_defaults_test.sh"
 run_required "installed_mode_sanity_test" bash "$ROOT_DIR/tests/installed_mode_sanity_test.sh"
 run_required "init_minimal_idempotent_test" bash "$ROOT_DIR/tests/init_minimal_idempotent_test.sh"
+run_required "init_repo_mode_no_sudo_test" bash "$ROOT_DIR/tests/init_repo_mode_no_sudo_test.sh"
 run_required "pack_logs_test" bash "$ROOT_DIR/tests/pack_logs_test.sh"
 run_required "release_verify_test" bash "$ROOT_DIR/tests/release_verify_test.sh"
 run_required "release_audit_test" bash "$ROOT_DIR/tests/release_audit_test.sh"

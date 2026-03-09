@@ -502,7 +502,9 @@ Prerequisites (any one):
 
 - `linux-maint menu`: interactive TUI menu for common actions (requires gum/dialog/whiptail).
 
-- `linux-maint init [--minimal] [--force]` *(root required)*: install `/etc/linux_maint` templates from the repo checkout.
+- `linux-maint init [--minimal] [--force]`: install config templates from the repo checkout or installed template set.
+  - installed mode writes `/etc/linux_maint` and requires root.
+  - repo mode honors `LM_CFG_DIR` (default `/etc/linux_maint`) and runs as the current user.
   - By default, existing files are not overwritten.
   - `--force` overwrites existing files.
 
@@ -1057,7 +1059,8 @@ Example (`export --json`):
 
 - `linux-maint logs [n]` *(root required)*: tail the latest wrapper log (default `n=200`).
 
-- `linux-maint preflight` *(root recommended)*: check dependencies/SSH/config readiness.
+- `linux-maint preflight` *(root recommended in installed mode)*: check dependencies/SSH/config readiness.
+  - honors `LM_CFG_DIR`, `LM_STATE_DIR`, and `LOG_DIR` in repo mode and direct runs.
 
 - `linux-maint validate` *(root recommended)*: validate `/etc/linux_maint` config file formats (best-effort).
 
