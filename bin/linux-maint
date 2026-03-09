@@ -4495,14 +4495,16 @@ PY
     tmp_trend="$(mktemp -p "$TMPDIR" linux_maint_metrics_trend.XXXXXX.json)"
     tmp_runtimes="$(mktemp -p "$TMPDIR" linux_maint_metrics_runtimes.XXXXXX.json)"
 
-    "$0" status --json --problems 20 --reasons 10 >"$tmp_status" 2>/dev/null || printf '{}' >"$tmp_status"
+    status_rc=0
+    "$0" status --json --problems 20 --reasons 10 >"$tmp_status" 2>/dev/null || status_rc=$?
     "$0" trend --last 10 --json >"$tmp_trend" 2>/dev/null || printf '{}' >"$tmp_trend"
     "$0" runtimes --last 1 --json >"$tmp_runtimes" 2>/dev/null || printf '{}' >"$tmp_runtimes"
 
-    python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" <<'PY'
+    METRICS_STATUS_RC="$status_rc" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" <<'PY'
 import json, os, sys, re
 
 status_path, trend_path, runtimes_path = sys.argv[1:4]
+status_rc = int(os.environ.get("METRICS_STATUS_RC", "0"))
 redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
 redact_json_strict = os.environ.get("LM_REDACT_JSON_STRICT","0") in ("1","true","TRUE","yes","YES")
 
@@ -4578,6 +4580,13 @@ def status_rank(st):
 status = read_json(status_path)
 trend = read_json(trend_path)
 runtimes = read_json(runtimes_path)
+
+if status_rc != 0:
+    print("ERROR: metrics requires a successful status --json snapshot", file=sys.stderr)
+    raise SystemExit(2)
+if not isinstance(status, dict) or "last_status" not in status or "totals" not in status:
+    print("ERROR: metrics requires valid JSON from status --json", file=sys.stderr)
+    raise SystemExit(2)
 
 summary_file = ""
 if isinstance(status, dict):
@@ -5117,6 +5126,8 @@ PY
       ok="false"
       [[ "$cv_rc" -eq 0 && "$pf_rc" -eq 0 ]] && ok="true"
       printf '{'
+      printf '"schema_version":1,'
+      printf '"check_json_contract_version":1,'
       printf '"config_validate":{"status":"%s","exit_code":%s},' "$(rc_to_status "$cv_rc")" "$cv_rc"
       printf '"preflight":{"status":"%s","exit_code":%s},' "$(rc_to_status "$pf_rc")" "$pf_rc"
       printf '"expected_skips":%s,' "$(expected_skips_json "$cfg_dir")"

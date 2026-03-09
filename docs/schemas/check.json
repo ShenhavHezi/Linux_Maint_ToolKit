@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint check --json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "check_json_contract_version",
+    "config_validate",
+    "preflight",
+    "expected_skips",
+    "ok"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "check_json_contract_version": { "type": "integer", "minimum": 1 },
+    "config_validate": {
+      "type": "object",
+      "required": ["status", "exit_code"],
+      "properties": {
+        "status": { "type": "string", "enum": ["OK", "WARN", "CRIT", "UNKNOWN"] },
+        "exit_code": { "type": "integer" }
+      },
+      "additionalProperties": true
+    },
+    "preflight": {
+      "type": "object",
+      "required": ["status", "exit_code"],
+      "properties": {
+        "status": { "type": "string", "enum": ["OK", "WARN", "CRIT", "UNKNOWN"] },
+        "exit_code": { "type": "integer" }
+      },
+      "additionalProperties": true
+    },
+    "expected_skips": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["monitor", "missing"],
+        "properties": {
+          "monitor": { "type": "string" },
+          "missing": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "ok": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

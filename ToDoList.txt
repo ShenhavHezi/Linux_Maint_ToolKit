@@ -23,6 +23,8 @@ Last updated: 2026-03-09
     - Proof: `tests/notify_curl_timeout_test.sh`, `tests/ticket_curl_timeout_test.sh`.
   - P0 audit hardening: audit chain writes are now serialized so concurrent operations preserve a valid append-only chain.
     - Proof: `tests/audit_log_concurrency_test.sh`.
+  - P0 CLI contract hardening: `check --json` now has an explicit schema/version contract, and `metrics --json` fails fast when delegated `status --json` is invalid.
+    - Proof: `tests/check_json_schema_test.sh`, `tests/metrics_invalid_status_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 

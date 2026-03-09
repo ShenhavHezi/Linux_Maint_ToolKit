@@ -602,8 +602,32 @@ Top-level keys:
 Environment:
 - `LM_METRICS_TOP_SLOW` = `1..20` (controls `slow_monitors_top` length, default `5`)
 
+Compatibility policy:
+- Existing keys/types above are treated as stable for contract version `1`.
+- Additive keys may be introduced without breaking compatibility.
+- Breaking shape/type changes require incrementing `metrics_json_contract_version`.
+- `metrics` requires a valid `status --json` payload; `trend` and `runtimes` remain best-effort adjuncts.
+
 Schema:
 - `docs/schemas/metrics.json` — JSON schema for `linux-maint metrics --json`.
+
+### `linux-maint check --json` compatibility contract
+
+Top-level keys:
+- `schema_version` (integer, current value: `1`)
+- `check_json_contract_version` (integer, current value: `1`)
+- `config_validate` (object with `status` and `exit_code`)
+- `preflight` (object with `status` and `exit_code`)
+- `expected_skips` (array of objects with `monitor` and `missing`; expected optional skips derived from config state)
+- `ok` (boolean; true only when both `config_validate` and `preflight` succeed)
+
+Compatibility policy:
+- Existing keys/types above are treated as stable for contract version `1`.
+- Additive keys may be introduced without breaking compatibility.
+- Breaking shape/type changes require incrementing `check_json_contract_version`.
+
+Schema:
+- `docs/schemas/check.json` — JSON schema for `linux-maint check --json`.
 
 ### `linux-maint diff --json` compatibility contract
 
