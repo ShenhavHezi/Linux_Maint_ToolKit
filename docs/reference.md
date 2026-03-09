@@ -629,6 +629,64 @@ Compatibility policy:
 Schema:
 - `docs/schemas/check.json` — JSON schema for `linux-maint check --json`.
 
+### `linux-maint trend --json` compatibility contract
+
+Top-level keys:
+- `schema_version` (integer, current value: `1`)
+- `trend_json_contract_version` (integer, current value: `1`)
+- `runs` (array of per-summary totals, newest first)
+- `totals` (object with integer keys: `CRIT`, `WARN`, `UNKNOWN`, `SKIP`, `OK`)
+- `reasons` (array of `{reason, count}` rollup entries)
+- `anomaly` (object; z-score analysis metadata and signals)
+
+Compatibility policy:
+- Existing keys/types above are treated as stable for contract version `1`.
+- Additive keys may be introduced without breaking compatibility.
+- Breaking shape/type changes require incrementing `trend_json_contract_version`.
+
+Schema:
+- `docs/schemas/trend.json` — JSON schema for `linux-maint trend --json`.
+
+### `linux-maint runtimes --json` compatibility contract
+
+Top-level keys:
+- `schema_version` (integer, current value: `1`)
+- `runtimes_json_contract_version` (integer, current value: `1`)
+- `files` (array of wrapper log paths searched)
+- `unit` (string, current value: `ms`)
+- `rows` (array of `{monitor, ms, unit, source_file}` records)
+
+Compatibility policy:
+- Existing keys/types above are treated as stable for contract version `1`.
+- Additive keys may be introduced without breaking compatibility.
+- Breaking shape/type changes require incrementing `runtimes_json_contract_version`.
+
+Schema:
+- `docs/schemas/runtimes.json` — JSON schema for `linux-maint runtimes --json`.
+
+### `linux-maint export --json` compatibility contract
+
+Top-level keys:
+- `schema_version` (integer, current value: `1`)
+- `export_json_contract_version` (integer, current value: `1`)
+- `mode` (string: `repo` or `installed`)
+- `summary_file` / `summary_log` / `summary_json` (string path or `null`)
+- `summary_result_source` / `summary_hosts_source` (string; `log` or `derived`)
+- `summary_result` (object; worst overall status and counts)
+- `summary_hosts` (object; per-host worst-status counts)
+- `last_status` (object; parsed key/value status snapshot)
+- `rows` (array of exported monitor rows)
+- `meta` (optional object; passthrough metadata from the summary JSON artifact)
+
+Compatibility policy:
+- Existing keys/types above are treated as stable for contract version `1`.
+- Additive keys may be introduced without breaking compatibility.
+- Breaking shape/type changes require incrementing `export_json_contract_version`.
+- If the preferred summary JSON artifact exists, `export` requires it to be valid; corrupt summary JSON is treated as a hard failure instead of silently falling back.
+
+Schema:
+- `docs/schemas/export.json` — JSON schema for `linux-maint export --json`.
+
 ### `linux-maint diff --json` compatibility contract
 
 Top-level keys:
@@ -759,6 +817,8 @@ Example (`trend --json`):
 
 ```json
 {
+  "schema_version": 1,
+  "trend_json_contract_version": 1,
   "runs": [
     {
       "file": "/var/log/health/full_health_monitor_summary_2026-02-20_120000.log",
@@ -769,7 +829,8 @@ Example (`trend --json`):
   "reasons": [
     { "reason": "ssh_unreachable", "count": 4 },
     { "reason": "security_updates_pending", "count": 2 }
-  ]
+  ],
+  "anomaly": { "enabled": false, "window": 5, "z_threshold": 2.0, "enough_data": false, "signals": [] }
 }
 ```
 
@@ -914,6 +975,8 @@ Example (`export --json`):
 
 ```json
 {
+  "schema_version": 1,
+  "export_json_contract_version": 1,
   "mode": "installed",
   "summary_result": { "overall": "OK", "ok": 18, "warn": 0, "crit": 0, "unknown": 0, "skipped": 0 },
   "summary_hosts": { "ok": 18, "warn": 0, "crit": 0, "unknown": 0, "skipped": 0 },

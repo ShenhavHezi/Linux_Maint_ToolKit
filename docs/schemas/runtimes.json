@@ -2,8 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "linux-maint runtimes --json",
   "type": "object",
-  "required": ["files", "unit", "rows"],
+  "required": ["schema_version", "runtimes_json_contract_version", "files", "unit", "rows"],
   "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "runtimes_json_contract_version": { "type": "integer", "minimum": 1 },
     "files": {
       "type": "array",
       "items": { "type": "string" }

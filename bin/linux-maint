@@ -9066,7 +9066,20 @@ files = [fp for _, fp in file_rows][:last_n]
 
 if not files and not cache_enabled:
     if json_mode:
-        print(json.dumps({'trend_json_contract_version': 1, 'runs':[], 'totals':{'CRIT':0,'WARN':0,'UNKNOWN':0,'SKIP':0,'OK':0}, 'reasons':[]}, indent=2, sort_keys=True))
+        print(json.dumps({
+            'schema_version': 1,
+            'trend_json_contract_version': 1,
+            'runs': [],
+            'totals': {'CRIT':0,'WARN':0,'UNKNOWN':0,'SKIP':0,'OK':0},
+            'reasons': [],
+            'anomaly': {
+                'enabled': anomaly_enabled,
+                'window': anomaly_window,
+                'z_threshold': anomaly_z,
+                'enough_data': False,
+                'signals': [],
+            },
+        }, indent=2, sort_keys=True))
     elif csv_mode:
         print("file,CRIT,WARN,UNKNOWN,SKIP,OK")
     else:
@@ -9153,7 +9166,7 @@ if anomaly_enabled:
             })
         anomaly["signals"].sort(key=lambda s: (-s["zscore"], s["metric"]))
 if json_mode:
-    out={'trend_json_contract_version': 1, 'runs':runs, 'totals':overall, 'reasons':[{'reason':r,'count':c} for r,c in rollup], 'anomaly': anomaly}
+    out={'schema_version': 1, 'trend_json_contract_version': 1, 'runs':runs, 'totals':overall, 'reasons':[{'reason':r,'count':c} for r,c in rollup], 'anomaly': anomaly}
     if redact_json or redact_json_strict:
         out = redact_json_obj(out)
     print(json.dumps(out, indent=2, sort_keys=True))
@@ -9274,7 +9287,7 @@ for f in files:
 # Sort desc by ms
 rows.sort(key=lambda r: (-r["ms"], r["monitor"]))
 
-print(json.dumps({"files": files, "unit": "ms", "rows": rows}, sort_keys=True))
+print(json.dumps({"schema_version": 1, "runtimes_json_contract_version": 1, "files": files, "unit": "ms", "rows": rows}, sort_keys=True))
 PY
       exit 0
     fi
@@ -9428,12 +9441,25 @@ def read_rows():
         try:
             with open(summary_json_path,'r',encoding='utf-8',errors='ignore') as f:
                 payload=json.load(f)
-            if isinstance(payload, dict) and 'rows' in payload:
-                return payload.get('rows',[]), payload.get('meta',{})
+            if isinstance(payload, dict):
+                rows = payload.get('rows')
+                if not isinstance(rows, list):
+                    print(f"ERROR: export requires valid summary JSON rows at {summary_json_path}", file=sys.stderr)
+                    raise SystemExit(2)
+                meta = payload.get('meta', {})
+                if meta is None:
+                    meta = {}
+                if not isinstance(meta, dict):
+                    print(f"ERROR: export requires valid summary JSON meta at {summary_json_path}", file=sys.stderr)
+                    raise SystemExit(2)
+                return rows, meta
             if isinstance(payload, list):
                 return payload, {}
         except Exception:
-            pass
+            print(f"ERROR: export requires valid summary JSON at {summary_json_path}", file=sys.stderr)
+            raise SystemExit(2)
+        print(f"ERROR: export requires supported summary JSON shape at {summary_json_path}", file=sys.stderr)
+        raise SystemExit(2)
     rows=[]
     if summary_path and os.path.exists(summary_path):
         with open(summary_path,'r',encoding='utf-8',errors='ignore') as f:
@@ -9545,6 +9571,8 @@ elif jsonl_mode:
         print(json.dumps(r, sort_keys=True))
 else:
     out={
+        'schema_version': 1,
+        'export_json_contract_version': 1,
         'mode': mode,
         'summary_file': summary_path if summary_path and os.path.exists(summary_path) else None,
         'summary_log': log_path if log_path and os.path.exists(log_path) else None,

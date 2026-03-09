@@ -257,6 +257,7 @@ run_required "status_json_compat_test" bash "$ROOT_DIR/tests/status_json_compat_
 run_required "status_json_schema_test" bash "$ROOT_DIR/tests/status_json_schema_test.sh"
 run_required "export_json_test" bash "$ROOT_DIR/tests/export_json_test.sh"
 run_required "export_json_schema_test" bash "$ROOT_DIR/tests/export_json_schema_test.sh"
+run_required "export_invalid_summary_json_test" bash "$ROOT_DIR/tests/export_invalid_summary_json_test.sh"
 run_required "export_csv_test" bash "$ROOT_DIR/tests/export_csv_test.sh"
 run_required "export_jsonl_test" bash "$ROOT_DIR/tests/export_jsonl_test.sh"
 run_required "export_jsonl_schema_test" bash "$ROOT_DIR/tests/export_jsonl_schema_test.sh"

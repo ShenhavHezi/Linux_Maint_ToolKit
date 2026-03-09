@@ -28,7 +28,7 @@ echo "$out" | grep -q 'totals: CRIT=1 WARN=2 UNKNOWN=1 SKIP=1 OK=1'
 echo "$out" | grep -q '^failed_units=2$'
 
 ajson="$(bash "$LM" trend --last 2 --json)"
-printf '%s' "$ajson" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert len(o["runs"])==2; assert o["totals"]["WARN"]==2; assert o["totals"]["CRIT"]==1; assert o["totals"]["UNKNOWN"]==1; assert o["totals"]["SKIP"]==1; assert o["totals"]["OK"]==1; assert o["reasons"][0]=={"reason":"failed_units","count":2}'
+printf '%s' "$ajson" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["schema_version"]==1; assert o["trend_json_contract_version"]==1; assert len(o["runs"])==2; assert o["totals"]["WARN"]==2; assert o["totals"]["CRIT"]==1; assert o["totals"]["UNKNOWN"]==1; assert o["totals"]["SKIP"]==1; assert o["totals"]["OK"]==1; assert o["reasons"][0]=={"reason":"failed_units","count":2}; assert "anomaly" in o'
 printf '%s' "$ajson" | python3 "$ROOT_DIR/tools/json_schema_validate.py" "$ROOT_DIR/docs/schemas/trend.json"
 
 csv="$(bash "$LM" trend --last 2 --csv)"

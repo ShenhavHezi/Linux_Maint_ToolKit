@@ -2,8 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "linux-maint trend --json",
   "type": "object",
-  "required": ["runs", "totals", "reasons"],
+  "required": ["schema_version", "trend_json_contract_version", "runs", "totals", "reasons", "anomaly"],
   "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
     "trend_json_contract_version": { "type": "integer" },
     "runs": {
       "type": "array",
@@ -51,6 +52,33 @@
         },
         "additionalProperties": true
       }
+    },
+    "anomaly": {
+      "type": "object",
+      "required": ["enabled", "window", "z_threshold", "enough_data", "signals"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "window": { "type": "integer" },
+        "z_threshold": { "type": "number" },
+        "enough_data": { "type": "boolean" },
+        "signals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["metric", "current", "baseline_mean", "baseline_std", "zscore", "anomalous"],
+            "properties": {
+              "metric": { "type": "string" },
+              "current": { "type": "integer" },
+              "baseline_mean": { "type": "number" },
+              "baseline_std": { "type": "number" },
+              "zscore": { "type": "number" },
+              "anomalous": { "type": "boolean" }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
     }
   },
   "additionalProperties": true

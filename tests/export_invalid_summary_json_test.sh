@@ -71,55 +71,30 @@ S
 
 cat > "$SUMMARY_FILE" <<'S'
 monitor=health_monitor host=server-a status=OK
-monitor=network_monitor host=server-a status=WARN reason=ping_failed token=shh-secret
 S
 
 cat > "$LOG_FILE" <<'S'
-[2099-01-01 00:00:00] SUMMARY_RESULT overall=WARN ok=1 warn=1 crit=0 unknown=0 skipped=0 exit_code=1
-[2099-01-01 00:00:00] SUMMARY_HOSTS ok=1 warn=1 crit=0 unknown=0 skipped=0
+[2099-01-01 00:00:00] SUMMARY_RESULT overall=OK ok=1 warn=0 crit=0 unknown=0 skipped=0 exit_code=0
+[2099-01-01 00:00:00] SUMMARY_HOSTS ok=1 warn=0 crit=0 unknown=0 skipped=0
 S
 
-# Ensure export reads from the summary file fixture (not a previous JSON artifact).
-rm -f "$SUMMARY_JSON"
+printf '%s\n' '{not-json' > "$SUMMARY_JSON"
 
-json_out="$(bash "$LM" export --json)"
-printf '%s' "$json_out" | python3 -c '
-import json,sys
-o=json.load(sys.stdin)
-assert o["schema_version"] == 1
-assert o["export_json_contract_version"] == 1
-assert o["mode"] in ("repo","installed")
-assert "summary_result" in o and "summary_hosts" in o and "rows" in o
-assert isinstance(o["rows"], list) and len(o["rows"]) == 2
-sr=o["summary_result"]
-assert sr.get("overall") == "WARN"
-sh=o["summary_hosts"]
-assert sh.get("warn") == 1
-print("export json ok")
-'
+set +e
+out="$(bash "$LM" export --json 2>&1)"
+rc=$?
+set -e
 
-export_out="$(LM_REDACT_LOGS=1 bash "$LM" export --json)"
-printf '%s' "$export_out" | python3 -c '
-import json,sys
-o=json.load(sys.stdin)
-assert o["schema_version"] == 1
-assert o["export_json_contract_version"] == 1
-for row in o.get("rows", []):
-    if "token" in row:
-        assert row["token"] == "REDACTED"
-print("export json redaction ok")
-'
+if [[ "$rc" -ne 2 ]]; then
+  echo "expected export invalid summary json rc=2, got rc=$rc" >&2
+  echo "$out" >&2
+  exit 1
+fi
 
-allow_out="$(LM_EXPORT_ALLOWLIST=monitor,host,status bash "$LM" export --json)"
-printf '%s' "$allow_out" | python3 -c '
-import json,sys
-o=json.load(sys.stdin)
-assert o["schema_version"] == 1
-assert o["export_json_contract_version"] == 1
-rows=o.get("rows", [])
-assert rows and isinstance(rows, list)
-for row in rows:
-    assert "monitor" in row and "host" in row and "status" in row
-    assert "token" not in row
-print("export json allowlist ok")
-'
+grep -q '^ERROR: export requires valid summary JSON at ' <<<"$out" || {
+  echo "unexpected export invalid summary json output" >&2
+  echo "$out" >&2
+  exit 1
+}
+
+echo "export invalid summary json ok"

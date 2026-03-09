@@ -2,8 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "linux-maint export --json",
   "type": "object",
-  "required": ["mode", "summary_result", "summary_hosts", "rows", "last_status"],
+  "required": ["schema_version", "export_json_contract_version", "mode", "summary_result", "summary_hosts", "rows", "last_status"],
   "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "export_json_contract_version": { "type": "integer", "minimum": 1 },
     "mode": { "type": "string" },
     "summary_file": { "type": ["string", "null"] },
     "summary_log": { "type": ["string", "null"] },

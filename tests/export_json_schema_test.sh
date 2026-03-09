@@ -83,6 +83,7 @@ S
 rm -f "$SUMMARY_JSON"
 
 json_out="$(bash "$LM" export --json)"
+printf '%s' "$json_out" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["schema_version"]==1; assert o["export_json_contract_version"]==1'
 printf '%s' "$json_out" | python3 "$ROOT_DIR/tools/json_schema_validate.py" "$ROOT_DIR/docs/schemas/export.json"
 
 echo "export json schema ok"

@@ -32,6 +32,6 @@ printf '%s\n' "$color_out" | grep -q $'\033' || {
 }
 
 json_out="$(LOG_DIR="$logdir" bash "$ROOT_DIR/bin/linux-maint" runtimes --json)"
-python3 -c 'import json,sys; obj=json.loads(sys.stdin.read()); rows=obj.get("rows",[]); assert any(r.get("monitor")=="slow" and r.get("ms")==1200 for r in rows); assert any(r.get("monitor")=="fast" and r.get("ms")==10 for r in rows)' <<<"$json_out"
+python3 -c 'import json,sys; obj=json.loads(sys.stdin.read()); assert obj["schema_version"]==1; assert obj["runtimes_json_contract_version"]==1; rows=obj.get("rows",[]); assert any(r.get("monitor")=="slow" and r.get("ms")==1200 for r in rows); assert any(r.get("monitor")=="fast" and r.get("ms")==10 for r in rows)' <<<"$json_out"
 
 echo "ok: runtimes command"
