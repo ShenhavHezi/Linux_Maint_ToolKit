@@ -2516,7 +2516,11 @@ reason_next_steps(){
       ;;
     config_missing)
       echo "Next steps:"
-      echo "- Run: sudo linux-maint init"
+      if [[ "$MODE" == "repo" ]]; then
+        echo "- Run: linux-maint init"
+      else
+        echo "- Run: sudo linux-maint init"
+      fi
       echo "- Populate the missing config file and re-run."
       ;;
     baseline_missing)
@@ -3047,7 +3051,7 @@ command_usage(){
 Usage: linux-maint run [flags]
 
 Key flags:
-  --group G            use /etc/linux_maint/groups.d/G
+  --group G            use <cfg_dir>/hosts.d/G.txt
   --hosts a,b          ad-hoc host list
   --exclude a,b        exclude hosts
   --parallel N         max parallel SSH
@@ -3372,6 +3376,14 @@ case "$subcmd" in
     fi
     parse_run_args "$@"
     validate_ssh_opts
+
+    if [[ "$MODE" == "repo" ]]; then
+      repo_cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+      export LM_CFG_DIR="${LM_CFG_DIR:-$repo_cfg_dir}"
+      export LM_SERVERLIST="${LM_SERVERLIST:-$repo_cfg_dir/servers.txt}"
+      export LM_EXCLUDED="${LM_EXCLUDED:-$repo_cfg_dir/excluded.txt}"
+      export LM_HOSTS_DIR="${LM_HOSTS_DIR:-$repo_cfg_dir/hosts.d}"
+    fi
 
     if [[ -n "${LM_SSH_RETRY:-}" ]] && [[ ! "${LM_SSH_RETRY}" =~ ^[0-9]+$ ]]; then
       echo "ERROR: --retry must be a non-negative integer" >&2
@@ -7359,8 +7371,10 @@ PY
 
     if [[ "$MODE" == "repo" ]]; then
       state_dir="${LM_STATE_DIR:-$REPO_LOG_DIR}"
+      history_run_cmd="linux-maint run"
     else
       state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
+      history_run_cmd="sudo linux-maint run"
     fi
     history_db="${LM_HISTORY_DB:-$state_dir/run_index.sqlite}"
     index_file="${LM_RUN_INDEX_FILE:-$state_dir/run_index.jsonl}"
@@ -7480,7 +7494,7 @@ PY
     fi
 
     HISTORY_NOTE=""
-    if [[ ! -f "$index_file" ]]; then
+    if [[ ! -f "$index_file" && -z "${LM_RUN_INDEX_FILE:-}" && -z "${LM_STATE_DIR:-}" ]]; then
       for alt in /var/tmp/run_index.jsonl /var/tmp/linux_maint/run_index.jsonl /tmp/linux_maint/run_index.jsonl; do
         if [[ -f "$alt" ]]; then
           index_file="$alt"
@@ -7490,7 +7504,7 @@ PY
       done
     fi
 
-    LM_COLOR="$HISTORY_COLOR" HISTORY_NOTE="$HISTORY_NOTE" python3 - "$index_file" "$LAST_N" "$HISTORY_JSON" "$HISTORY_TABLE" "$HISTORY_COMPACT" <<'PY'
+    LM_COLOR="$HISTORY_COLOR" HISTORY_NOTE="$HISTORY_NOTE" HISTORY_RUN_CMD="$history_run_cmd" python3 - "$index_file" "$LAST_N" "$HISTORY_JSON" "$HISTORY_TABLE" "$HISTORY_COMPACT" <<'PY'
 import json, os, sys
 from collections import deque
 path, last_n, json_mode, table, compact = sys.argv[1:6]
@@ -7500,6 +7514,7 @@ table = table == "1"
 compact = compact == "1"
 color = os.environ.get("LM_COLOR","1") == "1"
 note = os.environ.get("HISTORY_NOTE","")
+run_cmd = os.environ.get("HISTORY_RUN_CMD", "sudo linux-maint run")
 
 def c(s, code):
     if not color:
@@ -7553,7 +7568,7 @@ def color_count(label, value):
 if not os.path.exists(path):
     print(c(f"No run index found: {path}", "1;31"))
     print(c("Hints:", "1;33"))
-    print(c("- Run: sudo linux-maint run", "1;33"))
+    print(c(f"- Run: {run_cmd}", "1;33"))
     print(c("- Or set LM_RUN_INDEX_FILE when invoking the wrapper", "1;33"))
     sys.exit(1)
 
@@ -7606,7 +7621,7 @@ if compact:
 if not rows:
     print(header("=== Last 0 runs (run_index) ==="))
     print("No runs recorded yet.")
-    print(c("Hint: run sudo linux-maint run", "1;33"))
+    print(c(f"Hint: run {run_cmd}", "1;33"))
     raise SystemExit(0)
 
 print(header(f"=== Last {len(rows)} runs (run_index) ==="))
@@ -8899,6 +8914,17 @@ if reasons_limit > 0:
 PY
       fi
     else
+      if [[ "$MODE" == "repo" ]]; then
+        missing_summary_log_dir="$REPO_LOG_DIR"
+        missing_summary_run_cmd="linux-maint run"
+        missing_summary_logs_cmd="linux-maint logs 200"
+        missing_summary_doctor_cmd="linux-maint doctor"
+      else
+        missing_summary_log_dir="/var/log/health"
+        missing_summary_run_cmd="sudo linux-maint run"
+        missing_summary_logs_cmd="sudo linux-maint logs 200"
+        missing_summary_doctor_cmd="sudo linux-maint doctor"
+      fi
       echo "No summary file: $summary_file"
       if [[ "$TABLE" -eq 1 ]]; then
         echo "STATUS MONITOR HOST REASON"
@@ -8910,15 +8936,15 @@ PY
       fi
       echo "- The wrapper has not been run yet"
       echo "- LOG_DIR/SUMMARY_DIR points elsewhere"
-      echo "- Permission issue writing to /var/log/health (try sudo)"
+      echo "- Permission issue writing to $missing_summary_log_dir"
       if color_enabled; then
         echo "${C_CYAN}Next steps:${C_RESET}"
       else
         echo "Next steps:"
       fi
-      echo "- Run: sudo linux-maint run"
-      echo "- Check logs: sudo linux-maint logs 200"
-      echo "- Diagnose: sudo linux-maint doctor"
+      echo "- Run: $missing_summary_run_cmd"
+      echo "- Check logs: $missing_summary_logs_cmd"
+      echo "- Diagnose: $missing_summary_doctor_cmd"
       echo "Falling back to grepping latest wrapper log"
       log="/var/log/health/full_health_monitor_latest.log"
       [[ "$MODE" == "repo" ]] && log="$REPO_LATEST_LOG"

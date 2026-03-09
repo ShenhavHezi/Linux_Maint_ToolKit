@@ -55,7 +55,7 @@ These SKIPs are expected until you populate the files. Use `linux-maint doctor` 
 - `ssh_unreachable`: confirm host is reachable, SSH keys are valid, and firewall allows port 22.
 - `missing_dependency`: install the missing tool listed in the summary (e.g., `curl`, `smartctl`).
 - `missing_optional_cmd`: install the optional tool (e.g., `chronyc`/`ntpq`) or accept the SKIP.
-- `config_missing`: run `sudo linux-maint init` and populate the missing file.
+- `config_missing`: run `linux-maint init` and populate the missing file.
 - `baseline_missing`: allow baseline auto-init or create baseline files under `/etc/linux_maint/baselines/`.
 - `service_failed`: check `systemctl status <unit>` and recent journal logs.
 - `security_updates_pending`: run your distro update command and re-check.

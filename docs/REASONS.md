@@ -49,7 +49,7 @@ Suggested first actions:
 - `service_failed`: check `systemctl status <unit>` and recent logs.
 - `service_inactive`: enable or start the unit if required for your environment.
 - `timeout`: increase `MONITOR_TIMEOUT_SECS` or per-monitor timeouts, then re-run.
-- `config_missing`: run `sudo linux-maint init` and populate the file.
+- `config_missing`: run `linux-maint init` and populate the file.
 - `baseline_missing`: generate the baseline or allow baseline auto-init where supported.
 - `security_updates_pending`: run your distro update workflow, then re-check.
 - `timer_missing`: install/enable `linux-maint.timer` in installed mode.

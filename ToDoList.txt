@@ -45,6 +45,8 @@ Last updated: 2026-03-09
     - Proof: `tests/logs_no_side_effects_test.sh`, `tests/status_expected_skips_no_side_effects_test.sh`, `tests/check_no_side_effects_test.sh`.
   - P0 operator path hardening: `doctor`, `verify-install`, `config`, `self-check`, `security-profile`, `runtimes`, and repo-mode `pack-logs` now honor repo-local defaults/overrides consistently, and read-only writable checks no longer mutate directories.
     - Proof: `tests/doctor_repo_paths_test.sh`, `tests/doctor_verify_install_no_side_effects_test.sh`, `tests/repo_cfg_default_operator_test.sh`, `tests/pack_logs_repo_override_test.sh`.
+  - P0 repo-mode operator guidance hardening: `run --plan`, `status`, `history`, and `explain` now use repo-local host/config defaults and repo-appropriate hints instead of leaking installed-mode `/etc` and `sudo` guidance.
+    - Proof: `tests/run_plan_repo_cfg_defaults_test.sh`, `tests/status_repo_missing_summary_hints_test.sh`, `tests/history_repo_hint_test.sh`, `tests/explain_config_missing_repo_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 

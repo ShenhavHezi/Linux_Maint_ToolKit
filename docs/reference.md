@@ -497,6 +497,7 @@ Prerequisites (any one):
   - `--respect-maintenance`: skip run outside configured maintenance window file (`maintenance_windows.conf`).
   - `--allow-concurrent`: allow overlapping runs (skip lock).
   - `--lock-timeout N`: wait up to `N` seconds for the run lock (default 60).
+  - in repo mode, host resolution defaults to `$REPO_ROOT/.etc_linux_maint/{servers.txt,excluded.txt,hosts.d}` when `LM_SERVERLIST`, `LM_EXCLUDED`, and `LM_HOSTS_DIR` are unset.
   - Optional monitor privilege policy file: `${LM_MONITOR_PRIV_POLICY_FILE:-<cfg_dir>/monitor_privilege_policy.conf}`.
     - Format: `monitor=requires_root|allow_sudo|no_sudo`.
 
@@ -925,6 +926,7 @@ Schema:
 
 - `linux-maint history [--sqlite]`:
   - `--sqlite`: read history from SQLite prototype index (`LM_HISTORY_DB`, default `$LM_STATE_DIR/run_index.sqlite`).
+  - explicit `LM_STATE_DIR` / `LM_RUN_INDEX_FILE` overrides take precedence over best-effort `/var/tmp` fallback discovery.
   - Enable SQLite writes from wrapper with `LM_HISTORY_SQLITE=1`.
 
 - `linux-maint security-profile [--json] [--strict]`:
