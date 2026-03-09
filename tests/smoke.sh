@@ -152,6 +152,7 @@ run_required "audit_log_json_schema_test" bash "$ROOT_DIR/tests/audit_log_json_s
 run_required "serve_command_test" bash "$ROOT_DIR/tests/serve_command_test.sh"
 run_required "serve_command_timeout_test" bash "$ROOT_DIR/tests/serve_command_timeout_test.sh"
 run_required "agent_command_test" bash "$ROOT_DIR/tests/agent_command_test.sh"
+run_required "agent_once_failure_exit_test" bash "$ROOT_DIR/tests/agent_once_failure_exit_test.sh"
 run_required "agent_interval_validation_test" bash "$ROOT_DIR/tests/agent_interval_validation_test.sh"
 run_required "policy_command_test" bash "$ROOT_DIR/tests/policy_command_test.sh"
 run_required "federate_command_test" bash "$ROOT_DIR/tests/federate_command_test.sh"

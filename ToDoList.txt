@@ -129,6 +129,7 @@ Last updated: 2026-03-09
 - `DONE` Optional lightweight agent baseline.
   - Proof: `linux-maint agent`, `tests/agent_command_test.sh`.
   - Hardening: reject `--interval 0` so agent mode cannot spin in a tight loop.
+  - Hardening: finite agent runs now preserve delegated `run` failures in their exit code.
 - `DONE` Policy-as-code baseline (`policy init/lint/eval`).
   - Proof: `tests/policy_command_test.sh`.
 - `DONE` AI-assist baseline (local heuristic hints).

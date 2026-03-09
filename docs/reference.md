@@ -826,6 +826,7 @@ Schema:
   - lightweight loop runner for periodic checks.
   - defaults to interval `300` seconds.
   - `--interval` must be a positive integer.
+  - finite invocations propagate the last non-zero `run` exit code if a delegated run fails.
 
 - `linux-maint policy <init|lint|eval>`:
   - `init [file]` writes a gate policy template.

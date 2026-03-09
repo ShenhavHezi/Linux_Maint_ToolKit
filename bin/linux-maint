@@ -6955,12 +6955,20 @@ PY
     (( A_INTERVAL > 0 )) || { echo "ERROR: --interval must be a positive integer" >&2; exit 2; }
     [[ "$A_MAX_RUNS" =~ ^[0-9]+$ ]] || { echo "ERROR: --max-runs must be integer" >&2; exit 2; }
     runs=0
+    agent_rc=0
     while true; do
       runs=$((runs+1))
+      run_rc=0
       if [[ "$A_DRY_RUN" -eq 1 ]]; then
         echo "agent dry-run iteration=$runs"
       else
-        "$0" run || true
+        set +e
+        "$0" run
+        run_rc=$?
+        set -e
+        if [[ "$run_rc" -ne 0 ]]; then
+          agent_rc="$run_rc"
+        fi
       fi
       if [[ "$A_ONCE" -eq 1 ]]; then
         break
@@ -6970,6 +6978,7 @@ PY
       fi
       sleep "$A_INTERVAL"
     done
+    exit "$agent_rc"
     ;;
 
   policy)
