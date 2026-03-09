@@ -6876,7 +6876,7 @@ def run_json(args):
             check=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            text=True,
+            universal_newlines=True,
             timeout=cmd_timeout,
         )
     except subprocess.TimeoutExpired:
