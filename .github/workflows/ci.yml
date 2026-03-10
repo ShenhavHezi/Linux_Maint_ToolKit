@@ -98,11 +98,11 @@ jobs:
       image: ${{ matrix.image }}
     steps:
       - name: Install runtime dependencies
-        shell: bash
+        shell: sh
         run: |
-          set -euo pipefail
+          set -eu
           export DEBIAN_FRONTEND=noninteractive
-          bash -lc "${{ matrix.pkg_install }}"
+          ${{ matrix.pkg_install }}
 
       - name: Compat readiness
         id: compat_ready
@@ -177,11 +177,11 @@ jobs:
       image: ${{ matrix.image }}
     steps:
       - name: Install runtime dependencies
-        shell: bash
+        shell: sh
         run: |
-          set -euo pipefail
+          set -eu
           export DEBIAN_FRONTEND=noninteractive
-          bash -lc "${{ matrix.pkg_install }}"
+          ${{ matrix.pkg_install }}
 
       - name: Checkout
         uses: actions/checkout@v4
