@@ -18,6 +18,16 @@ if ! command -v git >/dev/null 2>&1; then
   exit 1
 fi
 
+if [[ ! -f VERSION ]]; then
+  echo "ERROR: VERSION file not found" >&2
+  exit 1
+fi
+version="$(head -n 1 VERSION | tr -d '[:space:]')"
+if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "ERROR: VERSION must use x.y.z format: $version" >&2
+  exit 1
+fi
+
 # Require clean working tree
 if [ -n "$(git status --porcelain)" ]; then
   echo "ERROR: working tree not clean. Commit/stash changes before building a release tarball." >&2
@@ -28,10 +38,11 @@ fi
 sha="$(git rev-parse --short HEAD)"
 branch="$(git rev-parse --abbrev-ref HEAD)"
 date_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-version_tag="$(git describe --tags --always 2>/dev/null || echo "$sha")"
+version_tag="v${version}"
 
 name="Linux_Maint_ToolKit-${version_tag}-${sha}"
 mkdir -p "$OUTDIR"
+OUTDIR_ABS="$(cd "$OUTDIR" && pwd)"
 
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
@@ -55,14 +66,14 @@ EOF
 
 # Create tarball
 
-tarball="$OUTDIR/${name}.tgz"
-( cd "$workdir" && tar -czf "$REPO_ROOT/$tarball" . )
+tarball="$OUTDIR_ABS/${name}.tgz"
+( cd "$workdir" && tar -czf "$tarball" . )
 
 echo "Built: $tarball"
 
 # Write a verification file alongside the artifact for dark-site transfer
-sums_file="$OUTDIR/SHA256SUMS"
-( cd "$OUTDIR" && sha256sum "$(basename "$tarball")" > "$(basename "$sums_file")" )
+sums_file="$OUTDIR_ABS/SHA256SUMS"
+( cd "$OUTDIR_ABS" && sha256sum "$(basename "$tarball")" > "$(basename "$sums_file")" )
 echo "Wrote: $sums_file"
 
 echo "Contents checksum (sha256):"

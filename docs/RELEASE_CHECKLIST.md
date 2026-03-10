@@ -2,8 +2,10 @@
 
 ## Prep
 - [ ] Decide version and run `make release-prep VERSION=x.y.z`.
+- [ ] Keep `VERSION` in strict `x.y.z` form (no leading `v`).
 - [ ] Place release notes under `docs/release_notes/` (archive), not `dist/`.
 - [ ] Ensure `VERSION`, `docs/README.md`, and `docs/INDEX.md` all point at the same current release notes file.
+- [ ] Ensure `CHANGELOG.md` contains the current `- Release vx.y.z` entry and the current release notes title/version/tag fields match `VERSION`.
 - [ ] Run `./tools/release_check.sh`.
 - [ ] Run `./tools/release_audit.sh`.
 - [ ] Run `make lint` and `make test`.
@@ -16,13 +18,13 @@
 
 ## Build
 - [ ] Build release tarball + checksums: `make release VERSION=x.y.z` (includes `--with-tarball`).
-- [ ] `tools/release.sh` runs `release_check` + `release_audit` by default (use `--skip-checks` only for emergency/manual workflows).
-- [ ] Optional manual build: `./tools/make_tarball.sh` (writes `dist/SHA256SUMS`).
+- [ ] `tools/release.sh` runs `release_check` + `release_audit` by default and verifies the generated tarball before continuing (use `--skip-checks` only for emergency/manual workflows).
+- [ ] Optional manual build: `./tools/make_tarball.sh` (writes `dist/SHA256SUMS` and names the tarball from `VERSION` + current commit).
 - [ ] (Optional) Sign tarball if using GPG.
 
 ## Verify
 - [ ] Verify tarball: `linux-maint verify-release dist/Linux_Maint_ToolKit-*.tgz --sums dist/SHA256SUMS`.
-- [ ] Confirm `verify-release` passes required tarball members (`install.sh`, CLI/lib payload, plugin index, matching release notes).
+- [ ] Confirm `verify-release` passes required tarball members (`install.sh`, CLI/lib payload, installed helpers, plugin index, matching release notes).
 - [ ] Or run: `make verify-release` (runs release checks/audit + tarball verification).
 - [ ] Smoke test install in a clean environment.
 

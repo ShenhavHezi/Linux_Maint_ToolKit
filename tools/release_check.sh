@@ -5,6 +5,10 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 fail=0
 
+current_version(){
+  head -n 1 "$ROOT_DIR/VERSION" | tr -d '[:space:]'
+}
+
 fail_msg(){
   echo "FAIL: $*" >&2
   fail=1
@@ -67,17 +71,40 @@ check_release_notes(){
   done
 }
 
+check_version_format(){
+  local version
+  version="$(current_version)"
+  if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    fail_msg "VERSION must use x.y.z format: $version"
+  fi
+}
+
+check_changelog_current_release(){
+  local version="$1"
+  check_file "$ROOT_DIR/CHANGELOG.md" "CHANGELOG" || return
+  if ! grep -Fq -- "- Release v${version}" "$ROOT_DIR/CHANGELOG.md"; then
+    fail_msg "CHANGELOG missing current release entry: v${version}"
+  fi
+}
+
 check_current_release_note(){
   local version note_path
-  version="$(head -n 1 "$ROOT_DIR/VERSION" | tr -d '[:space:]')"
+  version="$(current_version)"
   note_path="$ROOT_DIR/docs/release_notes/release_notes_v${version}.md"
   check_file "$note_path" "Current version release notes"
+  [[ -f "$note_path" ]] || return
+  grep -Fqx -- "# Release Notes v${version}" "$note_path" || fail_msg "Current version release notes title mismatch: $note_path"
+  grep -Fqx -- "- Version: ${version}" "$note_path" || fail_msg "Current version release notes version mismatch: $note_path"
+  grep -Fqx -- "- Git tag: v${version}" "$note_path" || fail_msg "Current version release notes tag mismatch: $note_path"
+  grep -Eq '^- Date \(UTC\): [0-9]{4}-[0-9]{2}-[0-9]{2}$' "$note_path" || fail_msg "Current version release notes date missing or invalid: $note_path"
 }
 
 check_docs
 check_schemas
+check_version_format
 check_release_notes
 check_current_release_note
+check_changelog_current_release "$(current_version)"
 
 if [[ "$fail" -ne 0 ]]; then
   echo "release_check: FAILED" >&2

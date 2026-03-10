@@ -61,6 +61,24 @@ jobs:
           chmod +x tests/smoke.sh
           ./tests/smoke.sh || true
 
+  release-discipline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Release integrity checks
+        run: |
+          set -euo pipefail
+          ./tools/release_check.sh
+          ./tools/release_audit.sh
+          ./tools/make_tarball.sh
+          tarball="$(find dist -maxdepth 1 -type f -name 'Linux_Maint_ToolKit-v*.tgz' -printf '%T@ %p\n' | sort -nr | head -n 1 | awk '{print $2}')"
+          test -n "$tarball"
+          ./tools/verify_release.sh "$tarball" --sums dist/SHA256SUMS
+
   bash-compat-matrix:
     name: Bash compatibility (${{ matrix.distro }})
     runs-on: ubuntu-latest

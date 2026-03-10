@@ -54,6 +54,10 @@ if [[ -z "$VERSION" ]]; then
   usage >&2
   exit 2
 fi
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "ERROR: version must use x.y.z format: $VERSION" >&2
+  exit 2
+fi
 
 if [[ "$DO_RELEASE" -eq 1 ]]; then
   WITH_TARBALL=1
@@ -92,7 +96,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "[dry-run] would update CHANGELOG.md with date $DATE_UTC and tag $TAG"
   echo "[dry-run] would write notes: $NOTES_OUT"
   if [[ "$WITH_TARBALL" -eq 1 ]]; then
-    echo "[dry-run] would build tarball and update checksum in notes"
+    echo "[dry-run] would build tarball, verify it, and update checksum in notes"
   fi
   echo "[dry-run] no git commit/tag/release"
   exit 0
@@ -251,6 +255,7 @@ if [[ "$WITH_TARBALL" -eq 1 ]]; then
   if command -v sha256sum >/dev/null 2>&1; then
     checksum="$(sha256sum "$tarball" | awk '{print $1}')"
   fi
+  ./tools/verify_release.sh "$tarball" --sums "$sums_file"
   if [[ -n "$checksum" && -f "$NOTES_OUT" ]]; then
     python3 - "$NOTES_OUT" "$checksum" "$(basename "$tarball")" <<'PY'
 import sys

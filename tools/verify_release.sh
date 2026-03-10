@@ -83,6 +83,9 @@ lib/linux_maint.sh
 lib/linux_maint_conf.sh
 lib/linux_maint_help.sh
 tools/verify_release.sh
+tools/pack_logs.sh
+tools/seed_known_hosts.sh
+tools/summary_diff.py
 plugins/index.json
 VERSION
 BUILD_INFO
