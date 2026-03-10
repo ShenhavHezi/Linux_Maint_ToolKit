@@ -35,6 +35,16 @@ run_required(){
   fi
 }
 
+run_required_if_cmd(){
+  local tool="$1"; shift
+  local label="$1"; shift
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "SKIP: $label ($tool not installed)" >&2
+    return 0
+  fi
+  run_required "$label" "$@"
+}
+
 # Basic help/version checks
 run_required "linux-maint help" bash "$ROOT_DIR/bin/linux-maint" help
 
@@ -101,7 +111,7 @@ run_required "repo_cfg_default_operator_test" bash "$ROOT_DIR/tests/repo_cfg_def
 run_required "runtime_warn_threshold_test" bash "$ROOT_DIR/tests/runtime_warn_threshold_test.sh"
 run_required "report_command_test" bash "$ROOT_DIR/tests/report_command_test.sh"
 run_required "reporting_repo_log_dir_override_test" bash "$ROOT_DIR/tests/reporting_repo_log_dir_override_test.sh"
-run_required "report_invalid_status_test" bash "$ROOT_DIR/tests/report_invalid_status_test.sh"
+run_required_if_cmd perl "report_invalid_status_test" bash "$ROOT_DIR/tests/report_invalid_status_test.sh"
 run_required "report_short_test" bash "$ROOT_DIR/tests/report_short_test.sh"
 run_required "report_golden_fixture_test" bash "$ROOT_DIR/tests/report_golden_fixture_test.sh"
 run_required "tui_report_golden_fixture_test" bash "$ROOT_DIR/tests/tui_report_golden_fixture_test.sh"
@@ -112,12 +122,12 @@ run_required "check_json_schema_test" bash "$ROOT_DIR/tests/check_json_schema_te
 run_required "check_exit_code_test" bash "$ROOT_DIR/tests/check_exit_code_test.sh"
 run_required "check_no_side_effects_test" bash "$ROOT_DIR/tests/check_no_side_effects_test.sh"
 run_required "gate_command_test" bash "$ROOT_DIR/tests/gate_command_test.sh"
-run_required "gate_invalid_status_test" bash "$ROOT_DIR/tests/gate_invalid_status_test.sh"
+run_required_if_cmd perl "gate_invalid_status_test" bash "$ROOT_DIR/tests/gate_invalid_status_test.sh"
 run_required "diff_color_test" bash "$ROOT_DIR/tests/diff_color_test.sh"
 run_required "diff_json_schema_test" bash "$ROOT_DIR/tests/diff_json_schema_test.sh"
 run_required "diff_golden_fixture_test" bash "$ROOT_DIR/tests/diff_golden_fixture_test.sh"
 run_required "metrics_command_test" bash "$ROOT_DIR/tests/metrics_command_test.sh"
-run_required "metrics_invalid_status_test" bash "$ROOT_DIR/tests/metrics_invalid_status_test.sh"
+run_required_if_cmd perl "metrics_invalid_status_test" bash "$ROOT_DIR/tests/metrics_invalid_status_test.sh"
 run_required "metrics_top_slow_test" bash "$ROOT_DIR/tests/metrics_top_slow_test.sh"
 run_required "history_command_test" bash "$ROOT_DIR/tests/history_command_test.sh"
 run_required "history_repo_hint_test" bash "$ROOT_DIR/tests/history_repo_hint_test.sh"
@@ -125,7 +135,7 @@ run_required "history_sqlite_test" bash "$ROOT_DIR/tests/history_sqlite_test.sh"
 run_required "history_invalid_run_index_test" bash "$ROOT_DIR/tests/history_invalid_run_index_test.sh"
 run_required "history_large_index_perf_test" bash "$ROOT_DIR/tests/history_large_index_perf_test.sh"
 run_required "summary_command_test" bash "$ROOT_DIR/tests/summary_command_test.sh"
-run_required "summary_invalid_status_test" bash "$ROOT_DIR/tests/summary_invalid_status_test.sh"
+run_required_if_cmd perl "summary_invalid_status_test" bash "$ROOT_DIR/tests/summary_invalid_status_test.sh"
 run_required "status_summary_test" bash "$ROOT_DIR/tests/status_summary_test.sh"
 run_required "status_repo_missing_summary_hints_test" bash "$ROOT_DIR/tests/status_repo_missing_summary_hints_test.sh"
 run_required "status_last_color_test" bash "$ROOT_DIR/tests/status_last_color_test.sh"
@@ -185,7 +195,7 @@ run_required "serve_command_test" bash "$ROOT_DIR/tests/serve_command_test.sh"
 run_required "serve_command_timeout_test" bash "$ROOT_DIR/tests/serve_command_timeout_test.sh"
 run_required "serve_invalid_json_upstream_test" bash "$ROOT_DIR/tests/serve_invalid_json_upstream_test.sh"
 run_required "agent_command_test" bash "$ROOT_DIR/tests/agent_command_test.sh"
-run_required "agent_once_failure_exit_test" bash "$ROOT_DIR/tests/agent_once_failure_exit_test.sh"
+run_required_if_cmd perl "agent_once_failure_exit_test" bash "$ROOT_DIR/tests/agent_once_failure_exit_test.sh"
 run_required "agent_interval_validation_test" bash "$ROOT_DIR/tests/agent_interval_validation_test.sh"
 run_required "policy_command_test" bash "$ROOT_DIR/tests/policy_command_test.sh"
 run_required "policy_lint_require_overall_test" bash "$ROOT_DIR/tests/policy_lint_require_overall_test.sh"
@@ -193,11 +203,11 @@ run_required "federate_command_test" bash "$ROOT_DIR/tests/federate_command_test
 run_required "federate_invalid_input_test" bash "$ROOT_DIR/tests/federate_invalid_input_test.sh"
 run_required "federate_contract_validation_test" bash "$ROOT_DIR/tests/federate_contract_validation_test.sh"
 run_required "ai_assist_command_test" bash "$ROOT_DIR/tests/ai_assist_command_test.sh"
-run_required "ai_assist_invalid_status_test" bash "$ROOT_DIR/tests/ai_assist_invalid_status_test.sh"
+run_required_if_cmd perl "ai_assist_invalid_status_test" bash "$ROOT_DIR/tests/ai_assist_invalid_status_test.sh"
 run_required "predict_command_test" bash "$ROOT_DIR/tests/predict_command_test.sh"
 run_required "predict_no_history_test" bash "$ROOT_DIR/tests/predict_no_history_test.sh"
 run_required "predict_last_validation_test" bash "$ROOT_DIR/tests/predict_last_validation_test.sh"
-run_required "predict_invalid_history_test" bash "$ROOT_DIR/tests/predict_invalid_history_test.sh"
+run_required_if_cmd perl "predict_invalid_history_test" bash "$ROOT_DIR/tests/predict_invalid_history_test.sh"
 run_required "predict_invalid_history_shape_test" bash "$ROOT_DIR/tests/predict_invalid_history_shape_test.sh"
 run_required "menu_choice_normalization_test" bash "$ROOT_DIR/tests/menu_choice_normalization_test.sh"
 run_required "menu_doc_path_resolution_test" bash "$ROOT_DIR/tests/menu_doc_path_resolution_test.sh"

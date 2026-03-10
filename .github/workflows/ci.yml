@@ -114,7 +114,7 @@ jobs:
               done
             }
             retry_cmd dnf -y makecache
-            retry_cmd dnf -y install --setopt=install_weak_deps=False coreutils findutils gawk grep sed tar gzip make perl python3 ca-certificates openssl iproute openssh-clients util-linux
+            retry_cmd dnf -y install --setopt=install_weak_deps=False python3 ca-certificates openssl iproute
           else
             ${{ matrix.pkg_install }}
           fi
@@ -208,7 +208,7 @@ jobs:
               done
             }
             retry_cmd dnf -y makecache
-            retry_cmd dnf -y install --setopt=install_weak_deps=False coreutils findutils gawk grep sed tar gzip make perl python3 ca-certificates openssl iproute openssh-clients util-linux
+            retry_cmd dnf -y install --setopt=install_weak_deps=False python3 ca-certificates openssl iproute
           else
             ${{ matrix.pkg_install }}
           fi
