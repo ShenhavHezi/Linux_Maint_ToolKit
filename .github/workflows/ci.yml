@@ -155,6 +155,15 @@ jobs:
           git fetch --no-tags --prune --depth=1 origin "${GITHUB_SHA}"
           git checkout --force FETCH_HEAD
 
+      - name: Normalize executable bits
+        if: ${{ !matrix.legacy_checkout || steps.compat_ready.outputs.ready == '1' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x run_full_health_monitor.sh
+          find bin monitors tools tests -type f -name '*.sh' -exec chmod +x {} +
+          find bin tools -type f -name '*.py' -exec chmod +x {} +
+
       - name: Bash version
         if: ${{ !matrix.legacy_checkout || steps.compat_ready.outputs.ready == '1' }}
         run: |
@@ -215,6 +224,14 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Normalize executable bits
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x run_full_health_monitor.sh
+          find bin monitors tools tests -type f -name '*.sh' -exec chmod +x {} +
+          find bin tools -type f -name '*.py' -exec chmod +x {} +
 
       - name: Install lifecycle tests
         shell: bash
