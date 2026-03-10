@@ -5,7 +5,29 @@ TMPDIR="${TMPDIR:-/tmp}"
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 CURRENT_VERSION="$(head -n 1 "$ROOT_DIR/VERSION" | tr -d '[:space:]')"
 workdir="$(mktemp -d -p "$TMPDIR")"
+TAG_SOURCE_REPO="$ROOT_DIR"
 trap 'rm -rf "$workdir"' EXIT
+
+init_tag_source_repo(){
+  local remote_url=""
+  if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    TAG_SOURCE_REPO="$ROOT_DIR"
+    return 0
+  fi
+  if [[ -n "${LM_RELEASE_TEST_REMOTE_URL:-}" ]]; then
+    remote_url="$LM_RELEASE_TEST_REMOTE_URL"
+  elif [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+    remote_url="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY}.git"
+  else
+    echo "cannot locate git metadata or fallback remote for install upgrade test" >&2
+    exit 1
+  fi
+  TAG_SOURCE_REPO="$workdir/tag_source_repo"
+  if [[ ! -d "$TAG_SOURCE_REPO/.git" ]]; then
+    git init -q "$TAG_SOURCE_REPO"
+    git -C "$TAG_SOURCE_REPO" remote add origin "$remote_url"
+  fi
+}
 
 require_tag(){
   local tag="$1"
@@ -13,12 +35,13 @@ require_tag(){
     echo "git is required for install upgrade test" >&2
     exit 1
   fi
-  git -C "$ROOT_DIR" rev-parse -q --verify "refs/tags/$tag" >/dev/null || {
-    if git -C "$ROOT_DIR" remote get-url origin >/dev/null 2>&1; then
-      git -C "$ROOT_DIR" fetch --force --tags origin "refs/tags/$tag:refs/tags/$tag" >/dev/null 2>&1 || true
+  init_tag_source_repo
+  git -C "$TAG_SOURCE_REPO" rev-parse -q --verify "refs/tags/$tag" >/dev/null || {
+    if git -C "$TAG_SOURCE_REPO" remote get-url origin >/dev/null 2>&1; then
+      git -C "$TAG_SOURCE_REPO" fetch --force origin "refs/tags/$tag:refs/tags/$tag" >/dev/null 2>&1 || true
     fi
   }
-  git -C "$ROOT_DIR" rev-parse -q --verify "refs/tags/$tag" >/dev/null || {
+  git -C "$TAG_SOURCE_REPO" rev-parse -q --verify "refs/tags/$tag" >/dev/null || {
     echo "required release tag missing: $tag" >&2
     exit 1
   }
@@ -27,7 +50,7 @@ require_tag(){
 export_tag_tree(){
   local tag="$1" dest="$2"
   mkdir -p "$dest"
-  git -C "$ROOT_DIR" archive "$tag" | tar -xf - -C "$dest"
+  git -C "$TAG_SOURCE_REPO" archive "$tag" | tar -xf - -C "$dest"
 }
 
 prepare_legacy_install_tree(){
