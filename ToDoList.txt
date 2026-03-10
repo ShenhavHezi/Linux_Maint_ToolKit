@@ -55,6 +55,8 @@ Last updated: 2026-03-10
     - Proof: `tests/menu_tty_flow_smoke_test.sh`, `tests/menu_shortcuts_test.sh`, `tests/menu_main_shortcut_dispatch_test.sh`, `tests/incident_recommendation_test.sh`, `tests/help_menu_structure_test.sh`.
   - P1 release/install/dark-site hardening: installed `verify-release` now dispatches to an installed helper, repo-only packaging/install commands fail clearly outside a checkout, `verify-install` validates installed helper/systemd layout more accurately, uninstall removes the installed CLI/share payloads, and dark-site/upgrade docs now match the real tarball flow.
     - Proof: `tests/installed_verify_release_dispatch_test.sh`, `tests/installed_make_tarball_requires_checkout_test.sh`, `tests/verify_install_installed_layout_test.sh`, `tests/install_manifest_test.sh`, `tests/release_verify_test.sh`, `docs/DARK_SITE.md`, `docs/UPGRADE.md`.
+  - P1 plugin/advanced surface hardening: installed-mode plugin index/version defaults now resolve to packaged share assets, corrupt plugin registries fail fast instead of silently degrading, `serve` rejects invalid delegated JSON, and `federate`/`policy lint`/`predict` now enforce stricter input contracts.
+    - Proof: `tests/plugin_installed_default_index_test.sh`, `tests/plugin_verify_installed_version_test.sh`, `tests/plugin_registry_invalid_test.sh`, `tests/serve_invalid_json_upstream_test.sh`, `tests/federate_contract_validation_test.sh`, `tests/policy_lint_require_overall_test.sh`, `tests/predict_invalid_history_shape_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 

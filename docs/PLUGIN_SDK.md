@@ -38,7 +38,10 @@ A plugin directory should include `plugin.json`:
 ## Notes
 - In repo mode, plugin root defaults to `./plugins`.
 - In installed mode, plugin root defaults to `/var/lib/linux_maint/plugins`.
+- In repo mode, the default marketplace index path is `./plugins/index.json`.
+- In installed mode, the default marketplace index path is `/usr/local/share/linux_maint/plugins/index.json` when packaged.
 - Override plugin root with `LM_PLUGIN_DIR`.
+- `plugin list` and `plugin remove` fail fast on a corrupt plugin registry instead of silently treating it as empty.
 - Forced plugin installs/updates are staged into a temporary directory and only swapped into place after the copy succeeds, so a failed replacement should preserve the previously installed plugin.
 - `plugin search --strict` and `plugin lint-index --strict` fail on invalid marketplace metadata.
 - Marketplace index attestation is supported via top-level `attestation`:
@@ -56,6 +59,7 @@ A plugin directory should include `plugin.json`:
     - `cosign.trusted_key_sha256` / `cosign.revoked_key_sha256`
   - template: `etc/linux_maint/plugin_trust_policy.json.example`
 - `plugin verify` performs SHA-256 verification when `signature.type=sha256` (default target: `plugin.json`, configurable with `signature.target`).
+- Installed-mode compatibility checks read `/usr/local/share/linux_maint/VERSION` when present.
 - `plugin verify` also supports:
   - `signature.type=gpg` with optional `signature.file` (default: `<target>.asc`).
   - `signature.type=cosign` with `signature.file` (default: `<target>.sig`) and `signature.key`.

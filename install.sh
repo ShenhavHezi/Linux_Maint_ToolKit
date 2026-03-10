@@ -120,6 +120,7 @@ install_files(){
     ./tools/gen_build_info.sh >/dev/null 2>&1 || true
   fi
   mkdir -p "$prefix/share/linux_maint"
+  mkdir -p "$prefix/share/linux_maint/plugins"
   # Operator docs (useful for dark-site installs).
   # Keep under share so installed-mode commands (e.g. `linux-maint explain`) can find them.
   mkdir -p "$prefix/share/Linux_Maint_ToolKit/docs"
@@ -129,6 +130,12 @@ install_files(){
   # config templates for linux-maint init (installed-mode)
   mkdir -p "$prefix/share/linux_maint/templates"
   cp -a etc/linux_maint "$prefix/share/linux_maint/templates/"
+  if [ -f "VERSION" ]; then
+    install -m 0644 VERSION "$prefix/share/linux_maint/VERSION"
+  fi
+  if [ -f "plugins/index.json" ]; then
+    install -m 0644 plugins/index.json "$prefix/share/linux_maint/plugins/index.json"
+  fi
   if [ -f "BUILD_INFO" ]; then
     install -m 0644 BUILD_INFO "$prefix/share/linux_maint/BUILD_INFO"
   fi

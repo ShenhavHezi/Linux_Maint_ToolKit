@@ -432,6 +432,8 @@ Libraries and monitors:
 - `/usr/local/libexec/linux_maint/pack_logs.sh`
 - `/usr/local/libexec/linux_maint/seed_known_hosts.sh`
 - `/usr/local/libexec/linux_maint/verify_release.sh`
+- `/usr/local/share/linux_maint/VERSION`
+- `/usr/local/share/linux_maint/plugins/index.json`
 
 Config and templates:
 - `/etc/linux_maint/linux-maint.conf`
@@ -943,7 +945,9 @@ Schema:
 
 - `linux-maint plugin <subcommand>`:
   - `list [--json]`: show installed plugins from local registry.
+    - fails with exit code `2` if the plugin registry is corrupt instead of silently treating it as empty.
   - `search [--index FILE] [--json] [--strict]`: list candidate plugins from a local index file and optionally enforce index schema validity.
+    - default index path resolves to `plugins/index.json` in repo mode and `/usr/local/share/linux_maint/plugins/index.json` in installed mode.
   - `lint-index [--index FILE] [--json] [--strict]`: validate plugin marketplace index metadata.
   - `verify-index [--index FILE] [--json] [--strict]`: verify marketplace index attestation metadata/signature (sha256/gpg/cosign).
   - `provenance-report [--index FILE] [--out FILE] [--json] [--strict]`: produce consolidated plugin provenance report (index attestation + policy context + installed plugin verify outcomes).
@@ -951,6 +955,7 @@ Schema:
   - `install <source_dir> [--name NAME] [--force]`: install plugin directory into plugin root and register it.
   - `update <name> [--source DIR] [--index FILE] [--force]`: refresh an installed plugin from explicit source, registry source, or index source.
   - `verify <name> [--json]`: verify plugin directory/manifest/registry entry plus trust/compatibility/signature checks.
+    - installed mode compatibility checks use `/usr/local/share/linux_maint/VERSION` when present.
     - supports SHA-256 verification when plugin manifest includes:
       - `signature.type=sha256`
       - `signature.target=<relative file path>` (optional; default `plugin.json`)
@@ -965,6 +970,7 @@ Schema:
     - `LM_PLUGIN_TRUST_POLICY_FILE=/etc/linux_maint/plugin_trust_policy.json` applies trusted/revoked signer policy in strict flows
     - `LM_PLUGIN_REQUIRE_TRUST_POLICY=1` fails strict flows when trust policy file is missing
   - `remove <name>`: uninstall plugin and remove registry entry.
+    - fails with exit code `2` if the registry is corrupt, and preserves the plugin directory in that case.
 
 - `linux-maint notify --provider ...`:
   - providers: `webhook`, `slack`, `teams`, `email`, `pagerduty`.
@@ -992,6 +998,7 @@ Schema:
   - starts a local HTTP service exposing `GET /health`, `/status`, `/report`, `/metrics`, `/history`.
   - intended for local automation bridges and controlled internal networks.
   - request handlers run concurrently, and delegated subcommands are bounded by `LM_SERVE_CMD_TIMEOUT` seconds (default `15`).
+  - returns HTTP `500` if delegated subcommands emit invalid JSON or the wrong JSON contract.
 
 - `linux-maint agent [--once] [--interval N] [--max-runs N] [--dry-run]`:
   - lightweight loop runner for periodic checks.
@@ -1002,12 +1009,13 @@ Schema:
 - `linux-maint policy <init|lint|eval>`:
   - `init [file]` writes a gate policy template.
   - `lint <file>` validates syntax and supported keys.
+    - `require_overall` must be one of `OK|WARN|CRIT|UNKNOWN|SKIP` or empty.
   - `eval --policy <file>` executes policy checks via `linux-maint gate`.
 
 - `linux-maint federate --input file1,file2[,fileN] [--json]`:
   - merges multiple `status --json` snapshots and outputs a federation summary.
   - useful for multi-cluster or multi-runner reporting.
-  - fails with exit code `2` if any input file is unreadable or invalid JSON.
+  - fails with exit code `2` if any input file is unreadable, invalid JSON, or missing the expected `status --json` contract fields.
 
 - `linux-maint ai-assist [--json]`:
   - local heuristic hints from recent status artifacts (`reason_rollup` + `overall`).
@@ -1020,7 +1028,7 @@ Schema:
   - emits confidence level + recommended action (`observe`, `schedule_investigation`, `open_incident`).
   - `--last` must be a positive integer.
   - when no history index exists yet, returns an empty-history low-risk result instead of failing.
-  - fails with exit code `2` if `history --json` is unsuccessful or invalid.
+  - fails with exit code `2` if `history --json` is unsuccessful, invalid, or contains malformed run/host totals.
   - intended as directional signal, not deterministic failure prediction.
 
 Export allowlist:

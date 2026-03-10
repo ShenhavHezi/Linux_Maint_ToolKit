@@ -6,6 +6,10 @@ script="$ROOT_DIR/install.sh"
 # shellcheck disable=SC2016
 verify_pattern='tools/verify_release.sh "$libexec/verify_release.sh"'
 # shellcheck disable=SC2016
+version_install_pattern='install -m 0644 VERSION "$prefix/share/linux_maint/VERSION"'
+# shellcheck disable=SC2016
+plugin_index_install_pattern='install -m 0644 plugins/index.json "$prefix/share/linux_maint/plugins/index.json"'
+# shellcheck disable=SC2016
 bin_remove_pattern='rm -f "$prefix/bin/linux-maint"'
 # shellcheck disable=SC2016
 conf_remove_pattern='rm -f "$prefix/lib/linux_maint_conf.sh"'
@@ -14,6 +18,16 @@ share_remove_pattern='rm -rf "$prefix/share/linux_maint"'
 
 grep -Fq "$verify_pattern" "$script" || {
   echo "install.sh no longer installs verify_release.sh into libexec" >&2
+  exit 1
+}
+
+grep -Fq "$version_install_pattern" "$script" || {
+  echo "install.sh no longer installs VERSION into share/linux_maint" >&2
+  exit 1
+}
+
+grep -Fq "$plugin_index_install_pattern" "$script" || {
+  echo "install.sh no longer installs the packaged plugin index into share/linux_maint/plugins" >&2
   exit 1
 }
 

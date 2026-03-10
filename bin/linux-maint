@@ -5380,6 +5380,30 @@ plugin_root_dir(){
   fi
 }
 
+plugin_index_default_path(){
+  if [[ -n "${LM_PLUGIN_INDEX:-}" ]]; then
+    printf '%s' "$LM_PLUGIN_INDEX"
+  elif [[ "$MODE" == "repo" ]]; then
+    printf '%s/plugins/index.json' "$REPO_ROOT"
+  elif [[ -f "$SHARE/plugins/index.json" ]]; then
+    printf '%s/plugins/index.json' "$SHARE"
+  else
+    printf '%s/plugins/index.json' "$SHARE"
+  fi
+}
+
+linux_maint_version_file(){
+  if [[ -n "${LM_VERSION_FILE:-}" ]]; then
+    printf '%s' "$LM_VERSION_FILE"
+  elif [[ "$MODE" == "repo" ]]; then
+    printf '%s/VERSION' "$REPO_ROOT"
+  elif [[ -f "$SHARE/VERSION" ]]; then
+    printf '%s/VERSION' "$SHARE"
+  else
+    printf '%s/VERSION' "$REPO_ROOT"
+  fi
+}
+
 plugin_registry_file(){
   local root
   root="$(plugin_root_dir)"
@@ -7849,6 +7873,9 @@ PY
     ;;
 
   plugin)
+    if [[ "$MODE" == "repo" ]]; then
+      export LM_CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+    fi
     sub="${1:-}"
     shift || true
     case "$sub" in
@@ -7868,16 +7895,30 @@ import json, os, sys
 root, reg_file, json_mode = sys.argv[1:4]
 json_mode = json_mode == "1"
 plugins = []
+registry_error = ""
 if os.path.exists(reg_file):
     try:
         with open(reg_file, "r", encoding="utf-8") as f:
             data = json.load(f)
-        plugins = data.get("plugins") or []
-    except Exception:
-        plugins = []
+        if not isinstance(data, dict):
+            registry_error = "registry must be object"
+        else:
+            plugins = data.get("plugins") or []
+            if not isinstance(plugins, list):
+                registry_error = "registry plugins must be list"
+                plugins = []
+    except Exception as e:
+        registry_error = f"invalid registry: {e}"
 if json_mode:
-    print(json.dumps({"plugin_contract_version": 1, "root": root, "plugins": plugins}, indent=2, sort_keys=True))
-    raise SystemExit(0)
+    out = {"plugin_contract_version": 1, "root": root, "plugins": plugins}
+    if registry_error:
+        out["ok"] = False
+        out["error"] = registry_error
+    print(json.dumps(out, indent=2, sort_keys=True))
+    raise SystemExit(0 if not registry_error else 2)
+if registry_error:
+    print(f"ERROR: plugin registry is invalid: {reg_file}: {registry_error}", file=sys.stderr)
+    raise SystemExit(2)
 print("=== linux-maint plugin list ===")
 print(f"root={root}")
 if not plugins:
@@ -7893,7 +7934,7 @@ PY
       search)
         PLUG_JSON=0
         PLUG_STRICT=0
-        idx_file="${LM_PLUGIN_INDEX:-$REPO_ROOT/plugins/index.json}"
+        idx_file="$(plugin_index_default_path)"
         while [[ $# -gt 0 ]]; do
           case "$1" in
             --json) PLUG_JSON=1; shift 1;;
@@ -8199,7 +8240,7 @@ PY
       lint-index)
         PLUG_JSON=0
         PLUG_STRICT=0
-        idx_file="${LM_PLUGIN_INDEX:-$REPO_ROOT/plugins/index.json}"
+        idx_file="$(plugin_index_default_path)"
         while [[ $# -gt 0 ]]; do
           case "$1" in
             --json) PLUG_JSON=1; shift 1;;
@@ -8218,7 +8259,7 @@ PY
       verify-index)
         PLUG_JSON=0
         PLUG_STRICT=0
-        idx_file="${LM_PLUGIN_INDEX:-$REPO_ROOT/plugins/index.json}"
+        idx_file="$(plugin_index_default_path)"
         while [[ $# -gt 0 ]]; do
           case "$1" in
             --json) PLUG_JSON=1; shift 1;;
@@ -8285,7 +8326,7 @@ PY
       provenance-report)
         PLUG_JSON=0
         PLUG_STRICT=0
-        idx_file="${LM_PLUGIN_INDEX:-$REPO_ROOT/plugins/index.json}"
+        idx_file="$(plugin_index_default_path)"
         out_file=""
         while [[ $# -gt 0 ]]; do
           case "$1" in
@@ -8491,7 +8532,7 @@ PY
           echo "ERROR: plugin name must match [a-zA-Z0-9._-]+" >&2
           exit 2
         fi
-        mkdir -p "$out_dir" 2>/dev/null || true
+        mkdir -p "$out_dir"
         target="$out_dir/$name"
         if [[ -e "$target" ]]; then
           echo "ERROR: target already exists: $target" >&2
@@ -8546,7 +8587,7 @@ EOF
         fi
         plug_root="$(plugin_root_dir)"
         reg_file="$(plugin_registry_file)"
-        mkdir -p "$plug_root" 2>/dev/null || true
+        mkdir -p "$plug_root"
         audit_log_append "plugin-install" "start" "source=$src name=${pname:-auto} root=$plug_root force=$force"
         python3 - "$src" "$plug_root" "$reg_file" "$pname" "$force" <<'PY'
 import datetime, json, os, shutil, sys, tempfile
@@ -8639,7 +8680,7 @@ PY
         shift || true
         [[ -n "$name" ]] || { echo "ERROR: plugin update requires <name>" >&2; exit 2; }
         src=""
-        idx_file="${LM_PLUGIN_INDEX:-$REPO_ROOT/plugins/index.json}"
+        idx_file="$(plugin_index_default_path)"
         force=1
         while [[ $# -gt 0 ]]; do
           case "$1" in
@@ -8712,7 +8753,8 @@ PY
         done
         plug_root="$(plugin_root_dir)"
         reg_file="$(plugin_registry_file)"
-        python3 - "$name" "$plug_root" "$reg_file" "$PLUG_JSON" "$REPO_ROOT/VERSION" <<'PY'
+        version_file="$(linux_maint_version_file)"
+        python3 - "$name" "$plug_root" "$reg_file" "$PLUG_JSON" "$version_file" <<'PY'
 import hashlib, json, os, shutil, subprocess, sys
 name, root, reg_file, json_mode, version_file = sys.argv[1:6]
 json_mode = json_mode == "1"
@@ -8756,13 +8798,16 @@ if os.path.exists(reg_file):
     try:
         with open(reg_file, "r", encoding="utf-8") as f:
             reg = json.load(f)
+        if not isinstance(reg, dict):
+            issues.append("registry: must be object")
+            reg = {"plugins": []}
         for p in (reg.get("plugins") or []):
             if str(p.get("name","")) == name:
                 registry_has = True
                 registry_entry = p if isinstance(p, dict) else {}
                 break
-    except Exception:
-        pass
+    except Exception as e:
+        issues.append(f"registry: invalid_json ({e})")
 # Optional compatibility check.
 cli_version = ""
 if os.path.exists(version_file):
@@ -8990,25 +9035,53 @@ PY
         reg_file="$(plugin_registry_file)"
         audit_log_append "plugin-remove" "start" "name=$name root=$plug_root"
         python3 - "$name" "$plug_root" "$reg_file" <<'PY'
-import json, os, shutil, sys
+import json, os, shutil, sys, tempfile
 name, root, reg_file = sys.argv[1:4]
 dest = os.path.join(root, name)
-if os.path.isdir(dest):
-    shutil.rmtree(dest, ignore_errors=True)
 registry = {"plugins": []}
 if os.path.exists(reg_file):
     try:
         with open(reg_file, "r", encoding="utf-8") as f:
             registry = json.load(f)
-        if not isinstance(registry, dict):
-            registry = {"plugins": []}
-    except Exception:
-        registry = {"plugins": []}
-plugins = [p for p in (registry.get("plugins") or []) if str(p.get("name","")) != name]
+    except Exception as e:
+        print(f"ERROR: invalid plugin registry: {reg_file}: {e}", file=sys.stderr)
+        raise SystemExit(2)
+    if not isinstance(registry, dict):
+        print(f"ERROR: invalid plugin registry shape: {reg_file}", file=sys.stderr)
+        raise SystemExit(2)
+plugins = registry.get("plugins") or []
+if not isinstance(plugins, list):
+    print(f"ERROR: invalid plugin registry plugins list: {reg_file}", file=sys.stderr)
+    raise SystemExit(2)
+plugins = [p for p in plugins if str(p.get("name","")) != name]
 registry["plugins"] = plugins
-os.makedirs(root, exist_ok=True)
-with open(reg_file, "w", encoding="utf-8") as f:
-    json.dump(registry, f, indent=2, sort_keys=True)
+os.makedirs(os.path.dirname(reg_file) or ".", exist_ok=True)
+
+backup_dir = ""
+registry_tmp = ""
+removed = False
+try:
+    if os.path.isdir(dest):
+        backup_dir = tempfile.mkdtemp(prefix=".plugin_remove_", dir=root)
+        os.rmdir(backup_dir)
+        os.replace(dest, backup_dir)
+        removed = True
+    fd, registry_tmp = tempfile.mkstemp(prefix=".plugin_registry.", dir=os.path.dirname(reg_file) or ".")
+    os.close(fd)
+    with open(registry_tmp, "w", encoding="utf-8") as f:
+        json.dump(registry, f, indent=2, sort_keys=True)
+        f.write("\n")
+    os.replace(registry_tmp, reg_file)
+    registry_tmp = ""
+except Exception:
+    if registry_tmp and os.path.exists(registry_tmp):
+        os.unlink(registry_tmp)
+    if backup_dir and os.path.exists(backup_dir):
+        os.replace(backup_dir, dest)
+    raise
+finally:
+    if removed and backup_dir and os.path.exists(backup_dir):
+        shutil.rmtree(backup_dir)
 print(f"removed plugin {name}")
 PY
         audit_log_append "plugin-remove" "success" "name=$name root=$plug_root"
@@ -9490,7 +9563,25 @@ host, port = sys.argv[1], int(sys.argv[2])
 cli = os.environ.get("S_CLI", "linux-maint")
 cmd_timeout = int(os.environ.get("S_CMD_TIMEOUT", "15"))
 
+def validate_payload(endpoint, payload):
+    if not isinstance(payload, dict):
+        return "response must be JSON object"
+    if endpoint == "status":
+        if "last_status" not in payload or "totals" not in payload:
+            return "status payload missing contract fields"
+    elif endpoint == "report":
+        if "status" not in payload or "trend" not in payload or "runtimes" not in payload:
+            return "report payload missing contract fields"
+    elif endpoint == "metrics":
+        if "status" not in payload or "severity_totals" not in payload:
+            return "metrics payload missing contract fields"
+    elif endpoint == "history":
+        if "runs" not in payload:
+            return "history payload missing contract fields"
+    return ""
+
 def run_json(args):
+    endpoint = args[0] if args else "unknown"
     try:
         proc = subprocess.run(
             [cli] + args,
@@ -9514,7 +9605,21 @@ def run_json(args):
             "command": " ".join(args),
             "rc": proc.returncode,
         })
-    return 200, proc.stdout
+    try:
+        payload = json.loads(proc.stdout)
+    except Exception:
+        return 500, json.dumps({
+            "error": "invalid_json",
+            "command": " ".join(args),
+        })
+    validation_error = validate_payload(endpoint, payload)
+    if validation_error:
+        return 500, json.dumps({
+            "error": "invalid_contract",
+            "command": " ".join(args),
+            "detail": validation_error,
+        })
+    return 200, json.dumps(payload, indent=2, sort_keys=True)
 
 class H(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype="application/json"):
@@ -9631,6 +9736,7 @@ EOF
 import sys
 p=sys.argv[1]
 allowed={"max_crit","max_warn","max_unknown","max_skip","require_overall"}
+allowed_overall={"","OK","WARN","CRIT","UNKNOWN","SKIP"}
 bad=[]
 for ln,raw in enumerate(open(p,encoding="utf-8",errors="ignore"),start=1):
     line=raw.strip()
@@ -9645,6 +9751,8 @@ for ln,raw in enumerate(open(p,encoding="utf-8",errors="ignore"),start=1):
         continue
     if k!="require_overall" and not v.isdigit():
         bad.append((ln,f"{k} must be integer"))
+    if k=="require_overall" and v not in allowed_overall:
+        bad.append((ln, f"require_overall must be one of {','.join(sorted(x for x in allowed_overall if x))} or empty"))
 if bad:
     for ln,msg in bad:
         print(f"{p}:{ln}: {msg}")
@@ -9696,17 +9804,32 @@ for p in paths:
     except Exception as e:
         errors.append(f"{p}: {e}")
         continue
+    if not isinstance(o, dict):
+        errors.append(f"{p}: top-level JSON must be object")
+        continue
+    last_status = o.get("last_status")
+    totals = o.get("totals")
+    if not isinstance(last_status, dict) or not isinstance(totals, dict):
+        errors.append(f"{p}: missing status/totals contract fields")
+        continue
+    overall = str(last_status.get("overall", "UNKNOWN") or "UNKNOWN")
     t=o.get("totals") or {}
     for k in tot:
-        try: tot[k]+=int(t.get(k,0))
-        except Exception: pass
-    cluster_totals={}
-    for k in tot:
         try:
-            cluster_totals[k]=int(t.get(k,0) or 0)
+            tot[k]+=int(t.get(k,0))
         except Exception:
-            cluster_totals[k]=0
-    clusters.append({"file":p,"overall":(o.get("last_status") or {}).get("overall","UNKNOWN"),"totals":cluster_totals})
+            errors.append(f"{p}: totals.{k} must be integer")
+            break
+    else:
+        cluster_totals={}
+        for k in tot:
+            try:
+                cluster_totals[k]=int(t.get(k,0) or 0)
+            except Exception:
+                cluster_totals[k]=0
+        clusters.append({"file":p,"overall":overall,"totals":cluster_totals})
+        continue
+    cluster_totals={}
 if errors:
     for err in errors:
         print(f"ERROR: invalid federate input: {err}", file=sys.stderr)
@@ -9840,6 +9963,25 @@ if not isinstance(obj, dict) or "runs" not in obj:
     print("ERROR: predict requires history --json contract fields", file=sys.stderr)
     raise SystemExit(2)
 runs=obj.get("runs") or []
+if not isinstance(runs, list):
+    print("ERROR: predict requires runs list from history --json", file=sys.stderr)
+    raise SystemExit(2)
+for idx, run in enumerate(runs):
+    if not isinstance(run, dict):
+        print(f"ERROR: predict requires run objects from history --json (runs[{idx}])", file=sys.stderr)
+        raise SystemExit(2)
+    hosts = run.get("hosts")
+    if hosts is None:
+        hosts = {}
+    if not isinstance(hosts, dict):
+        print(f"ERROR: predict requires hosts objects from history --json (runs[{idx}].hosts)", file=sys.stderr)
+        raise SystemExit(2)
+    for key in ("crit", "warn", "unknown"):
+        try:
+            int(hosts.get(key, 0) or 0)
+        except Exception:
+            print(f"ERROR: predict requires integer host totals from history --json (runs[{idx}].hosts.{key})", file=sys.stderr)
+            raise SystemExit(2)
 crit=sum(int(((r.get("hosts") or {}).get("crit",0) or 0)) for r in runs if isinstance(r,dict))
 warn=sum(int(((r.get("hosts") or {}).get("warn",0) or 0)) for r in runs if isinstance(r,dict))
 unk=sum(int(((r.get("hosts") or {}).get("unknown",0) or 0)) for r in runs if isinstance(r,dict))
