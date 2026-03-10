@@ -292,6 +292,8 @@ linux-maint self-check
 # Self-check in JSON
 linux-maint self-check --json
 # Verify offline tarball checksum
+sha256sum -c SHA256SUMS
+# If linux-maint is already installed on the verification host:
 linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
 # Release metadata/governance audit
 ./tools/release_audit.sh

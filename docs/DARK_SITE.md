@@ -36,8 +36,11 @@ On the offline side verify from the directory containing the files:
 
 ```bash
 sha256sum -c SHA256SUMS
+```
 
-# or use bundled helper
+If you already have a trusted local `linux-maint` install or checkout on the verification host, you can also run:
+
+```bash
 linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
 ```
 
@@ -54,7 +57,7 @@ sudo ./install.sh --with-logrotate
 # sudo ./install.sh --with-user --with-timer --with-logrotate
 
 # verify:
-linux-maint verify-install || true
+sudo linux-maint verify-install || true
 linux-maint version || true
 sudo linux-maint status || true
 ```
@@ -110,7 +113,7 @@ Use this when you are onboarding a new offline host and want a predictable first
 1) **Verify install + paths**
 
 ```bash
-linux-maint verify-install || true
+sudo linux-maint verify-install || true
 linux-maint version || true
 ```
 
@@ -196,8 +199,11 @@ When transferring tarballs/packages into an air-gapped environment, verify integ
 sha256sum Linux_Maint_ToolKit-*.tgz > SHA256SUMS
 # transfer both files
 sha256sum -c SHA256SUMS
+```
 
-# or use bundled helper
+If you already have a trusted local `linux-maint` install or checkout on the verification host, you can also run:
+
+```bash
 linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
 ```
 
@@ -210,4 +216,4 @@ At minimum transfer:
 - any required OS packages / dependencies (via your internal mirrors)
 - your environment-specific config files under `/etc/linux_maint/`
 
-Tip: `linux-maint make-tarball` can help create a self-contained bundle for offline use.
+Tip: from a repo checkout or extracted release tree, `linux-maint make-tarball` can help create a self-contained bundle for offline use.

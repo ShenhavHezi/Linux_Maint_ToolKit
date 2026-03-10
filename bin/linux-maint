@@ -4854,6 +4854,21 @@ REPO_LATEST_LOG="$REPO_LOG_DIR/full_health_monitor_latest.log"
 REPO_SUMMARY_LATEST="$REPO_LOG_DIR/full_health_monitor_summary_latest.log"
 INST_SUMMARY_LATEST="/var/log/health/full_health_monitor_summary_latest.log"
 
+repo_tool_path(){
+  printf '%s' "$REPO_ROOT/tools/$1"
+}
+
+installed_helper_path(){
+  printf '%s' "$LIBEXEC/$1"
+}
+
+require_repo_tree_command(){
+  local subcmd_label="$1"
+  echo "ERROR: linux-maint $subcmd_label requires a repo checkout or extracted release tree." >&2
+  echo "Run it from the project directory where install.sh/tools are present." >&2
+  exit 1
+}
+
 
 need_root_for(){
   local req_cmd="$1"
@@ -5533,10 +5548,10 @@ ${C_CYAN}Setup / maintenance${C_RESET}:
 
 ${C_CYAN}Release / packaging${C_RESET}:
   version                Print installed BUILD_INFO (if present)
-  make-tarball           Build offline release tarball (tools/make_tarball.sh)
-  verify-release         Verify release tarball integrity (tools/verify_release.sh)
-  install [args]         Run ./install.sh (pass-through)
-  uninstall [args]       Run ./install.sh --uninstall (pass-through)
+  make-tarball           Build offline release tarball (repo / release tree only)
+  verify-release         Verify release tarball integrity
+  install [args]         Run install.sh from a checkout or extracted release tree
+  uninstall [args]       Run install.sh --uninstall from a checkout or extracted release tree
 
 ${C_CYAN}Help / reference${C_RESET}:
   help [command]          Show help for a command (shortcut for usage)
@@ -12219,19 +12234,38 @@ PY
     ;;
 
   install)
-    exec sudo ./install.sh "$@"
+    if [[ "$MODE" != "repo" ]]; then
+      require_repo_tree_command install
+    fi
+    exec sudo "$REPO_ROOT/install.sh" "$@"
     ;;
 
   uninstall)
-    exec sudo ./install.sh --uninstall "$@"
+    if [[ "$MODE" != "repo" ]]; then
+      require_repo_tree_command uninstall
+    fi
+    exec sudo "$REPO_ROOT/install.sh" --uninstall "$@"
     ;;
 
   make-tarball)
-    exec ./tools/make_tarball.sh "$@"
+    if [[ "$MODE" != "repo" ]]; then
+      require_repo_tree_command make-tarball
+    fi
+    exec "$(repo_tool_path make_tarball.sh)" "$@"
     ;;
 
   verify-release)
-    exec ./tools/verify_release.sh "$@"
+    verify_tool=""
+    if [[ "$MODE" == "repo" ]]; then
+      verify_tool="$(repo_tool_path verify_release.sh)"
+    else
+      verify_tool="$(installed_helper_path verify_release.sh)"
+    fi
+    if [[ ! -x "$verify_tool" ]]; then
+      echo "ERROR: verify-release helper not found: $verify_tool" >&2
+      exit 1
+    fi
+    exec "$verify_tool" "$@"
     ;;
 
   init)
@@ -12897,14 +12931,24 @@ EOF_DEPS
     }
 
     # Core files
+    if [[ "$MODE" == "installed" ]]; then
+      check_exec "binary" "$PREFIX/bin/linux-maint"
+    fi
     check_exec "wrapper" "$wrapper"
     check_file "library" "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
+    if [[ "$MODE" == "installed" ]]; then
+      check_file "library config helper" "$PREFIX/lib/linux_maint_conf.sh"
+    fi
 
     if [[ "$MODE" == "repo" ]]; then
       check_file "monitors dir" "$REPO_MONITORS"
       check_file "tools dir" "$REPO_ROOT/tools"
     else
       check_file "libexec" "$LIBEXEC"
+      check_exec "summary diff helper" "$LIBEXEC/summary_diff.py"
+      check_exec "pack-logs helper" "$LIBEXEC/pack_logs.sh"
+      check_exec "seed-known-hosts helper" "$LIBEXEC/seed_known_hosts.sh"
+      check_exec "verify-release helper" "$LIBEXEC/verify_release.sh"
     fi
 
     echo "== Config =="
@@ -12939,11 +12983,22 @@ EOF_DEPS
     echo "== systemd (best-effort) =="
     if command -v systemctl >/dev/null 2>&1; then
       # If unit files exist, report basic state; do not fail if systemd is not running.
-      svc="/usr/lib/systemd/system/linux-maint.service"
-      tmr="/usr/lib/systemd/system/linux-maint.timer"
-      if [[ -f "$svc" || -f "$tmr" ]]; then
-        [[ -f "$svc" ]] && echo "OK: unit file: $svc" || echo "WARN: missing unit file: $svc" >&2
-        [[ -f "$tmr" ]] && echo "OK: unit file: $tmr" || echo "WARN: missing unit file: $tmr" >&2
+      unit_dirs="${LM_SYSTEMD_UNIT_DIRS:-/etc/systemd/system:/usr/lib/systemd/system:/lib/systemd/system}"
+      svc=""
+      tmr=""
+      while IFS=':' read -r -a unit_dir_list; do
+        for unit_dir in "${unit_dir_list[@]}"; do
+          if [[ -z "$svc" && -f "$unit_dir/linux-maint.service" ]]; then
+            svc="$unit_dir/linux-maint.service"
+          fi
+          if [[ -z "$tmr" && -f "$unit_dir/linux-maint.timer" ]]; then
+            tmr="$unit_dir/linux-maint.timer"
+          fi
+        done
+      done <<< "$unit_dirs"
+      if [[ -n "$svc" || -n "$tmr" ]]; then
+        [[ -n "$svc" ]] && echo "OK: unit file: $svc" || echo "WARN: missing unit file: linux-maint.service" >&2
+        [[ -n "$tmr" ]] && echo "OK: unit file: $tmr" || echo "WARN: missing unit file: linux-maint.timer" >&2
         systemctl is-enabled linux-maint.timer >/dev/null 2>&1 && echo "OK: timer enabled" || echo "INFO: timer not enabled (or systemd unavailable)"
         systemctl is-active linux-maint.timer >/dev/null 2>&1 && echo "OK: timer active" || echo "INFO: timer not active (or systemd unavailable)"
       else

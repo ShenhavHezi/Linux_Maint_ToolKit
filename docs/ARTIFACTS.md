@@ -64,6 +64,7 @@ Release tarballs are accompanied by `SHA256SUMS`:
 ```bash
 cd dist
 sha256sum -c SHA256SUMS
+# optional if linux-maint is already installed on the verification host
 linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
 ```
 

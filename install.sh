@@ -94,6 +94,7 @@ install_files(){
   install -D -m 0755 tools/summary_diff.py "$libexec/summary_diff.py"
   install -D -m 0755 tools/pack_logs.sh "$libexec/pack_logs.sh"
   install -D -m 0755 tools/seed_known_hosts.sh "$libexec/seed_known_hosts.sh"
+  install -D -m 0755 tools/verify_release.sh "$libexec/verify_release.sh"
 
   # Install all monitor scripts (keeps packaging in sync with repo changes).
   install -D -m 0755 monitors/*.sh "$libexec/"
@@ -217,10 +218,13 @@ EOF
 uninstall_files(){
   local prefix="$1"
   echo "Uninstalling from prefix: $prefix"
+  rm -f "$prefix/bin/linux-maint"
   rm -f "$prefix/sbin/run_full_health_monitor.sh"
   rm -f "$prefix/lib/linux_maint.sh"
+  rm -f "$prefix/lib/linux_maint_conf.sh"
   rm -rf "$prefix/libexec/linux_maint"
-  rm -rf "$prefix/share/Linux_Maint_ToolKit/docs" 2>/dev/null || true
+  rm -rf "$prefix/share/linux_maint" 2>/dev/null || true
+  rm -rf "$prefix/share/Linux_Maint_ToolKit" 2>/dev/null || true
   echo "Uninstall complete. (Kept /etc/linux_maint and /var/log by default.)"
   if $PURGE; then
     echo "Purging systemd units and logrotate (and optional dirs)"

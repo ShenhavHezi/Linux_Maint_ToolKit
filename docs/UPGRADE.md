@@ -30,8 +30,8 @@ Notes:
 If you are using a release tarball:
 
 ```bash
-tar -xzf linux-maint-<version>.tar.gz
-cd linux-maint-<version>
+tar -xzf Linux_Maint_ToolKit-v<version>-<sha>.tgz
+cd <extracted-release-tree>
 sudo ./install.sh --with-user --with-timer --with-logrotate
 ```
 
@@ -49,8 +49,8 @@ sudo ./install.sh --with-user --with-timer --with-logrotate
 From a tarball:
 
 ```bash
-tar -xzf linux-maint-<previous>.tar.gz
-cd linux-maint-<previous>
+tar -xzf Linux_Maint_ToolKit-v<previous>-<sha>.tgz
+cd <extracted-release-tree>
 sudo ./install.sh --with-user --with-timer --with-logrotate
 ```
 

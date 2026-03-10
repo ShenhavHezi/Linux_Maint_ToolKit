@@ -431,6 +431,7 @@ Libraries and monitors:
 - `/usr/local/libexec/linux_maint/summary_diff.py`
 - `/usr/local/libexec/linux_maint/pack_logs.sh`
 - `/usr/local/libexec/linux_maint/seed_known_hosts.sh`
+- `/usr/local/libexec/linux_maint/verify_release.sh`
 
 Config and templates:
 - `/etc/linux_maint/linux-maint.conf`
@@ -1492,6 +1493,12 @@ Build a tarball on a connected workstation:
 ```bash
 ./tools/make_tarball.sh
 # output: dist/Linux_Maint_ToolKit-<version>-<sha>.tgz
+```
+
+Verify the checksum before extraction:
+
+```bash
+sha256sum -c dist/SHA256SUMS
 ```
 
 Copy the tarball to the offline server, extract, then install:

@@ -1,5 +1,5 @@
 # Linux_Maint_ToolKit - Session Tracker Roadmap
-Last updated: 2026-03-09
+Last updated: 2026-03-10
 
 ## How to use this file each session
 - `DONE`: implemented and validated with tests/docs.
@@ -53,6 +53,8 @@ Last updated: 2026-03-09
     - Proof: `tests/help_menu_structure_test.sh`, `tests/operator_docs_mode_aware_test.sh`, `tests/menu_tty_flow_smoke_test.sh`.
   - P1 TUI upgrade: `linux-maint menu` now opens with a landing overview, keeps repo/install context visible, uses task-based main sections (`Overview/Run/Investigate/Repair/Export/Docs`), and incident mode can execute a recommended triage flow from the top reason class.
     - Proof: `tests/menu_tty_flow_smoke_test.sh`, `tests/menu_shortcuts_test.sh`, `tests/menu_main_shortcut_dispatch_test.sh`, `tests/incident_recommendation_test.sh`, `tests/help_menu_structure_test.sh`.
+  - P1 release/install/dark-site hardening: installed `verify-release` now dispatches to an installed helper, repo-only packaging/install commands fail clearly outside a checkout, `verify-install` validates installed helper/systemd layout more accurately, uninstall removes the installed CLI/share payloads, and dark-site/upgrade docs now match the real tarball flow.
+    - Proof: `tests/installed_verify_release_dispatch_test.sh`, `tests/installed_make_tarball_requires_checkout_test.sh`, `tests/verify_install_installed_layout_test.sh`, `tests/install_manifest_test.sh`, `tests/release_verify_test.sh`, `docs/DARK_SITE.md`, `docs/UPGRADE.md`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 

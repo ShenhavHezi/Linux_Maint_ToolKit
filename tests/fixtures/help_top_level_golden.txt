@@ -58,10 +58,10 @@ Setup / maintenance:
 
 Release / packaging:
   version                Print installed BUILD_INFO (if present)
-  make-tarball           Build offline release tarball (tools/make_tarball.sh)
-  verify-release         Verify release tarball integrity (tools/verify_release.sh)
-  install [args]         Run ./install.sh (pass-through)
-  uninstall [args]       Run ./install.sh --uninstall (pass-through)
+  make-tarball           Build offline release tarball (repo / release tree only)
+  verify-release         Verify release tarball integrity
+  install [args]         Run install.sh from a checkout or extracted release tree
+  uninstall [args]       Run install.sh --uninstall from a checkout or extracted release tree
 
 Help / reference:
   help [command]          Show help for a command (shortcut for usage)

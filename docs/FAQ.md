@@ -56,7 +56,13 @@ LM_REDACT_JSON_STRICT=1 linux-maint report --json
 ```
 
 ## How do I verify a release tarball?
-Use the built-in verify helper:
+Always validate the checksum file:
+
+```bash
+sha256sum -c SHA256SUMS
+```
+
+If `linux-maint` is already installed on the verification host, you can also use the built-in helper:
 
 ```bash
 linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
