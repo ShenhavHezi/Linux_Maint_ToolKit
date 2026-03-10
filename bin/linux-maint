@@ -3,6 +3,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+
 # Prefer a writable temp dir when creating tmp files.
 TMPDIR="${TMPDIR:-/tmp}"
 TUI_MENU_RC=0
@@ -70,6 +73,29 @@ tip_line() {
   fi
 }
 
+resolve_support_lib(){
+  local name="$1" self_prefix candidate
+  self_prefix="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+  local -a candidates=(
+    "$SCRIPT_DIR/lib/$name"
+    "$REPO_ROOT/lib/$name"
+    "$self_prefix/lib/$name"
+  )
+  if [[ -n "${PREFIX:-}" ]]; then
+    candidates+=("$PREFIX/lib/$name")
+  fi
+  candidates+=(
+    "/usr/lib/$name"
+    "/usr/local/lib/$name"
+  )
+  for candidate in "${candidates[@]}"; do
+    [[ -f "$candidate" ]] || continue
+    printf '%s\n' "$candidate"
+    return 0
+  done
+  return 1
+}
+
 atomic_output_begin() {
   local path="$1"
   [[ -n "$path" ]] || return 1
@@ -96,6 +122,7 @@ atomic_output_end() {
 }
 
 get_default_monitors(){
+  # shellcheck disable=SC2154  # Populated by lm_init_runtime_context.
   local file="$wrapper"
   [[ -f "$file" ]] || return 1
   awk '
@@ -134,6 +161,7 @@ filter_monitors_only_skip(){
     list="$(get_default_monitors 2>/dev/null || true)"
     if [[ -z "$list" ]]; then
       local scripts_dir=""
+      # shellcheck disable=SC2153  # MODE is initialized by lm_init_runtime_context.
       if [[ "$MODE" == "repo" && -d "$REPO_MONITORS" ]]; then
         scripts_dir="$REPO_MONITORS"
       elif [[ -d "$LIBEXEC" ]]; then
@@ -5001,98 +5029,22 @@ resolve_run_hosts(){
   printf '%s\n' "${_hosts[@]}"
 }
 
-# If running from a git checkout, prefer repo paths automatically.
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-
-REPO_MONITORS="$REPO_ROOT/monitors"
-REPO_LIB="$REPO_ROOT/lib/linux_maint.sh"
-REPO_WRAPPER="$REPO_ROOT/run_full_health_monitor.sh"
-
-if [[ -n "${PREFIX:-}" ]]; then
-  :
-elif [[ -d "$REPO_MONITORS" && -f "$REPO_LIB" ]]; then
-  PREFIX="/usr/local"
-elif [[ "$SCRIPT_DIR" == */bin ]]; then
-  PREFIX="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-else
-  PREFIX="/usr/local"
-fi
-SBIN="$PREFIX/sbin"
-LIBEXEC="$PREFIX/libexec/linux_maint"
-SHARE="$PREFIX/share/linux_maint"
-
-# installed defaults
-wrapper="$SBIN/run_full_health_monitor.sh"
-preflight="$LIBEXEC/preflight_check.sh"
-validate="$LIBEXEC/config_validate.sh"
-
-if [[ -d "$REPO_MONITORS" && -f "$REPO_LIB" ]]; then
-  # repo mode
-  export LINUX_MAINT_LIB="${LINUX_MAINT_LIB:-$REPO_LIB}"
-  export LM_LOCKDIR="${LM_LOCKDIR:-/tmp}"
-  export LM_LOGFILE="${LM_LOGFILE:-/tmp/linux_maint.log}"
-  wrapper="$REPO_WRAPPER"
-  preflight="$REPO_MONITORS/preflight_check.sh"
-  validate="$REPO_MONITORS/config_validate.sh"
-fi
-
-MODE="installed"
-[[ "$wrapper" == "$REPO_WRAPPER" ]] && MODE="repo"
-REPO_LOG_DIR="${LOG_DIR:-$REPO_ROOT/.logs}"
-REPO_STATUS_FILE="$REPO_LOG_DIR/last_status_full"
-REPO_LATEST_LOG="$REPO_LOG_DIR/full_health_monitor_latest.log"
-REPO_SUMMARY_LATEST="$REPO_LOG_DIR/full_health_monitor_summary_latest.log"
-INST_SUMMARY_LATEST="/var/log/health/full_health_monitor_summary_latest.log"
-
-repo_tool_path(){
-  printf '%s' "$REPO_ROOT/tools/$1"
-}
-
-installed_helper_path(){
-  printf '%s' "$LIBEXEC/$1"
-}
-
-require_repo_tree_command(){
-  local subcmd_label="$1"
-  echo "ERROR: linux-maint $subcmd_label requires a repo checkout or extracted release tree." >&2
-  echo "Run it from the project directory where install.sh/tools are present." >&2
+RUNTIME_LIB="$(resolve_support_lib "linux_maint_runtime.sh" || true)"
+if [[ -z "$RUNTIME_LIB" ]]; then
+  echo "ERROR: missing runtime library; expected linux_maint_runtime.sh near the repo or installed prefix" >&2
   exit 1
-}
+fi
+# shellcheck disable=SC1090
+. "$RUNTIME_LIB"
+lm_init_runtime_context
 
-
-need_root_for(){
-  local req_cmd="$1"
-  if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-    if color_enabled; then
-      echo "${C_RED}ERROR:${C_RESET} linux-maint $req_cmd requires root (installed mode)." >&2
-    else
-      echo "ERROR: linux-maint $req_cmd requires root (installed mode)." >&2
-    fi
-    case "$req_cmd" in
-      run)
-        hint_line "sudo linux-maint run" >&2
-        echo "      (or run the wrapper directly: sudo /usr/local/sbin/run_full_health_monitor.sh)" >&2
-        ;;
-      status)
-        hint_line "sudo linux-maint status" >&2
-        ;;
-      logs)
-        hint_line "sudo linux-maint logs 200" >&2
-        ;;
-      preflight)
-        hint_line "sudo linux-maint preflight" >&2
-        ;;
-      validate)
-        hint_line "sudo linux-maint validate" >&2
-        ;;
-      *)
-        hint_line "sudo linux-maint $req_cmd" >&2
-        ;;
-    esac
-    exit 1
-  fi
-}
+ADMIN_LIB="$(resolve_support_lib "linux_maint_admin.sh" || true)"
+if [[ -z "$ADMIN_LIB" ]]; then
+  echo "ERROR: missing admin library; expected linux_maint_admin.sh near the repo or installed prefix" >&2
+  exit 1
+fi
+# shellcheck disable=SC1090
+. "$ADMIN_LIB"
 
 
 validate_ssh_opts(){
@@ -5705,20 +5657,7 @@ HELP_LIB=""
 HELP_LIB_LOADED=0
 
 resolve_help_lib(){
-  local self_prefix candidate
-  self_prefix="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-  for candidate in \
-    "$REPO_ROOT/lib/linux_maint_help.sh" \
-    "$self_prefix/lib/linux_maint_help.sh" \
-    "$PREFIX/lib/linux_maint_help.sh" \
-    "/usr/lib/linux_maint_help.sh" \
-    "/usr/local/lib/linux_maint_help.sh"
-  do
-    [[ -f "$candidate" ]] || continue
-    printf '%s\n' "$candidate"
-    return 0
-  done
-  return 1
+  resolve_support_lib "linux_maint_help.sh"
 }
 
 load_help_lib(){
@@ -7469,18 +7408,14 @@ PY
     ;;
 
   version)
-    if [[ -f "$SHARE/BUILD_INFO" ]]; then
-      cat "$SHARE/BUILD_INFO"
-    else
-      echo "BUILD_INFO not found at $SHARE/BUILD_INFO"
-      exit 1
-    fi
+    linux_maint_cmd_version
     ;;
 
   preflight)
     if [[ "$MODE" == "installed" ]]; then
       need_root_for preflight
     fi
+    # shellcheck disable=SC2154  # Populated by lm_init_runtime_context.
     exec bash "$preflight"
     ;;
 
@@ -7488,6 +7423,7 @@ PY
     if [[ "$MODE" == "installed" ]]; then
       need_root_for validate
     fi
+    # shellcheck disable=SC2154  # Populated by lm_init_runtime_context.
     exec bash "$validate"
     ;;
 
@@ -12209,59 +12145,23 @@ PY
     ;;
 
   install)
-    if [[ "$MODE" != "repo" ]]; then
-      require_repo_tree_command install
-    fi
-    exec sudo "$REPO_ROOT/install.sh" "$@"
+    linux_maint_cmd_install_passthrough install "$@"
     ;;
 
   uninstall)
-    if [[ "$MODE" != "repo" ]]; then
-      require_repo_tree_command uninstall
-    fi
-    exec sudo "$REPO_ROOT/install.sh" --uninstall "$@"
+    linux_maint_cmd_install_passthrough uninstall "$@"
     ;;
 
   make-tarball)
-    if [[ "$MODE" != "repo" ]]; then
-      require_repo_tree_command make-tarball
-    fi
-    exec "$(repo_tool_path make_tarball.sh)" "$@"
+    linux_maint_cmd_install_passthrough make-tarball "$@"
     ;;
 
   verify-release)
-    verify_tool=""
-    if [[ "$MODE" == "repo" ]]; then
-      verify_tool="$(repo_tool_path verify_release.sh)"
-    else
-      verify_tool="$(installed_helper_path verify_release.sh)"
-    fi
-    if [[ ! -x "$verify_tool" ]]; then
-      echo "ERROR: verify-release helper not found: $verify_tool" >&2
-      exit 1
-    fi
-    exec "$verify_tool" "$@"
+    linux_maint_cmd_verify_release "$@"
     ;;
 
   upgrade)
-    upgrade_tool=""
-    upgrade_verify_tool=""
-    if [[ "$MODE" == "repo" ]]; then
-      upgrade_tool="$(repo_tool_path upgrade_release.sh)"
-      upgrade_verify_tool="$(repo_tool_path verify_release.sh)"
-    else
-      upgrade_tool="$(installed_helper_path upgrade_release.sh)"
-      upgrade_verify_tool="$(installed_helper_path verify_release.sh)"
-    fi
-    if [[ ! -x "$upgrade_tool" ]]; then
-      echo "ERROR: upgrade helper not found: $upgrade_tool" >&2
-      exit 1
-    fi
-    LINUX_MAINT_PREFIX="$PREFIX" \
-    LINUX_MAINT_LIBEXEC="$LIBEXEC" \
-    LINUX_MAINT_SHARE="$SHARE" \
-    LINUX_MAINT_UPGRADE_VERIFY_TOOL="$upgrade_verify_tool" \
-    exec "$upgrade_tool" "$@"
+    linux_maint_cmd_upgrade "$@"
     ;;
 
   init)
@@ -12882,140 +12782,7 @@ EOF_DEPS
     exit "$rc"
     ;;
   verify-install)
-    section "linux-maint verify-install"
-    echo "mode=$MODE"
-    echo "prefix=$PREFIX"
-    echo "wrapper=$wrapper"
-    echo "lib=${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
-
-    fail=0
-
-    check_file() {
-      local label="$1" path="$2"
-      if [[ -e "$path" ]]; then
-        echo "${C_GREEN}OK${C_RESET}: $label: $path"
-      else
-        echo "${C_RED}MISSING${C_RESET}: $label: $path" >&2
-        fail=1
-      fi
-    }
-
-    check_exec() {
-      local label="$1" path="$2"
-      if [[ -x "$path" ]]; then
-        echo "${C_GREEN}OK${C_RESET}: $label: $path"
-      elif [[ -e "$path" ]]; then
-        echo "${C_RED}NOT EXECUTABLE${C_RESET}: $label: $path" >&2
-        fail=1
-      else
-        echo "${C_RED}MISSING${C_RESET}: $label: $path" >&2
-        fail=1
-      fi
-    }
-
-    check_writable_dir() {
-      local label="$1" path="$2"
-      if [[ -d "$path" ]]; then
-        if [[ -w "$path" ]]; then
-          echo "${C_GREEN}OK${C_RESET}: writable $label: $path"
-        else
-          echo "${C_YELLOW}WARN${C_RESET}: not writable $label: $path" >&2
-        fi
-      else
-        echo "${C_YELLOW}WARN${C_RESET}: missing dir $label: $path" >&2
-      fi
-    }
-
-    # Core files
-    if [[ "$MODE" == "installed" ]]; then
-      check_exec "binary" "$PREFIX/bin/linux-maint"
-    fi
-    check_exec "wrapper" "$wrapper"
-    check_file "library" "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
-    if [[ "$MODE" == "installed" ]]; then
-      check_file "library config helper" "$PREFIX/lib/linux_maint_conf.sh"
-    fi
-
-    if [[ "$MODE" == "repo" ]]; then
-      check_file "monitors dir" "$REPO_MONITORS"
-      check_file "tools dir" "$REPO_ROOT/tools"
-    else
-      check_file "libexec" "$LIBEXEC"
-      check_exec "summary diff helper" "$LIBEXEC/summary_diff.py"
-      check_exec "pack-logs helper" "$LIBEXEC/pack_logs.sh"
-      check_exec "seed-known-hosts helper" "$LIBEXEC/seed_known_hosts.sh"
-      check_exec "verify-release helper" "$LIBEXEC/verify_release.sh"
-      check_exec "upgrade helper" "$LIBEXEC/upgrade_release.sh"
-    fi
-
-    echo "== Config =="
-    if [[ "$MODE" == "repo" ]]; then
-      CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
-      VERIFY_LOCKDIR="${LM_LOCKDIR:-/tmp}"
-      VERIFY_STATE_DIR="${LM_STATE_DIR:-/tmp}"
-      VERIFY_LOG_DIR="${LOG_DIR:-$REPO_LOG_DIR}"
-    else
-      CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
-      VERIFY_LOCKDIR="${LM_LOCKDIR:-/var/lock}"
-      VERIFY_STATE_DIR="${LM_STATE_DIR:-/var/lib/linux_maint}"
-      VERIFY_LOG_DIR="${LOG_DIR:-/var/log/health}"
-    fi
-    echo "cfg_dir=$CFG_DIR"
-    if [[ -d "$CFG_DIR" ]]; then
-      check_file "servers" "$CFG_DIR/servers.txt"
-      check_file "excluded" "$CFG_DIR/excluded.txt"
-      check_file "services" "$CFG_DIR/services.txt"
-    else
-      echo "WARN: config dir missing: $CFG_DIR" >&2
-    fi
-
-    echo "== Writable locations =="
-    check_writable_dir "lockdir" "$VERIFY_LOCKDIR"
-    check_writable_dir "state" "$VERIFY_STATE_DIR"
-    check_writable_dir "logs" "$VERIFY_LOG_DIR"
-
-    echo "== Version =="
-    "$0" version || true
-
-    echo "== systemd (best-effort) =="
-    if command -v systemctl >/dev/null 2>&1; then
-      # If unit files exist, report basic state; do not fail if systemd is not running.
-      unit_dirs="${LM_SYSTEMD_UNIT_DIRS:-/etc/systemd/system:/usr/lib/systemd/system:/lib/systemd/system}"
-      svc=""
-      tmr=""
-      while IFS=':' read -r -a unit_dir_list; do
-        for unit_dir in "${unit_dir_list[@]}"; do
-          if [[ -z "$svc" && -f "$unit_dir/linux-maint.service" ]]; then
-            svc="$unit_dir/linux-maint.service"
-          fi
-          if [[ -z "$tmr" && -f "$unit_dir/linux-maint.timer" ]]; then
-            tmr="$unit_dir/linux-maint.timer"
-          fi
-        done
-      done <<< "$unit_dirs"
-      if [[ -n "$svc" || -n "$tmr" ]]; then
-        [[ -n "$svc" ]] && echo "OK: unit file: $svc" || echo "WARN: missing unit file: linux-maint.service" >&2
-        [[ -n "$tmr" ]] && echo "OK: unit file: $tmr" || echo "WARN: missing unit file: linux-maint.timer" >&2
-        systemctl is-enabled linux-maint.timer >/dev/null 2>&1 && echo "OK: timer enabled" || echo "INFO: timer not enabled (or systemd unavailable)"
-        systemctl is-active linux-maint.timer >/dev/null 2>&1 && echo "OK: timer active" || echo "INFO: timer not active (or systemd unavailable)"
-      else
-        echo "INFO: systemd unit files not present (ok if not installed with --with-timer)"
-      fi
-    else
-      echo "INFO: systemctl not found"
-    fi
-
-    if [[ "$fail" -ne 0 ]]; then
-      echo "verify-install FAIL" >&2
-      exit 1
-    fi
-
-    if [[ "$fail" -eq 0 ]]; then
-      echo "${C_GREEN}verify-install ok${C_RESET}"
-    else
-      echo "${C_RED}verify-install failed${C_RESET}" >&2
-      exit 1
-    fi
+    linux_maint_cmd_verify_install
     ;;
   doctor)
     if [[ "$MODE" == "installed" ]]; then

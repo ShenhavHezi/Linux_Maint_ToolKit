@@ -91,6 +91,8 @@ bin/linux-maint
 sbin/run_full_health_monitor.sh
 lib/linux_maint.sh
 lib/linux_maint_conf.sh
+lib/linux_maint_runtime.sh
+lib/linux_maint_admin.sh
 lib/linux_maint_help.sh
 libexec/linux_maint
 share/linux_maint
@@ -240,6 +242,8 @@ install_files(){
 
   install -D -m 0755 lib/linux_maint.sh "$lib/linux_maint.sh"
   install -D -m 0755 lib/linux_maint_conf.sh "$lib/linux_maint_conf.sh"
+  install -D -m 0755 lib/linux_maint_runtime.sh "$lib/linux_maint_runtime.sh"
+  install -D -m 0755 lib/linux_maint_admin.sh "$lib/linux_maint_admin.sh"
   install -D -m 0755 lib/linux_maint_help.sh "$lib/linux_maint_help.sh"
   install -D -m 0755 run_full_health_monitor.sh "$sbin/run_full_health_monitor.sh"
   install -D -m 0755 bin/linux-maint "$prefix/bin/linux-maint"
@@ -399,6 +403,8 @@ uninstall_files(){
   rm -f "$prefix/sbin/run_full_health_monitor.sh"
   rm -f "$prefix/lib/linux_maint.sh"
   rm -f "$prefix/lib/linux_maint_conf.sh"
+  rm -f "$prefix/lib/linux_maint_runtime.sh"
+  rm -f "$prefix/lib/linux_maint_admin.sh"
   rm -f "$prefix/lib/linux_maint_help.sh"
   rm -rf "$prefix/libexec/linux_maint"
   rm -rf "$prefix/share/linux_maint" 2>/dev/null || true

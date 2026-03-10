@@ -16,6 +16,14 @@ bin_remove_pattern='rm -f "$prefix/bin/linux-maint"'
 # shellcheck disable=SC2016
 conf_remove_pattern='rm -f "$prefix/lib/linux_maint_conf.sh"'
 # shellcheck disable=SC2016
+runtime_install_pattern='lib/linux_maint_runtime.sh "$lib/linux_maint_runtime.sh"'
+# shellcheck disable=SC2016
+admin_install_pattern='lib/linux_maint_admin.sh "$lib/linux_maint_admin.sh"'
+# shellcheck disable=SC2016
+runtime_remove_pattern='rm -f "$prefix/lib/linux_maint_runtime.sh"'
+# shellcheck disable=SC2016
+admin_remove_pattern='rm -f "$prefix/lib/linux_maint_admin.sh"'
+# shellcheck disable=SC2016
 share_remove_pattern='rm -rf "$prefix/share/linux_maint"'
 
 grep -Fq "$verify_pattern" "$script" || {
@@ -38,6 +46,16 @@ grep -Fq "$plugin_index_install_pattern" "$script" || {
   exit 1
 }
 
+grep -Fq "$runtime_install_pattern" "$script" || {
+  echo "install.sh no longer installs linux_maint_runtime.sh" >&2
+  exit 1
+}
+
+grep -Fq "$admin_install_pattern" "$script" || {
+  echo "install.sh no longer installs linux_maint_admin.sh" >&2
+  exit 1
+}
+
 grep -Fq "$bin_remove_pattern" "$script" || {
   echo "install.sh uninstall no longer removes installed linux-maint binary" >&2
   exit 1
@@ -45,6 +63,16 @@ grep -Fq "$bin_remove_pattern" "$script" || {
 
 grep -Fq "$conf_remove_pattern" "$script" || {
   echo "install.sh uninstall no longer removes linux_maint_conf.sh" >&2
+  exit 1
+}
+
+grep -Fq "$runtime_remove_pattern" "$script" || {
+  echo "install.sh uninstall no longer removes linux_maint_runtime.sh" >&2
+  exit 1
+}
+
+grep -Fq "$admin_remove_pattern" "$script" || {
+  echo "install.sh uninstall no longer removes linux_maint_admin.sh" >&2
   exit 1
 }
 

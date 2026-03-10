@@ -15,6 +15,10 @@ assert_contains() {
 
 assert_contains 'install -m 0755 lib/linux_maint_conf.sh %{buildroot}/usr/lib/linux_maint_conf.sh' \
   "rpm spec no longer installs linux_maint_conf.sh"
+assert_contains 'install -m 0755 lib/linux_maint_runtime.sh %{buildroot}/usr/lib/linux_maint_runtime.sh' \
+  "rpm spec no longer installs linux_maint_runtime.sh"
+assert_contains 'install -m 0755 lib/linux_maint_admin.sh %{buildroot}/usr/lib/linux_maint_admin.sh' \
+  "rpm spec no longer installs linux_maint_admin.sh"
 assert_contains 'install -m 0755 tools/pack_logs.sh %{buildroot}/usr/libexec/linux_maint/pack_logs.sh' \
   "rpm spec no longer installs pack_logs.sh"
 assert_contains 'install -m 0755 tools/verify_release.sh %{buildroot}/usr/libexec/linux_maint/verify_release.sh' \
@@ -29,5 +33,9 @@ assert_contains 'if [ -f BUILD_INFO ]; then' \
   "rpm spec no longer conditionally installs BUILD_INFO"
 assert_contains '/usr/lib/linux_maint_conf.sh' \
   "rpm spec no longer ships linux_maint_conf.sh"
+assert_contains '/usr/lib/linux_maint_runtime.sh' \
+  "rpm spec no longer ships linux_maint_runtime.sh"
+assert_contains '/usr/lib/linux_maint_admin.sh' \
+  "rpm spec no longer ships linux_maint_admin.sh"
 
 echo "rpm manifest ok"

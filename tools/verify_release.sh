@@ -81,8 +81,11 @@ bin/linux-maint
 run_full_health_monitor.sh
 lib/linux_maint.sh
 lib/linux_maint_conf.sh
+lib/linux_maint_runtime.sh
+lib/linux_maint_admin.sh
 lib/linux_maint_help.sh
 tools/verify_release.sh
+tools/upgrade_release.sh
 tools/pack_logs.sh
 tools/seed_known_hosts.sh
 tools/summary_diff.py

@@ -8,6 +8,10 @@ workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
 fake_lm="$workdir/linux-maint"
+mkdir -p "$workdir/lib"
+for support_lib in linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh; do
+  ln -s "$ROOT_DIR/lib/$support_lib" "$workdir/lib/$support_lib"
+done
 cp "$REAL_LM" "$fake_lm"
 perl -0pi -e 's@st_json="\$\(NO_COLOR=1 \"\$0\" status --json --reasons 8 --problems 12 2>/dev/null\)"@st_json="$(printf '\''%s\\n'\'' '\''{not-json'\'')"\nst_rc=0@' "$fake_lm"
 chmod +x "$fake_lm"

@@ -7,10 +7,13 @@ workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
 prefix="$workdir/prefix"
-mkdir -p "$prefix/bin" "$prefix/share/linux_maint"
+mkdir -p "$prefix/bin" "$prefix/lib" "$prefix/share/linux_maint"
 
 cp "$ROOT_DIR/bin/linux-maint" "$prefix/bin/linux-maint"
 chmod +x "$prefix/bin/linux-maint"
+for support_lib in linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh; do
+  cp "$ROOT_DIR/lib/$support_lib" "$prefix/lib/$support_lib"
+done
 cat > "$prefix/share/linux_maint/BUILD_INFO" <<'EOF'
 project=Linux_Maint_ToolKit
 version=v9.9.9
