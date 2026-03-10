@@ -98,11 +98,26 @@ jobs:
       image: ${{ matrix.image }}
     steps:
       - name: Install runtime dependencies
-        shell: sh
+        shell: bash
         run: |
-          set -eu
+          set -euo pipefail
           export DEBIAN_FRONTEND=noninteractive
-          ${{ matrix.pkg_install }}
+          if [[ "${{ matrix.distro }}" == "rockylinux-9" ]]; then
+            retry_cmd() {
+              local attempts=0
+              until "$@"; do
+                attempts=$((attempts + 1))
+                if [[ "$attempts" -ge 3 ]]; then
+                  return 1
+                fi
+                sleep $((attempts * 5))
+              done
+            }
+            retry_cmd dnf -y makecache
+            retry_cmd dnf -y install --setopt=install_weak_deps=False python3 ca-certificates openssl iproute
+          else
+            ${{ matrix.pkg_install }}
+          fi
 
       - name: Compat readiness
         id: compat_ready
@@ -177,11 +192,26 @@ jobs:
       image: ${{ matrix.image }}
     steps:
       - name: Install runtime dependencies
-        shell: sh
+        shell: bash
         run: |
-          set -eu
+          set -euo pipefail
           export DEBIAN_FRONTEND=noninteractive
-          ${{ matrix.pkg_install }}
+          if [[ "${{ matrix.distro }}" == "rockylinux-9" ]]; then
+            retry_cmd() {
+              local attempts=0
+              until "$@"; do
+                attempts=$((attempts + 1))
+                if [[ "$attempts" -ge 3 ]]; then
+                  return 1
+                fi
+                sleep $((attempts * 5))
+              done
+            }
+            retry_cmd dnf -y makecache
+            retry_cmd dnf -y install --setopt=install_weak_deps=False python3 ca-certificates openssl iproute
+          else
+            ${{ matrix.pkg_install }}
+          fi
 
       - name: Checkout
         uses: actions/checkout@v4
