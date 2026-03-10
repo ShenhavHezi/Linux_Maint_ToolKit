@@ -81,7 +81,7 @@ jobs:
             legacy_checkout: false
           - distro: rockylinux-9
             image: rockylinux:9
-            pkg_install: dnf -y install bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute git
+            pkg_install: dnf -y update && dnf -y install --setopt=install_weak_deps=False bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute
             allow_failure: false
             legacy_checkout: false
           - distro: ubuntu-18.04
@@ -172,7 +172,7 @@ jobs:
             pkg_install: apt-get update && apt-get install -y bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute2 git
           - distro: rockylinux-9
             image: rockylinux:9
-            pkg_install: dnf -y install bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute git
+            pkg_install: dnf -y update && dnf -y install --setopt=install_weak_deps=False bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute
     container:
       image: ${{ matrix.image }}
     steps:
