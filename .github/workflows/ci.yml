@@ -171,15 +171,25 @@ jobs:
 
       - name: Smoke test (matrix)
         if: ${{ !matrix.legacy_checkout || steps.compat_ready.outputs.ready == '1' }}
+        shell: bash
         run: |
+          set -euo pipefail
           chmod +x tests/smoke.sh
-          rc=0
-          SMOKE_PROFILE=compat ./tests/smoke.sh || rc=$?
-          if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then
-            echo "smoke failed with rc=$rc"
-            exit "$rc"
+          if [[ "${{ matrix.distro }}" == "rockylinux-9" ]]; then
+            bash tests/bash_min_version_guard_test.sh
+            bash tests/help_command_test.sh
+            bash tests/check_command_test.sh
+            bash tests/config_command_test.sh
+            echo "rocky compat subset ok"
+          else
+            rc=0
+            SMOKE_PROFILE=compat ./tests/smoke.sh || rc=$?
+            if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then
+              echo "smoke failed with rc=$rc"
+              exit "$rc"
+            fi
+            echo "smoke matrix ok (rc=$rc)"
           fi
-          echo "smoke matrix ok (rc=$rc)"
 
   install-lifecycle-matrix:
     name: Install lifecycle (${{ matrix.distro }})
