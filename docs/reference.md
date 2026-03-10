@@ -443,6 +443,7 @@ Config and templates:
 - `/etc/linux_maint/monitor_runtime_warn.conf` (optional)
 - `/etc/linux_maint/baselines/` (baseline data)
 - `/usr/local/share/linux_maint/templates/` (template copy for `linux-maint init`)
+- installer upgrades restore the previous installed payload automatically if `install.sh` fails partway through.
 
 Logs and state:
 - `/var/log/health/` (wrapper logs + summaries)

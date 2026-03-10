@@ -25,6 +25,17 @@ UNINSTALL=false
 PURGE=false
 USER_NAME="linuxmaint"
 INSTALL_PREFIX="/usr/local"
+INSTALL_CFG_DIR="${LM_INSTALL_CFG_DIR:-/etc/linux_maint}"
+INSTALL_LOG_DIR="${LM_INSTALL_LOG_DIR:-/var/log/health}"
+INSTALL_STATE_DIR="${LM_INSTALL_STATE_DIR:-/var/lib/linux_maint}"
+INSTALL_SYSTEMD_DIR="${LM_INSTALL_SYSTEMD_DIR:-/etc/systemd/system}"
+INSTALL_LOGROTATE_FILE="${LM_INSTALL_LOGROTATE_FILE:-/etc/logrotate.d/linux_maint}"
+INSTALL_SKIP_ROOT_CHECK="${LM_INSTALL_SKIP_ROOT_CHECK:-0}"
+INSTALL_FAIL_AT="${LM_INSTALL_FAIL_AT:-}"
+ROLLBACK_DIR=""
+ROLLBACK_ACTIVE=0
+ROLLBACK_TOUCH_SYSTEMD=0
+ROLLBACK_TOUCH_LOGROTATE=0
 
 usage(){
   cat <<EOF
@@ -57,10 +68,152 @@ while [ $# -gt 0 ]; do
 done
 
 need_root(){
+  case "$INSTALL_SKIP_ROOT_CHECK" in
+    1|true|TRUE|yes|YES|on|ON) return 0 ;;
+  esac
   if [ "${EUID:-$(id -u)}" -ne 0 ]; then
     echo "ERROR: must run as root" >&2
     exit 1
   fi
+}
+
+maybe_fail_install_stage(){
+  local stage="${1:-}"
+  if [[ -n "$INSTALL_FAIL_AT" && "$INSTALL_FAIL_AT" == "$stage" ]]; then
+    echo "ERROR: install failpoint triggered at stage=$stage" >&2
+    return 99
+  fi
+}
+
+install_payload_paths(){
+  cat <<'EOF'
+bin/linux-maint
+sbin/run_full_health_monitor.sh
+lib/linux_maint.sh
+lib/linux_maint_conf.sh
+libexec/linux_maint
+share/linux_maint
+share/Linux_Maint_ToolKit
+EOF
+}
+
+backup_existing_payloads(){
+  local prefix="$1"
+  local backup_root="$2"
+  local rel src dst
+  while IFS= read -r rel; do
+    [[ -n "$rel" ]] || continue
+    src="$prefix/$rel"
+    dst="$backup_root/$rel"
+    if [[ -e "$src" ]]; then
+      mkdir -p "$(dirname "$dst")"
+      cp -a "$src" "$dst"
+    fi
+  done < <(install_payload_paths)
+}
+
+cleanup_prefix_payloads(){
+  local prefix="$1"
+  local rel
+  while IFS= read -r rel; do
+    [[ -n "$rel" ]] || continue
+    rm -rf "${prefix:?}/$rel"
+  done < <(install_payload_paths)
+}
+
+restore_existing_payloads(){
+  local prefix="$1"
+  local backup_root="$2"
+  local rel src dst
+  cleanup_prefix_payloads "$prefix"
+  while IFS= read -r rel; do
+    [[ -n "$rel" ]] || continue
+    src="$backup_root/$rel"
+    dst="$prefix/$rel"
+    if [[ -e "$src" ]]; then
+      mkdir -p "$(dirname "$dst")"
+      cp -a "$src" "$dst"
+    fi
+  done < <(install_payload_paths)
+}
+
+backup_system_artifacts(){
+  local backup_root="$1"
+  local entry src dst
+  for entry in \
+    "service:$INSTALL_SYSTEMD_DIR/linux-maint.service" \
+    "timer:$INSTALL_SYSTEMD_DIR/linux-maint.timer" \
+    "logrotate:$INSTALL_LOGROTATE_FILE"
+  do
+    src="${entry#*:}"
+    dst="$backup_root/${entry%%:*}"
+    if [[ -e "$src" ]]; then
+      mkdir -p "$(dirname "$dst")"
+      cp -a "$src" "$dst"
+    fi
+  done
+}
+
+restore_system_artifacts(){
+  local backup_root="$1"
+  local service_path="$INSTALL_SYSTEMD_DIR/linux-maint.service"
+  local timer_path="$INSTALL_SYSTEMD_DIR/linux-maint.timer"
+  local entry src dst
+
+  if [[ "$ROLLBACK_TOUCH_SYSTEMD" -eq 1 || -e "$backup_root/service" || -e "$backup_root/timer" ]]; then
+    rm -f "$service_path" "$timer_path"
+  fi
+  if [[ "$ROLLBACK_TOUCH_LOGROTATE" -eq 1 || -e "$backup_root/logrotate" ]]; then
+    rm -f "$INSTALL_LOGROTATE_FILE"
+  fi
+  for entry in \
+    "service:$service_path" \
+    "timer:$timer_path" \
+    "logrotate:$INSTALL_LOGROTATE_FILE"
+  do
+    src="$backup_root/${entry%%:*}"
+    dst="${entry#*:}"
+    if [[ -e "$src" ]]; then
+      mkdir -p "$(dirname "$dst")"
+      cp -a "$src" "$dst"
+    fi
+  done
+
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+  fi
+}
+
+install_cleanup(){
+  local rc=$?
+  trap - EXIT
+  if [[ "$ROLLBACK_ACTIVE" -eq 1 ]]; then
+    echo "Install failed; restoring previous payloads" >&2
+    restore_existing_payloads "$INSTALL_PREFIX" "$ROLLBACK_DIR/prefix"
+    restore_system_artifacts "$ROLLBACK_DIR/system"
+  fi
+  if [[ -n "$ROLLBACK_DIR" && -d "$ROLLBACK_DIR" ]]; then
+    rm -rf "$ROLLBACK_DIR" 2>/dev/null || true
+  fi
+  exit "$rc"
+}
+
+prepare_install_rollback(){
+  ROLLBACK_DIR="$(mktemp -d -p "${TMPDIR:-/tmp}" linux_maint_install_rollback.XXXXXX)"
+  mkdir -p "$ROLLBACK_DIR/prefix" "$ROLLBACK_DIR/system"
+  backup_existing_payloads "$INSTALL_PREFIX" "$ROLLBACK_DIR/prefix"
+  backup_system_artifacts "$ROLLBACK_DIR/system"
+  ROLLBACK_ACTIVE=1
+  trap install_cleanup EXIT
+}
+
+finalize_install_rollback(){
+  ROLLBACK_ACTIVE=0
+  trap - EXIT
+  if [[ -n "$ROLLBACK_DIR" && -d "$ROLLBACK_DIR" ]]; then
+    rm -rf "$ROLLBACK_DIR" 2>/dev/null || true
+  fi
+  ROLLBACK_DIR=""
 }
 
 create_user(){
@@ -100,19 +253,23 @@ install_files(){
   install -D -m 0755 monitors/*.sh "$libexec/"
 
   # Hardening
-  chown -R root:root "$libexec"
+  if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+    chown -R root:root "$libexec"
+  fi
   chmod -R go-w "$libexec"
 
   # Directories
-  mkdir -p /etc/linux_maint /etc/linux_maint/baselines /var/log/health /var/lib/linux_maint
+  mkdir -p "$INSTALL_CFG_DIR" "$INSTALL_CFG_DIR/baselines" "$INSTALL_LOG_DIR" "$INSTALL_STATE_DIR"
 
   # main config (do not overwrite if exists)
-  if [ ! -f /etc/linux_maint/linux-maint.conf ]; then
-    install -m 0640 etc/linux_maint/linux-maint.conf.example /etc/linux_maint/linux-maint.conf
-    chown root:root /etc/linux_maint/linux-maint.conf || true
+  if [ ! -f "$INSTALL_CFG_DIR/linux-maint.conf" ]; then
+    install -m 0640 etc/linux_maint/linux-maint.conf.example "$INSTALL_CFG_DIR/linux-maint.conf"
+    if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+      chown root:root "$INSTALL_CFG_DIR/linux-maint.conf"
+    fi
   fi
-  mkdir -p /etc/linux_maint/conf.d
-  chmod 0755 /etc/linux_maint/conf.d || true
+  mkdir -p "$INSTALL_CFG_DIR/conf.d"
+  chmod 0755 "$INSTALL_CFG_DIR/conf.d" || true
 
   # Build/version info (optional; present in offline release tarballs)
   # Ensure BUILD_INFO exists for installed-mode `linux-maint version`
@@ -140,12 +297,17 @@ install_files(){
     install -m 0644 BUILD_INFO "$prefix/share/linux_maint/BUILD_INFO"
   fi
 
+  maybe_fail_install_stage "after_payload_install"
+
   echo "Install complete. Try: $sbin/run_full_health_monitor.sh"
 }
 
 install_logrotate(){
-  echo "Installing logrotate config to /etc/logrotate.d/linux_maint"
-  cat > /etc/logrotate.d/linux_maint <<'EOF'
+  local log_dir_escaped="${INSTALL_LOG_DIR%/}"
+  ROLLBACK_TOUCH_LOGROTATE=1
+  echo "Installing logrotate config to $INSTALL_LOGROTATE_FILE"
+  mkdir -p "$(dirname "$INSTALL_LOGROTATE_FILE")"
+  cat > "$INSTALL_LOGROTATE_FILE" <<EOF
 /var/log/*monitor*.log /var/log/*_monitor.log /var/log/*_check.log /var/log/inventory_export.log {
   daily
   rotate 14
@@ -156,7 +318,7 @@ install_logrotate(){
   copytruncate
 }
 
-/var/log/health/*.log /var/log/health/*.json {
+${log_dir_escaped}/*.log ${log_dir_escaped}/*.json {
   daily
   rotate 14
   missingok
@@ -167,23 +329,26 @@ install_logrotate(){
   # Exclude latest symlinks so they keep pointing at the newest run artifact.
   prerotate
     # Ensure we never create rotated copies of the latest symlinks
-    rm -f /var/log/health/*_latest.log.* /var/log/health/*_latest.json.* 2>/dev/null || true
+    rm -f ${log_dir_escaped}/*_latest.log.* ${log_dir_escaped}/*_latest.json.* 2>/dev/null || true
   endscript
 }
 
 # Do not rotate the latest symlinks (rotate=0 effectively ignores them).
-/var/log/health/*_latest.log /var/log/health/*_latest.json {
+${log_dir_escaped}/*_latest.log ${log_dir_escaped}/*_latest.json {
   missingok
   notifempty
   rotate 0
 }
 EOF
+  maybe_fail_install_stage "after_logrotate_write"
 }
 
 install_systemd(){
+  ROLLBACK_TOUCH_SYSTEMD=1
   echo "Installing systemd unit + timer"
+  mkdir -p "$INSTALL_SYSTEMD_DIR"
 
-  cat > /etc/systemd/system/linux-maint.service <<EOF
+  cat > "$INSTALL_SYSTEMD_DIR/linux-maint.service" <<EOF
 [Unit]
 Description=Linux maintenance full health monitor
 
@@ -202,10 +367,10 @@ LockPersonality=true
 MemoryDenyWriteExecute=true
 RestrictSUIDSGID=true
 SystemCallArchitectures=native
-ReadWritePaths=/var/log /var/log/health /var/lib/linux_maint /var/lock /tmp
+ReadWritePaths=/var/log ${INSTALL_LOG_DIR} ${INSTALL_STATE_DIR} /var/lock /tmp
 EOF
 
-  cat > /etc/systemd/system/linux-maint.timer <<'EOF'
+  cat > "$INSTALL_SYSTEMD_DIR/linux-maint.timer" <<'EOF'
 [Unit]
 Description=Run Linux maintenance health checks daily
 
@@ -216,6 +381,8 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 EOF
+
+  maybe_fail_install_stage "after_systemd_write"
 
   systemctl daemon-reload
   systemctl enable --now linux-maint.timer
@@ -235,12 +402,12 @@ uninstall_files(){
   echo "Uninstall complete. (Kept /etc/linux_maint and /var/log by default.)"
   if $PURGE; then
     echo "Purging systemd units and logrotate (and optional dirs)"
-    rm -f /etc/systemd/system/linux-maint.service /etc/systemd/system/linux-maint.timer
+    rm -f "$INSTALL_SYSTEMD_DIR/linux-maint.service" "$INSTALL_SYSTEMD_DIR/linux-maint.timer"
     systemctl daemon-reload >/dev/null 2>&1 || true
-    rm -f /etc/logrotate.d/linux_maint
-    rm -rf /var/log/health || true
+    rm -f "$INSTALL_LOGROTATE_FILE"
+    rm -rf "$INSTALL_LOG_DIR" || true
     # Uncomment if you want to also remove config/baselines:
-    # rm -rf /etc/linux_maint
+    # rm -rf "$INSTALL_CFG_DIR"
   fi
 }
 
@@ -251,9 +418,11 @@ if $UNINSTALL; then
   exit 0
 fi
 
+prepare_install_rollback
 $WITH_USER && create_user "$USER_NAME"
 install_files "$INSTALL_PREFIX"
 $WITH_LOGROTATE && install_logrotate
 $WITH_TIMER && install_systemd
+finalize_install_rollback
 
 exit 0

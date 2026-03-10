@@ -23,6 +23,7 @@ sudo linux-maint check
 Notes:
 - Review `git diff` for config name changes or new optional files.
 - The installer updates binaries and docs under `/usr/local` but keeps `/etc/linux_maint` intact.
+- If the installer fails partway through an upgrade, it now restores the previous installed payload automatically.
 - Run `sudo linux-maint status` after the next scheduled run to confirm expected SKIPs only.
 
 ## Upgrade (from release tarball)
@@ -58,6 +59,7 @@ Verify:
 
 ```bash
 sudo linux-maint version
+sudo linux-maint verify-install
 sudo linux-maint status
 ```
 

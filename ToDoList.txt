@@ -57,6 +57,8 @@ Last updated: 2026-03-10
     - Proof: `tests/installed_verify_release_dispatch_test.sh`, `tests/installed_make_tarball_requires_checkout_test.sh`, `tests/verify_install_installed_layout_test.sh`, `tests/install_manifest_test.sh`, `tests/release_verify_test.sh`, `docs/DARK_SITE.md`, `docs/UPGRADE.md`.
   - P1 plugin/advanced surface hardening: installed-mode plugin index/version defaults now resolve to packaged share assets, corrupt plugin registries fail fast instead of silently degrading, `serve` rejects invalid delegated JSON, and `federate`/`policy lint`/`predict` now enforce stricter input contracts.
     - Proof: `tests/plugin_installed_default_index_test.sh`, `tests/plugin_verify_installed_version_test.sh`, `tests/plugin_registry_invalid_test.sh`, `tests/serve_invalid_json_upstream_test.sh`, `tests/federate_contract_validation_test.sh`, `tests/policy_lint_require_overall_test.sh`, `tests/predict_invalid_history_shape_test.sh`.
+  - P1 installer rollback hardening: `install.sh` now supports testable override dirs, preserves the previous installed payload across mid-install failures, and restores systemd/logrotate artifacts if an upgrade aborts.
+    - Proof: `tests/install_override_layout_test.sh`, `tests/install_rollback_prefix_failure_test.sh`, `tests/install_rollback_systemd_logrotate_failure_test.sh`, `docs/UPGRADE.md`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 
