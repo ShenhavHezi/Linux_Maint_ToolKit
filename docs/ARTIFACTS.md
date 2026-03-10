@@ -68,6 +68,8 @@ sha256sum -c SHA256SUMS
 linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
 ```
 
+`linux-maint verify-release` validates the checksum, `BUILD_INFO` / `VERSION` metadata, required install payload members, and the matching release notes file for tagged release tarballs.
+
 ## Packaging outputs
 
 - Tarball builds: `dist/Linux_Maint_ToolKit-<tag>-<sha>.tgz` and `dist/SHA256SUMS`

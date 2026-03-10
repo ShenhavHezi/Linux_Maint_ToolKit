@@ -67,9 +67,17 @@ check_release_notes(){
   done
 }
 
+check_current_release_note(){
+  local version note_path
+  version="$(head -n 1 "$ROOT_DIR/VERSION" | tr -d '[:space:]')"
+  note_path="$ROOT_DIR/docs/release_notes/release_notes_v${version}.md"
+  check_file "$note_path" "Current version release notes"
+}
+
 check_docs
 check_schemas
 check_release_notes
+check_current_release_note
 
 if [[ "$fail" -ne 0 ]]; then
   echo "release_check: FAILED" >&2

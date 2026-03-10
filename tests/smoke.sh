@@ -309,6 +309,8 @@ run_required "pack_logs_gpg_prereq_test" bash "$ROOT_DIR/tests/pack_logs_gpg_pre
 run_required "pack_logs_symlink_test" bash "$ROOT_DIR/tests/pack_logs_symlink_test.sh"
 run_required "pack_logs_repo_override_test" bash "$ROOT_DIR/tests/pack_logs_repo_override_test.sh"
 run_required "release_verify_test" bash "$ROOT_DIR/tests/release_verify_test.sh"
+run_required "release_verify_members_test" bash "$ROOT_DIR/tests/release_verify_members_test.sh"
+run_required "release_metadata_guard_test" bash "$ROOT_DIR/tests/release_metadata_guard_test.sh"
 run_required "release_audit_test" bash "$ROOT_DIR/tests/release_audit_test.sh"
 run_required "release_audit_make_target_test" bash "$ROOT_DIR/tests/release_audit_make_target_test.sh"
 run_required "release_sh_checks_test" bash "$ROOT_DIR/tests/release_sh_checks_test.sh"

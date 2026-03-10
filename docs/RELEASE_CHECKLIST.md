@@ -3,6 +3,7 @@
 ## Prep
 - [ ] Decide version and run `make release-prep VERSION=x.y.z`.
 - [ ] Place release notes under `docs/release_notes/` (archive), not `dist/`.
+- [ ] Ensure `VERSION`, `docs/README.md`, and `docs/INDEX.md` all point at the same current release notes file.
 - [ ] Run `./tools/release_check.sh`.
 - [ ] Run `./tools/release_audit.sh`.
 - [ ] Run `make lint` and `make test`.
@@ -21,6 +22,7 @@
 
 ## Verify
 - [ ] Verify tarball: `linux-maint verify-release dist/Linux_Maint_ToolKit-*.tgz --sums dist/SHA256SUMS`.
+- [ ] Confirm `verify-release` passes required tarball members (`install.sh`, CLI/lib payload, plugin index, matching release notes).
 - [ ] Or run: `make verify-release` (runs release checks/audit + tarball verification).
 - [ ] Smoke test install in a clean environment.
 

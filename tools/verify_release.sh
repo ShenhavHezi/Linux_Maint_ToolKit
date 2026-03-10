@@ -69,6 +69,26 @@ extract_tar_member(){
   printf '%s' "$value"
 }
 
+tar_member_exists(){
+  local members="$1" member="$2"
+  grep -Fxq -- "$member" <<< "$members"
+}
+
+required_tar_members(){
+  cat <<'EOF'
+install.sh
+bin/linux-maint
+run_full_health_monitor.sh
+lib/linux_maint.sh
+lib/linux_maint_conf.sh
+lib/linux_maint_help.sh
+tools/verify_release.sh
+plugins/index.json
+VERSION
+BUILD_INFO
+EOF
+}
+
 build_info="$(extract_tar_member "$TARBALL" BUILD_INFO)"
 version_file="$(extract_tar_member "$TARBALL" VERSION)"
 if [[ -z "$build_info" || -z "$version_file" ]]; then
@@ -96,6 +116,23 @@ if [[ -n "$tar_sha" && -n "$build_commit" && "$build_commit" != "$tar_sha" ]]; t
   exit 1
 fi
 echo "tarball metadata verification ok"
+
+tar_members="$(tar -tf "$TARBALL" | sed 's#^\./##' | sort -u)"
+while IFS= read -r member; do
+  [[ -n "$member" ]] || continue
+  if ! tar_member_exists "$tar_members" "$member"; then
+    echo "ERROR: tarball missing required member: $member" >&2
+    exit 1
+  fi
+done < <(required_tar_members)
+if [[ -n "$tar_version" ]]; then
+  release_note_member="docs/release_notes/release_notes_${tar_version}.md"
+  if ! tar_member_exists "$tar_members" "$release_note_member"; then
+    echo "ERROR: tarball missing release notes for $tar_version: $release_note_member" >&2
+    exit 1
+  fi
+fi
+echo "tarball contents verification ok"
 
 if [[ -n "$SIG_FILE" ]]; then
   [[ -f "$SIG_FILE" ]] || { echo "ERROR: signature file not found: $SIG_FILE" >&2; exit 1; }

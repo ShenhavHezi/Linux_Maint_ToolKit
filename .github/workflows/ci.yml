@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install dependencies
         run: |
@@ -249,6 +251,7 @@ jobs:
           set -euo pipefail
           bash tests/install_override_layout_test.sh
           bash tests/install_lifecycle_smoke_test.sh
+          bash tests/install_upgrade_from_release_test.sh
           bash tests/verify_install_test.sh
 
   build-rpm-rocky9:

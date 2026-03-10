@@ -295,6 +295,7 @@ linux-maint self-check --json
 sha256sum -c SHA256SUMS
 # If linux-maint is already installed on the verification host:
 linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
+# This also checks BUILD_INFO/VERSION, install-critical members, and matching release notes for tagged tarballs.
 # Release metadata/governance audit
 ./tools/release_audit.sh
 
