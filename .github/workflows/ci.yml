@@ -308,6 +308,7 @@ jobs:
           linux-maint version || true
           test -f /usr/lib/linux_maint_conf.sh
           test -x /usr/libexec/linux_maint/pack_logs.sh
+          test -x /usr/libexec/linux_maint/upgrade_release.sh
           test -x /usr/libexec/linux_maint/verify_release.sh
           test -f /usr/share/linux_maint/VERSION
           test -f /usr/share/linux_maint/BUILD_INFO

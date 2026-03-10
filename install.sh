@@ -249,6 +249,7 @@ install_files(){
   install -D -m 0755 tools/summary_diff.py "$libexec/summary_diff.py"
   install -D -m 0755 tools/pack_logs.sh "$libexec/pack_logs.sh"
   install -D -m 0755 tools/seed_known_hosts.sh "$libexec/seed_known_hosts.sh"
+  install -D -m 0755 tools/upgrade_release.sh "$libexec/upgrade_release.sh"
   install -D -m 0755 tools/verify_release.sh "$libexec/verify_release.sh"
 
   # Install all monitor scripts (keeps packaging in sync with repo changes).

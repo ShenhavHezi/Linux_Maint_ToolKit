@@ -25,7 +25,7 @@ cat > "$prefix/share/linux_maint/plugins/index.json" <<'JSON'
 }
 JSON
 
-json_out="$(PREFIX="$prefix" bash "$prefix/bin/linux-maint" plugin search --json 2>/dev/null)"
+json_out="$(bash "$prefix/bin/linux-maint" plugin search --json 2>/dev/null)"
 
 JSON_OUT="$json_out" python3 - <<'PY'
 import json, os

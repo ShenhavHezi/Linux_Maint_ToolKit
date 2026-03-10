@@ -66,6 +66,7 @@ ${C_CYAN}Release / packaging${C_RESET}:
   version                Print installed BUILD_INFO (if present)
   make-tarball           Build offline release tarball (repo / release tree only)
   verify-release         Verify release tarball integrity
+  upgrade <tarball>      Verify, install, and record rollback metadata
   install [args]         Run install.sh from a checkout or extracted release tree
   uninstall [args]       Run install.sh --uninstall from a checkout or extracted release tree
 
@@ -414,6 +415,14 @@ EOF
       echo "Usage: linux-maint make-tarball";;
     verify-release)
       echo "Usage: linux-maint verify-release <tarball> --sums <SHA256SUMS>";;
+    upgrade)
+      run_help_block \
+        "linux-maint upgrade <tarball> [flags]" \
+        "Upgrade an installed node from a verified release tarball and record rollback metadata." \
+        "  - perform a tarball-based upgrade from an installed node\n  - snapshot config and installed payload inventory before changing files\n  - leave a manifest with rollback guidance under the active state dir" \
+        "  --sums FILE              checksum file for verify-release\n  --sig FILE               detached signature for verify-release\n  --rollback-tarball FILE  known-good rollback artifact to record\n  --with-user              pass through to install.sh\n  --with-timer             pass through to install.sh\n  --with-logrotate         pass through to install.sh\n  --dry-run                verify and snapshot only\n  --keep-workdir           keep the extracted workdir for inspection" \
+        "  sudo linux-maint upgrade dist/Linux_Maint_ToolKit-v0.3.3-<sha>.tgz --sums dist/SHA256SUMS\n  sudo linux-maint upgrade /tmp/Linux_Maint_ToolKit-v0.3.3-<sha>.tgz --sums /tmp/SHA256SUMS --rollback-tarball /srv/releases/Linux_Maint_ToolKit-v0.3.2-<sha>.tgz\n  sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.3-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate" \
+        "  - non-zero if verify-release, install.sh, or post-upgrade verify-install fails\n  - installed mode only; repo checkouts should run install.sh directly from the extracted tree" ;;
     install)
       echo "Usage: linux-maint install [args]";;
     uninstall)

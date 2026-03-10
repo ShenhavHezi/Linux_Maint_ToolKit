@@ -31,10 +31,18 @@ Notes:
 If you are using a release tarball:
 
 ```bash
-tar -xzf Linux_Maint_ToolKit-v<version>-<sha>.tgz
-cd <extracted-release-tree>
-sudo ./install.sh --with-user --with-timer --with-logrotate
+sudo linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --sums ./SHA256SUMS
+sudo linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --sums ./SHA256SUMS --with-user --with-timer --with-logrotate
 ```
+
+`linux-maint upgrade` verifies the tarball first, snapshots the current config dir, records rollback metadata under the active state dir, runs the extracted installer, and finishes with `verify-install`.
+
+Upgrade artifacts:
+- `/var/lib/linux_maint/upgrades/<run-id>/upgrade_manifest.json`
+- `/var/lib/linux_maint/upgrades/<run-id>/config_snapshot.tgz`
+- `/var/lib/linux_maint/upgrades/<run-id>/installed_payload_inventory.txt`
+- `/var/lib/linux_maint/upgrades/<run-id>/rollback_instructions.txt`
+- `/var/lib/linux_maint/upgrades/latest` (symlink to the newest manifest dir)
 
 ## Rollback (safe)
 
@@ -50,9 +58,15 @@ sudo ./install.sh --with-user --with-timer --with-logrotate
 From a tarball:
 
 ```bash
-tar -xzf Linux_Maint_ToolKit-v<previous>-<sha>.tgz
-cd <extracted-release-tree>
-sudo ./install.sh --with-user --with-timer --with-logrotate
+sudo linux-maint upgrade ./Linux_Maint_ToolKit-v<previous>-<sha>.tgz --sums ./SHA256SUMS
+```
+
+If you keep a known-good rollback tarball on hand, record it during the forward upgrade:
+
+```bash
+sudo linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz \
+  --sums ./SHA256SUMS \
+  --rollback-tarball ./Linux_Maint_ToolKit-v<previous>-<sha>.tgz
 ```
 
 Verify:

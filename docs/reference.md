@@ -1095,6 +1095,8 @@ Example (`export --json`):
 
 - `linux-maint make-tarball`: build an offline tarball (see below).
 
+- `linux-maint upgrade <tarball>` *(root required)*: verify a release tarball, snapshot config/install state, run the extracted installer, and record rollback metadata under the active state dir.
+
 - `linux-maint deps`: print an offline dependency manifest by monitor (required vs optional commands + local availability counters).
 - `linux-maint list-monitors`: list monitors with config requirements and short descriptions.
 - `linux-maint lint-summary <file>`: validate summary/monitor lines against the contract (exit non-zero on violations).
@@ -1715,6 +1717,13 @@ git pull
 sudo install -D -m 0755 lib/linux_maint.sh /usr/local/lib/linux_maint.sh
 sudo install -D -m 0755 run_full_health_monitor.sh /usr/local/sbin/run_full_health_monitor.sh
 sudo install -D -m 0755 monitors/*.sh /usr/local/libexec/linux_maint/
+```
+
+To upgrade from a verified release tarball without switching into an extracted tree:
+
+```bash
+sudo linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --sums ./SHA256SUMS
+sudo linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate
 ```
 
 After upgrading:

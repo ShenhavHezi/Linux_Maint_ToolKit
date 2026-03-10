@@ -70,6 +70,18 @@ linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
 
 `linux-maint verify-release` validates the checksum, `BUILD_INFO` / `VERSION` metadata, the required install payload members (`install.sh`, CLI/lib payload, helper tools, plugin index), and the matching release notes file for tagged release tarballs.
 
+## Upgrade manifests
+
+`linux-maint upgrade` writes rollback metadata under the active state dir:
+
+- `<state_dir>/upgrades/<run-id>/upgrade_manifest.json`
+- `<state_dir>/upgrades/<run-id>/config_snapshot.tgz`
+- `<state_dir>/upgrades/<run-id>/installed_payload_inventory.txt`
+- `<state_dir>/upgrades/<run-id>/rollback_instructions.txt`
+- `<state_dir>/upgrades/latest`
+
+The manifest records the current version, target version, config snapshot path, payload inventory path, rollback artifact path (when supplied), and the final verify/install result.
+
 ## Packaging outputs
 
 - Tarball builds: `dist/Linux_Maint_ToolKit-v<VERSION>-<sha>.tgz` and `dist/SHA256SUMS`

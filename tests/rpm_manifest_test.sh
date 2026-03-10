@@ -19,6 +19,8 @@ assert_contains 'install -m 0755 tools/pack_logs.sh %{buildroot}/usr/libexec/lin
   "rpm spec no longer installs pack_logs.sh"
 assert_contains 'install -m 0755 tools/verify_release.sh %{buildroot}/usr/libexec/linux_maint/verify_release.sh' \
   "rpm spec no longer installs verify_release.sh"
+assert_contains 'install -m 0755 tools/upgrade_release.sh %{buildroot}/usr/libexec/linux_maint/upgrade_release.sh' \
+  "rpm spec no longer installs upgrade_release.sh"
 assert_contains 'install -m 0644 VERSION %{buildroot}/usr/share/linux_maint/VERSION' \
   "rpm spec no longer installs VERSION into share/linux_maint"
 assert_contains 'install -m 0644 plugins/index.json %{buildroot}/usr/share/linux_maint/plugins/index.json' \

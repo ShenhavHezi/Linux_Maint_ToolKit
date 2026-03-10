@@ -5005,14 +5005,22 @@ resolve_run_hosts(){
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
-PREFIX="${PREFIX:-/usr/local}"
-SBIN="$PREFIX/sbin"
-LIBEXEC="$PREFIX/libexec/linux_maint"
-SHARE="$PREFIX/share/linux_maint"
-
 REPO_MONITORS="$REPO_ROOT/monitors"
 REPO_LIB="$REPO_ROOT/lib/linux_maint.sh"
 REPO_WRAPPER="$REPO_ROOT/run_full_health_monitor.sh"
+
+if [[ -n "${PREFIX:-}" ]]; then
+  :
+elif [[ -d "$REPO_MONITORS" && -f "$REPO_LIB" ]]; then
+  PREFIX="/usr/local"
+elif [[ "$SCRIPT_DIR" == */bin ]]; then
+  PREFIX="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+else
+  PREFIX="/usr/local"
+fi
+SBIN="$PREFIX/sbin"
+LIBEXEC="$PREFIX/libexec/linux_maint"
+SHARE="$PREFIX/share/linux_maint"
 
 # installed defaults
 wrapper="$SBIN/run_full_health_monitor.sh"
@@ -12235,6 +12243,27 @@ PY
     exec "$verify_tool" "$@"
     ;;
 
+  upgrade)
+    upgrade_tool=""
+    upgrade_verify_tool=""
+    if [[ "$MODE" == "repo" ]]; then
+      upgrade_tool="$(repo_tool_path upgrade_release.sh)"
+      upgrade_verify_tool="$(repo_tool_path verify_release.sh)"
+    else
+      upgrade_tool="$(installed_helper_path upgrade_release.sh)"
+      upgrade_verify_tool="$(installed_helper_path verify_release.sh)"
+    fi
+    if [[ ! -x "$upgrade_tool" ]]; then
+      echo "ERROR: upgrade helper not found: $upgrade_tool" >&2
+      exit 1
+    fi
+    LINUX_MAINT_PREFIX="$PREFIX" \
+    LINUX_MAINT_LIBEXEC="$LIBEXEC" \
+    LINUX_MAINT_SHARE="$SHARE" \
+    LINUX_MAINT_UPGRADE_VERIFY_TOOL="$upgrade_verify_tool" \
+    exec "$upgrade_tool" "$@"
+    ;;
+
   init)
     if [[ "$MODE" == "installed" ]]; then
       need_root_for init
@@ -12916,6 +12945,7 @@ EOF_DEPS
       check_exec "pack-logs helper" "$LIBEXEC/pack_logs.sh"
       check_exec "seed-known-hosts helper" "$LIBEXEC/seed_known_hosts.sh"
       check_exec "verify-release helper" "$LIBEXEC/verify_release.sh"
+      check_exec "upgrade helper" "$LIBEXEC/upgrade_release.sh"
     fi
 
     echo "== Config =="

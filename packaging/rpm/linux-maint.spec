@@ -56,6 +56,7 @@ install -m 0755 monitors/*.sh %{buildroot}/usr/libexec/linux_maint/
 install -m 0755 tools/pack_logs.sh %{buildroot}/usr/libexec/linux_maint/pack_logs.sh
 install -m 0755 tools/summary_diff.py %{buildroot}/usr/libexec/linux_maint/summary_diff.py
 install -m 0755 tools/seed_known_hosts.sh %{buildroot}/usr/libexec/linux_maint/seed_known_hosts.sh
+install -m 0755 tools/upgrade_release.sh %{buildroot}/usr/libexec/linux_maint/upgrade_release.sh
 install -m 0755 tools/verify_release.sh %{buildroot}/usr/libexec/linux_maint/verify_release.sh
 
 # operator docs (for dark-site usage and `linux-maint explain`)

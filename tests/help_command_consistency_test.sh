@@ -37,6 +37,7 @@ check_sections trend
 check_sections export
 check_sections pack-logs
 check_sections verify-install
+check_sections upgrade
 check_sections self-check
 check_sections security-profile
 check_sections metrics

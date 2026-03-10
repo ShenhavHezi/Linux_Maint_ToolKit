@@ -26,7 +26,7 @@ printf '# library\n' > "$prefix/lib/linux_maint.sh"
 printf '# conf helper\n' > "$prefix/lib/linux_maint_conf.sh"
 printf 'version=0.0.0\ncommit=test\n' > "$prefix/share/linux_maint/BUILD_INFO"
 
-for helper in summary_diff.py pack_logs.sh seed_known_hosts.sh verify_release.sh; do
+for helper in summary_diff.py pack_logs.sh seed_known_hosts.sh verify_release.sh upgrade_release.sh; do
   printf '#!/usr/bin/env bash\nexit 0\n' > "$prefix/libexec/linux_maint/$helper"
   chmod +x "$prefix/libexec/linux_maint/$helper"
 done
@@ -48,6 +48,12 @@ out="$(PATH="$shim:$PATH" PREFIX="$prefix" LINUX_MAINT_LIB="$prefix/lib/linux_ma
 
 printf '%s\n' "$out" | grep -q "^OK: verify-release helper: $prefix/libexec/linux_maint/verify_release.sh$" || {
   echo "verify-install did not validate installed verify-release helper" >&2
+  echo "$out" >&2
+  exit 1
+}
+
+printf '%s\n' "$out" | grep -q "^OK: upgrade helper: $prefix/libexec/linux_maint/upgrade_release.sh$" || {
+  echo "verify-install did not validate installed upgrade helper" >&2
   echo "$out" >&2
   exit 1
 }

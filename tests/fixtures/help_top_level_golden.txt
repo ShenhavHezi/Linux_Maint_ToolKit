@@ -60,6 +60,7 @@ Release / packaging:
   version                Print installed BUILD_INFO (if present)
   make-tarball           Build offline release tarball (repo / release tree only)
   verify-release         Verify release tarball integrity
+  upgrade <tarball>      Verify, install, and record rollback metadata
   install [args]         Run install.sh from a checkout or extracted release tree
   uninstall [args]       Run install.sh --uninstall from a checkout or extracted release tree
 
