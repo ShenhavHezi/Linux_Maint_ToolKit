@@ -999,7 +999,10 @@ tui_fallback_menu_prompt_body(){
   focus="$(tui_section_preview_body "$context" "$status_json" | head -n 2 | tail -n 1)"
   preview_line="$(tui_menu_action_preview_body "$context" "$recommended" "" | sed -n '1p')"
   printf '%s\n\n' "$prompt"
-  printf 'Context:\n'
+  printf 'Use arrows to choose. Enter opens. Esc goes back.\n\n'
+  printf 'Section:\n'
+  printf '  %s\n' "$(tui_fallback_section_summary "$context")"
+  printf '\nState:\n'
   printf '  mode=%s  overall=%s  last_run=%s\n' "${mode:-unknown}" "${overall:-UNKNOWN}" "$(tui_format_age_seconds "${age:--1}")"
   printf '  inventory=%s  summary=%s  history=%s\n' \
     "$( [[ "${inventory_ready:-0}" == "1" ]] && printf ready || printf missing )" \
@@ -1007,11 +1010,28 @@ tui_fallback_menu_prompt_body(){
     "$( [[ "${history_ready:-0}" == "1" ]] && printf yes || printf no )"
   printf '  cfg=%s\n' "${cfg_dir:-?}"
   printf '  log=%s\n' "${log_dir:-?}"
-  printf '\nRecommended:\n'
+  printf '\nRecommended now:\n'
   printf '  start=%s\n' "${recommended:-overview}"
   printf '  %s\n' "${focus:-- Start with the landing dashboard}"
-  printf '\nAction preview:\n'
+  printf '\nHighlighted action:\n'
   printf '  %s\n' "${preview_line:-Open the recommended action for more detail.}"
+}
+
+tui_fallback_section_summary(){
+  local context="${1:-main}"
+  case "$context" in
+    main) printf '%s' "Pick the workflow lane that matches what you need right now." ;;
+    quickstart) printf '%s' "Setup, guided rescue, and escalation for new or unstable environments." ;;
+    overview) printf '%s' "Fast fleet answer: dashboard, status, problems, and short report." ;;
+    run) printf '%s' "Preview scope first, then execute checks when the plan looks right." ;;
+    triage) printf '%s' "Narrow the failure, inspect evidence, and move into safe recovery." ;;
+    share) printf '%s' "Prepare human handoff, machine export, bundle, or operator reference." ;;
+    investigate) printf '%s' "Inspect status slices, logs, history, and change context." ;;
+    repair) printf '%s' "Validate readiness and run guided recovery actions." ;;
+    export) printf '%s' "Produce reports, machine output, metrics, and support bundles." ;;
+    docs) printf '%s' "Open quick reference, troubleshooting, explanations, and settings." ;;
+    *) printf '%s' "Choose the next action for the current operator task." ;;
+  esac
 }
 
 tui_gum_status_overview(){
@@ -2618,7 +2638,7 @@ tui_menu_prompt(){
     local max_tag=0
     local -a tags=()
     local -a descs=()
-    local prompt_body
+    local prompt_body menu_rows menu_height
     while [[ $# -gt 0 ]]; do
       local tag="$1"
       local desc="$2"
@@ -2635,15 +2655,45 @@ tui_menu_prompt(){
       local desc="${descs[$i]}"
       local padded_tag
       padded_tag="$(printf '%-*s' "$max_tag" "$tag")"
-      menu_items+=("$padded_tag" "$desc")
+      menu_items+=("$padded_tag" "$(tui_menu_display_desc "$desc")")
     done
     prompt_body="$(tui_fallback_menu_prompt_body "$prompt" "${TUI_SHORTCUT_CONTEXT:-main}")"
+    menu_rows=${#tags[@]}
+    menu_height=$((menu_rows + 11))
+    [[ "$menu_height" -lt 22 ]] && menu_height=22
+    [[ "$menu_height" -gt 28 ]] && menu_height=28
     dialog --clear --backtitle "$TUI_BACKTITLE" --title "$TUI_TITLE" \
-      --menu "$prompt_body" 24 96 14 "${menu_items[@]}" 3>&1 1>&2 2>&3
+      --menu "$prompt_body" "$menu_height" 96 "$menu_rows" "${menu_items[@]}" 3>&1 1>&2 2>&3
   else
-    local prompt_body
+    local -a menu_items=()
+    local max_tag=0
+    local -a tags=()
+    local -a descs=()
+    local prompt_body menu_rows menu_height
+    while [[ $# -gt 0 ]]; do
+      local tag="$1"
+      local desc="$2"
+      shift 2
+      tags+=("$tag")
+      descs+=("$desc")
+      local tag_len=${#tag}
+      if [[ "$tag_len" -gt "$max_tag" ]]; then
+        max_tag="$tag_len"
+      fi
+    done
+    for i in "${!tags[@]}"; do
+      local tag="${tags[$i]}"
+      local desc="${descs[$i]}"
+      local padded_tag
+      padded_tag="$(printf '%-*s' "$max_tag" "$tag")"
+      menu_items+=("$padded_tag" "$(tui_menu_display_desc "$desc")")
+    done
     prompt_body="$(tui_fallback_menu_prompt_body "$prompt" "${TUI_SHORTCUT_CONTEXT:-main}")"
-    whiptail --title "$TUI_TITLE" --menu "$prompt_body" 24 96 14 "$@" 3>&1 1>&2 2>&3
+    menu_rows=${#tags[@]}
+    menu_height=$((menu_rows + 11))
+    [[ "$menu_height" -lt 22 ]] && menu_height=22
+    [[ "$menu_height" -gt 28 ]] && menu_height=28
+    whiptail --title "$TUI_TITLE" --menu "$prompt_body" "$menu_height" 96 "$menu_rows" "${menu_items[@]}" 3>&1 1>&2 2>&3
   fi
 }
 

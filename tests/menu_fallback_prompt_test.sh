@@ -19,13 +19,28 @@ LM_STATE_DIR="$tmp_root/state"
 mkdir -p "$LOG_DIR" "$LM_STATE_DIR"
 
 out="$(tui_fallback_menu_prompt_body "Run checks" "run")"
-[[ "$out" == *"Context:"* ]] || {
-  echo "fallback prompt missing context block" >&2
+[[ "$out" == *"Section:"* ]] || {
+  echo "fallback prompt missing section block" >&2
   echo "$out" >&2
   exit 1
 }
-[[ "$out" == *"Recommended:"* ]] || {
+[[ "$out" == *"Preview scope first, then execute checks when the plan looks right."* ]] || {
+  echo "fallback prompt missing section summary" >&2
+  echo "$out" >&2
+  exit 1
+}
+[[ "$out" == *"State:"* ]] || {
+  echo "fallback prompt missing state block" >&2
+  echo "$out" >&2
+  exit 1
+}
+[[ "$out" == *"Recommended now:"* ]] || {
   echo "fallback prompt missing recommended block" >&2
+  echo "$out" >&2
+  exit 1
+}
+[[ "$out" == *"Highlighted action:"* ]] || {
+  echo "fallback prompt missing highlighted action block" >&2
   echo "$out" >&2
   exit 1
 }
