@@ -8,7 +8,7 @@
   log=/tmp/linux_maint_menu_render_fixture/logs
   top_reason=http_failed (1)
   top_problem=CRIT network_monitor host=web-2 reason=http_failed
-  next=Open Repair for guided connectivity triage
+  next=Open Triage for guided connectivity triage
 
 
   Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.

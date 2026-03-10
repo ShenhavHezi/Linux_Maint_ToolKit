@@ -1,29 +1,27 @@
 Usage: linux-maint menu
 
 Purpose:
-  Open the interactive operations console for guided monitoring, triage, export, and docs.
+  Open the interactive operations console for guided setup, health checks, triage, and handoff.
 
 When to use:
   - day-to-day operator workflow
   - first setup and safe first run
   - current-incident triage
-  - export and escalation flow
+  - handoff, export, and escalation flow
 
 Key flags:
   Main sections:
-    Quickstart    first setup, current incident, and escalation workflows
-    Overview      dashboard, current state, top problems, and next moves
+    Quickstart    first setup, guided rescue, and escalation workflows
+    Overview      fleet health, latest problems, and the fast answer
     Run           execute checks, preview plans, or use the run wizard
-    Investigate   drilldown, diff, history, logs, reasons, and runtimes
-    Repair        guided incident response, doctor, check, self-check, and security profile
-    Export        report, trend, metrics, export JSON, and the bundle wizard
-    Docs          quick reference, troubleshooting, FAQ, config, monitors, and settings
+    Triage        investigate failures and repair safely
+    Share         report, export, bundle, and reference docs in one place
   Best path by task:
     First day with the tool?       Quickstart -> first setup
     Need the current answer fast?  Overview -> status or report
-    Need to understand a failure?  Investigate -> drilldown or logs
-    Need to recover quickly?       Repair -> incident or doctor
-    Need to share data?            Export -> report, export JSON, or pack logs
+    Need to understand a failure?  Triage -> drilldown or logs
+    Need to recover quickly?       Triage -> incident or doctor
+    Need to share data?            Share -> report, export JSON, or pack logs
   Quickstart shortcuts:
     inventory      edit servers.txt directly from the Quickstart menu
     groups         open the hosts.d group overview directly from Quickstart
@@ -32,6 +30,9 @@ Key flags:
     first_setup guides init, config review, check, plan, and starter baselines
     current_incident is best after you have a summary or wrapper log
     escalation is best after report/JSON/log artifacts exist
+  Workflow notes:
+    Triage keeps drilldown, logs, doctor, and focused recovery in one workspace
+    Share keeps report/export tasks close to quick reference and troubleshooting docs
   Global gum controls:
     arrows         move through the chooser
     Enter          open the highlighted action

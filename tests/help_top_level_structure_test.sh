@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LM="$ROOT_DIR/bin/linux-maint"
 
-out="$(bash "$LM" help 2>&1 || true)"
+out="$(NO_COLOR=1 bash "$LM" help 2>&1 || true)"
 
 printf '%s\n' "$out" | grep -q '^Most-used operator paths:$' || {
   echo "top-level help missing operator paths section" >&2
@@ -16,7 +16,7 @@ printf '%s\n' "$out" | grep -q '^Investigate / export:$' || {
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -F -q 'Automation / integrations:' || {
+printf '%s\n' "$out" | grep -q '^Automation / integrations:$' || {
   echo "top-level help missing automation section" >&2
   echo "$out" >&2
   exit 1
@@ -36,13 +36,23 @@ printf '%s\n' "$out" | grep -q '^Best next commands:$' || {
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q '^  menu[[:space:]]\+Interactive operations console (Quickstart / Overview / Run / Investigate / Repair / Export / Docs)$' || {
+printf '%s\n' "$out" | grep -q '^  menu[[:space:]]\+Interactive operations console (Quickstart / Overview / Run / Triage / Share)$' || {
   echo "top-level help missing polished menu description" >&2
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q '^  Quickstart[[:space:]]\+First setup, current incident, and escalation workflows$' || {
+printf '%s\n' "$out" | grep -q '^  Quickstart[[:space:]]\+First setup, guided rescue, and escalation workflows$' || {
   echo "top-level help missing quickstart menu section" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q '^  Triage[[:space:]]\+Investigate failures and repair safely$' || {
+  echo "top-level help missing triage menu section" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q '^  Share[[:space:]]\+Reports, bundles, exports, and reference docs$' || {
+  echo "top-level help missing share menu section" >&2
   echo "$out" >&2
   exit 1
 }

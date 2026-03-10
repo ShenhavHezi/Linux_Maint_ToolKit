@@ -34,7 +34,7 @@ TUI_BACKEND=gum
 TUI_MENU_STYLE=compact
 NO_COLOR=1
 
-tui_gum_render_menu_frame "Choose your next step" "main" $'quickstart|First setup, incident triage, and escalation [q]\noverview|Dashboard, current state, and next moves [o]\nrun|Execute checks, preview plans, and scope runs [r]\nexport|Reports, metrics, JSON, and bundles [e]\n' 10 2>"$out"
+tui_gum_render_menu_frame "Choose your next step" "main" $'quickstart|Start here: first setup, guided rescue, and escalation [q]\noverview|See fleet health, latest problems, and the fast answer [o]\nrun|Run checks, preview scope, and launch safely [r]\ntriage|Investigate failures and repair safely [t]\nshare|Share reports, bundles, and reference docs [s]\n' 10 2>"$out"
 
 python3 - "$out" >"$norm" <<'PY'
 import re

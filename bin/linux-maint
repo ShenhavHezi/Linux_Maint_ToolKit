@@ -832,14 +832,14 @@ tui_bootstrap_next_steps_lines(){
   if [[ "$history_ready" != "1" ]]; then
     printf '%s\n' \
       "- Run again after the next change so history and trend can compare runs" \
-      "- Use Overview for the current answer and Export for JSON/report output" \
+      "- Use Overview for the current answer and Share for report or JSON output" \
       "- Capture starter baselines if you want cleaner drift monitoring"
     return 0
   fi
   printf '%s\n' \
     "- Use Overview for the current answer fast" \
-    "- Use Investigate for drilldown and logs" \
-    "- Use Export when you need a report, JSON, or support bundle"
+    "- Use Triage for drilldown, logs, and guided recovery" \
+    "- Use Share when you need a report, JSON, bundle, or docs"
 }
 
 tui_section_uses_empty_state(){
@@ -869,6 +869,12 @@ tui_section_uses_empty_state(){
       fi
       return 0
       ;;
+    triage)
+      if [[ "$summary_ready" == "1" || "$log_ready" == "1" || "$history_ready" == "1" || "$inventory_ready" == "1" ]]; then
+        return 1
+      fi
+      return 0
+      ;;
     repair)
       if [[ "$summary_ready" == "1" || "$inventory_ready" == "1" ]]; then
         return 1
@@ -880,6 +886,9 @@ tui_section_uses_empty_state(){
         return 1
       fi
       return 0
+      ;;
+    share)
+      return 1
       ;;
     docs)
       [[ "$config_dir_exists" == "1" ]] && return 1
@@ -931,6 +940,13 @@ tui_section_empty_state_body(){
         "- summary=$( [[ "$summary_ready" == "1" ]] && printf yes || printf no )  logs=$( [[ "$log_ready" == "1" ]] && printf yes || printf no )  history=$( [[ "$history_ready" == "1" ]] && printf yes || printf no )" \
         "- Run check and a safe plan first, then come back for drilldown"
       ;;
+    triage)
+      printf '%s\n' \
+        "Recommended first action: first_setup" \
+        "- Triage works best once you have a summary, a wrapper log, or at least a configured inventory" \
+        "- summary=$( [[ "$summary_ready" == "1" ]] && printf yes || printf no )  logs=$( [[ "$log_ready" == "1" ]] && printf yes || printf no )  history=$( [[ "$history_ready" == "1" ]] && printf yes || printf no )" \
+        "- Start with check and a safe plan, then come back for drilldown or incident response"
+      ;;
     repair)
       printf '%s\n' \
         "Recommended first action: first_setup" \
@@ -944,6 +960,13 @@ tui_section_empty_state_body(){
         "- Export needs current artifacts before it becomes useful" \
         "- Generate a summary or log first with check/run and then return for reports or bundles" \
         "- After the first run you can export JSON, metrics, or a support bundle"
+      ;;
+    share)
+      printf '%s\n' \
+        "Recommended first action: quickref" \
+        "- Share combines handoff artifacts with reference docs in one place" \
+        "- Reports and JSON become useful after the first summary or wrapper log" \
+        "- Quick reference and troubleshooting are still available before the first run"
       ;;
     docs)
       printf '%s\n' \
@@ -1218,44 +1241,43 @@ tui_next_moves_lines(){
   case "$key" in
     connectivity)
       printf '%s\n' \
-        "- Open Repair for guided connectivity triage" \
-        "- Open Investigate to inspect diff/logs around the failing host" \
+        "- Open Triage for guided connectivity triage" \
+        "- Use drilldown or logs to inspect the failing host" \
         "- Re-run focused network checks after access is restored"
       ;;
     config)
       printf '%s\n' \
-        "- Open Repair for config/init and doctor checks" \
-        "- Open Docs for config and monitor requirements" \
+        "- Open Triage for config/init and doctor checks" \
+        "- Open Share for quick reference and troubleshooting" \
         "- Re-run check before a full fleet run"
       ;;
     service)
       printf '%s\n' \
-        "- Open Repair for service-oriented incident steps" \
-        "- Open Investigate to inspect status drilldown and logs" \
+        "- Open Triage for service-oriented incident steps" \
+        "- Use drilldown and logs to inspect status and wrapper output" \
         "- Re-run focused service checks after remediation"
       ;;
     patching)
       printf '%s\n' \
-        "- Open Investigate to confirm the affected hosts and reasons" \
+        "- Open Triage to confirm the affected hosts and reasons" \
         "- Apply your update workflow outside the menu" \
         "- Re-run status or report after patching"
       ;;
     runtime)
       printf '%s\n' \
-        "- Open Export to inspect recent runtimes" \
-        "- Open Repair to run doctor and readiness checks" \
+        "- Open Share to inspect recent runtimes" \
+        "- Open Triage to run doctor and readiness checks" \
         "- Tune thresholds or timeouts before the next run"
       ;;
     *)
       if [[ "$overall" == "CRIT" || "$overall" == "WARN" ]]; then
         printf '%s\n' \
-          "- Open Repair for doctor and guided incident response" \
-          "- Open Investigate for drilldown, diff, and logs" \
+          "- Open Triage for doctor, drilldown, and guided incident response" \
           "- Create a bundle if you need to escalate"
       else
         printf '%s\n' \
-          "- Review trend and runtimes in Export" \
-          "- Open Docs for monitor and reason references" \
+          "- Review trend and runtimes in Share" \
+          "- Open Share for monitor and reason references" \
           "- Use Run to plan or execute the next check"
       fi
       ;;
@@ -1353,19 +1375,35 @@ tui_section_recommended_action(){
           return 0
         fi
         ;;
-      investigate)
-        if [[ "$summary_ready" != "1" || ( "$history_ready" != "1" && "$log_ready" != "1" ) ]]; then
-          printf 'first_setup'
-          return 0
-        fi
-        ;;
-      export)
-        if [[ "$summary_ready" != "1" && "$log_ready" != "1" && "$history_ready" != "1" ]]; then
-          printf 'first_setup'
-          return 0
-        fi
-        ;;
-    esac
+    investigate)
+      if [[ "$summary_ready" != "1" || ( "$history_ready" != "1" && "$log_ready" != "1" ) ]]; then
+        printf 'first_setup'
+        return 0
+      fi
+      ;;
+    triage)
+      if [[ "$config_dir_exists" != "1" || "$inventory_ready" != "1" ]]; then
+        printf 'first_setup'
+        return 0
+      fi
+      if [[ "$summary_ready" != "1" && "$log_ready" != "1" && "$history_ready" != "1" ]]; then
+        printf 'check'
+        return 0
+      fi
+      ;;
+    export)
+      if [[ "$summary_ready" != "1" && "$log_ready" != "1" && "$history_ready" != "1" ]]; then
+        printf 'first_setup'
+        return 0
+      fi
+      ;;
+    share)
+      if [[ "$summary_ready" != "1" && "$log_ready" != "1" && "$history_ready" != "1" ]]; then
+        printf 'quickref'
+        return 0
+      fi
+      ;;
+  esac
   fi
   case "$context" in
     quickstart) printf 'first_setup' ;;
@@ -1384,6 +1422,15 @@ tui_section_recommended_action(){
         printf 'history'
       fi
       ;;
+    triage)
+      if [[ "$overall" == "CRIT" || "$overall" == "WARN" || "$overall" == "UNKNOWN" ]]; then
+        printf 'incident'
+      elif [[ -n "$top_reason" && "$top_reason" != "-" ]]; then
+        printf 'drilldown'
+      else
+        printf 'check'
+      fi
+      ;;
     repair)
       if [[ "$overall" == "CRIT" || "$overall" == "WARN" || "$overall" == "UNKNOWN" ]]; then
         printf 'incident'
@@ -1396,6 +1443,13 @@ tui_section_recommended_action(){
         printf 'report'
       else
         printf 'export_json'
+      fi
+      ;;
+    share)
+      if [[ "$overall" == "CRIT" || "$overall" == "WARN" || "$overall" == "UNKNOWN" ]]; then
+        printf 'report'
+      else
+        printf 'quickref'
       fi
       ;;
     docs) printf 'quickref' ;;
@@ -1447,6 +1501,13 @@ tui_section_preview_body(){
         "Top problem: ${top_monitor:--} host=${top_host:--}" \
         "- Follow with logs or diff once you narrow the slice"
       ;;
+    triage)
+      printf '%s\n' \
+        "Recommended first action: $next_action" \
+        "Current triage: $(tui_incident_recommendation_summary "$top_reason" "$top_monitor" "$top_host")" \
+        "- Start with drilldown when you need to narrow the failure" \
+        "- Use doctor or focused_run once you know where to intervene"
+      ;;
     repair)
       printf '%s\n' \
         "Recommended first action: $next_action" \
@@ -1460,6 +1521,13 @@ tui_section_preview_body(){
         "- Report for people, export JSON for systems" \
         "- Metrics and runtimes for dashboards and tuning" \
         "- Pack logs when you need a support bundle"
+      ;;
+    share)
+      printf '%s\n' \
+        "Recommended first action: $next_action" \
+        "- Report and export JSON for handoff" \
+        "- Pack logs when you need an escalation bundle" \
+        "- Quick reference and troubleshooting stay close to the artifacts"
       ;;
     docs)
       printf '%s\n' \
@@ -1478,14 +1546,14 @@ tui_section_preview_body(){
 
 tui_gum_section_focus_card(){
   local context="${1:-main}" status_json="${2:-}" width="${3:-52}"
-  local color="#22c55e"
+  local color="#15803d"
   case "$context" in
-    quickstart) color="#14b8a6" ;;
-    investigate) color="#60a5fa" ;;
-    repair) color="#ef4444" ;;
-    export) color="#c084fc" ;;
-    docs) color="#f59e0b" ;;
-    run) color="#22c55e" ;;
+    quickstart) color="#0f766e" ;;
+    overview) color="#2563eb" ;;
+    investigate|repair|triage) color="#b45309" ;;
+    export|share) color="#2563eb" ;;
+    docs) color="#0f766e" ;;
+    run) color="#15803d" ;;
   esac
   tui_gum_card_render "Recommended start" "$color" "$(tui_section_preview_body "$context" "$status_json")" "$width"
 }
@@ -1789,6 +1857,8 @@ tui_palette_aliases(){
   local tag="$1" context="${2:-main}"
   case "$tag" in
     quickstart|first_setup) printf 'setup bootstrap init first run onboarding config' ;;
+    triage) printf 'triage investigate repair recover incident drilldown logs doctor' ;;
+    share) printf 'share export handoff bundle docs reference report json metrics' ;;
     current_incident|incident|recommended) printf 'incident triage outage emergency fix recover' ;;
     escalation|pack_logs) printf 'bundle support share escalate escalation archive logs' ;;
     inventory) printf 'servers inventory targets edit hosts bootstrap' ;;
@@ -1856,57 +1926,31 @@ tui_menu_action_preview_body(){
         "Likely next step:" \
         "  Plan first when config or scope changed."
       ;;
-    main:investigate)
+    main:triage)
       printf '%s\n' \
-        "Opens drilldown, diff, history, logs, and reason analysis." \
+        "Opens the triage workspace for investigation and safe recovery." \
         "" \
         "Reads:" \
-        "- summary, logs, and history artifacts" \
+        "- summary, logs, history, and readiness inputs" \
         "" \
         "Writes:" \
-        "- none; read-only investigation path" \
+        "- none until you choose a validating or recovery action" \
         "" \
         "Likely next step:" \
-        "  Start with drilldown or logs when you already have an active failure."
+        "  Start with incident for urgent failures or drilldown when you need to narrow the slice."
       ;;
-    main:repair)
+    main:share)
       printf '%s\n' \
-        "Opens incident, doctor, check, and recovery-oriented actions." \
+        "Opens handoff exports, support bundles, and nearby operator references." \
         "" \
         "Reads:" \
-        "- current state plus config/readiness inputs" \
+        "- latest artifacts, history summaries, and local docs" \
         "" \
         "Writes:" \
-        "- none until you choose a repair action" \
+        "- none until you export artifacts, package logs, or save menu settings" \
         "" \
         "Likely next step:" \
-        "  Use incident or doctor when you need a guided recovery flow."
-      ;;
-    main:export)
-      printf '%s\n' \
-        "Opens report, JSON export, metrics, and support-bundle actions." \
-        "" \
-        "Reads:" \
-        "- latest artifacts and history summaries" \
-        "" \
-        "Writes:" \
-        "- none until you export or package artifacts" \
-        "" \
-        "Likely next step:" \
-        "  Use report for people, export_json for systems, or pack_logs for escalation."
-      ;;
-    main:docs)
-      printf '%s\n' \
-        "Opens operator docs, explanations, and menu settings." \
-        "" \
-        "Reads:" \
-        "- local docs plus effective config metadata" \
-        "" \
-        "Writes:" \
-        "- none unless you change menu settings" \
-        "" \
-        "Likely next step:" \
-        "  Use quick reference for speed or config to inspect the active sources."
+        "  Use report or export_json for handoff, or quickref when you need the operator path."
       ;;
     quickstart:first_setup)
       tui_command_preview_body "Quickstart: first setup" linux-maint init --minimal
@@ -2164,10 +2208,10 @@ tui_palette_rank(){
   overall="$(tui_snapshot_value "$(tui_context_snapshot "$status_json")" overall)"
   [[ "$tag" == "$recommended" ]] && score=$((score + 35))
   case "$context:$tag" in
-    main:quickstart|quickstart:first_setup|overview:dashboard|run:plan|investigate:drilldown|repair:incident|export:report|docs:quickref)
+    main:quickstart|quickstart:first_setup|overview:dashboard|run:plan|investigate:drilldown|repair:incident|export:report|docs:quickref|main:triage|main:share|triage:incident|share:report|share:quickref)
       score=$((score + 18))
       ;;
-    run:wizard|repair:doctor|export:pack_logs|investigate:logs|docs:troubleshooting)
+    run:wizard|repair:doctor|export:pack_logs|investigate:logs|docs:troubleshooting|triage:doctor|triage:drilldown|triage:logs|share:pack_logs|share:troubleshooting)
       score=$((score + 12))
       ;;
   esac
@@ -2176,7 +2220,7 @@ tui_palette_rank(){
       quickstart|first_setup|plan|wizard|check|config|quickref)
         score=$((score + 25))
         ;;
-      trend|history|runtimes|metrics_prom|metrics_json|export_json|report)
+      trend|history|runtimes|metrics_prom|metrics_json|export_json|report|share)
         score=$((score - 12))
         ;;
     esac
@@ -2194,7 +2238,7 @@ tui_palette_rank(){
   case "$overall" in
     CRIT|WARN|UNKNOWN)
       case "$tag" in
-        problems|report|incident|doctor|logs|pack_logs|status|drilldown)
+        problems|report|incident|doctor|logs|pack_logs|status|drilldown|triage|share)
           score=$((score + 10))
           ;;
       esac
@@ -2623,14 +2667,11 @@ tui_tag_color(){
     return 0
   fi
   case "$1" in
-    quickstart|first_setup|current_incident|escalation) echo "#14b8a6" ;;
-    overview|overview_screen|dashboard|problems|reports|status|summary|runindex) echo "#38bdf8" ;;
-    run) echo "#22c55e" ;;
-    investigate|drilldown|diff|history|logs|reasons|status_detail|tools) echo "#f59e0b" ;;
-    repair|incident|recommended|doctor|selfcheck|check|secprofile|focused_run|diagnostics|logslive) echo "#fb7185" ;;
-    export|report|trend|runtimes|metrics_prom|metrics_json|pack_logs|export_json) echo "#c084fc" ;;
-    docs|quickref|faq|troubleshooting|about|config|monitors|settings|explain_reason|explain_monitor|explain_status|help|monitors_matrix) echo "#22c55e" ;;
-    wizard) echo "#22c55e" ;;
+    quickstart|first_setup|current_incident|escalation|docs|quickref|faq|troubleshooting|config|monitors|explain_reason|explain_monitor|explain_status) echo "#0f766e" ;;
+    overview|overview_screen|dashboard|problems|reports|status|summary|runindex|share|export|report|trend|runtimes|metrics_prom|metrics_json|pack_logs|export_json) echo "#2563eb" ;;
+    run|wizard) echo "#15803d" ;;
+    triage|investigate|drilldown|diff|history|logs|reasons|status_detail|tools|repair|incident|recommended|doctor|selfcheck|check|secprofile|focused_run|diagnostics|logslive) echo "#b45309" ;;
+    settings|about|help|monitors_matrix) echo "#64748b" ;;
     exit|back) echo "#64748b" ;;
     *) echo "#94a3b8" ;;
   esac
@@ -2668,15 +2709,39 @@ map_menu_shortcut(){
     main:q) printf 'quickstart' ;;
     main:o) printf 'overview' ;;
     main:r) printf 'run' ;;
-    main:i) printf 'investigate' ;;
-    main:p) printf 'repair' ;;
-    main:e) printf 'export' ;;
-    main:h) printf 'docs' ;;
-    main:s) printf 'overview' ;;
-    main:t) printf 'investigate' ;;
-    main:d) printf 'repair' ;;
-    main:c) printf 'docs' ;;
+    main:t) printf 'triage' ;;
+    main:s) printf 'share' ;;
+    main:i) printf 'triage' ;;
+    main:p) printf 'triage' ;;
+    main:e) printf 'share' ;;
+    main:h) printf 'share' ;;
+    main:d) printf 'triage' ;;
+    main:c) printf 'share' ;;
     main:x) printf 'exit' ;;
+    triage:i) printf 'incident' ;;
+    triage:d) printf 'drilldown' ;;
+    triage:l) printf 'logs' ;;
+    triage:r) printf 'reasons' ;;
+    triage:x) printf 'diff' ;;
+    triage:f) printf 'focused_run' ;;
+    triage:c) printf 'check' ;;
+    triage:o) printf 'doctor' ;;
+    triage:h) printf 'history' ;;
+    triage:b) printf 'back' ;;
+    share:r) printf 'report' ;;
+    share:e) printf 'export_json' ;;
+    share:p) printf 'pack_logs' ;;
+    share:t) printf 'trend' ;;
+    share:u) printf 'runtimes' ;;
+    share:m) printf 'metrics_prom' ;;
+    share:j) printf 'metrics_json' ;;
+    share:h) printf 'quickref' ;;
+    share:f) printf 'faq' ;;
+    share:g) printf 'troubleshooting' ;;
+    share:c) printf 'config' ;;
+    share:s) printf 'settings' ;;
+    share:a) printf 'about' ;;
+    share:b) printf 'back' ;;
     overview:d) printf 'dashboard' ;;
     overview:s) printf 'status' ;;
     overview:p) printf 'problems' ;;
@@ -4493,6 +4558,91 @@ run_menu_overview(){
   done
 }
 
+run_menu_triage(){
+  while true; do
+    local choice
+    TUI_SHORTCUT_CONTEXT="triage"
+    choice="$(tui_menu_prompt_safe "Triage" \
+      incident "Guide: incident response workflow [i]" \
+      drilldown "Inspect: filtered status drilldown [d]" \
+      logs "Inspect: latest wrapper log [l]" \
+      reasons "Review: top reason tokens [r]" \
+      diff "Review: changes since previous run [x]" \
+      check "Validate: config and readiness [c]" \
+      doctor "Diagnose: deeper checks and fixes [o] [changes]" \
+      focused_run "Run: focused service and network checks [f] [changes]" \
+      history "Inspect: recent run history [h]" \
+      back "Back to main menu [b]")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "triage")"
+    case "$choice" in
+      incident) run_menu_incident_mode ;;
+      drilldown) tui_status_drilldown ;;
+      logs) tui_run_cmd "linux-maint logs 200" "$0" logs 200 ;;
+      reasons) tui_run_cmd "linux-maint status --reasons 10" "$0" status --reasons 10 ;;
+      diff) tui_run_cmd "linux-maint diff" "$0" diff ;;
+      check) tui_run_cmd "linux-maint check" "$0" check ;;
+      doctor) tui_run_cmd "linux-maint doctor" "$0" doctor ;;
+      focused_run)
+        tui_run_cmd "linux-maint run --only preflight_check,health_monitor,service_monitor,network_monitor --strict" \
+          "$0" run --only preflight_check,health_monitor,service_monitor,network_monitor --strict
+        ;;
+      history) tui_run_cmd "linux-maint history --table" "$0" history --table ;;
+      back) break ;;
+    esac
+    if [[ "${TUI_RETURN_TO_MAIN:-0}" == "1" ]]; then
+      break
+    fi
+  done
+}
+
+run_menu_share(){
+  while true; do
+    local choice
+    TUI_SHORTCUT_CONTEXT="share"
+    choice="$(tui_menu_prompt_safe "Share" \
+      report "Share: short report summary [r]" \
+      export_json "Export: unified snapshot JSON [e]" \
+      pack_logs "Bundle: guided support package [p] [changes]" \
+      trend "Review: recent trend (last 10 runs) [t]" \
+      runtimes "Review: runtime summary (last 10 runs) [u]" \
+      metrics_prom "Export: Prometheus metrics [m]" \
+      quickref "Read: quick command reference [h]" \
+      troubleshooting "Read: troubleshooting guide [g]" \
+      config "Inspect: effective config [c]" \
+      settings "Adjust: menu preferences [s]" \
+      about "Inspect: version and project details [a]" \
+      back "Back to main menu [b]")"
+    local rc=$TUI_MENU_RC
+    if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
+      break
+    fi
+    choice="$(normalize_menu_choice "$choice")"
+    choice="$(map_menu_shortcut "$choice" "share")"
+    case "$choice" in
+      report) tui_run_cmd "linux-maint report --short --no-trend" "$0" report --short --no-trend ;;
+      export_json) tui_run_cmd "linux-maint export --json" "$0" export --json ;;
+      pack_logs) tui_pack_logs_wizard || true ;;
+      trend) tui_run_cmd "linux-maint trend --last 10" "$0" trend --last 10 ;;
+      runtimes) tui_run_cmd "linux-maint runtimes --last 10" "$0" runtimes --last 10 ;;
+      metrics_prom) tui_run_cmd "linux-maint metrics --prom" "$0" metrics --prom ;;
+      quickref) tui_view_file "Quick reference" "$(find_doc_file QUICK_REFERENCE.md)" ;;
+      troubleshooting) tui_view_file "Troubleshooting" "$(find_doc_file troubleshooting.md)" ;;
+      config) tui_run_cmd "linux-maint config" "$0" config ;;
+      settings) run_menu_settings ;;
+      about) tui_about ;;
+      back) break ;;
+    esac
+    if [[ "${TUI_RETURN_TO_MAIN:-0}" == "1" ]]; then
+      break
+    fi
+  done
+}
+
 run_help_block(){
   local usage_line="$1" purpose="$2" when_to_use="${3:-}" key_flags="${4:-}" examples="${5:-}" exit_behavior="${6:-}" repo_note="${7:-}"
   printf 'Usage: %s\n\n' "$usage_line"
@@ -4736,13 +4886,11 @@ run_menu(){
     fi
     TUI_SHORTCUT_CONTEXT="main"
     choice="$(tui_menu_prompt_safe "Choose your next step" \
-      quickstart "First setup, incident triage, and escalation [q]" \
-      overview "Dashboard, current state, and next moves [o]" \
-      run "Execute checks, preview plans, and scope runs [r]" \
-      investigate "Drilldown, diff, history, and logs [i]" \
-      repair "Guided triage, doctor, and safety checks [p]" \
-      export "Reports, metrics, JSON, and bundles [e]" \
-      docs "Reference, config, and menu settings [h]" \
+      quickstart "Start here: first setup, guided rescue, and escalation [q]" \
+      overview "See fleet health, latest problems, and the fast answer [o]" \
+      run "Run checks, preview scope, and launch safely [r]" \
+      triage "Investigate failures and repair safely [t]" \
+      share "Share reports, bundles, and reference docs [s]" \
       exit "Exit [x]")"
     rc=$TUI_MENU_RC
     if [[ $rc -ne 0 || -z "${choice:-}" ]]; then
@@ -4760,17 +4908,11 @@ run_menu(){
       run)
         run_menu_run
         ;;
-      investigate)
-        run_menu_investigate
+      triage)
+        run_menu_triage
         ;;
-      repair)
-        run_menu_repair
-        ;;
-      export)
-        run_menu_export
-        ;;
-      docs)
-        run_menu_docs
+      share)
+        run_menu_share
         ;;
       exit)
         break
@@ -5516,7 +5658,7 @@ ${C_CYAN}Start here${C_RESET}:
   sudo linux-maint status
 
 ${C_CYAN}Most-used operator paths${C_RESET}:
-  menu                   Interactive operations console (Quickstart / Overview / Run / Investigate / Repair / Export / Docs)
+  menu                   Interactive operations console (Quickstart / Overview / Run / Triage / Share)
   run [flags]            Execute the wrapper, scope runs, or preview a plan
   status [flags]         Read the current fleet state and top problems
   report [flags]         One-screen operator summary with trend and runtime context
@@ -5575,13 +5717,11 @@ ${C_CYAN}Help / reference${C_RESET}:
   help                    Show this help
 
 ${C_CYAN}Menu sections${C_RESET}:
-  Quickstart              First setup, current incident, and escalation workflows
-  Overview                Dashboard, current state, and next moves
+  Quickstart              First setup, guided rescue, and escalation workflows
+  Overview                Fleet health, latest problems, and fast answers
   Run                     Execute checks, preview plans, and scope runs
-  Investigate             Drilldown, diff, history, logs, and runtimes
-  Repair                  Guided triage, doctor, and safety checks
-  Export                  Reports, metrics, JSON, and support bundles
-  Docs                    Reference, config, and menu preferences
+  Triage                  Investigate failures and repair safely
+  Share                   Reports, bundles, exports, and reference docs
 
 ${C_CYAN}Environment${C_RESET}:
   LM_PROGRESS=0         disable progress bar during run
@@ -5630,9 +5770,9 @@ command_usage(){
     menu)
       run_help_block \
         "linux-maint menu" \
-        "Open the interactive operations console for guided monitoring, triage, export, and docs." \
-        "  - day-to-day operator workflow\n  - first setup and safe first run\n  - current-incident triage\n  - export and escalation flow" \
-        "  Main sections:\n    Quickstart    first setup, current incident, and escalation workflows\n    Overview      dashboard, current state, top problems, and next moves\n    Run           execute checks, preview plans, or use the run wizard\n    Investigate   drilldown, diff, history, logs, reasons, and runtimes\n    Repair        guided incident response, doctor, check, self-check, and security profile\n    Export        report, trend, metrics, export JSON, and the bundle wizard\n    Docs          quick reference, troubleshooting, FAQ, config, monitors, and settings\n  Best path by task:\n    First day with the tool?       Quickstart -> first setup\n    Need the current answer fast?  Overview -> status or report\n    Need to understand a failure?  Investigate -> drilldown or logs\n    Need to recover quickly?       Repair -> incident or doctor\n    Need to share data?            Export -> report, export JSON, or pack logs\n  Quickstart shortcuts:\n    inventory      edit servers.txt directly from the Quickstart menu\n    groups         open the hosts.d group overview directly from Quickstart\n    docs           open quick reference and troubleshooting from Quickstart\n  Quickstart bootstrap:\n    first_setup guides init, config review, check, plan, and starter baselines\n    current_incident is best after you have a summary or wrapper log\n    escalation is best after report/JSON/log artifacts exist\n  Global gum controls:\n    arrows         move through the chooser\n    Enter          open the highlighted action\n    Search         smart command palette (search by names, aliases, task words)\n                   examples: first run, triage, bundle, report, logs, doctor\n    Preview        open action previews for the current menu\n    Help           reopen quick controls for the current menu\n    Esc            go back\n    Optional letter shortcuts remain available when enabled\n  Useful env vars:\n    LM_TUI_BACKEND=gum|dialog|whiptail\n    LM_TUI_DASH_REFRESH=<seconds>\n    LM_TUI_DEFAULT_STATUS_VIEW=table|compact\n    LM_TUI_DEFAULT_PROBLEMS=<1..100>\n    LM_TUI_DEFAULT_REASONS=<0..20>\n    LM_TUI_PREVIEW=1|0\n    LM_TUI_SHORTCUTS=1|0\n    LM_TUI_COMPACT=1|0\n    LM_TUI_LOW_COLOR=1|0\n    LM_TUI_CONFIRM_RISKY=1|0" \
+        "Open the interactive operations console for guided setup, health checks, triage, and handoff." \
+        "  - day-to-day operator workflow\n  - first setup and safe first run\n  - current-incident triage\n  - handoff, export, and escalation flow" \
+        "  Main sections:\n    Quickstart    first setup, guided rescue, and escalation workflows\n    Overview      fleet health, latest problems, and the fast answer\n    Run           execute checks, preview plans, or use the run wizard\n    Triage        investigate failures and repair safely\n    Share         report, export, bundle, and reference docs in one place\n  Best path by task:\n    First day with the tool?       Quickstart -> first setup\n    Need the current answer fast?  Overview -> status or report\n    Need to understand a failure?  Triage -> drilldown or logs\n    Need to recover quickly?       Triage -> incident or doctor\n    Need to share data?            Share -> report, export JSON, or pack logs\n  Quickstart shortcuts:\n    inventory      edit servers.txt directly from the Quickstart menu\n    groups         open the hosts.d group overview directly from Quickstart\n    docs           open quick reference and troubleshooting from Quickstart\n  Quickstart bootstrap:\n    first_setup guides init, config review, check, plan, and starter baselines\n    current_incident is best after you have a summary or wrapper log\n    escalation is best after report/JSON/log artifacts exist\n  Workflow notes:\n    Triage keeps drilldown, logs, doctor, and focused recovery in one workspace\n    Share keeps report/export tasks close to quick reference and troubleshooting docs\n  Global gum controls:\n    arrows         move through the chooser\n    Enter          open the highlighted action\n    Search         smart command palette (search by names, aliases, task words)\n                   examples: first run, triage, bundle, report, logs, doctor\n    Preview        open action previews for the current menu\n    Help           reopen quick controls for the current menu\n    Esc            go back\n    Optional letter shortcuts remain available when enabled\n  Useful env vars:\n    LM_TUI_BACKEND=gum|dialog|whiptail\n    LM_TUI_DASH_REFRESH=<seconds>\n    LM_TUI_DEFAULT_STATUS_VIEW=table|compact\n    LM_TUI_DEFAULT_PROBLEMS=<1..100>\n    LM_TUI_DEFAULT_REASONS=<0..20>\n    LM_TUI_PREVIEW=1|0\n    LM_TUI_SHORTCUTS=1|0\n    LM_TUI_COMPACT=1|0\n    LM_TUI_LOW_COLOR=1|0\n    LM_TUI_CONFIRM_RISKY=1|0" \
         "  linux-maint menu\n  LM_TUI_BACKEND=gum linux-maint menu\n  LM_TUI_COMPACT=1 linux-maint menu" \
         "  - returns non-zero if no supported TUI backend is available\n  - returns non-zero when interactive TTY requirements are not met" \
         "  repo mode:      linux-maint menu\n  installed mode: sudo linux-maint menu"

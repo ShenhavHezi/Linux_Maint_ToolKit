@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LM="$ROOT_DIR/bin/linux-maint"
 
-out="$(bash "$LM" help menu 2>&1 || true)"
+out="$(NO_COLOR=1 bash "$LM" help menu 2>&1 || true)"
 
 printf '%s\n' "$out" | grep -q '^Repo vs installed:$' || {
   echo "help menu missing repo-vs-installed section" >&2
@@ -31,18 +31,23 @@ printf '%s\n' "$out" | grep -q 'Main sections:' || {
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -Eq 'Quickstart[[:space:]]+first setup, current incident, and escalation workflows' || {
+printf '%s\n' "$out" | grep -Eq 'Quickstart[[:space:]]+first setup, guided rescue, and escalation workflows' || {
   echo "help menu missing quickstart summary" >&2
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -Eq 'Overview[[:space:]]+dashboard, current state, top problems, and next moves' || {
+printf '%s\n' "$out" | grep -Eq 'Overview[[:space:]]+fleet health, latest problems, and the fast answer' || {
   echo "help menu missing overview summary" >&2
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -Eq 'Repair[[:space:]]+guided incident response, doctor, check, self-check, and security profile' || {
-  echo "help menu missing repair summary" >&2
+printf '%s\n' "$out" | grep -Eq 'Triage[[:space:]]+investigate failures and repair safely' || {
+  echo "help menu missing triage summary" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -Eq 'Share[[:space:]]+report, export, bundle, and reference docs in one place' || {
+  echo "help menu missing share summary" >&2
   echo "$out" >&2
   exit 1
 }
@@ -56,8 +61,13 @@ printf '%s\n' "$out" | grep -Eq 'First day with the tool\?[[:space:]]+Quickstart
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q 'Need to recover quickly?       Repair -> incident or doctor' || {
+printf '%s\n' "$out" | grep -q 'Need to recover quickly?       Triage -> incident or doctor' || {
   echo "help menu missing recovery path guidance" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q 'Need to share data?            Share -> report, export JSON, or pack logs' || {
+  echo "help menu missing share path guidance" >&2
   echo "$out" >&2
   exit 1
 }
@@ -73,6 +83,16 @@ printf '%s\n' "$out" | grep -q 'Quickstart bootstrap:' || {
 }
 printf '%s\n' "$out" | grep -q 'first_setup guides init, config review, check, plan, and starter baselines' || {
   echo "help menu missing first_setup bootstrap guidance" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q 'Workflow notes:' || {
+  echo "help menu missing workflow notes section" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q 'Triage keeps drilldown, logs, doctor, and focused recovery in one workspace' || {
+  echo "help menu missing triage workflow guidance" >&2
   echo "$out" >&2
   exit 1
 }

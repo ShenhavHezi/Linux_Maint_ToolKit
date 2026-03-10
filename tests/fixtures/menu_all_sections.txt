@@ -127,11 +127,11 @@
 
 
   Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.
-=== Investigate ===
+=== Triage ===
 
  ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
  │  Linux Maint ToolKit                                                                                         │
- │  Investigate                                                                                                 │
+ │  Triage                                                                                                      │
  ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
  ╭────────────────────────────────────────────────────╮    ╭────────────────────────────────────────────────────╮
@@ -145,136 +145,52 @@
  │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
  │  history=no  logs=no                               │    │                                                    │
  │                                                    │    │  Action preview                                    │
- ╰────────────────────────────────────────────────────╯    │  Opens filtered status drilldown with host,        │
-                                                           │  monitor, reason, and status filters.              │
- ╭────────────────────────────────────────────────────╮    │                                                    │
- │                                                    │    │  Reads:                                            │
- │  Recommended start                                 │    │  - status JSON snapshot from                       │
- │  Recommended first action: first_setup             │    │  /tmp/linux_maint_menu_render_fixture_probe/logs   │
- │  - Investigate needs either a summary, a log, or   │    │                                                    │
- │  history artifacts                                 │    │  Writes:                                           │
- │  - summary=yes  logs=no  history=no                │    │  - none                                            │
- │  - Run check and a safe plan first, then come      │    │                                                    │
- │  back for drilldown                                │    │  Likely next step:                                 │
- │                                                    │    │    Narrow to one host or monitor, then explain     │
- ╰────────────────────────────────────────────────────╯    │  the top reason or monitor.                        │
-                                                           │                                                    │
-                                                           ╰────────────────────────────────────────────────────╯
-
-
-  Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.
-=== Repair ===
-
- ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
- │  Linux Maint ToolKit                                                                                         │
- │  Repair                                                                                                      │
- ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-
- ╭────────────────────────────────────────────────────╮    ╭────────────────────────────────────────────────────╮
- │                                                    │    │                                                    │
- │  Active context                                    │    │  Fleet status                                      │
- │  mode=repo  overall=CRIT  last_run=missing         │    │  Overall: !! CRIT                                  │
- │  shortcuts=on  preview=on                          │    │  OK:0  WARN:1  CRIT:1  UNKNOWN:0  SKIP:0           │
- │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
- │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
- │  ogs  state=/tmp/linux_maint_state_fixture         │
- │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
- │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Action preview                                    │
- ╰────────────────────────────────────────────────────╯    │  Opens guided incident response based on the       │
-                                                           │  latest top reason and monitor.                    │
- ╭────────────────────────────────────────────────────╮    │                                                    │
- │                                                    │    │  Reads:                                            │
- │  Recommended start                                 │    │  - summary, reasons, problems, and logs            │
- │  Recommended first action: first_setup             │    │                                                    │
- │  Current triage: connectivity triage: reason       │    │  Writes:                                           │
- │  explain + focused status + network rerun          │    │  - none until you choose a follow-up action        │
- │  - Doctor validates deeper dependencies and fixes  │    │                                                    │
- │  - Check confirms readiness before the next full   │    │  Likely next step:                                 │
- │  run                                               │    │    Use this when you want the fastest recommended  │
- │                                                    │    │  recovery path.                                    │
- ╰────────────────────────────────────────────────────╯    │                                                    │
-                                                           ╰────────────────────────────────────────────────────╯
-
-
-  Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.
-=== Export ===
-
- ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
- │  Linux Maint ToolKit                                                                                         │
- │  Export                                                                                                      │
- ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-
- ╭────────────────────────────────────────────────────╮    ╭────────────────────────────────────────────────────╮
- │                                                    │    │                                                    │
- │  Active context                                    │    │  Fleet status                                      │
- │  mode=repo  overall=CRIT  last_run=missing         │    │  Overall: !! CRIT                                  │
- │  shortcuts=on  preview=on                          │    │  OK:0  WARN:1  CRIT:1  UNKNOWN:0  SKIP:0           │
- │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
- │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
- │  ogs  state=/tmp/linux_maint_state_fixture         │
- │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
- │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Action preview                                    │
- ╰────────────────────────────────────────────────────╯    │  Command preview: linux-maint report --short --    │
-                                                           │  no-trend                                          │
- ╭────────────────────────────────────────────────────╮    │                                                    │
- │                                                    │    │  Command:                                          │
- │  Recommended start                                 │    │    linux-maint report --short --no-trend           │
- │  Recommended first action: report                  │    │                                                    │
- │  - Report for people, export JSON for systems      │    │  Risk:                                             │
- │  - Metrics and runtimes for dashboards and tuning  │    │    Read-only                                       │
- │  - Pack logs when you need a support bundle        │    │                                                    │
- │                                                    │    │  Reads:                                            │
- ╰────────────────────────────────────────────────────╯    │  - latest artifacts under                          │
-                                                           │  /tmp/linux_maint_menu_render_fixture_probe/logs   │
-                                                           │  - history state under                             │
-                                                           │  /tmp/linux_maint_state_fixture when needed        │
-                                                           │  - current config root for hints and metadata      │
-                                                           │                                                    │
-                                                           │  Writes:                                           │
-                                                           │  - read-only output to the terminal unless --      │
-                                                           │  output is used                                    │
-                                                           │                                                    │
-                                                           │  Likely next step:                                 │
-                                                           │    If you see failures, move to Investigate or     │
-                                                           │  Repair for drilldown and remediation.             │
-                                                           │                                                    │
-                                                           ╰────────────────────────────────────────────────────╯
-
-
-  Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.
-=== Docs ===
-
- ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
- │  Linux Maint ToolKit                                                                                         │
- │  Docs                                                                                                        │
- ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-
- ╭────────────────────────────────────────────────────╮    ╭────────────────────────────────────────────────────╮
- │                                                    │    │                                                    │
- │  Active context                                    │    │  Fleet status                                      │
- │  mode=repo  overall=CRIT  last_run=missing         │    │  Overall: !! CRIT                                  │
- │  shortcuts=on  preview=on                          │    │  OK:0  WARN:1  CRIT:1  UNKNOWN:0  SKIP:0           │
- │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
- │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
- │  ogs  state=/tmp/linux_maint_state_fixture         │
- │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
- │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Action preview                                    │
- ╰────────────────────────────────────────────────────╯    │  Opens the operator quick reference.               │
+ ╰────────────────────────────────────────────────────╯    │  Guide: incident response workflow [i]             │
                                                            │                                                    │
  ╭────────────────────────────────────────────────────╮    │  Reads:                                            │
- │                                                    │    │  -                                                 │
- │  Recommended start                                 │    │  /home/shenhav/Linux_Maint_ToolKit/docs/QUICK_REF  │
- │  Recommended first action: first_setup             │    │  ERENCE.md                                         │
- │  - Open quick reference and config docs before     │    │                                                    │
- │  editing /tmp/linux_maint_cfg_fixture              │    │  Writes:                                           │
- │  - Use docs to understand monitor inputs and       │    │  - none                                            │
- │  expected skip behavior                            │    │                                                    │
- │  - Then return to Quickstart for the guided        │    │  Likely next step:                                 │
- │  bootstrap                                         │    │    Return to the menu and follow the relevant      │
- │                                                    │    │  task path.                                        │
+ │                                                    │    │  - context-dependent inputs for this action        │
+ │  Recommended start                                 │    │                                                    │
+ │  Recommended first action: first_setup             │    │  Writes:                                           │
+ │  Current triage: connectivity triage: reason       │    │  - none until the action resolves into a command   │
+ │  explain + focused status + network rerun          │    │                                                    │
+ │  - Start with drilldown when you need to narrow    │    │  Likely next step:                                 │
+ │  the failure                                       │    │    Open the action if it matches your current      │
+ │  - Use doctor or focused_run once you know where   │    │  operator task.                                    │
+ │  to intervene                                      │    │                                                    │
+ │                                                    │    ╰────────────────────────────────────────────────────╯
+ ╰────────────────────────────────────────────────────╯
+
+
+  Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.
+=== Share ===
+
+ ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │  Linux Maint ToolKit                                                                                         │
+ │  Share                                                                                                       │
+ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+ ╭────────────────────────────────────────────────────╮    ╭────────────────────────────────────────────────────╮
+ │                                                    │    │                                                    │
+ │  Active context                                    │    │  Fleet status                                      │
+ │  mode=repo  overall=CRIT  last_run=missing         │    │  Overall: !! CRIT                                  │
+ │  shortcuts=on  preview=on                          │    │  OK:0  WARN:1  CRIT:1  UNKNOWN:0  SKIP:0           │
+ │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
+ │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
+ │  ogs  state=/tmp/linux_maint_state_fixture         │
+ │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
+ │  history=no  logs=no                               │    │                                                    │
+ │                                                    │    │  Action preview                                    │
+ ╰────────────────────────────────────────────────────╯    │  Share: short report summary [r]                   │
+                                                           │                                                    │
+ ╭────────────────────────────────────────────────────╮    │  Reads:                                            │
+ │                                                    │    │  - context-dependent inputs for this action        │
+ │  Recommended start                                 │    │                                                    │
+ │  Recommended first action: report                  │    │  Writes:                                           │
+ │  - Report and export JSON for handoff              │    │  - none until the action resolves into a command   │
+ │  - Pack logs when you need an escalation bundle    │    │                                                    │
+ │  - Quick reference and troubleshooting stay close  │    │  Likely next step:                                 │
+ │  to the artifacts                                  │    │    Open the action if it matches your current      │
+ │                                                    │    │  operator task.                                    │
  ╰────────────────────────────────────────────────────╯    │                                                    │
                                                            ╰────────────────────────────────────────────────────╯
 
