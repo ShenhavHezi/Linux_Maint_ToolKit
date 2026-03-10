@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+spec="$ROOT_DIR/packaging/rpm/linux-maint.spec"
+
+assert_contains() {
+  local pattern="$1"
+  local message="$2"
+  if ! grep -Fq -- "$pattern" "$spec"; then
+    echo "$message" >&2
+    exit 1
+  fi
+}
+
+assert_contains 'install -m 0755 lib/linux_maint_conf.sh %{buildroot}/usr/lib/linux_maint_conf.sh' \
+  "rpm spec no longer installs linux_maint_conf.sh"
+assert_contains 'install -m 0755 tools/pack_logs.sh %{buildroot}/usr/libexec/linux_maint/pack_logs.sh' \
+  "rpm spec no longer installs pack_logs.sh"
+assert_contains 'install -m 0755 tools/verify_release.sh %{buildroot}/usr/libexec/linux_maint/verify_release.sh' \
+  "rpm spec no longer installs verify_release.sh"
+assert_contains 'install -m 0644 VERSION %{buildroot}/usr/share/linux_maint/VERSION' \
+  "rpm spec no longer installs VERSION into share/linux_maint"
+assert_contains 'install -m 0644 plugins/index.json %{buildroot}/usr/share/linux_maint/plugins/index.json' \
+  "rpm spec no longer installs the packaged plugin index"
+assert_contains 'if [ -f BUILD_INFO ]; then' \
+  "rpm spec no longer conditionally installs BUILD_INFO"
+assert_contains '/usr/lib/linux_maint_conf.sh' \
+  "rpm spec no longer ships linux_maint_conf.sh"
+
+echo "rpm manifest ok"

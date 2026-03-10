@@ -236,6 +236,10 @@ fi
 
 meta_files=()
 for f in \
+  "/usr/local/share/linux_maint/BUILD_INFO" \
+  "/usr/local/share/linux_maint/VERSION" \
+  "/usr/share/linux_maint/BUILD_INFO" \
+  "/usr/share/linux_maint/VERSION" \
   "/usr/local/share/Linux_Maint_ToolKit/BUILD_INFO" \
   "/usr/local/share/Linux_Maint_ToolKit/VERSION" \
   "/usr/local/share/linux-maint/BUILD_INFO" \

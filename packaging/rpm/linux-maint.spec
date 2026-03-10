@@ -41,24 +41,33 @@ install -d %{buildroot}/usr/sbin
 install -d %{buildroot}/usr/lib
 install -d %{buildroot}/usr/libexec/linux_maint
 install -d %{buildroot}/usr/share/linux_maint
+install -d %{buildroot}/usr/share/linux_maint/plugins
 install -d %{buildroot}/usr/share/linux_maint/templates
 install -d %{buildroot}/usr/share/Linux_Maint_ToolKit/docs
 
 install -m 0755 bin/linux-maint %{buildroot}/usr/bin/linux-maint
 install -m 0755 run_full_health_monitor.sh %{buildroot}/usr/sbin/run_full_health_monitor.sh
 install -m 0755 lib/linux_maint.sh %{buildroot}/usr/lib/linux_maint.sh
+install -m 0755 lib/linux_maint_conf.sh %{buildroot}/usr/lib/linux_maint_conf.sh
 install -m 0755 lib/linux_maint_help.sh %{buildroot}/usr/lib/linux_maint_help.sh
 
 # monitors + tools
 install -m 0755 monitors/*.sh %{buildroot}/usr/libexec/linux_maint/
+install -m 0755 tools/pack_logs.sh %{buildroot}/usr/libexec/linux_maint/pack_logs.sh
 install -m 0755 tools/summary_diff.py %{buildroot}/usr/libexec/linux_maint/summary_diff.py
 install -m 0755 tools/seed_known_hosts.sh %{buildroot}/usr/libexec/linux_maint/seed_known_hosts.sh
+install -m 0755 tools/verify_release.sh %{buildroot}/usr/libexec/linux_maint/verify_release.sh
 
 # operator docs (for dark-site usage and `linux-maint explain`)
 cp -a docs/*.md %{buildroot}/usr/share/Linux_Maint_ToolKit/docs/ 2>/dev/null || true
 
 # templates for init
 cp -a etc/linux_maint %{buildroot}/usr/share/linux_maint/templates/
+install -m 0644 VERSION %{buildroot}/usr/share/linux_maint/VERSION
+install -m 0644 plugins/index.json %{buildroot}/usr/share/linux_maint/plugins/index.json
+if [ -f BUILD_INFO ]; then
+  install -m 0644 BUILD_INFO %{buildroot}/usr/share/linux_maint/BUILD_INFO
+fi
 
 # systemd units
 install -d %{buildroot}/usr/lib/systemd/system
@@ -84,6 +93,7 @@ fi
 /usr/bin/linux-maint
 /usr/sbin/run_full_health_monitor.sh
 /usr/lib/linux_maint.sh
+/usr/lib/linux_maint_conf.sh
 /usr/lib/linux_maint_help.sh
 /usr/libexec/linux_maint/*
 /usr/share/linux_maint/
