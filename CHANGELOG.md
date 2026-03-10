@@ -6,6 +6,16 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 - (add changes here)
 
+## 2026-03-10
+
+- Release v0.3.4
+- Added a dedicated tarball-based `linux-maint upgrade` flow with rollback manifests, config snapshots, installed payload inventory, and post-upgrade verification.
+- Hardened installer, release, and packaging discipline across tarball verification, RPM payload parity, RPM lifecycle coverage, systemd units, and dark-site/install path behavior.
+- Expanded Rocky Linux 9 / RHEL9-compatible CI coverage and fixed lifecycle/compat failures in checkout, bootstrap, and upgrade-test paths.
+- Improved support bundle outputs with manifest, redaction report, and support handoff metadata.
+- Refined `linux-maint menu` UX around arrow-first navigation, calmer workflow grouping, and stronger fallback backend prompts.
+- Split `bin/linux-maint` further by extracting runtime/path/bootstrap logic and install/release/admin command handlers into dedicated support libraries.
+
 ## 2026-03-09
 
 - Release v0.3.3

@@ -122,8 +122,8 @@ linux-maint init --minimal
 linux-maint init --force
 
 # Upgrade from a verified release tarball (installed mode)
-sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.3-<sha>.tgz --sums ./SHA256SUMS
-sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.3-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate
+sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.4-<sha>.tgz --sums ./SHA256SUMS
+sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.4-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate
 
 # Run history (fast; uses run_index.jsonl)
 linux-maint history --last 10
