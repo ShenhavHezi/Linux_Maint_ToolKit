@@ -1749,4 +1749,5 @@ CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).
   - `--redact|--no-redact`: override `LM_REDACT_LOGS` for this bundle only.
   - `--hash`: include `meta/bundle_hashes.txt` (SHA256 per file) in the bundle.
   - `meta/bundle_integrity.txt` is always included when `sha256sum` and `stat` are available.
+  - bundle metadata also includes `meta/bundle_manifest.txt`, `meta/redaction_report.txt`, and `meta/support_handoff.txt`.
   - `--gpg` validates its prerequisites before writing a bundle, so failed encryption setup does not leave plaintext artifacts behind.

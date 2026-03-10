@@ -18,6 +18,8 @@ echo "overall=OK" > "$logdir/last_status_full"
 
 cfgdir="$workdir/etc_linux_maint"
 mkdir -p "$cfgdir"
+statedir="$workdir/state"
+mkdir -p "$statedir"
 cat > "$cfgdir/servers.txt" <<'CFG'
 localhost
 password=hunter2
@@ -32,7 +34,7 @@ x-auth-token: token-raw-value
 notes: sessionization is normal text
 CFG
 
-bundle_path="$(LM_REDACT_LOGS=1 LM_PACK_LOGS_HASH=1 OUTDIR="$workdir" LOG_DIR="$logdir" CFG_DIR="$cfgdir" REPO_ROOT="$ROOT_DIR" "$ROOT_DIR/tools/pack_logs.sh")"
+bundle_path="$(LM_REDACT_LOGS=1 LM_PACK_LOGS_HASH=1 OUTDIR="$workdir" LOG_DIR="$logdir" CFG_DIR="$cfgdir" STATE_DIR="$statedir" REPO_ROOT="$ROOT_DIR" "$ROOT_DIR/tools/pack_logs.sh")"
 [[ -f "$bundle_path" ]]
 
 tar_list="$workdir/tar.list"
@@ -40,6 +42,9 @@ tar -tzf "$bundle_path" > "$tar_list"
 grep -q '^\./logs/full_health_monitor_summary_latest\.log$' "$tar_list"
 grep -q '^\./config/servers\.txt$' "$tar_list"
 grep -q '^\./meta/bundle_meta\.txt$' "$tar_list"
+grep -q '^\./meta/bundle_manifest\.txt$' "$tar_list"
+grep -q '^\./meta/redaction_report\.txt$' "$tar_list"
+grep -q '^\./meta/support_handoff\.txt$' "$tar_list"
 grep -q '^\./meta/bundle_hashes\.txt$' "$tar_list"
 
 extracted_cfg="$workdir/extracted_servers.txt"
@@ -53,6 +58,28 @@ meta_file="$workdir/bundle_meta.txt"
 tar -xOf "$bundle_path" ./meta/bundle_meta.txt > "$meta_file"
 grep -q '^redaction=enabled$' "$meta_file"
 grep -q '^hashes=enabled$' "$meta_file"
+
+manifest_file="$workdir/bundle_manifest.txt"
+tar -xOf "$bundle_path" ./meta/bundle_manifest.txt > "$manifest_file"
+grep -q '^copied_logs=4$' "$manifest_file"
+grep -q '^copied_config=1$' "$manifest_file"
+grep -q '^redaction_logs=enabled$' "$manifest_file"
+grep -q '^redacted_files=4$' "$manifest_file"
+grep -q '^changed_by_redaction=2$' "$manifest_file"
+grep -q '^integrity_manifest=enabled$' "$manifest_file"
+grep -q '^hash_manifest=enabled$' "$manifest_file"
+
+redaction_report="$workdir/redaction_report.txt"
+tar -xOf "$bundle_path" ./meta/redaction_report.txt > "$redaction_report"
+grep -q '^log_redaction=enabled$' "$redaction_report"
+grep -q '^section=config path=config/servers\.txt .* policy=always changed=yes$' "$redaction_report"
+grep -q '^section=logs path=logs/full_health_monitor_latest\.log .* policy=optional changed=yes$' "$redaction_report"
+
+handoff_file="$workdir/support_handoff.txt"
+tar -xOf "$bundle_path" ./meta/support_handoff.txt > "$handoff_file"
+grep -q '^linux-maint support handoff$' "$handoff_file"
+grep -q '^   meta/bundle_manifest\.txt$' "$handoff_file"
+grep -q '^   meta/redaction_report\.txt$' "$handoff_file"
 
 hash_file="$workdir/bundle_hashes.txt"
 tar -xOf "$bundle_path" ./meta/bundle_hashes.txt > "$hash_file"

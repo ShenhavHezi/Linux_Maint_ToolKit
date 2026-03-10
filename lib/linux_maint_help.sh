@@ -404,7 +404,7 @@ EOF
         "linux-maint pack-logs [flags]" \
         "Create a support bundle with logs, config context, and optional encryption." \
         "  - escalate an incident to another team\n  - capture artifacts before cleanup or remediation\n  - export an offline-friendly support package" \
-        "  --out DIR             output directory\n  --redact|--no-redact  redact sensitive data\n  --progress|--no-progress\n  --hash                include SHA256 manifest\n  --gpg                 encrypt bundle (requires --gpg-recipient)\n  --gpg-recipient ID    GPG recipient (email or key id)\n  --gpg-keep-plaintext  keep the .tar.gz alongside the .gpg" \
+        "  --out DIR             output directory\n  --redact|--no-redact  redact sensitive log/state data\n  --progress|--no-progress\n  --hash                include SHA256 manifest\n  --gpg                 encrypt bundle (requires --gpg-recipient)\n  --gpg-recipient ID    GPG recipient (email or key id)\n  --gpg-keep-plaintext  keep the .tar.gz alongside the .gpg\n  Bundle meta always includes:\n    meta/bundle_meta.txt\n    meta/bundle_manifest.txt\n    meta/redaction_report.txt\n    meta/support_handoff.txt" \
         "  linux-maint pack-logs --out /tmp --redact\n  linux-maint pack-logs --out /tmp --hash\n  linux-maint pack-logs --out /tmp --gpg --gpg-recipient ops@example.com" \
         "  - non-zero if packaging, hashing, or encryption prerequisites fail\n  - preflight validation prevents leaving unintended plaintext output behind"
       ;;

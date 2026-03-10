@@ -3415,6 +3415,7 @@ tui_support_bundle_summary(){
   sha="$(sha256sum "$bundle" 2>/dev/null | awk '{print $1}')"
   local msg="Support bundle created:\n$bundle"
   [[ -n "$sha" ]] && msg="${msg}\nsha256=$sha"
+  msg="${msg}\ninside_bundle=meta/bundle_manifest.txt,meta/support_handoff.txt"
   if [[ "$bundle" == *.gpg ]]; then
     msg="${msg}\nencrypted=yes"
   elif [[ -f "$bundle.gpg" ]]; then

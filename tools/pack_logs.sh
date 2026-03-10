@@ -78,6 +78,16 @@ if [[ "$gpg_enabled" -eq 1 ]]; then
   fi
 fi
 
+workdir=""
+bundle_rows="$TMPDIR/.linux_maint_bundle_rows.$$"
+redaction_rows="$TMPDIR/.linux_maint_redaction_rows.$$"
+cleanup_tmp_rows() {
+  rm -f "$bundle_rows" "$redaction_rows" 2>/dev/null || true
+}
+trap 'rm -rf "$workdir"; cleanup_tmp_rows' EXIT
+: > "$bundle_rows"
+: > "$redaction_rows"
+
 # Redaction is intentionally simple and conservative.
 # We only redact common key patterns in *.conf and *.txt.
 redact_file() {
@@ -108,19 +118,86 @@ redact_enabled() {
   esac
 }
 
+is_redactable_text() {
+  case "$1" in
+    *.log|*.json|*.txt|*.csv|*.conf) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+record_bundle_copy() {
+  local section="$1" src="$2" dest="$3" policy="$4" changed="$5"
+  local rel="${dest#"$bundle_root"/}"
+  rel="${rel#/}"
+  while [[ "$rel" == *"/./"* ]]; do
+    rel="${rel//\/.\//\/}"
+  done
+  printf '%s\t%s\t%s\t%s\t%s\n' "$section" "$rel" "$src" "$policy" "$changed" >> "$bundle_rows"
+  if [[ "$policy" != "none" ]]; then
+    printf '%s\t%s\t%s\t%s\t%s\n' "$section" "$rel" "$src" "$policy" "$changed" >> "$redaction_rows"
+  fi
+}
+
+LAST_COPY_DEST=""
+LAST_COPY_POLICY="none"
+LAST_COPY_CHANGED=0
+LAST_COPY_OK=0
+
 copy_log() {
   local src="$1" dest_dir="$2"
   local base
   base="$(basename -- "$src")"
-  if redact_enabled; then
-    case "$src" in
-      *.log|*.json|*.txt|*.csv|*.conf)
-        redact_file "$src" "$dest_dir/$base" 2>/dev/null || true
-        return 0
-        ;;
-    esac
+  LAST_COPY_DEST="$dest_dir/$base"
+  LAST_COPY_POLICY="none"
+  LAST_COPY_CHANGED=0
+  LAST_COPY_OK=0
+  if redact_enabled && is_redactable_text "$src"; then
+    redact_file "$src" "$LAST_COPY_DEST" 2>/dev/null || true
+    if [[ -f "$LAST_COPY_DEST" ]]; then
+      LAST_COPY_POLICY="optional"
+      LAST_COPY_OK=1
+      cmp -s -- "$src" "$LAST_COPY_DEST" 2>/dev/null || LAST_COPY_CHANGED=1
+    fi
+    return 0
   fi
-  cp -Lf "$src" "$dest_dir/$base" 2>/dev/null || true
+  cp -Lf "$src" "$LAST_COPY_DEST" 2>/dev/null || true
+  [[ -f "$LAST_COPY_DEST" ]] && LAST_COPY_OK=1
+  return 0
+}
+
+copy_config_file() {
+  local src="$1" dest="$2"
+  LAST_COPY_DEST="$dest"
+  LAST_COPY_POLICY="none"
+  LAST_COPY_CHANGED=0
+  LAST_COPY_OK=0
+  case "$src" in
+    *.conf|*.txt|*.csv)
+      redact_file "$src" "$dest" 2>/dev/null || true
+      if [[ -f "$dest" ]]; then
+        LAST_COPY_POLICY="always"
+        LAST_COPY_OK=1
+        cmp -s -- "$src" "$dest" 2>/dev/null || LAST_COPY_CHANGED=1
+      fi
+      ;;
+    *)
+      cp -a "$src" "$dest" 2>/dev/null || true
+      [[ -e "$dest" ]] && LAST_COPY_OK=1
+      ;;
+  esac
+  return 0
+}
+
+copy_meta_file() {
+  local src="$1" dest_dir="$2"
+  local dest="$dest_dir/$(basename -- "$src")"
+  LAST_COPY_DEST="$dest"
+  LAST_COPY_POLICY="none"
+  LAST_COPY_CHANGED=0
+  LAST_COPY_OK=0
+  cp -Lf "$src" "$dest" 2>/dev/null || true
+  [[ -f "$dest" ]] && LAST_COPY_OK=1
+  return 0
 }
 
 list_latest() {
@@ -189,13 +266,70 @@ fi
 
 mkdir -p "$OUTDIR"
 workdir="$(mktemp -d -p "$TMPDIR")"
-trap 'rm -rf "$workdir"' EXIT
 
 bundle_root="$workdir/bundle"
 mkdir -p "$bundle_root"
 
-# Bundle metadata
+# --- Logs ---
+mkdir -p "$bundle_root/logs"
+
+for f in "${log_files[@]}"; do
+  [[ -n "$f" ]] || continue
+  copy_log "$f" "$bundle_root/logs"
+  if [[ "$LAST_COPY_OK" -eq 1 ]]; then
+    record_bundle_copy "logs" "$f" "$LAST_COPY_DEST" "$LAST_COPY_POLICY" "$LAST_COPY_CHANGED"
+  fi
+  progress_step "log:$(basename -- "$f")"
+done
+
+# --- Config (redacted) ---
+if [[ "${#cfg_files[@]}" -gt 0 ]]; then
+  mkdir -p "$bundle_root/config"
+  # Copy while preserving relative layout.
+  # Redact only text-like files.
+  for f in "${cfg_files[@]}"; do
+    rel="${f#"$CFG_DIR"/}"
+    dest_dir="$bundle_root/config/$(dirname -- "$rel")"
+    dest_file="$dest_dir/$(basename -- "$rel")"
+    mkdir -p "$dest_dir"
+    copy_config_file "$f" "$dest_file"
+    if [[ "$LAST_COPY_OK" -eq 1 ]]; then
+      record_bundle_copy "config" "$f" "$LAST_COPY_DEST" "$LAST_COPY_POLICY" "$LAST_COPY_CHANGED"
+    fi
+    progress_step "config:$(basename -- "$rel")"
+  done
+fi
+
+# --- Build info ---
 mkdir -p "$bundle_root/meta"
+for f in "${meta_files[@]}"; do
+  copy_meta_file "$f" "$bundle_root/meta"
+  if [[ "$LAST_COPY_OK" -eq 1 ]]; then
+    record_bundle_copy "meta" "$f" "$LAST_COPY_DEST" "$LAST_COPY_POLICY" "$LAST_COPY_CHANGED"
+  fi
+  progress_step "meta:$(basename -- "$f")"
+done
+
+# --- State dir (optional, small files only) ---
+if [[ "${#state_files[@]}" -gt 0 ]]; then
+  mkdir -p "$bundle_root/state"
+  for f in "${state_files[@]}"; do
+    copy_log "$f" "$bundle_root/state"
+    if [[ "$LAST_COPY_OK" -eq 1 ]]; then
+      record_bundle_copy "state" "$f" "$LAST_COPY_DEST" "$LAST_COPY_POLICY" "$LAST_COPY_CHANGED"
+    fi
+    progress_step "state:$(basename -- "$f")"
+  done
+fi
+
+copied_logs="$(awk -F'\t' '$1=="logs"{seen[$2]=1} END{for (k in seen) c++; print c+0}' "$bundle_rows")"
+copied_config="$(awk -F'\t' '$1=="config"{seen[$2]=1} END{for (k in seen) c++; print c+0}' "$bundle_rows")"
+copied_state="$(awk -F'\t' '$1=="state"{seen[$2]=1} END{for (k in seen) c++; print c+0}' "$bundle_rows")"
+copied_meta="$(awk -F'\t' '$1=="meta"{seen[$2]=1} END{for (k in seen) c++; print c+0}' "$bundle_rows")"
+copied_total="$(awk -F'\t' 'NF{seen[$2]=1} END{for (k in seen) c++; print c+0}' "$bundle_rows")"
+redacted_files="$(awk -F'\t' '$4!="none"{seen[$2]=1} END{for (k in seen) c++; print c+0}' "$bundle_rows")"
+changed_redactions="$(awk -F'\t' '$4!="none" && $5=="1"{seen[$2]=1} END{for (k in seen) c++; print c+0}' "$bundle_rows")"
+
 redact_state="disabled"
 if redact_enabled; then
   redact_state="enabled"
@@ -208,59 +342,83 @@ gpg_state="disabled"
 if [[ "$gpg_enabled" -eq 1 ]]; then
   gpg_state="enabled"
 fi
+integrity_state="skipped"
+if [[ "$integrity_enabled" -eq 1 ]]; then
+  integrity_state="enabled"
+fi
+generated_meta="bundle_meta.txt,bundle_manifest.txt,redaction_report.txt,support_handoff.txt"
+if [[ "$integrity_enabled" -eq 1 ]]; then
+  generated_meta="${generated_meta},bundle_integrity.txt"
+fi
+if [[ "$hash_enabled" -eq 1 ]]; then
+  generated_meta="${generated_meta},bundle_hashes.txt"
+fi
+
+cat > "$bundle_root/meta/bundle_meta.txt" <<EOF
+created_utc=$TS
+redaction=$redact_state
+hashes=$hash_state
+gpg=$gpg_state
+log_dir=$LOG_DIR
+cfg_dir=$CFG_DIR
+state_dir=$STATE_DIR
+repo_root=${REPO_ROOT:-}
+EOF
+
+cat > "$bundle_root/meta/bundle_manifest.txt" <<EOF
+created_utc=$TS
+log_dir=$LOG_DIR
+cfg_dir=$CFG_DIR
+state_dir=$STATE_DIR
+repo_root=${REPO_ROOT:-}
+copied_logs=$copied_logs
+copied_config=$copied_config
+copied_state=$copied_state
+copied_meta=$copied_meta
+copied_total=$copied_total
+redaction_logs=$redact_state
+config_redaction=always-for-conf-txt-csv
+redacted_files=$redacted_files
+changed_by_redaction=$changed_redactions
+hash_manifest=$hash_state
+integrity_manifest=$integrity_state
+gpg=$gpg_state
+generated_meta=$generated_meta
+EOF
+
 {
   echo "created_utc=$TS"
-  echo "redaction=$redact_state"
-  echo "hashes=$hash_state"
-  echo "gpg=$gpg_state"
-} > "$bundle_root/meta/bundle_meta.txt"
+  echo "log_redaction=$redact_state"
+  echo "config_redaction=always-for-conf-txt-csv"
+  echo "redacted_files=$redacted_files"
+  echo "changed_by_redaction=$changed_redactions"
+  echo "---"
+  if [[ -s "$redaction_rows" ]]; then
+    awk -F'\t' '!seen[$1 FS $2 FS $4 FS $5]++ {printf "section=%s path=%s source=%s policy=%s changed=%s\n", $1, $2, $3, $4, ($5=="1" ? "yes" : "no")}' "$redaction_rows"
+  else
+    echo "no_redacted_files=1"
+  fi
+} > "$bundle_root/meta/redaction_report.txt"
 
-# --- Logs ---
-mkdir -p "$bundle_root/logs"
+cat > "$bundle_root/meta/support_handoff.txt" <<'EOF'
+linux-maint support handoff
 
-for f in "${log_files[@]}"; do
-  [[ -n "$f" ]] || continue
-  copy_log "$f" "$bundle_root/logs"
-  progress_step "log:$(basename -- "$f")"
-done
-
-# --- Config (redacted) ---
-if [[ "${#cfg_files[@]}" -gt 0 ]]; then
-  mkdir -p "$bundle_root/config"
-  # Copy while preserving relative layout.
-  # Redact only text-like files.
-  for f in "${cfg_files[@]}"; do
-    rel="${f#"$CFG_DIR"/}"
-    dest_dir="$bundle_root/config/$(dirname -- "$rel")"
-    mkdir -p "$dest_dir"
-    case "$f" in
-      *.conf|*.txt|*.csv)
-        # Redaction may fail if file is unreadable; treat as optional.
-        redact_file "$f" "$dest_dir/$(basename -- "$rel")" 2>/dev/null || true
-        ;;
-      *)
-        cp -a "$f" "$dest_dir/" 2>/dev/null || true
-        ;;
-    esac
-    progress_step "config:$(basename -- "$rel")"
-  done
-fi
-
-# --- Build info ---
-mkdir -p "$bundle_root/meta"
-for f in "${meta_files[@]}"; do
-  cp -a "$f" "$bundle_root/meta/" 2>/dev/null || true
-  progress_step "meta:$(basename -- "$f")"
-done
-
-# --- State dir (optional, small files only) ---
-if [[ "${#state_files[@]}" -gt 0 ]]; then
-  mkdir -p "$bundle_root/state"
-  for f in "${state_files[@]}"; do
-    copy_log "$f" "$bundle_root/state"
-    progress_step "state:$(basename -- "$f")"
-  done
-fi
+1. Share the bundle artifact with the escalation target.
+2. Include a short human summary:
+   linux-maint report --short
+3. Include machine-readable context if requested:
+   linux-maint export --json
+4. After extracting the bundle, start with:
+   meta/bundle_manifest.txt
+   meta/bundle_meta.txt
+   meta/redaction_report.txt
+   meta/bundle_integrity.txt
+   meta/bundle_hashes.txt
+5. Verify the transferred artifact:
+   sha256sum <bundle.tar.gz>
+6. If you received a GPG-encrypted bundle:
+   gpg --decrypt --output bundle.tar.gz <bundle.tar.gz.gpg>
+EOF
 
 # --- Bundle integrity manifest (size + sha256 per file) ---
 if [[ "$integrity_enabled" -eq 1 ]]; then

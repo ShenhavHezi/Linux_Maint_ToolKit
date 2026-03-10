@@ -324,6 +324,7 @@ LM_PROGRESS=0 linux-maint run
 LM_PROGRESS=0 linux-maint pack-logs --out /tmp
 LM_PACK_LOGS_HASH=1 linux-maint pack-logs --out /tmp
 LM_PACK_LOGS_GPG=1 LM_PACK_LOGS_GPG_RECIPIENT="ops@example.com" linux-maint pack-logs --out /tmp
+# bundle always includes bundle_meta, bundle_manifest, redaction_report, support_handoff
 
 # Pack logs redaction control
 linux-maint pack-logs --out /tmp --redact
