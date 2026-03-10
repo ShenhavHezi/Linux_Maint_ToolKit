@@ -259,7 +259,7 @@ run_rollback_case(){
     exit 1
   }
 
-  cmp -s "$old_bin" "$prefix/bin/linux-maint" || {
+  [[ "$(sha_file "$old_bin")" == "$(sha_file "$prefix/bin/linux-maint")" ]] || {
     echo "linux-maint binary not restored after failed upgrade from $tag" >&2
     exit 1
   }
