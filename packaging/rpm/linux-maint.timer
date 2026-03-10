@@ -1,19 +1,9 @@
-echo "##active_line17##"
 [Unit]
-echo "##active_line18##"
-Description=Run linux-maint periodically
-echo "##active_line19##"
+Description=Run Linux maintenance health checks daily
 
-echo "##active_line20##"
 [Timer]
-echo "##active_line21##"
-OnCalendar=hourly
-echo "##active_line22##"
+OnCalendar=*-*-* 02:15:00
 Persistent=true
-echo "##active_line23##"
 
-echo "##active_line24##"
 [Install]
-echo "##active_line25##"
 WantedBy=timers.target
-echo "##active_line26##"

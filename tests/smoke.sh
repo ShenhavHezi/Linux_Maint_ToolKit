@@ -302,6 +302,7 @@ run_required "installed_verify_release_dispatch_test" bash "$ROOT_DIR/tests/inst
 run_required "installed_make_tarball_requires_checkout_test" bash "$ROOT_DIR/tests/installed_make_tarball_requires_checkout_test.sh"
 run_required "installed_mode_sanity_test" bash "$ROOT_DIR/tests/installed_mode_sanity_test.sh"
 run_required "install_manifest_test" bash "$ROOT_DIR/tests/install_manifest_test.sh"
+run_required "rpm_systemd_units_test" bash "$ROOT_DIR/tests/rpm_systemd_units_test.sh"
 run_required "init_minimal_idempotent_test" bash "$ROOT_DIR/tests/init_minimal_idempotent_test.sh"
 run_required "init_repo_mode_no_sudo_test" bash "$ROOT_DIR/tests/init_repo_mode_no_sudo_test.sh"
 run_required "pack_logs_test" bash "$ROOT_DIR/tests/pack_logs_test.sh"

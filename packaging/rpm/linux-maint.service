@@ -1,44 +1,21 @@
-echo "##active_line2##"
 [Unit]
-echo "##active_line3##"
-Description=linux-maint periodic maintenance checks
-echo "##active_line4##"
+Description=Linux maintenance full health monitor
 Wants=network-online.target
-echo "##active_line5##"
 After=network-online.target
-echo "##active_line6##"
 
-echo "##active_line7##"
 [Service]
-echo "##active_line8##"
 Type=oneshot
-echo "##active_line9##"
 ExecStart=/usr/sbin/run_full_health_monitor.sh
-echo ""
-echo "# Hardening (best-effort; keep compatible across distros)"
-echo ""
-echo "NoNewPrivileges=true"
-echo "PrivateTmp=true"
-echo "ProtectSystem=full"
-echo "ProtectHome=true"
-echo "ProtectKernelTunables=true"
-echo "ProtectKernelModules=true"
-echo "ProtectControlGroups=true"
-echo "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6"
-echo "LockPersonality=true"
-echo "MemoryDenyWriteExecute=true"
-echo "RestrictSUIDSGID=true"
-echo "SystemCallArchitectures=native"
-echo ""
-echo "# Allow required writes"
-echo ""
-echo "ReadWritePaths=/var/log /var/log/health /var/lib/linux_maint /var/lock /tmp"
-echo "##active_line10##"
-
-echo "##active_line11##"
-# Optional: allow env overrides
-echo "##active_line12##"
-Environment=LM_NOTIFY=0
-echo "##active_line13##"
-
-echo "##active_line14##"
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+ReadWritePaths=/var/log /var/log/health /var/lib/linux_maint /var/lock /tmp
