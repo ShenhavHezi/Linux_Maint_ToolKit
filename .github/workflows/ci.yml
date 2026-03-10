@@ -325,6 +325,10 @@ jobs:
           timeout 60s /usr/sbin/run_full_health_monitor.sh || true
           test -f /var/log/health/last_status_full || true
 
+      - name: RPM lifecycle smoke
+        run: |
+          LM_RPM_LIFECYCLE_ALLOW_SYSTEM=1 bash tests/rpm_lifecycle_smoke_test.sh
+
 
 
       - name: Upload smoke logs on failure

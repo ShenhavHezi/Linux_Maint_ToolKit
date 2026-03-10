@@ -88,3 +88,18 @@ Re-enable later:
 ```bash
 sudo systemctl enable --now linux-maint.timer
 ```
+
+## RPM upgrades (RHEL/Rocky/Alma)
+
+For RPM-managed installs, use the package manager for the binary upgrade and keep `linux-maint upgrade` for tarball-based nodes only.
+
+```bash
+sudo dnf upgrade -y ./linux-maint-<new-version>-*.noarch.rpm
+sudo linux-maint verify-install
+sudo linux-maint check
+```
+
+Notes:
+- CI now exercises RPM `install`, `upgrade`, `reinstall`, and `remove` on Rocky 9.
+- RPM upgrades preserve `/etc/linux_maint` content created by `linux-maint init`.
+- RPM removal does not remove `/etc/linux_maint` by default.

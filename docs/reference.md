@@ -1614,6 +1614,7 @@ sudo dnf remove -y linux-maint
 Notes:
 - RPM uninstall disables the timer automatically (`%preun`).
 - RPM uninstall does not remove `/etc/linux_maint` or `/var/log/health` by default; remove those explicitly if desired.
+- Rocky 9 CI exercises RPM install, upgrade, reinstall, and remove lifecycles.
 
 ## Development / CI (appendix)
 
