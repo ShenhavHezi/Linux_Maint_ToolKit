@@ -6,10 +6,18 @@ This toolkit is designed to run in constrained or offline environments with a mi
 
 Primary target:
 - RHEL 9 (and compatible variants)
+- Rocky Linux 9 is exercised in CI as the RHEL 9-compatible validation target
 
 Expected to work (best-effort):
 - Other modern RHEL-like distros with systemd and standard coreutils
 - Debian/Ubuntu-like systems with systemd and standard coreutils
+
+## CI coverage snapshot
+
+The CI pipeline currently exercises:
+- repo-mode/bash compatibility on Ubuntu 18.04, Ubuntu 24.04, Debian 12, and Rocky Linux 9
+- install/reinstall/uninstall lifecycle smoke on Ubuntu 24.04, Debian 12, and Rocky Linux 9
+- RPM build + install smoke on Rocky Linux 9
 
 If you are on an older distro or a non-systemd environment, expect partial coverage and SKIPs.
 

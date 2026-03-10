@@ -47,6 +47,7 @@ install -d %{buildroot}/usr/share/Linux_Maint_ToolKit/docs
 install -m 0755 bin/linux-maint %{buildroot}/usr/bin/linux-maint
 install -m 0755 run_full_health_monitor.sh %{buildroot}/usr/sbin/run_full_health_monitor.sh
 install -m 0755 lib/linux_maint.sh %{buildroot}/usr/lib/linux_maint.sh
+install -m 0755 lib/linux_maint_help.sh %{buildroot}/usr/lib/linux_maint_help.sh
 
 # monitors + tools
 install -m 0755 monitors/*.sh %{buildroot}/usr/libexec/linux_maint/
@@ -83,6 +84,7 @@ fi
 /usr/bin/linux-maint
 /usr/sbin/run_full_health_monitor.sh
 /usr/lib/linux_maint.sh
+/usr/lib/linux_maint_help.sh
 /usr/libexec/linux_maint/*
 /usr/share/linux_maint/
 /usr/share/Linux_Maint_ToolKit/docs/

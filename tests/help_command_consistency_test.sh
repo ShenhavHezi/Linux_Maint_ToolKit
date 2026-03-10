@@ -39,5 +39,19 @@ check_sections pack-logs
 check_sections verify-install
 check_sections self-check
 check_sections security-profile
+check_sections metrics
+check_sections notify
+check_sections ticket
+check_sections audit-log
+check_sections cm-hook
+check_sections serve
+check_sections agent
+check_sections policy
+check_sections federate
+check_sections ai-assist
+check_sections predict
+check_sections diff
+check_sections logs
+check_sections explain
 
 echo "help command consistency ok"

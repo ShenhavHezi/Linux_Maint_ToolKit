@@ -17,10 +17,15 @@ Manual install is also supported (see the appendix in this file).
 - Execution: local host checks and/or distributed checks over SSH from a monitoring node.
 - Schedulers: cron or systemd timer (installer can set these up).
 
+Current CI validation includes:
+- installed lifecycle smoke on Ubuntu 24.04, Debian 12, and Rocky Linux 9
+- RPM build/install smoke on Rocky Linux 9 as the RHEL 9-compatible packaging target
+
 ## Packaging note
 
 RPM packages are supported and tested. DEB packaging is not currently provided.
 For Debian/Ubuntu, use repo mode or the release tarball from `tools/make_tarball.sh`.
+For RHEL 9 environments, Rocky Linux 9 is the CI-tested compatible target for install and RPM validation.
 
 ## Requirements (minimal)
 
