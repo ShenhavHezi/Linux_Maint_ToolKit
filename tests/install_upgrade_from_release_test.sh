@@ -9,6 +9,15 @@ trap 'rm -rf "$workdir"' EXIT
 
 require_tag(){
   local tag="$1"
+  if ! command -v git >/dev/null 2>&1; then
+    echo "git is required for install upgrade test" >&2
+    exit 1
+  fi
+  git -C "$ROOT_DIR" rev-parse -q --verify "refs/tags/$tag" >/dev/null || {
+    if git -C "$ROOT_DIR" remote get-url origin >/dev/null 2>&1; then
+      git -C "$ROOT_DIR" fetch --force --tags origin "refs/tags/$tag:refs/tags/$tag" >/dev/null 2>&1 || true
+    fi
+  }
   git -C "$ROOT_DIR" rev-parse -q --verify "refs/tags/$tag" >/dev/null || {
     echo "required release tag missing: $tag" >&2
     exit 1

@@ -229,13 +229,16 @@ jobs:
               done
             }
             retry_cmd dnf -y makecache
-            retry_cmd dnf -y install --setopt=install_weak_deps=False python3 ca-certificates openssl iproute
+            retry_cmd dnf -y install --setopt=install_weak_deps=False python3 ca-certificates openssl iproute git
           else
             ${{ matrix.pkg_install }}
           fi
 
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Normalize executable bits
         shell: bash
