@@ -161,6 +161,7 @@ run_required "help_menu_structure_test" bash "$ROOT_DIR/tests/help_menu_structur
 run_required "menu_help_overlay_text_test" bash "$ROOT_DIR/tests/menu_help_overlay_text_test.sh"
 run_required "help_operator_depth_test" bash "$ROOT_DIR/tests/help_operator_depth_test.sh"
 run_required "operator_docs_mode_aware_test" bash "$ROOT_DIR/tests/operator_docs_mode_aware_test.sh"
+run_required "repo_install_passthrough_root_no_sudo_test" bash "$ROOT_DIR/tests/repo_install_passthrough_root_no_sudo_test.sh"
 run_required "logs_no_side_effects_test" bash "$ROOT_DIR/tests/logs_no_side_effects_test.sh"
 run_required "security_profile_command_test" bash "$ROOT_DIR/tests/security_profile_command_test.sh"
 run_required "security_profile_json_schema_test" bash "$ROOT_DIR/tests/security_profile_json_schema_test.sh"

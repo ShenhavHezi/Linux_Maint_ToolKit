@@ -10,6 +10,20 @@ linux_maint_cmd_version() {
   fi
 }
 
+linux_maint_exec_repo_installer() {
+  local script="$1"
+  shift || true
+  if [[ "$(id -u)" -eq 0 ]]; then
+    exec "$script" "$@"
+  fi
+  if command -v sudo >/dev/null 2>&1; then
+    exec sudo "$script" "$@"
+  fi
+  echo "ERROR: repo-mode install commands need root, and sudo is not available." >&2
+  echo "Run as root or install sudo." >&2
+  exit 1
+}
+
 linux_maint_cmd_install_passthrough() {
   local subcmd="$1"
   shift || true
@@ -18,10 +32,10 @@ linux_maint_cmd_install_passthrough() {
   fi
   case "$subcmd" in
     install)
-      exec sudo "$REPO_ROOT/install.sh" "$@"
+      linux_maint_exec_repo_installer "$REPO_ROOT/install.sh" "$@"
       ;;
     uninstall)
-      exec sudo "$REPO_ROOT/install.sh" --uninstall "$@"
+      linux_maint_exec_repo_installer "$REPO_ROOT/install.sh" --uninstall "$@"
       ;;
     make-tarball)
       exec "$(repo_tool_path make_tarball.sh)" "$@"
