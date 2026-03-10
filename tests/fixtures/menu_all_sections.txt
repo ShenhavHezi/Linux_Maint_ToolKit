@@ -42,13 +42,6 @@
                                                            │                                                    │
                                                            ╰────────────────────────────────────────────────────╯
 
-  first_setup       Guide: first setup and safe first run
-  current_incident  Guide: current incident triage
-  escalation        Guide: export and escalation workflow
-  inventory         Edit: servers.txt inventory
-  groups            Open: hosts.d groups overview
-  docs              Open: setup docs
-  back              Back to main menu
 
   Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.
 === Overview ===
@@ -84,12 +77,6 @@
                                                            │                                                    │
                                                            ╰────────────────────────────────────────────────────╯
 
-  dashboard   Open: live operations dashboard
-  status      Open: current status snapshot
-  problems    Review: latest non-OK rows
-  report      Review: short operator summary
-  trend       Analyze: recent trend (last 10 runs)
-  back        Back to main menu
 
   Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.
 === Run checks ===
@@ -138,10 +125,6 @@
                                                            │                                                    │
                                                            ╰────────────────────────────────────────────────────╯
 
-  run       Execute: run checks now (live output)
-  plan      Preview: resolved run plan only
-  wizard    Guide: guided run setup wizard
-  back      Back to main menu
 
   Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.
 === Investigate ===
@@ -178,13 +161,6 @@
                                                            │                                                    │
                                                            ╰────────────────────────────────────────────────────╯
 
-  drilldown   Analyze: filtered status drilldown
-  diff        Inspect: changes since previous run
-  history     Inspect: recent run history
-  logs        Inspect: latest wrapper log
-  reasons     Review: top reason tokens
-  runtimes    Analyze: slowest monitors
-  back        Back to main menu
 
   Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.
 === Repair ===
@@ -220,13 +196,6 @@
  ╰────────────────────────────────────────────────────╯    │                                                    │
                                                            ╰────────────────────────────────────────────────────╯
 
-  incident      Guide: incident response workflow
-  focused_run   Execute: focused service and network checks
-  check         Validate: config and readiness checks
-  doctor        Diagnose: doctor checks and fixes
-  selfcheck     Validate: self-check (safe)
-  secprofile    Inspect: strict security profile
-  back          Back to main menu
 
   Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.
 === Export ===
@@ -273,14 +242,6 @@
                                                            │                                                    │
                                                            ╰────────────────────────────────────────────────────╯
 
-  report        Open: short report summary
-  trend         Open: recent trend (last 10 runs)
-  runtimes      Open: runtime summary (last 10 runs)
-  metrics_prom  Export: Prometheus metrics
-  metrics_json  Export: metrics JSON
-  export_json   Export: unified snapshot JSON
-  pack_logs     Support: guided support bundle wizard
-  back          Back to main menu
 
   Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.
 === Docs ===
@@ -317,17 +278,5 @@
  ╰────────────────────────────────────────────────────╯    │                                                    │
                                                            ╰────────────────────────────────────────────────────╯
 
-  quickref          Open: quick command reference
-  troubleshooting   Open: troubleshooting guide
-  faq               Open: FAQ and operator tips
-  reasons           Open: reason token catalog
-  monitors          Open: monitor matrix and purpose
-  explain_reason    Explain: one reason token
-  explain_monitor   Explain: one monitor
-  explain_status    Explain: status meanings
-  config            Inspect: effective config
-  settings          Adjust: menu preferences and defaults
-  about             Inspect: version and project details
-  back              Back to main menu
 
   Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.

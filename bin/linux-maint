@@ -2240,21 +2240,8 @@ tui_menu_display_desc(){
   printf '%s' "$desc" | sed -E 's/( \[[^][]+\])+$//'
 }
 
-tui_gum_render_menu_items(){
-  local catalog="$1" max_tag="${2:-0}"
-  local tag desc padded_tag color colored_tag line
-  while IFS='|' read -r tag desc; do
-    [[ -n "${tag:-}" ]] || continue
-    padded_tag="$(printf '%-*s' "$max_tag" "$tag")"
-    color="$(tui_tag_color "$tag")"
-    colored_tag="$(gum style --bold --foreground "$color" "$padded_tag")"
-    line="${colored_tag}  $(tui_menu_display_desc "$desc")"
-    printf '  %s\n' "$line" >&2
-  done <<< "$catalog"
-}
-
 tui_gum_render_menu_frame(){
-  local prompt="$1" context="$2" catalog="$3" max_tag="$4"
+  local prompt="$1" context="$2" catalog="$3"
   local status_json left_col right_col
   status_json="$(tui_status_snapshot_json)"
   if [[ "$prompt" == "Choose your next step" ]]; then
@@ -2284,7 +2271,6 @@ tui_gum_render_menu_frame(){
       printf '  preview=%s\n\n' "$(tui_section_recommended_action "$context" "$status_json")" >&2
     fi
   fi
-  tui_gum_render_menu_items "$catalog" "$max_tag"
   printf '\n' >&2
   tui_gum_hint "Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back."
 }

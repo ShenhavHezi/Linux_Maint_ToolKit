@@ -29,8 +29,5 @@
                                                            │                                                    │
                                                            ╰────────────────────────────────────────────────────╯
 
-  dashboard  Open: live operations dashboard
-  status     Open: current status snapshot
-  back       Back to main menu
 
   Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.
