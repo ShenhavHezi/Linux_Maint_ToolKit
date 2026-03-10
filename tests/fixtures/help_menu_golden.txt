@@ -33,13 +33,14 @@ Key flags:
     current_incident is best after you have a summary or wrapper log
     escalation is best after report/JSON/log artifacts exist
   Global gum controls:
-    1-9           pick a visible action
-    ?             quick help overlay for the current menu
-    /             smart command palette (search by names, aliases, task words)
-                  examples: first run, triage, bundle, report, logs, doctor
-    .             preview visible actions before selecting one
-    Enter         open the full chooser
-    Esc           go back
+    arrows         move through the chooser
+    Enter          open the highlighted action
+    Search         smart command palette (search by names, aliases, task words)
+                   examples: first run, triage, bundle, report, logs, doctor
+    Preview        open action previews for the current menu
+    Help           reopen quick controls for the current menu
+    Esc            go back
+    Optional letter shortcuts remain available when enabled
   Useful env vars:
     LM_TUI_BACKEND=gum|dialog|whiptail
     LM_TUI_DASH_REFRESH=<seconds>

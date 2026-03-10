@@ -1683,13 +1683,13 @@ tui_menu_help_overlay_text(){
   {
     printf 'Section: %s\n\n' "$prompt"
     printf 'Controls:\n'
-    printf -- '- numbers 1-9 pick a visible action\n'
-    printf -- '- Enter opens the full chooser\n'
-    printf -- '- ? opens this help overlay\n'
-    printf -- '- / opens the smart command palette (names, aliases, task words)\n'
-    printf -- '- . opens action previews for the visible menu\n'
+    printf -- '- Use arrows to move through the chooser\n'
+    printf -- '- Enter selects the highlighted action\n'
+    printf -- '- Search opens the smart command palette (names, aliases, task words)\n'
+    printf -- '- Preview opens action previews for the current menu\n'
+    printf -- '- Help reopens this quick controls overlay\n'
     printf -- '- Esc goes back\n'
-    printf -- '- shortcuts are %s\n' "$shortcuts_label"
+    printf -- '- optional shortcuts are %s\n' "$shortcuts_label"
     printf '\nPalette examples:\n'
     printf -- '- try: first run, triage, bundle, report, logs, doctor\n'
     printf '\nActions:\n'
@@ -2220,7 +2220,7 @@ tui_gum_filter_menu_choice(){
     score="$(tui_palette_rank "$tag" "$context" "$status_json" "$boot_snapshot")"
     badge=""
     [[ "$tag" == "$recommended" ]] && badge="recommended"
-    display="${tag} :: ${desc}"
+    display="${tag} :: $(tui_menu_display_desc "$desc")"
     [[ -n "$badge" ]] && display="${display} :: ${badge}"
     [[ -n "$aliases" ]] && display="${display} :: aliases=${aliases}"
     items+=("$(printf '%05d|%s' "$score" "$display")")
@@ -2235,6 +2235,11 @@ tui_gum_filter_menu_choice(){
   printf '%s' "${pick%% :: *}"
 }
 
+tui_menu_display_desc(){
+  local desc="${1:-}"
+  printf '%s' "$desc" | sed -E 's/( \[[^][]+\])+$//'
+}
+
 tui_gum_render_menu_items(){
   local catalog="$1" max_tag="${2:-0}"
   local tag desc padded_tag color colored_tag line
@@ -2243,7 +2248,7 @@ tui_gum_render_menu_items(){
     padded_tag="$(printf '%-*s' "$max_tag" "$tag")"
     color="$(tui_tag_color "$tag")"
     colored_tag="$(gum style --bold --foreground "$color" "$padded_tag")"
-    line="${colored_tag}  ${desc}"
+    line="${colored_tag}  $(tui_menu_display_desc "$desc")"
     printf '  %s\n' "$line" >&2
   done <<< "$catalog"
 }
@@ -2281,7 +2286,7 @@ tui_gum_render_menu_frame(){
   fi
   tui_gum_render_menu_items "$catalog" "$max_tag"
   printf '\n' >&2
-  tui_gum_hint "Type shortcut or number. ? help, / search, . previews, Enter browse, Esc back."
+  tui_gum_hint "Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back."
 }
 
 tui_gum_main_landing(){
@@ -2526,58 +2531,57 @@ tui_menu_prompt(){
     done
     while true; do
       tui_gum_render_menu_frame "$prompt" "${TUI_SHORTCUT_CONTEXT:-main}" "$catalog" "$max_tag"
-      local visible_pick="" visible_rc=0
-      set +e
-      visible_pick="$(tui_gum_read_visible_menu_choice "${TUI_SHORTCUT_CONTEXT:-main}" "${tags[@]}")"
-      visible_rc=$?
-      set -e
-      if [[ "$visible_rc" -eq 0 && -n "$visible_pick" ]]; then
-        case "$visible_pick" in
-          __help__)
-            tui_msgbox "$(tui_menu_help_overlay_text "$prompt" "${TUI_SHORTCUT_CONTEXT:-main}" "$catalog")"
-            continue
-            ;;
-          __preview__)
-            tui_textbox_text "Action previews" "$(tui_menu_action_previews_text "$prompt" "${TUI_SHORTCUT_CONTEXT:-main}" "$catalog")"
-            continue
-            ;;
-          __search__)
-            local search_pick=""
-            search_pick="$(tui_gum_filter_menu_choice "$prompt" "$catalog" "${TUI_SHORTCUT_CONTEXT:-main}" || true)"
-            if [[ -n "$search_pick" ]]; then
-              printf '%s' "$search_pick"
-              return 0
-            fi
-            continue
-            ;;
-          *)
-            printf '%s' "$visible_pick"
-            return 0
-            ;;
-        esac
-      fi
-      if [[ "$visible_rc" -eq 130 ]]; then
-        return 130
-      fi
       local -a items=()
       local i tag desc padded_tag color colored_tag line
+      local menu_h=16
+      if tui_bool_enabled "${LM_TUI_COMPACT:-0}"; then
+        menu_h=12
+      fi
       for i in "${!tags[@]}"; do
         tag="${tags[$i]}"
         desc="${descs[$i]}"
         padded_tag="$(printf '%-*s' "$max_tag" "$tag")"
         color="$(tui_tag_color "$tag")"
         colored_tag="$(gum style --bold --foreground "$color" "$padded_tag")"
-        line="${colored_tag}  ${desc}"
+        line="${colored_tag}  $(tui_menu_display_desc "$desc")"
         items+=("${line}|${tag}")
       done
-      local menu_h=16
-      if tui_bool_enabled "${LM_TUI_COMPACT:-0}"; then
-        menu_h=12
-      fi
-      gum choose --header "" --height "$menu_h" --cursor "> " --label-delimiter "|" \
+      items+=("$(printf '%-*s  %s|%s' "$max_tag" "search" "Search commands, aliases, and task words" "__search__")")
+      items+=("$(printf '%-*s  %s|%s' "$max_tag" "preview" "Preview actions in this menu" "__preview__")")
+      items+=("$(printf '%-*s  %s|%s' "$max_tag" "help" "Show quick controls for this menu" "__help__")")
+      local pick="" pick_rc=0
+      set +e
+      pick="$(gum choose --header "" --height "$menu_h" --cursor "> " --label-delimiter "|" \
         --cursor-prefix "> " --selected-prefix "* " --unselected-prefix "  " \
-        --show-help=false "${items[@]}"
-      return $?
+        --show-help=false "${items[@]}")"
+      pick_rc=$?
+      set -e
+      if [[ "$pick_rc" -ne 0 || -z "${pick:-}" ]]; then
+        return "$pick_rc"
+      fi
+      case "$pick" in
+        __help__)
+          tui_msgbox "$(tui_menu_help_overlay_text "$prompt" "${TUI_SHORTCUT_CONTEXT:-main}" "$catalog")"
+          continue
+          ;;
+        __preview__)
+          tui_textbox_text "Action previews" "$(tui_menu_action_previews_text "$prompt" "${TUI_SHORTCUT_CONTEXT:-main}" "$catalog")"
+          continue
+          ;;
+        __search__)
+          local search_pick=""
+          search_pick="$(tui_gum_filter_menu_choice "$prompt" "$catalog" "${TUI_SHORTCUT_CONTEXT:-main}" || true)"
+          if [[ -n "$search_pick" ]]; then
+            printf '%s' "$search_pick"
+            return 0
+          fi
+          continue
+          ;;
+        *)
+          printf '%s' "$pick"
+          return 0
+          ;;
+      esac
     done
   elif [[ "$TUI_BACKEND" == "dialog" ]]; then
     local -a menu_items=()
@@ -5642,7 +5646,7 @@ command_usage(){
         "linux-maint menu" \
         "Open the interactive operations console for guided monitoring, triage, export, and docs." \
         "  - day-to-day operator workflow\n  - first setup and safe first run\n  - current-incident triage\n  - export and escalation flow" \
-        "  Main sections:\n    Quickstart    first setup, current incident, and escalation workflows\n    Overview      dashboard, current state, top problems, and next moves\n    Run           execute checks, preview plans, or use the run wizard\n    Investigate   drilldown, diff, history, logs, reasons, and runtimes\n    Repair        guided incident response, doctor, check, self-check, and security profile\n    Export        report, trend, metrics, export JSON, and the bundle wizard\n    Docs          quick reference, troubleshooting, FAQ, config, monitors, and settings\n  Best path by task:\n    First day with the tool?       Quickstart -> first setup\n    Need the current answer fast?  Overview -> status or report\n    Need to understand a failure?  Investigate -> drilldown or logs\n    Need to recover quickly?       Repair -> incident or doctor\n    Need to share data?            Export -> report, export JSON, or pack logs\n  Quickstart shortcuts:\n    inventory      edit servers.txt directly from the Quickstart menu\n    groups         open the hosts.d group overview directly from Quickstart\n    docs           open quick reference and troubleshooting from Quickstart\n  Quickstart bootstrap:\n    first_setup guides init, config review, check, plan, and starter baselines\n    current_incident is best after you have a summary or wrapper log\n    escalation is best after report/JSON/log artifacts exist\n  Global gum controls:\n    1-9           pick a visible action\n    ?             quick help overlay for the current menu\n    /             smart command palette (search by names, aliases, task words)\n                  examples: first run, triage, bundle, report, logs, doctor\n    .             preview visible actions before selecting one\n    Enter         open the full chooser\n    Esc           go back\n  Useful env vars:\n    LM_TUI_BACKEND=gum|dialog|whiptail\n    LM_TUI_DASH_REFRESH=<seconds>\n    LM_TUI_DEFAULT_STATUS_VIEW=table|compact\n    LM_TUI_DEFAULT_PROBLEMS=<1..100>\n    LM_TUI_DEFAULT_REASONS=<0..20>\n    LM_TUI_PREVIEW=1|0\n    LM_TUI_SHORTCUTS=1|0\n    LM_TUI_COMPACT=1|0\n    LM_TUI_LOW_COLOR=1|0\n    LM_TUI_CONFIRM_RISKY=1|0" \
+        "  Main sections:\n    Quickstart    first setup, current incident, and escalation workflows\n    Overview      dashboard, current state, top problems, and next moves\n    Run           execute checks, preview plans, or use the run wizard\n    Investigate   drilldown, diff, history, logs, reasons, and runtimes\n    Repair        guided incident response, doctor, check, self-check, and security profile\n    Export        report, trend, metrics, export JSON, and the bundle wizard\n    Docs          quick reference, troubleshooting, FAQ, config, monitors, and settings\n  Best path by task:\n    First day with the tool?       Quickstart -> first setup\n    Need the current answer fast?  Overview -> status or report\n    Need to understand a failure?  Investigate -> drilldown or logs\n    Need to recover quickly?       Repair -> incident or doctor\n    Need to share data?            Export -> report, export JSON, or pack logs\n  Quickstart shortcuts:\n    inventory      edit servers.txt directly from the Quickstart menu\n    groups         open the hosts.d group overview directly from Quickstart\n    docs           open quick reference and troubleshooting from Quickstart\n  Quickstart bootstrap:\n    first_setup guides init, config review, check, plan, and starter baselines\n    current_incident is best after you have a summary or wrapper log\n    escalation is best after report/JSON/log artifacts exist\n  Global gum controls:\n    arrows         move through the chooser\n    Enter          open the highlighted action\n    Search         smart command palette (search by names, aliases, task words)\n                   examples: first run, triage, bundle, report, logs, doctor\n    Preview        open action previews for the current menu\n    Help           reopen quick controls for the current menu\n    Esc            go back\n    Optional letter shortcuts remain available when enabled\n  Useful env vars:\n    LM_TUI_BACKEND=gum|dialog|whiptail\n    LM_TUI_DASH_REFRESH=<seconds>\n    LM_TUI_DEFAULT_STATUS_VIEW=table|compact\n    LM_TUI_DEFAULT_PROBLEMS=<1..100>\n    LM_TUI_DEFAULT_REASONS=<0..20>\n    LM_TUI_PREVIEW=1|0\n    LM_TUI_SHORTCUTS=1|0\n    LM_TUI_COMPACT=1|0\n    LM_TUI_LOW_COLOR=1|0\n    LM_TUI_CONFIRM_RISKY=1|0" \
         "  linux-maint menu\n  LM_TUI_BACKEND=gum linux-maint menu\n  LM_TUI_COMPACT=1 linux-maint menu" \
         "  - returns non-zero if no supported TUI backend is available\n  - returns non-zero when interactive TTY requirements are not met" \
         "  repo mode:      linux-maint menu\n  installed mode: sudo linux-maint menu"

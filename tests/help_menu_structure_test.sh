@@ -76,13 +76,23 @@ printf '%s\n' "$out" | grep -q 'first_setup guides init, config review, check, p
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q '/             smart command palette (search by names, aliases, task words)' || {
+printf '%s\n' "$out" | grep -q 'arrows         move through the chooser' || {
+  echo "help menu missing arrow-navigation guidance" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q 'Search         smart command palette (search by names, aliases, task words)' || {
   echo "help menu missing command palette guidance" >&2
   echo "$out" >&2
   exit 1
 }
 printf '%s\n' "$out" | grep -q 'examples: first run, triage, bundle, report, logs, doctor' || {
   echo "help menu missing command palette examples" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q 'Optional letter shortcuts remain available when enabled' || {
+  echo "help menu missing optional shortcut guidance" >&2
   echo "$out" >&2
   exit 1
 }

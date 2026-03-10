@@ -29,8 +29,8 @@
                                                            │                                                    │
                                                            ╰────────────────────────────────────────────────────╯
 
-  dashboard  Open: live operations dashboard [d]
-  status     Open: current status snapshot [s]
-  back       Back to main menu [b]
+  dashboard  Open: live operations dashboard
+  status     Open: current status snapshot
+  back       Back to main menu
 
-  Type shortcut or number. ? help, / search, . previews, Enter browse, Esc back.
+  Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.
