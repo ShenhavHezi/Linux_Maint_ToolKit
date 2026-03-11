@@ -17,12 +17,25 @@ mkdir -p "$cfg" "$logs" "$state" "$lock"
 printf '%s\n' localhost > "$cfg/servers.txt"
 : > "$cfg/excluded.txt"
 : > "$cfg/services.txt"
-chmod 000 "$cfg/servers.txt"
-
-set +e
-out="$(LM_CFG_DIR="$cfg" LOG_DIR="$logs" LM_STATE_DIR="$state" LM_LOCKDIR="$lock" bash "$LM" doctor --json 2>&1)"
-rc=$?
-set -e
+if [[ "$(id -u)" -eq 0 ]]; then
+  if ! command -v su >/dev/null 2>&1 || ! getent passwd nobody >/dev/null 2>&1; then
+    echo "doctor json unreadable servers skipped under root: no su/nobody"
+    exit 0
+  fi
+  chmod 755 "$cfg" "$logs" "$state" "$lock"
+  chmod 777 "$logs" "$state" "$lock"
+  chmod 600 "$cfg/servers.txt"
+  set +e
+  out="$(su -s /bin/bash nobody -c "LM_CFG_DIR='$cfg' LOG_DIR='$logs' LM_STATE_DIR='$state' LM_LOCKDIR='$lock' bash '$LM' doctor --json" 2>&1)"
+  rc=$?
+  set -e
+else
+  chmod 000 "$cfg/servers.txt"
+  set +e
+  out="$(LM_CFG_DIR="$cfg" LOG_DIR="$logs" LM_STATE_DIR="$state" LM_LOCKDIR="$lock" bash "$LM" doctor --json 2>&1)"
+  rc=$?
+  set -e
+fi
 
 if [[ "$rc" -ne 0 ]]; then
   echo "expected doctor --json to survive unreadable servers.txt, got rc=$rc" >&2
