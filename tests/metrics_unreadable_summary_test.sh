@@ -3,11 +3,14 @@ set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
 
 ROOT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LM="$ROOT_DIR/bin/linux-maint"
+source "$ROOT_DIR/tests/testlib.sh"
 
 workdir="$(mktemp -d -p "$TMPDIR")"
+repo_copy="$workdir/repo"
 log_dir="$workdir/logs"
 cfg_dir="$workdir/etc"
+testlib_copy_repo_tracked "$repo_copy"
+LM="$repo_copy/bin/linux-maint"
 mkdir -p "$log_dir" "$cfg_dir"
 trap 'chmod 0644 "$log_dir/full_health_monitor_summary_latest.log" 2>/dev/null || true; rm -rf "$workdir"' EXIT
 
@@ -38,7 +41,8 @@ run_metrics() {
 
 if [[ "$(id -u)" -eq 0 ]]; then
   if command -v su >/dev/null 2>&1 && id nobody >/dev/null 2>&1; then
-    chmod 0755 "$workdir" "$log_dir" "$cfg_dir"
+    chmod 0755 "$workdir" "$repo_copy" "$log_dir" "$cfg_dir"
+    chmod -R a+rX "$repo_copy"
     chmod 0644 "$log_dir/last_status_full" "$log_dir/full_health_monitor_latest.log"
     chmod 0644 "$cfg_dir/servers.txt" "$cfg_dir/excluded.txt" "$cfg_dir/services.txt"
     chmod 000 "$log_dir/full_health_monitor_summary_latest.log"
