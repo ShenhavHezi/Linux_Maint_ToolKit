@@ -2,7 +2,7 @@
 
 SHELL := /usr/bin/env bash
 
-.PHONY: help lint test quick-check dev-check docs-check release-tarball make-tarball release release-prep release-check release-audit verify-release install-githooks ci-local
+.PHONY: help lint test quick-check dev-check docs-check release-tarball make-tarball release release-prep release-check release-audit verify-release install-githooks ci-local clean-local
 
 help:
 	@echo "Targets:"
@@ -20,6 +20,7 @@ help:
 	@echo "  make quick-check - run fast contract/lint checks"
 	@echo "  make dev-check - run lint + smoke"
 	@echo "  make ci-local - run lint + contract tests + smoke (CI-like)"
+	@echo "  make clean-local - remove repo-local logs/tmp/config cache folders"
 
 lint:
 	@./tools/shellcheck_wrapper.sh -x run_full_health_monitor.sh
@@ -50,6 +51,9 @@ ci-local:
 	@./tests/summary_contract.sh
 	@./tests/summary_contract_lint.sh
 	@./tests/smoke.sh
+
+clean-local:
+	@./tools/clean_local_state.sh
 
 docs-check:
 	@./tools/docs_link_check.sh
