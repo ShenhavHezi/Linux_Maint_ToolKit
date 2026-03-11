@@ -7,7 +7,7 @@ testlib_copy_repo_tracked() {
   mkdir -p "$dest"
   (
     cd "$TESTLIB_ROOT_DIR" || exit
-    git ls-files -z | while IFS= read -r -d '' path; do
+    git -c "safe.directory=$TESTLIB_ROOT_DIR" ls-files -z | while IFS= read -r -d '' path; do
       [[ -e "$path" ]] && printf '%s\0' "$path"
     done | tar --null -T - -cf - | tar -xf - -C "$dest"
   )

@@ -5961,10 +5961,40 @@ PY
       exit 1
     fi
 
+    unreadable_conf_files=()
+    for f in "${conf_files[@]}"; do
+      [[ -r "$f" ]] || unreadable_conf_files+=("$f")
+    done
+    if [[ "${#unreadable_conf_files[@]}" -gt 0 ]]; then
+      msg="Cannot read config file(s)"
+      if [[ "$CFG_JSON" -eq 1 ]]; then
+        UNREADABLE_FILES="$(printf '%s\n' "${unreadable_conf_files[@]}")" CFG_DIR="$CFG_DIR" python3 - "${conf_files[@]}" <<'PY'
+import json, os, sys
+files = sys.argv[1:]
+unreadable = [line for line in os.environ.get("UNREADABLE_FILES", "").splitlines() if line]
+print(json.dumps({
+    "schema_version": 1,
+    "config_json_contract_version": 1,
+    "cfg_dir": os.environ.get("CFG_DIR", "/etc/linux_maint"),
+    "sources": files,
+    "error": "unreadable_sources",
+    "message": "Cannot read config file(s)",
+    "unreadable_sources": unreadable,
+}, indent=2, sort_keys=True))
+PY
+      else
+        echo "ERROR: $msg" >&2
+        for f in "${unreadable_conf_files[@]}"; do
+          echo "- $f" >&2
+        done
+      fi
+      exit 1
+    fi
+
     CFG_COLOR=1
     [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && CFG_COLOR=0
     color_enabled || CFG_COLOR=0
-    CFG_DIR="$CFG_DIR" CFG_SOURCES="$CFG_SOURCES" CFG_JSON="$CFG_JSON" CFG_LINT="$CFG_LINT" CFG_DIFF_DEFAULTS="$CFG_DIFF_DEFAULTS" CFG_COLOR="$CFG_COLOR" python3 - "${conf_files[@]}" <<'PY'
+    CFG_DIR="$CFG_DIR" CFG_SOURCES="$CFG_SOURCES" CFG_JSON="$CFG_JSON" CFG_LINT="$CFG_LINT" CFG_DIFF_DEFAULTS="$CFG_DIFF_DEFAULTS" CFG_COLOR="$CFG_COLOR" REPO_ROOT="$REPO_ROOT" SHARE="$SHARE" python3 - "${conf_files[@]}" <<'PY'
 import json, os, re, shlex, subprocess, sys
 
 cfg_dir = os.environ.get("CFG_DIR", "/etc/linux_maint")
