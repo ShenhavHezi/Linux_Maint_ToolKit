@@ -52,14 +52,14 @@ grep -q 'prom_write_failed' "$latest_log" || {
   exit 1
 }
 
-grep -q 'summary_json_write_failed' "$summary_file" || {
-  echo "expected summary_json_write_failed warning in summary file" >&2
+grep -q 'summary_json_write_failed' "$summary_file" && {
+  echo "summary file should stay monitor-only after sidecar failure" >&2
   cat "$summary_file" >&2
   exit 1
 }
 
-grep -q 'prom_write_failed' "$summary_file" || {
-  echo "expected prom_write_failed warning in summary file" >&2
+grep -q 'prom_write_failed' "$summary_file" && {
+  echo "summary file should stay monitor-only after prom failure" >&2
   cat "$summary_file" >&2
   exit 1
 }

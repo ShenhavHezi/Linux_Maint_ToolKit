@@ -525,15 +525,15 @@ fi
 # Emit explicit warnings if we had to fall back to alternate writable dirs.
 if [[ -n "$LOG_DIR_FALLBACK_TO" ]]; then
   echo "WARN: log dir fallback from $LOG_DIR_FALLBACK_FROM to $LOG_DIR_FALLBACK_TO" >> "$tmp_report"
-  echo "monitor=wrapper host=runner status=WARN reason=log_dir_fallback from=$LOG_DIR_FALLBACK_FROM to=$LOG_DIR_FALLBACK_TO" >> "$tmp_report"
+  echo "monitor=wrapper host=runner node=$(hostname -f 2>/dev/null || hostname) status=WARN reason=log_dir_fallback from=$LOG_DIR_FALLBACK_FROM to=$LOG_DIR_FALLBACK_TO" >> "$tmp_report"
 fi
 if [[ -n "$SUMMARY_DIR_FALLBACK_TO" ]]; then
   echo "WARN: summary dir fallback from $SUMMARY_DIR_FALLBACK_FROM to $SUMMARY_DIR_FALLBACK_TO" >> "$tmp_report"
-  echo "monitor=wrapper host=runner status=WARN reason=summary_dir_fallback from=$SUMMARY_DIR_FALLBACK_FROM to=$SUMMARY_DIR_FALLBACK_TO" >> "$tmp_report"
+  echo "monitor=wrapper host=runner node=$(hostname -f 2>/dev/null || hostname) status=WARN reason=summary_dir_fallback from=$SUMMARY_DIR_FALLBACK_FROM to=$SUMMARY_DIR_FALLBACK_TO" >> "$tmp_report"
 fi
 if [[ -n "$STATE_DIR_FALLBACK_TO" ]]; then
   echo "WARN: state dir fallback from $STATE_DIR_FALLBACK_FROM to $STATE_DIR_FALLBACK_TO" >> "$tmp_report"
-  echo "monitor=wrapper host=runner status=WARN reason=state_dir_fallback from=$STATE_DIR_FALLBACK_FROM to=$STATE_DIR_FALLBACK_TO" >> "$tmp_report"
+  echo "monitor=wrapper host=runner node=$(hostname -f 2>/dev/null || hostname) status=WARN reason=state_dir_fallback from=$STATE_DIR_FALLBACK_FROM to=$STATE_DIR_FALLBACK_TO" >> "$tmp_report"
 fi
 
 run_one() {
@@ -996,7 +996,7 @@ log_rc=$?
 set -e
 if [[ "$log_rc" -ne 0 || ! -s "$logfile" ]]; then
   echo "WARN: log write failed: $logfile" >> "$tmp_report"
-  echo "monitor=wrapper host=runner status=WARN reason=log_write_failed path=$logfile" >> "$tmp_report"
+  echo "monitor=wrapper host=runner node=$(hostname -f 2>/dev/null || hostname) status=WARN reason=log_write_failed path=$logfile" >> "$tmp_report"
 fi
 
 ln -sfn "$logfile" "$LOG_DIR/full_health_monitor_latest.log"
@@ -1019,7 +1019,7 @@ else
   { cat "$tmp_summary" > "$SUMMARY_FILE"; } 2>/dev/null || true
 fi
 if [[ ! -s "$SUMMARY_FILE" ]]; then
-  warn_line="monitor=wrapper host=runner status=WARN reason=summary_write_failed path=$SUMMARY_FILE"
+  warn_line="monitor=wrapper host=runner node=$(hostname -f 2>/dev/null || hostname) status=WARN reason=summary_write_failed path=$SUMMARY_FILE"
   echo "WARN: summary write failed: $SUMMARY_FILE" >> "$tmp_report"
   echo "$warn_line" >> "$tmp_report"
   echo "$warn_line" >> "$tmp_summary"
@@ -1046,13 +1046,15 @@ ln -sfn "$summary_latest_target" "$SUMMARY_LATEST_FILE" 2>/dev/null || true
 rm -f "$tmp_summary" 2>/dev/null || true
 
 artifact_warn() {
-  local reason="$1" msg="$2"
-  local warn_line="monitor=wrapper host=runner status=WARN reason=$reason msg=$msg"
+  local reason="$1" msg="$2" path="${3:-}"
+  local warn_line="artifact_warn reason=$reason"
+  if [[ -n "$path" ]]; then
+    warn_line="$warn_line path=$path"
+  else
+    warn_line="$warn_line detail=${msg// /_}"
+  fi
   echo "WARN: $msg" >> "$tmp_report"
   echo "$warn_line" >> "$tmp_report"
-  if [[ -s "$SUMMARY_FILE" ]]; then
-    printf '%s\n' "$warn_line" >> "$SUMMARY_FILE" 2>/dev/null || true
-  fi
   if [[ -s "$logfile" ]]; then
     printf '%s\n' "[WARN] $msg" >> "$logfile" 2>/dev/null || true
     printf '%s\n' "$warn_line" >> "$logfile" 2>/dev/null || true
@@ -1139,7 +1141,7 @@ if json_file:
                 os.unlink(tmp)
             except Exception:
                 pass
-        errors.append(("summary_json_write_failed", f"summary json write failed: {json_file}"))
+        errors.append(("summary_json_write_failed", f"summary json write failed: {json_file}", json_file))
     if json_latest:
         try:
             if os.path.islink(json_latest) or os.path.exists(json_latest):
@@ -1323,18 +1325,18 @@ if prom_file and rows:
                 os.unlink(prom_tmp)
             except Exception:
                 pass
-        errors.append(("prom_write_failed", f"prometheus write failed: {prom_file}"))
+        errors.append(("prom_write_failed", f"prometheus write failed: {prom_file}", prom_file))
 
 if errors:
-    for reason, msg in errors:
-        print(f"{reason}|{msg}", file=sys.stderr)
+    for reason, msg, path in errors:
+        print(f"{reason}|{msg}|{path}", file=sys.stderr)
     raise SystemExit(2)
 PY
 then
   if [[ -s "$sidecar_err" ]]; then
-    while IFS='|' read -r reason msg; do
+    while IFS='|' read -r reason msg path; do
       if [[ -n "$reason" && -n "$msg" ]]; then
-        artifact_warn "$reason" "$msg"
+        artifact_warn "$reason" "$msg" "${path:-}"
       elif [[ -n "$reason" ]]; then
         artifact_warn "sidecar_write_failed" "$reason"
       fi
@@ -1357,27 +1359,18 @@ write_checksum() {
 }
 
 checksum_warn() {
-  local msg="$1"
-  local warn_line="monitor=wrapper host=runner status=WARN reason=summary_checksum_failed msg=$msg"
-  echo "WARN: $msg" >> "$tmp_report"
-  echo "$warn_line" >> "$tmp_report"
-  if [[ -s "$SUMMARY_FILE" ]]; then
-    printf '%s\n' "$warn_line" >> "$SUMMARY_FILE" 2>/dev/null || true
-  fi
-  if [[ -s "$logfile" ]]; then
-    printf '%s\n' "[WARN] $msg" >> "$logfile" 2>/dev/null || true
-    printf '%s\n' "$warn_line" >> "$logfile" 2>/dev/null || true
-  fi
+  local path="$1"
+  artifact_warn "summary_checksum_failed" "checksum write failed: $path" "$path"
 }
 
 if [[ -n "${SUMMARY_FILE:-}" ]]; then
   if ! write_checksum "$SUMMARY_FILE"; then
-    checksum_warn "checksum write failed for $SUMMARY_FILE"
+    checksum_warn "$SUMMARY_FILE"
   fi
 fi
 if [[ -n "${SUMMARY_JSON_FILE:-}" && -s "${SUMMARY_JSON_FILE:-}" ]]; then
   if ! write_checksum "$SUMMARY_JSON_FILE"; then
-    checksum_warn "checksum write failed for $SUMMARY_JSON_FILE"
+    checksum_warn "$SUMMARY_JSON_FILE"
   fi
 fi
 
@@ -1421,7 +1414,7 @@ else
 fi
 
 if [[ "$status_write_ok" -ne 1 ]]; then
-  artifact_warn "status_write_failed" "status write failed: $STATUS_FILE"
+  artifact_warn "status_write_failed" "status write failed: $STATUS_FILE" "$STATUS_FILE"
 fi
 
 # ---- run index (best-effort) ----
@@ -1666,7 +1659,7 @@ if [[ -d "$run_state_file" ]] || ! {
 fi
 
 if [[ -n "$run_state_warn_msg" ]]; then
-  artifact_warn "run_state_write_failed" "$run_state_warn_msg"
+  artifact_warn "run_state_write_failed" "$run_state_warn_msg" "$run_state_file"
 fi
 
 rm -f "$tmp_report" "$runtime_file" 2>/dev/null || true

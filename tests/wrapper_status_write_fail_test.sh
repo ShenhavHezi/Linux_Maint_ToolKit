@@ -40,8 +40,8 @@ grep -q 'status_write_failed' "$latest_log" || {
   exit 1
 }
 
-grep -q 'status_write_failed' "$summary_file" || {
-  echo "expected status_write_failed warning in summary file" >&2
+grep -q 'status_write_failed' "$summary_file" && {
+  echo "summary file should stay monitor-only after status write failure" >&2
   cat "$summary_file" >&2
   exit 1
 }
