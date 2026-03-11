@@ -1,100 +1,164 @@
 # Artifacts and Logs
 
-This document describes the files produced by runs and where to look for them.
+Use this page when you need to know what `linux-maint` writes, where it writes it, and what to send during escalation.
 
-## Repo mode (local checkout)
+For incident handling, start with [troubleshooting.md](troubleshooting.md). For release and upgrade flow, pair this with [UPGRADE.md](UPGRADE.md).
 
-- Logs and summaries are written under `./.logs/` by default.
-- Example files:
-  - `./.logs/full_health_monitor_<timestamp>.log`
-  - `./.logs/full_health_monitor_summary_<timestamp>.log`
-  - `./.logs/full_health_monitor_summary_<timestamp>.json`
-  - `./.logs/last_status_full`
+## The important artifact groups
 
-## Installed mode
+`linux-maint` mainly produces five kinds of artifacts:
 
-Default locations under `/var/log/health`:
+- run logs
+- summary logs and summary JSON
+- state and history files
+- support bundles
+- release and packaging outputs
 
-- Full log: `full_health_monitor_<timestamp>.log` and `full_health_monitor_latest.log`
-- Summary log (only `monitor=` lines): `full_health_monitor_summary_<timestamp>.log` and `full_health_monitor_summary_latest.log`
-- Summary JSON: `full_health_monitor_summary_<timestamp>.json` and `full_health_monitor_summary_latest.json`
+## Runtime artifacts
 
-## Summary contract line
+### Repo mode
 
-Each monitor emits a single machine‑parseable summary line per target host:
+Default output root:
 
-```
+- `./.logs/`
+
+Typical files:
+
+- `./.logs/full_health_monitor_<timestamp>.log`
+- `./.logs/full_health_monitor_summary_<timestamp>.log`
+- `./.logs/full_health_monitor_summary_<timestamp>.json`
+- `./.logs/last_status_full`
+
+### Installed mode
+
+Default output root:
+
+- `/var/log/health`
+
+Typical files:
+
+- `full_health_monitor_<timestamp>.log`
+- `full_health_monitor_latest.log`
+- `full_health_monitor_summary_<timestamp>.log`
+- `full_health_monitor_summary_latest.log`
+- `full_health_monitor_summary_<timestamp>.json`
+- `full_health_monitor_summary_latest.json`
+- `last_status_full`
+
+### State and history
+
+Default state root:
+
+- `/var/lib/linux_maint`
+
+Typical files:
+
+- `run_index.jsonl`
+- `last_summary_monitor_lines.log`
+- audit log and summary-diff state
+- upgrade manifests under `upgrades/`
+
+## What is inside a summary artifact
+
+Each monitor emits one machine-oriented summary line per target host:
+
+```text
 monitor=<name> host=<target> status=<OK|WARN|CRIT|UNKNOWN|SKIP> node=<runner> reason=<token> [key=value ...]
 ```
 
-Only these `monitor=` lines are written into the summary artifacts.
+The wrapper collects those lines into:
 
-## CLI accessors
+- summary log files for humans and quick parsing
+- summary JSON for CLI commands and automation
 
-- `linux-maint status` — human view based on latest summary artifacts
-- `linux-maint status --verbose` — raw `monitor=` lines
-- `linux-maint status --json` — automation‑friendly payload
-- `linux-maint export --json|--jsonl|--csv` — structured output for external systems
-- `linux-maint pack-logs` — support bundle (includes `meta/bundle_manifest.txt`, `meta/redaction_report.txt`, `meta/support_handoff.txt`, and `meta/bundle_integrity.txt` when `sha256sum`+`stat` are available; supports `--gpg` encryption)
+Most read-oriented commands work from these artifacts rather than recollecting data:
 
-## Support bundle handoff
+- `linux-maint status`
+- `linux-maint report`
+- `linux-maint trend`
+- `linux-maint history`
+- `linux-maint metrics`
+- `linux-maint export`
 
-When escalating an incident, send these together:
+## Useful readers
 
-1. the generated archive from `linux-maint pack-logs`
-2. `meta/support_handoff.txt`
-3. the output of `linux-maint status --verbose`
-4. the exact toolkit version from `linux-maint version`
+Use these commands instead of opening files directly unless you are debugging the raw artifacts:
 
-Inside the bundle, check these files first:
+- `linux-maint status`
+- `linux-maint status --verbose`
+- `linux-maint status --json`
+- `linux-maint export --json`
+- `linux-maint export --jsonl`
+- `linux-maint export --csv`
+- `linux-maint logs`
+
+## Support bundles
+
+Create a support bundle with:
+
+```bash
+linux-maint pack-logs --out /tmp
+```
+
+The bundle is the main escalation artifact. It can include:
+
+- logs
+- summaries
+- state metadata
+- release metadata
+- redaction and integrity notes
+
+Important files inside the bundle:
 
 - `meta/bundle_manifest.txt`
 - `meta/redaction_report.txt`
 - `meta/support_handoff.txt`
-- `meta/bundle_integrity.txt` when present
+- `meta/bundle_integrity.txt` when supported by local tooling
+- `meta/bundle_hashes.txt` when hashing is explicitly enabled
 
-If the bundle was encrypted, include the intended recipient details out-of-band so the receiver can confirm the correct key path.
+### What to send with a support bundle
 
-To decrypt a GPG-encrypted bundle:
+Send these together:
+
+1. the generated archive
+2. `meta/support_handoff.txt`
+3. the output of `linux-maint status --verbose`
+4. the exact version from `linux-maint version`
+
+Also include whether the system is running in repo mode or installed mode.
+
+### Encrypted bundles
+
+If you use GPG encryption:
 
 ```bash
 gpg --output linux-maint-support.tar.gz --decrypt linux-maint-support-*.tar.gz.gpg
 tar -tzf linux-maint-support.tar.gz
 ```
 
-## Retention
+Share the intended recipient details out-of-band so the receiver can confirm the expected key path.
 
-If installed with `--with-logrotate`, log retention is handled via logrotate.
-Without logrotate, logs can grow over time; consider an explicit retention policy.
+## Release artifacts
 
-## Prometheus textfile (optional)
+Tarball releases produce:
 
-If enabled, the wrapper can write:
+- `dist/Linux_Maint_ToolKit-v<VERSION>-<sha>.tgz`
+- `dist/SHA256SUMS`
+- `dist/release_provenance.json`
 
-- `/var/lib/node_exporter/textfile_collector/linux_maint.prom`
-
-This file contains counters derived from `monitor=` summary lines.
-
-## Release artifacts (integrity)
-
-Release tarballs are accompanied by `SHA256SUMS` and `release_provenance.json`:
+Verify them with:
 
 ```bash
 cd dist
 sha256sum -c SHA256SUMS
-# optional if linux-maint is already installed on the verification host
 linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS --manifest release_provenance.json
 ```
 
-`release_provenance.json` records the tarball name, SHA-256, version, tag, commit, branch, build time, and optional detached signature filename.
+`release_provenance.json` records release identity metadata such as version, tag, commit, branch, tarball name, checksum, and optional detached signature filename.
 
-`linux-maint verify-release` validates the checksum, optional provenance manifest, `BUILD_INFO` / `VERSION` metadata, the required install payload members (`install.sh`, CLI/lib payload, helper tools, plugin index), and the matching release notes file for tagged release tarballs.
+## Upgrade artifacts
 
-GitHub CI also emits artifact attestations for the built release tarball and Rocky RPM artifact on `push` runs.
-
-## Upgrade manifests
-
-`linux-maint upgrade` writes rollback metadata under the active state dir:
+`linux-maint upgrade` writes rollback and review material under the active state dir:
 
 - `<state_dir>/upgrades/<run-id>/upgrade_manifest.json`
 - `<state_dir>/upgrades/<run-id>/config_snapshot.tgz`
@@ -102,17 +166,35 @@ GitHub CI also emits artifact attestations for the built release tarball and Roc
 - `<state_dir>/upgrades/<run-id>/rollback_instructions.txt`
 - `<state_dir>/upgrades/latest`
 
-The manifest records the current version, target version, config snapshot path, payload inventory path, rollback artifact path (when supplied), and the final verify/install result.
-
-These files are meant for rollback and post-upgrade review. If an upgrade fails, keep the entire `<state_dir>/upgrades/<run-id>/` directory together when debugging.
+Keep the whole run directory together if an upgrade fails and you need to debug or roll back.
 
 ## Packaging outputs
 
-- Tarball builds: `dist/Linux_Maint_ToolKit-v<VERSION>-<sha>.tgz`, `dist/SHA256SUMS`, and `dist/release_provenance.json`
-- RPM builds: `dist/rpm/` (created by `packaging/rpm/build_rpm.sh`)
+Build outputs:
 
-To customize output paths, set `OUTDIR` when building:
+- tarballs under `dist/`
+- RPM artifacts under `dist/rpm/`
+
+Example:
 
 ```bash
 OUTDIR=/tmp/out ./packaging/rpm/build_rpm.sh
 ```
+
+## Retention
+
+If installed with logrotate support, runtime log retention is handled automatically.
+
+Without logrotate, artifact growth is your responsibility. The first places to watch are:
+
+- `/var/log/health`
+- `/var/lib/linux_maint`
+- repo-local `.logs/`
+
+## Optional Prometheus export
+
+When enabled, the toolkit can write:
+
+- `/var/lib/node_exporter/textfile_collector/linux_maint.prom`
+
+This file is derived from summary artifacts and is intended for textfile collector ingestion, not human editing.
