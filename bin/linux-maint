@@ -5229,10 +5229,10 @@ case "$subcmd" in
     ;;
 
   run)
-    if [[ "$MODE" == "installed" ]]; then
+    parse_run_args "$@"
+    if [[ "$MODE" == "installed" && "${PLAN_ONLY:-0}" -ne 1 ]]; then
       need_root_for run
     fi
-    parse_run_args "$@"
     validate_ssh_opts
 
     if [[ "$MODE" == "repo" ]]; then
@@ -5440,8 +5440,8 @@ case "$subcmd" in
         echo "Summary: $REPO_SUMMARY_LATEST"
         echo "Log: $REPO_LATEST_LOG"
       else
-        echo "Summary: $INST_SUMMARY_LATEST"
-        echo "Log: /var/log/health/full_health_monitor_latest.log"
+        echo "Summary: $(linux_maint_reporting_summary_latest)"
+        echo "Log: $(linux_maint_reporting_latest_log)"
       fi
       echo "Next: linux-maint report"
       echo "Tip: linux-maint status --reasons 5"

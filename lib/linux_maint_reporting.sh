@@ -862,13 +862,16 @@ def read_kv(path):
     d={}
     if not path or not os.path.exists(path):
         return d
-    with open(path,'r',encoding='utf-8',errors='ignore') as f:
-        for line in f:
-            line=line.strip()
-            if not line or '=' not in line:
-                continue
-            k,v=line.split('=',1)
-            d[k]=v
+    try:
+        with open(path,'r',encoding='utf-8',errors='ignore') as f:
+            for line in f:
+                line=line.strip()
+                if not line or '=' not in line:
+                    continue
+                k,v=line.split('=',1)
+                d[k]=v
+    except Exception:
+        return d
     return d
 
 def get_kv(line, key):
@@ -1175,13 +1178,16 @@ def read_kv(path):
     d={}
     if not path or not os.path.exists(path):
         return d
-    with open(path,'r',encoding='utf-8',errors='ignore') as f:
-        for line in f:
-            line=line.strip()
-            if not line or '=' not in line:
-                continue
-            k,v=line.split('=',1)
-            d[k]=v
+    try:
+        with open(path,'r',encoding='utf-8',errors='ignore') as f:
+            for line in f:
+                line=line.strip()
+                if not line or '=' not in line:
+                    continue
+                k,v=line.split('=',1)
+                d[k]=v
+    except Exception:
+        return d
     return d
 
 def get_kv(line, key):
@@ -1243,36 +1249,39 @@ problems=[]
 reason_counts={}
 runtime_warnings=[]
 if summary_path and os.path.exists(summary_path):
-    with open(summary_path,'r',encoding='utf-8',errors='ignore') as f:
-        for line in f:
-            line=line.strip()
-            if not line.startswith('monitor='):
-                continue
-            st=get_kv(line,'status') or 'UNKNOWN'
-            host=get_kv(line,'host') or ''
-            monitor=get_kv(line,'monitor') or ''
-            if only and st != only:
-                continue
-            if not matched(host, host_filter):
-                continue
-            if not matched(monitor, monitor_filter):
-                continue
-            counts[st]=counts.get(st,0)+1
-            if monitor == 'runtime_guard':
-                warn_entry={'status':st,'monitor':monitor,'host':host}
-                for key in ('reason','target_monitor','runtime_ms','threshold_ms'):
-                    val=get_kv(line,key)
-                    if val is not None:
-                        warn_entry[key]=val
-                runtime_warnings.append(warn_entry)
-            if st!='OK':
-                mon=monitor or 'unknown_monitor'
-                reason=get_kv(line,'reason')
-                entry={'status':st,'monitor':mon,'host':host}
-                if reason:
-                    entry['reason']=reason
-                    reason_counts[reason]=reason_counts.get(reason,0)+1
-                problems.append(entry)
+    try:
+        with open(summary_path,'r',encoding='utf-8',errors='ignore') as f:
+            for line in f:
+                line=line.strip()
+                if not line.startswith('monitor='):
+                    continue
+                st=get_kv(line,'status') or 'UNKNOWN'
+                host=get_kv(line,'host') or ''
+                monitor=get_kv(line,'monitor') or ''
+                if only and st != only:
+                    continue
+                if not matched(host, host_filter):
+                    continue
+                if not matched(monitor, monitor_filter):
+                    continue
+                counts[st]=counts.get(st,0)+1
+                if monitor == 'runtime_guard':
+                    warn_entry={'status':st,'monitor':monitor,'host':host}
+                    for key in ('reason','target_monitor','runtime_ms','threshold_ms'):
+                        val=get_kv(line,key)
+                        if val is not None:
+                            warn_entry[key]=val
+                    runtime_warnings.append(warn_entry)
+                if st!='OK':
+                    mon=monitor or 'unknown_monitor'
+                    reason=get_kv(line,'reason')
+                    entry={'status':st,'monitor':mon,'host':host}
+                    if reason:
+                        entry['reason']=reason
+                        reason_counts[reason]=reason_counts.get(reason,0)+1
+                    problems.append(entry)
+    except Exception:
+        pass
 
 sev_order={'CRIT':0,'WARN':1,'UNKNOWN':2,'SKIP':3,'OK':4}
 problems.sort(key=lambda e: sev_order.get(e.get('status','UNKNOWN'), 9))
@@ -1326,8 +1335,10 @@ PY
       echo "linux_maint_lib: ${C_BOLD}${LINUX_MAINT_LIB:-}${C_RESET}"
       echo "logs: ${C_BOLD}${REPO_LOG_DIR}${C_RESET}"
       echo ""; section "Last run status"
-      if [[ -f "$REPO_STATUS_FILE" ]]; then
+      if [[ -f "$REPO_STATUS_FILE" && -r "$REPO_STATUS_FILE" ]]; then
         cat "$REPO_STATUS_FILE"
+      elif [[ -f "$REPO_STATUS_FILE" ]]; then
+        echo "Unreadable status file: $REPO_STATUS_FILE"
       else
         echo "No status file: $REPO_STATUS_FILE"
       fi
@@ -1342,8 +1353,10 @@ PY
       [[ -f "$SHARE/BUILD_INFO" ]] && { echo ""; cat "$SHARE/BUILD_INFO"; }
       echo ""; section "Last run status"
       status_file="$(linux_maint_reporting_status_file)"
-      if [[ -f "$status_file" ]]; then
+      if [[ -f "$status_file" && -r "$status_file" ]]; then
         cat "$status_file"
+      elif [[ -f "$status_file" ]]; then
+        echo "Unreadable status file: $status_file"
       else
         echo "No status file: $status_file"
       fi
@@ -1417,7 +1430,7 @@ PY
       summary_file="$tmp_since"
     fi
 
-    if [[ -f "$summary_file" ]]; then
+    if [[ -f "$summary_file" && -r "$summary_file" ]]; then
       if [[ "$VERBOSE" -eq 1 ]]; then
         echo "(verbose; last $TAIL_N lines from: $summary_file)"
         if [[ -n "$ONLY" || -n "$HOST_FILTER" || -n "$MONITOR_FILTER" ]]; then
@@ -1750,7 +1763,11 @@ PY
         missing_summary_logs_cmd="sudo linux-maint logs 200"
         missing_summary_doctor_cmd="linux-maint doctor"
       fi
-      echo "No summary file: $summary_file"
+      if [[ -f "$summary_file" ]]; then
+        echo "Unreadable summary file: $summary_file"
+      else
+        echo "No summary file: $summary_file"
+      fi
       if [[ "$TABLE" -eq 1 ]]; then
         echo "STATUS MONITOR HOST REASON"
       fi
@@ -2305,13 +2322,16 @@ def read_kv(path):
     d={}
     if not path or not os.path.exists(path):
         return d
-    with open(path,'r',encoding='utf-8',errors='ignore') as f:
-        for line in f:
-            line=line.strip()
-            if not line or '=' not in line:
-                continue
-            k,v=line.split('=',1)
-            d[k]=v
+    try:
+        with open(path,'r',encoding='utf-8',errors='ignore') as f:
+            for line in f:
+                line=line.strip()
+                if not line or '=' not in line:
+                    continue
+                k,v=line.split('=',1)
+                d[k]=v
+    except Exception:
+        return d
     return d
 
 def parse_kv_line(line):
@@ -2380,10 +2400,14 @@ def read_rows():
         raise SystemExit(2)
     rows=[]
     if summary_path and os.path.exists(summary_path):
-        with open(summary_path,'r',encoding='utf-8',errors='ignore') as f:
-            for line in f:
-                if line.startswith('monitor='):
-                    rows.append(parse_kv_line(line))
+        try:
+            with open(summary_path,'r',encoding='utf-8',errors='ignore') as f:
+                for line in f:
+                    if line.startswith('monitor='):
+                        rows.append(parse_kv_line(line))
+        except Exception:
+            print(f"ERROR: export requires readable summary log at {summary_path}", file=sys.stderr)
+            raise SystemExit(2)
     return rows, {}
 
 def parse_allowlist():

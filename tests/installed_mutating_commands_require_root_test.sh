@@ -56,6 +56,13 @@ printf '%s\n' "$out_prune" | grep -qi 'requires root' || {
   exit 1
 }
 
+out_run="$(env "${common_env[@]}" "$lm" run 2>&1 || true)"
+printf '%s\n' "$out_run" | grep -qi 'requires root' || {
+  echo "installed run should require root" >&2
+  echo "$out_run" >&2
+  exit 1
+}
+
 out_baseline="$(env "${common_env[@]}" "$lm" baseline users 2>&1 || true)"
 printf '%s\n' "$out_baseline" | grep -qi 'requires root' || {
   echo "installed baseline update should require root" >&2
