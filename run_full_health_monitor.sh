@@ -432,12 +432,17 @@ if [[ -n "${LM_RESUME_RUN_ID:-}" ]]; then
 fi
 
 run_state_file="${LM_STATE_DIR}/run_state_${LM_RUN_ID}.log"
-if [[ ! -f "$run_state_file" ]]; then
-  {
+run_state_warn_msg=""
+if [[ -d "$run_state_file" ]]; then
+  run_state_warn_msg="run state write failed: $run_state_file"
+elif [[ ! -f "$run_state_file" ]]; then
+  if ! {
     echo "run_id=$LM_RUN_ID"
     echo "started=$(lm_now_iso)"
     [[ -n "$resume_from_run_id" ]] && echo "resumed_from=$resume_from_run_id"
-  } > "$run_state_file" 2>/dev/null || true
+  } > "$run_state_file" 2>/dev/null; then
+    run_state_warn_msg="run state write failed: $run_state_file"
+  fi
 fi
 
 {
@@ -708,9 +713,11 @@ for s in "${scripts[@]}"; do
     *) unk=$((unk+1)); rc=3; mon_status="UNKNOWN" ;;
   esac
   [ "$rc" -gt "$worst" ] && worst="$rc"
-  {
+  if [[ -d "$run_state_file" ]] || ! {
     echo "monitor=$monitor_name status=$mon_status rc=$rc completed_epoch=$(lm_now_epoch)"
-  } >> "$run_state_file" 2>/dev/null || true
+  } >> "$run_state_file" 2>/dev/null; then
+    run_state_warn_msg="${run_state_warn_msg:-run state write failed: $run_state_file}"
+  fi
 done
 progress_done
 
@@ -973,10 +980,25 @@ fi
 ln -sfn "$summary_latest_target" "$SUMMARY_LATEST_FILE" 2>/dev/null || true
 rm -f "$tmp_summary" 2>/dev/null || true
 
+artifact_warn() {
+  local reason="$1" msg="$2"
+  local warn_line="monitor=wrapper host=runner status=WARN reason=$reason msg=$msg"
+  echo "WARN: $msg" >> "$tmp_report"
+  echo "$warn_line" >> "$tmp_report"
+  if [[ -s "$SUMMARY_FILE" ]]; then
+    printf '%s\n' "$warn_line" >> "$SUMMARY_FILE" 2>/dev/null || true
+  fi
+  if [[ -s "$logfile" ]]; then
+    printf '%s\n' "[WARN] $msg" >> "$logfile" 2>/dev/null || true
+    printf '%s\n' "$warn_line" >> "$logfile" 2>/dev/null || true
+  fi
+}
+
 # Also write JSON + Prometheus outputs (best-effort)
+sidecar_err="$TMPDIR/sidecar_error.$$"
 # shellcheck disable=SC2031
-SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" LM_HOSTS_OK="${hosts_ok:-0}" LM_HOSTS_WARN="${hosts_warn:-0}" LM_HOSTS_CRIT="${hosts_crit:-0}" LM_HOSTS_UNKNOWN="${hosts_unknown:-0}" LM_HOSTS_SKIPPED="${hosts_skip:-0}" LM_OVERALL="$overall" LM_EXIT_CODE="$worst" LM_STATUS_FILE="$STATUS_FILE" LM_RUNTIME_FILE="$runtime_file" LM_RUNTIME_WARN_COUNT="$runtime_warn_count" LM_RUN_EPOCH="$ts_epoch" LM_RUN_ID="$LM_RUN_ID" python3 - <<'PY' || true
-import json, os, tempfile
+if ! SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" LM_HOSTS_OK="${hosts_ok:-0}" LM_HOSTS_WARN="${hosts_warn:-0}" LM_HOSTS_CRIT="${hosts_crit:-0}" LM_HOSTS_UNKNOWN="${hosts_unknown:-0}" LM_HOSTS_SKIPPED="${hosts_skip:-0}" LM_OVERALL="$overall" LM_EXIT_CODE="$worst" LM_STATUS_FILE="$STATUS_FILE" LM_RUNTIME_FILE="$runtime_file" LM_RUNTIME_WARN_COUNT="$runtime_warn_count" LM_RUN_EPOCH="$ts_epoch" LM_RUN_ID="$LM_RUN_ID" python3 - 2>"$sidecar_err" <<'PY'
+import json, os, sys, tempfile
 import time
 from datetime import datetime
 summary_file=os.environ.get("SUMMARY_FILE")
@@ -1035,9 +1057,11 @@ if run_id and "run_id" not in meta:
     meta["run_id"] = run_id
 
 payload = rows if legacy else {"schema_version": 1, "run_id": run_id, "meta": meta, "rows": rows}
+errors = []
 
 if json_file:
     os.makedirs(os.path.dirname(json_file), exist_ok=True)
+    tmp = None
     try:
         tmp_dir = os.path.dirname(json_file) or "."
         fd, tmp = tempfile.mkstemp(prefix=".summary_json.", dir=tmp_dir)
@@ -1045,7 +1069,12 @@ if json_file:
             json.dump(payload, f, indent=2, sort_keys=True)
         os.replace(tmp, json_file)
     except Exception:
-        pass
+        if tmp and os.path.exists(tmp):
+            try:
+                os.unlink(tmp)
+            except Exception:
+                pass
+        errors.append(("summary_json_write_failed", f"summary json write failed: {json_file}"))
     if json_latest:
         try:
             if os.path.islink(json_latest) or os.path.exists(json_latest):
@@ -1087,6 +1116,7 @@ def dedup_rows_worst(rows):
         out[key]=keep
     return list(out.values())
 if prom_file and rows:
+    prom_tmp = None
     try:
         os.makedirs(os.path.dirname(prom_file), exist_ok=True)
         prom_rows = dedup_rows_worst(rows)
@@ -1135,7 +1165,9 @@ if prom_file and rows:
             except Exception:
                 return -1
 
-        with open(prom_file,"w",encoding="utf-8") as f:
+        prom_dir = os.path.dirname(prom_file) or "."
+        fd, prom_tmp = tempfile.mkstemp(prefix=".linux_maint_prom.", dir=prom_dir)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write("# HELP linux_maint_monitor_status Monitor status as exit-code scale (OK=0,WARN=1,CRIT=2,UNKNOWN/SKIP=3)\n")
             f.write("# TYPE linux_maint_monitor_status gauge\n")
             f.write("\n# HELP linux_maint_overall_status Overall run status as exit-code scale (OK=0,WARN=1,CRIT=2,UNKNOWN=3)\n")
@@ -1219,8 +1251,34 @@ if prom_file and rows:
             f.write(f"linux_maint_runtime_warn_count {runtime_warn_count}\n")
             if prom_format == "openmetrics":
                 f.write("# EOF\n")
-    except: pass
+        os.replace(prom_tmp, prom_file)
+    except Exception:
+        if prom_tmp and os.path.exists(prom_tmp):
+            try:
+                os.unlink(prom_tmp)
+            except Exception:
+                pass
+        errors.append(("prom_write_failed", f"prometheus write failed: {prom_file}"))
+
+if errors:
+    for reason, msg in errors:
+        print(f"{reason}|{msg}", file=sys.stderr)
+    raise SystemExit(2)
 PY
+then
+  if [[ -s "$sidecar_err" ]]; then
+    while IFS='|' read -r reason msg; do
+      if [[ -n "$reason" && -n "$msg" ]]; then
+        artifact_warn "$reason" "$msg"
+      elif [[ -n "$reason" ]]; then
+        artifact_warn "sidecar_write_failed" "$reason"
+      fi
+    done < "$sidecar_err"
+  else
+    artifact_warn "sidecar_write_failed" "wrapper sidecar write failed"
+  fi
+fi
+rm -f "$sidecar_err" 2>/dev/null || true
 
 write_checksum() {
   local path="$1"
@@ -1236,20 +1294,6 @@ write_checksum() {
 checksum_warn() {
   local msg="$1"
   local warn_line="monitor=wrapper host=runner status=WARN reason=summary_checksum_failed msg=$msg"
-  echo "WARN: $msg" >> "$tmp_report"
-  echo "$warn_line" >> "$tmp_report"
-  if [[ -s "$SUMMARY_FILE" ]]; then
-    printf '%s\n' "$warn_line" >> "$SUMMARY_FILE" 2>/dev/null || true
-  fi
-  if [[ -s "$logfile" ]]; then
-    printf '%s\n' "[WARN] $msg" >> "$logfile" 2>/dev/null || true
-    printf '%s\n' "$warn_line" >> "$logfile" 2>/dev/null || true
-  fi
-}
-
-artifact_warn() {
-  local reason="$1" msg="$2"
-  local warn_line="monitor=wrapper host=runner status=WARN reason=$reason msg=$msg"
   echo "WARN: $msg" >> "$tmp_report"
   echo "$warn_line" >> "$tmp_report"
   if [[ -s "$SUMMARY_FILE" ]]; then
@@ -1548,11 +1592,17 @@ except Exception:
 PY
 fi
 
-{
+if [[ -d "$run_state_file" ]] || ! {
   echo "finished=$(lm_now_iso)"
   echo "overall=$overall"
   echo "exit_code=$worst"
-} >> "$run_state_file" 2>/dev/null || true
+} >> "$run_state_file" 2>/dev/null; then
+  run_state_warn_msg="${run_state_warn_msg:-run state write failed: $run_state_file}"
+fi
+
+if [[ -n "$run_state_warn_msg" ]]; then
+  artifact_warn "run_state_write_failed" "$run_state_warn_msg"
+fi
 
 rm -f "$tmp_report" "$runtime_file" 2>/dev/null || true
 
