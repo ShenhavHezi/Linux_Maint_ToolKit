@@ -123,7 +123,7 @@ need_root_for() {
         hint_line "sudo linux-maint metrics --json" >&2
         ;;
       gate)
-        hint_line "sudo linux-maint gate --policy /etc/linux_maint/policy.json" >&2
+        hint_line "sudo linux-maint gate --policy /etc/linux_maint/policy.conf" >&2
         ;;
       plugin)
         hint_line "sudo linux-maint plugin <subcommand>" >&2

@@ -40,6 +40,7 @@ cat > "$repo_logs/last_status_full" <<'S'
 overall=CRIT
 exit_code=2
 timestamp=2026-02-24T00:00:00Z
+run_id=run-golden-status-table-001
 logfile=/var/log/health/full_health_monitor_latest.log
 S
 

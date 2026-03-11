@@ -28,6 +28,7 @@ JSON
 source "$LM" >/dev/null 2>&1
 MODE=repo
 LOG_DIR="$fixture_root/logs"
+SUMMARY_DIR="$fixture_root/logs"
 LM_CFG_DIR=/tmp/linux_maint_cfg_fixture
 LM_STATE_DIR=/tmp/linux_maint_state_fixture
 TUI_BACKEND=gum

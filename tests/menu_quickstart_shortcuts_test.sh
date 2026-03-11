@@ -17,6 +17,7 @@ trap cleanup EXIT
 MODE=repo
 LM_CFG_DIR="$tmp_root/cfg"
 LOG_DIR="$tmp_root/logs"
+SUMMARY_DIR="$tmp_root/logs"
 LM_STATE_DIR="$tmp_root/state"
 mkdir -p "$LM_CFG_DIR" "$LOG_DIR" "$LM_STATE_DIR"
 

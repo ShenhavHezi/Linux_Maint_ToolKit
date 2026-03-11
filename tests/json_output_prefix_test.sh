@@ -40,6 +40,8 @@ EOF
 cat > "$status_file" <<'EOF'
 overall=OK
 exit_code=0
+timestamp=2026-02-24T00:00:00Z
+run_id=run-json-prefix-001
 EOF
 cat > "$run_index" <<'EOF'
 {"timestamp":"2026-02-24T00:00:00Z","overall":"OK","exit_code":0}

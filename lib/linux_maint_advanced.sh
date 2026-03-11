@@ -789,11 +789,16 @@ if os.path.exists(reg_file):
     try:
         with open(reg_file, "r", encoding="utf-8") as f:
             registry = json.load(f)
-        if not isinstance(registry, dict):
-            registry = {"plugins": []}
-    except Exception:
-        registry = {"plugins": []}
+    except Exception as e:
+        print(f"ERROR: invalid plugin registry: {reg_file}: {e}", file=sys.stderr)
+        raise SystemExit(2)
+    if not isinstance(registry, dict):
+        print(f"ERROR: invalid plugin registry shape: {reg_file}", file=sys.stderr)
+        raise SystemExit(2)
 plugins = registry.get("plugins") or []
+if not isinstance(plugins, list):
+    print(f"ERROR: invalid plugin registry plugins list: {reg_file}", file=sys.stderr)
+    raise SystemExit(2)
 plugins = [p for p in plugins if str(p.get("name","")) != name]
 meta["installed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
 plugins.append(meta)
@@ -1268,9 +1273,6 @@ PY
 }
 
 linux_maint_cmd_serve() {
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for serve
-    fi
     S_HOST="127.0.0.1"
     S_PORT="9910"
     S_CMD_TIMEOUT="${LM_SERVE_CMD_TIMEOUT:-15}"
@@ -1309,15 +1311,23 @@ def validate_payload(endpoint, payload):
     if endpoint == "status":
         if "last_status" not in payload or "totals" not in payload:
             return "status payload missing contract fields"
+        if not isinstance(payload.get("last_status"), dict) or not isinstance(payload.get("totals"), dict):
+            return "status payload has invalid field types"
     elif endpoint == "report":
         if "status" not in payload or "trend" not in payload or "runtimes" not in payload:
             return "report payload missing contract fields"
+        if not isinstance(payload.get("status"), dict) or not isinstance(payload.get("trend"), dict) or not isinstance(payload.get("runtimes"), dict):
+            return "report payload has invalid field types"
     elif endpoint == "metrics":
         if "status" not in payload or "severity_totals" not in payload:
             return "metrics payload missing contract fields"
+        if not isinstance(payload.get("status"), dict) or not isinstance(payload.get("severity_totals"), dict):
+            return "metrics payload has invalid field types"
     elif endpoint == "history":
         if "runs" not in payload:
             return "history payload missing contract fields"
+        if not isinstance(payload.get("runs"), list):
+            return "history payload has invalid field types"
     return ""
 
 def run_json(args):
@@ -1406,9 +1416,6 @@ PY
 }
 
 linux_maint_cmd_agent() {
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for agent
-    fi
     A_ONCE=0
     A_INTERVAL=300
     A_MAX_RUNS=0
@@ -1423,6 +1430,9 @@ linux_maint_cmd_agent() {
         *) echo "Unknown agent flag: $1" >&2; exit 2;;
       esac
     done
+    if [[ "$MODE" == "installed" && "$A_DRY_RUN" -ne 1 ]]; then
+      need_root_for agent
+    fi
     [[ "$A_INTERVAL" =~ ^[0-9]+$ ]] || { echo "ERROR: --interval must be integer" >&2; exit 2; }
     (( A_INTERVAL > 0 )) || { echo "ERROR: --interval must be a positive integer" >&2; exit 2; }
     [[ "$A_MAX_RUNS" =~ ^[0-9]+$ ]] || { echo "ERROR: --max-runs must be integer" >&2; exit 2; }
@@ -1478,6 +1488,7 @@ p=sys.argv[1]
 allowed={"max_crit","max_warn","max_unknown","max_skip","require_overall"}
 allowed_overall={"","OK","WARN","CRIT","UNKNOWN","SKIP"}
 bad=[]
+seen=set()
 for ln,raw in enumerate(open(p,encoding="utf-8",errors="ignore"),start=1):
     line=raw.strip()
     if not line or line.startswith("#"):
@@ -1489,9 +1500,13 @@ for ln,raw in enumerate(open(p,encoding="utf-8",errors="ignore"),start=1):
     if k not in allowed:
         bad.append((ln,f"unknown key {k}"))
         continue
+    if k in seen:
+        bad.append((ln,f"duplicate key {k}"))
+        continue
+    seen.add(k)
     if k!="require_overall" and not v.isdigit():
         bad.append((ln,f"{k} must be integer"))
-    if k=="require_overall" and v not in allowed_overall:
+    if k=="require_overall" and v.upper() not in allowed_overall:
         bad.append((ln, f"require_overall must be one of {','.join(sorted(x for x in allowed_overall if x))} or empty"))
 if bad:
     for ln,msg in bad:

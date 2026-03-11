@@ -47,6 +47,7 @@ cat > "$STATUS_FILE" <<'STAT'
 overall=CRIT
 exit_code=2
 timestamp=2026-02-24T00:00:00Z
+run_id=run-prom-001
 STAT
 
 out="$(bash "$LM" status --prom 2>/dev/null || true)"
