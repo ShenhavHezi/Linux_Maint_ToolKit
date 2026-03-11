@@ -56,6 +56,8 @@ install -m 0755 lib/linux_maint_runtime.sh %{buildroot}/usr/lib/linux_maint_runt
 install -m 0755 lib/linux_maint_admin.sh %{buildroot}/usr/lib/linux_maint_admin.sh
 install -m 0755 lib/linux_maint_help.sh %{buildroot}/usr/lib/linux_maint_help.sh
 install -m 0755 lib/linux_maint_tui.sh %{buildroot}/usr/lib/linux_maint_tui.sh
+install -m 0755 lib/linux_maint_reporting.sh %{buildroot}/usr/lib/linux_maint_reporting.sh
+install -m 0755 lib/linux_maint_advanced.sh %{buildroot}/usr/lib/linux_maint_advanced.sh
 
 # monitors + tools
 install -m 0755 monitors/*.sh %{buildroot}/usr/libexec/linux_maint/
@@ -105,6 +107,8 @@ fi
 /usr/lib/linux_maint_admin.sh
 /usr/lib/linux_maint_help.sh
 /usr/lib/linux_maint_tui.sh
+/usr/lib/linux_maint_reporting.sh
+/usr/lib/linux_maint_advanced.sh
 %dir /usr/libexec/linux_maint
 /usr/libexec/linux_maint/*
 /usr/share/linux_maint/

@@ -55,6 +55,16 @@ statedir="$workdir/var/lib/linux_maint"
   exit 1
 }
 
+[[ -f "$prefix/lib/linux_maint_reporting.sh" ]] || {
+  echo "install.sh did not install linux_maint_reporting.sh into custom lib dir" >&2
+  exit 1
+}
+
+[[ -f "$prefix/lib/linux_maint_advanced.sh" ]] || {
+  echo "install.sh did not install linux_maint_advanced.sh into custom lib dir" >&2
+  exit 1
+}
+
 [[ -f "$cfg/linux-maint.conf" ]] || {
   echo "install.sh did not install linux-maint.conf into override cfg dir" >&2
   exit 1

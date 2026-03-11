@@ -9,11 +9,23 @@ trap 'rm -rf "$workdir"' EXIT
 
 fake_lm="$workdir/linux-maint"
 mkdir -p "$workdir/lib"
-for support_lib in linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh linux_maint_tui.sh; do
+for support_lib in linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh linux_maint_tui.sh linux_maint_reporting.sh; do
   ln -s "$ROOT_DIR/lib/$support_lib" "$workdir/lib/$support_lib"
 done
+cp "$ROOT_DIR/lib/linux_maint_advanced.sh" "$workdir/lib/linux_maint_advanced.sh"
 cp "$REAL_LM" "$fake_lm"
-perl -0pi -e 's@hist_json="\$\(NO_COLOR=1 \"\$0\" history --json --last \"\$P_LAST\" 2>/dev/null\)"@hist_json="$(printf '\''%s\\n'\'' '\''{not-json'\'')"\nhist_rc=0@' "$fake_lm"
+python3 - "$workdir/lib/linux_maint_advanced.sh" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+old = 'hist_json="$(NO_COLOR=1 "$0" history --json --last "$P_LAST" 2>/dev/null)"'
+new = 'hist_json="$(printf \'%s\\n\' \'{not-json\')"\n    hist_rc=0'
+text = path.read_text(encoding="utf-8")
+if old not in text:
+    raise SystemExit("predict test patch target not found")
+path.write_text(text.replace(old, new, 1), encoding="utf-8")
+PY
 chmod +x "$fake_lm"
 
 set +e
