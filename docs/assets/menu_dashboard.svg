@@ -1,0 +1,77 @@
+<svg width="1280" height="820" viewBox="0 0 1280 820" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">linux-maint menu dashboard</title>
+  <desc id="desc">Illustration of the linux-maint menu dashboard showing workflow sections, status cards, and recommended actions.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="820" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#07111F"/>
+      <stop offset="1" stop-color="#111C32"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#0D1728"/>
+      <stop offset="1" stop-color="#111F36"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#020617" flood-opacity="0.38"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="820" rx="32" fill="url(#bg)"/>
+  <text x="56" y="66" fill="#D9E7F7" font-family="ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700">linux-maint menu</text>
+  <text x="56" y="98" fill="#8EA3BE" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">Overview dashboard with repo/install context, top reasons, and recommended next actions.</text>
+
+  <rect x="48" y="132" width="260" height="636" rx="24" fill="url(#panel)" filter="url(#shadow)"/>
+  <text x="78" y="176" fill="#F8FAFC" font-family="ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="700">Workflow</text>
+  <rect x="70" y="202" width="216" height="56" rx="16" fill="#1D4ED8"/>
+  <text x="92" y="237" fill="#FFFFFF" font-family="ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="700">Overview</text>
+  <text x="92" y="282" fill="#95A8C3" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18">Quickstart</text>
+  <text x="92" y="326" fill="#95A8C3" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18">Run</text>
+  <text x="92" y="370" fill="#95A8C3" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18">Triage</text>
+  <text x="92" y="414" fill="#95A8C3" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18">Share</text>
+  <text x="92" y="458" fill="#95A8C3" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18">Exit</text>
+
+  <rect x="70" y="520" width="216" height="104" rx="18" fill="#0B1322" stroke="#FFFFFF" stroke-opacity="0.06"/>
+  <text x="90" y="554" fill="#F8FAFC" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700">Controls</text>
+  <text x="90" y="586" fill="#9FB1C8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">Use arrows + Enter</text>
+  <text x="90" y="610" fill="#9FB1C8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">Search, Preview, Help</text>
+
+  <rect x="340" y="132" width="892" height="180" rx="24" fill="url(#panel)" filter="url(#shadow)"/>
+  <text x="374" y="176" fill="#F8FAFC" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28" font-weight="700">Current state</text>
+  <text x="374" y="208" fill="#8EA3BE" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">Repo mode • LOG_DIR=.logs • last run 11m ago • top reason config_missing</text>
+
+  <rect x="374" y="230" width="160" height="56" rx="18" fill="#3F1D1D"/>
+  <rect x="552" y="230" width="160" height="56" rx="18" fill="#3F340E"/>
+  <rect x="730" y="230" width="160" height="56" rx="18" fill="#123A2A"/>
+  <rect x="908" y="230" width="160" height="56" rx="18" fill="#172554"/>
+  <text x="398" y="255" fill="#FCA5A5" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">CRIT</text>
+  <text x="398" y="278" fill="#FFFFFF" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="700">1 active</text>
+  <text x="576" y="255" fill="#FCD34D" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">WARN</text>
+  <text x="576" y="278" fill="#FFFFFF" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="700">3 active</text>
+  <text x="754" y="255" fill="#86EFAC" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">OK</text>
+  <text x="754" y="278" fill="#FFFFFF" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="700">14 checks</text>
+  <text x="932" y="255" fill="#93C5FD" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">NEXT</text>
+  <text x="932" y="278" fill="#FFFFFF" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="700">Open Triage</text>
+
+  <rect x="340" y="340" width="426" height="428" rx="24" fill="url(#panel)" filter="url(#shadow)"/>
+  <text x="374" y="384" fill="#F8FAFC" font-family="ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700">Top reasons</text>
+  <rect x="374" y="410" width="358" height="58" rx="16" fill="#0B1322"/>
+  <rect x="374" y="484" width="358" height="58" rx="16" fill="#0B1322"/>
+  <rect x="374" y="558" width="358" height="58" rx="16" fill="#0B1322"/>
+  <text x="396" y="444" fill="#F8FAFC" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">config_missing</text>
+  <text x="396" y="465" fill="#8EA3BE" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">backup_check, network_monitor, cert_monitor</text>
+  <text x="396" y="518" fill="#F8FAFC" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">service_failed</text>
+  <text x="396" y="539" fill="#8EA3BE" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">db01 systemd units need attention</text>
+  <text x="396" y="592" fill="#F8FAFC" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">security_updates_pending</text>
+  <text x="396" y="613" fill="#8EA3BE" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">patch monitor warning on 2 hosts</text>
+
+  <rect x="806" y="340" width="426" height="428" rx="24" fill="url(#panel)" filter="url(#shadow)"/>
+  <text x="840" y="384" fill="#F8FAFC" font-family="ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700">Recommended now</text>
+  <rect x="840" y="410" width="358" height="72" rx="18" fill="#10233B" stroke="#60A5FA" stroke-opacity="0.32"/>
+  <rect x="840" y="500" width="358" height="72" rx="18" fill="#0B1322"/>
+  <rect x="840" y="590" width="358" height="72" rx="18" fill="#0B1322"/>
+  <text x="864" y="442" fill="#FFFFFF" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">Open Triage</text>
+  <text x="864" y="464" fill="#9FB1C8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">Investigate the current CRIT, top reason, and logs.</text>
+  <text x="864" y="532" fill="#FFFFFF" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">Run doctor</text>
+  <text x="864" y="554" fill="#9FB1C8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">Validate config paths, write locations, and readiness.</text>
+  <text x="864" y="622" fill="#FFFFFF" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">Share support bundle</text>
+  <text x="864" y="644" fill="#9FB1C8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">Prepare artifacts, handoff notes, and export data.</text>
+</svg>

@@ -4,6 +4,13 @@ This is the fastest way to navigate `linux-maint` without guessing which file ma
 
 ![linux-maint docs map](assets/docs_map.svg)
 
+## Menu preview
+
+<p align="center">
+  <img src="assets/menu_dashboard.svg" alt="linux-maint menu dashboard screenshot" width="48%">
+  <img src="assets/menu_triage.svg" alt="linux-maint menu triage screenshot" width="48%">
+</p>
+
 ## Start Here
 
 | If you want to... | Open this |

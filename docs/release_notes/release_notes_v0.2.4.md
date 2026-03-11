@@ -1,9 +1,10 @@
 # Release Notes v0.2.4
 
-## Version
 - Version: 0.2.4
 - Date (UTC): 2026-02-24
 - Git tag: v0.2.4
+
+[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
 
 ## Highlights
 - Metrics JSON expanded with severity totals, host counts, and per-monitor durations.

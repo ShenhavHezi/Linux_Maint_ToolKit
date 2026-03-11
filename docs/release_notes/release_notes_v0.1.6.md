@@ -1,8 +1,10 @@
-# Linux Maintenance Toolkit v0.1.6
+# Release Notes v0.1.6
 
 - Version: 0.1.6
 - Date (UTC): 2026-02-22
 - Git tag: v0.1.6
+
+[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
 
 ## Highlights
 - Security hardening for network and user monitors.

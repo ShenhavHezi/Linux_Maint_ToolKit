@@ -1,5 +1,11 @@
 # Release Notes v0.3.1
 
+- Version: 0.3.1
+- Date (UTC): 2026-03-02
+- Git tag: v0.3.1
+
+[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
+
 ## Highlights
 - Hardened run reliability and strict validation paths for safer repeatable operations.
 - Added policy/security automation baseline commands for CI and operational gates.
@@ -52,4 +58,3 @@ These features are optional and operator-invoked; they do not alter default run/
 ## Upgrade notes
 - Backward-compatible release; no schema-breaking changes are intended in this version.
 - For advanced modules, start with local/dry-run usage and controlled rollout.
-

@@ -117,6 +117,20 @@ If you prefer the menu, start with:
 - `Triage` for guided drilldown and recovery
 - `Share` for reports, JSON, metrics, and support bundles
 
+## See The Menu
+
+<p align="center">
+  <img src="docs/assets/menu_dashboard.svg" alt="linux-maint menu dashboard screenshot" width="48%">
+  <img src="docs/assets/menu_triage.svg" alt="linux-maint menu triage screenshot" width="48%">
+</p>
+
+The menu is designed around the same operator flow as the CLI and docs:
+
+- `Quickstart` for first setup and incident entry
+- `Overview` for current health and top reasons
+- `Triage` for guided drilldown and repair decisions
+- `Share` for reports, metrics, and support bundles
+
 ## Commands You Will Use Often
 
 | Command | Why you use it |

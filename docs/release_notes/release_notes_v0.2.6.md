@@ -1,9 +1,10 @@
 # Release Notes v0.2.6
 
-## Version
 - Version: 0.2.6
 - Date (UTC): 2026-02-25
 - Git tag: v0.2.6
+
+[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
 
 ## Highlights
 - Added `run --only/--skip` targeting plus `check --json` for automation.

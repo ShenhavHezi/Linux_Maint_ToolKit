@@ -1,9 +1,10 @@
 # Release Notes v0.2.8
 
-## Version
 - Version: 0.2.8
 - Date (UTC): 2026-02-25
 - Git tag: v0.2.8
+
+[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
 
 ## Highlights
 - Added an interactive TUI menu (`linux-maint menu`) with gum/dialog/whiptail support.

@@ -1,9 +1,10 @@
-# Release Notes
+# Release Notes v0.1.7
 
-## Version
 - Version: 0.1.7
 - Date (UTC): 2026-02-22
 - Git tag: v0.1.7
+
+[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
 
 ## Highlights
 - Production hardening for summary output and validation, plus deterministic test mode.

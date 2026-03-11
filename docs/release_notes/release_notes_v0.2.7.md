@@ -1,9 +1,10 @@
 # Release Notes v0.2.7
 
-## Version
 - Version: 0.2.7
 - Date (UTC): 2026-02-25
 - Git tag: v0.2.7
+
+[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
 
 ## Highlights
 - Added `run --plan` (table + JSON) for dry-run scheduling previews.

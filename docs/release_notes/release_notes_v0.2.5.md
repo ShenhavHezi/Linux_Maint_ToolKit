@@ -1,9 +1,10 @@
 # Release Notes v0.2.5
 
-## Version
 - Version: 0.2.5
 - Date (UTC): 2026-02-24
 - Git tag: v0.2.5
+
+[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
 
 ## Highlights
 - Wrapper SKIP reasons now use stable tokens with `missing=` detail fields.

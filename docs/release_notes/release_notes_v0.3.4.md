@@ -4,6 +4,8 @@
 - Date (UTC): 2026-03-10
 - Git tag: v0.3.4
 
+[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
+
 ## Highlights
 - Added a dedicated `linux-maint upgrade` workflow for verified tarball upgrades, with rollback manifests, config snapshots, installed payload inventory, and post-upgrade verification.
 - Hardened the install/release path across tarball verification, RPM payload parity, RPM lifecycle testing, valid packaged systemd units, and repo-vs-installed layout behavior.

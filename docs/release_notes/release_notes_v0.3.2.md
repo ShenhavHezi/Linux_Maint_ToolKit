@@ -4,6 +4,8 @@
 - Date (UTC): 2026-03-02
 - Git tag: v0.3.2
 
+[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
+
 ## Highlights
 - Expanded plugin supply-chain hardening with marketplace attestation verification and trust-policy enforcement.
 - Added tamper-detection verification for audit log hash-chain integrity.

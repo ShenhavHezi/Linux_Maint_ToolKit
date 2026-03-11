@@ -1,0 +1,67 @@
+<svg width="1280" height="820" viewBox="0 0 1280 820" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">linux-maint menu triage view</title>
+  <desc id="desc">Illustration of the linux-maint triage screen showing investigation workflow and action previews.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="820" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#172033"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#121C2D"/>
+      <stop offset="1" stop-color="#0C1626"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#020617" flood-opacity="0.36"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="820" rx="32" fill="url(#bg)"/>
+  <text x="56" y="66" fill="#E2E8F0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700">linux-maint menu</text>
+  <text x="56" y="98" fill="#94A3B8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">Triage workflow with guided actions, risk previews, and operator-ready next steps.</text>
+
+  <rect x="48" y="132" width="286" height="636" rx="24" fill="url(#panel)" filter="url(#shadow)"/>
+  <text x="80" y="176" fill="#F8FAFC" font-family="ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="700">Triage actions</text>
+  <rect x="72" y="204" width="238" height="64" rx="18" fill="#F59E0B"/>
+  <text x="96" y="232" fill="#111827" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">Explain top reason</text>
+  <text x="96" y="252" fill="#1F2937" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13">config_missing on db01</text>
+
+  <rect x="72" y="286" width="238" height="64" rx="18" fill="#0B1322"/>
+  <rect x="72" y="368" width="238" height="64" rx="18" fill="#0B1322"/>
+  <rect x="72" y="450" width="238" height="64" rx="18" fill="#0B1322"/>
+  <rect x="72" y="532" width="238" height="64" rx="18" fill="#0B1322"/>
+  <text x="96" y="323" fill="#E2E8F0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="700">Open doctor</text>
+  <text x="96" y="405" fill="#E2E8F0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="700">Review logs</text>
+  <text x="96" y="487" fill="#E2E8F0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="700">Compare diff</text>
+  <text x="96" y="569" fill="#E2E8F0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="700">Pack support bundle</text>
+
+  <rect x="366" y="132" width="866" height="636" rx="24" fill="url(#panel)" filter="url(#shadow)"/>
+  <text x="402" y="176" fill="#F8FAFC" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28" font-weight="700">Action preview</text>
+  <text x="402" y="208" fill="#94A3B8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">Explain the top reason and show the fastest next step.</text>
+
+  <rect x="402" y="234" width="794" height="120" rx="22" fill="#0B1322"/>
+  <text x="430" y="270" fill="#FCD34D" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">COMMAND</text>
+  <text x="430" y="298" fill="#FFFFFF" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">linux-maint explain reason config_missing</text>
+  <text x="430" y="328" fill="#94A3B8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">Likely next step: initialize or populate the missing config path, then rerun check/status.</text>
+
+  <rect x="402" y="384" width="244" height="142" rx="22" fill="#12263C"/>
+  <rect x="676" y="384" width="244" height="142" rx="22" fill="#23310F"/>
+  <rect x="950" y="384" width="246" height="142" rx="22" fill="#3A180F"/>
+  <text x="428" y="420" fill="#93C5FD" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">READS</text>
+  <text x="428" y="452" fill="#FFFFFF" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">docs/REASONS.md</text>
+  <text x="428" y="478" fill="#DCE8F6" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">status summary artifacts</text>
+  <text x="702" y="420" fill="#86EFAC" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">WRITES</text>
+  <text x="702" y="452" fill="#FFFFFF" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">None</text>
+  <text x="702" y="478" fill="#DFF6E6" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">Read-only investigation path</text>
+  <text x="976" y="420" fill="#FCA5A5" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">RISK</text>
+  <text x="976" y="452" fill="#FFFFFF" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">Low</text>
+  <text x="976" y="478" fill="#FEE2E2" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">Safe to run during incident review</text>
+
+  <rect x="402" y="556" width="794" height="176" rx="22" fill="#0B1322"/>
+  <text x="430" y="592" fill="#F8FAFC" font-family="ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700">Recommended flow</text>
+  <text x="430" y="630" fill="#FCD34D" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">1.</text>
+  <text x="462" y="630" fill="#E2E8F0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18">Review the missing file under the active config root.</text>
+  <text x="430" y="662" fill="#FCD34D" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">2.</text>
+  <text x="462" y="662" fill="#E2E8F0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18">Run `linux-maint doctor` if the path should already exist.</text>
+  <text x="430" y="694" fill="#FCD34D" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">3.</text>
+  <text x="462" y="694" fill="#E2E8F0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18">Use `Share` to export a bundle if you need escalation.</text>
+</svg>

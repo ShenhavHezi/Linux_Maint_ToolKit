@@ -1,9 +1,10 @@
 # Release Notes v0.2.9
 
-## Version
 - Version: 0.2.9
 - Date (UTC): 2026-03-02
 - Git tag: v0.2.9
+
+[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
 
 ## Highlights
 - Added a run concurrency lock with explicit override/timeout controls to prevent overlapping `linux-maint run` corruption.

@@ -1,9 +1,10 @@
 # Release Notes v0.2.0
 
-## Version
 - Version: 0.2.0
 - Date (UTC): 2026-02-24
 - Git tag: v0.2.0
+
+[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
 
 ## Highlights
 - Clearer operator output across `status`, `report`, `trend`, and `diff` with consistent color cues.

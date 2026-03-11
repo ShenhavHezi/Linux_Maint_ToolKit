@@ -23,6 +23,19 @@ check_file(){
   return 0
 }
 
+check_one_of(){
+  local label="$1"
+  shift
+  local path
+  for path in "$@"; do
+    if [[ -f "$path" && -s "$path" ]]; then
+      return 0
+    fi
+  done
+  fail_msg "$label missing: ${*}"
+  return 1
+}
+
 current_release_note_rel(){
   local version
   version="$(head -n 1 "$ROOT_DIR/VERSION" | tr -d '[:space:]')"
@@ -33,9 +46,15 @@ check_governance(){
   check_file "$ROOT_DIR/.github/CODEOWNERS" "CODEOWNERS"
   check_file "$ROOT_DIR/.github/PULL_REQUEST_TEMPLATE.md" "PR template"
   check_file "$ROOT_DIR/.github/ISSUE_TEMPLATE/config.yml" "Issue template config"
-  check_file "$ROOT_DIR/.github/ISSUE_TEMPLATE/bug_report.md" "Bug issue template"
-  check_file "$ROOT_DIR/.github/ISSUE_TEMPLATE/feature_request.md" "Feature issue template"
-  check_file "$ROOT_DIR/.github/ISSUE_TEMPLATE/operator_runbook_gap.md" "Operator runbook gap template"
+  check_one_of "Bug issue template" \
+    "$ROOT_DIR/.github/ISSUE_TEMPLATE/bug_report.yml" \
+    "$ROOT_DIR/.github/ISSUE_TEMPLATE/bug_report.md"
+  check_one_of "Feature issue template" \
+    "$ROOT_DIR/.github/ISSUE_TEMPLATE/feature_request.yml" \
+    "$ROOT_DIR/.github/ISSUE_TEMPLATE/feature_request.md"
+  check_one_of "Operator runbook gap template" \
+    "$ROOT_DIR/.github/ISSUE_TEMPLATE/operator_runbook_gap.yml" \
+    "$ROOT_DIR/.github/ISSUE_TEMPLATE/operator_runbook_gap.md"
 }
 
 release_refs_from_doc(){
@@ -45,8 +64,21 @@ import re, sys
 from pathlib import Path
 p = Path(sys.argv[1])
 text = p.read_text(encoding="utf-8", errors="ignore")
-for m in re.findall(r'`(docs/release_notes/release_notes_v[^`]+\.md)`', text):
-    print(m)
+raw_refs = set()
+for m in re.findall(r'`((?:docs/)?release_notes/[^`]+\.md)`', text):
+    raw_refs.add(m)
+for m in re.findall(r'\[[^\]]+\]\(((?:docs/)?release_notes/[^)]+\.md)\)', text):
+    raw_refs.add(m)
+
+base = p.parent
+for ref in sorted(raw_refs):
+    candidate = (base / ref).resolve() if not ref.startswith("docs/") else (p.parents[1] / ref).resolve()
+    root = p.parents[1].resolve()
+    try:
+        rel = candidate.relative_to(root)
+    except ValueError:
+        continue
+    print(rel.as_posix())
 PY
 }
 
@@ -64,7 +96,7 @@ check_release_refs(){
     fi
   done <<< "$refs"
   current_ref="$(current_release_note_rel)"
-  if ! grep -Fxq -- "$current_ref" <<< "$refs"; then
+  if ! grep -Fxq -- "$current_ref" <<< "$refs" && ! grep -Fxq -- "docs/release_notes/README.md" <<< "$refs"; then
     fail_msg "$label missing current release notes reference: $current_ref"
   fi
 }

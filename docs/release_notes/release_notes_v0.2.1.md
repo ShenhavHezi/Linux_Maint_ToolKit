@@ -1,9 +1,10 @@
 # Release Notes v0.2.1
 
-## Version
 - Version: 0.2.1
 - Date (UTC): 2026-02-24
 - Git tag: v0.2.1
+
+[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
 
 ## Highlights
 - Safer fleet SSH: known_hosts seeding helper plus allowlist guidance for remote commands.

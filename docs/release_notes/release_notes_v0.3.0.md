@@ -1,5 +1,11 @@
 # Release Notes v0.3.0
 
+- Version: 0.3.0
+- Date (UTC): 2026-03-02
+- Git tag: v0.3.0
+
+[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
+
 ## Highlights
 - Expanded `linux-maint menu` into a guided operator UI with run wizard, status drilldown, and menu settings.
 - Added post-run quick actions and support-bundle summaries to reduce operator follow-up steps.
