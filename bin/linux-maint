@@ -5891,10 +5891,6 @@ PY
     ;;
 
   config)
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for config
-    fi
-
     CFG_JSON=0
     CFG_SOURCES=0
     CFG_LINT=0
@@ -6325,10 +6321,6 @@ PY
     ;;
 
   check)
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for check
-    fi
-
     CHECK_JSON=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
@@ -6996,10 +6988,6 @@ PY
     ;;
 
   history)
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for history
-    fi
-
     LAST_N=10
     HISTORY_JSON=0
     HISTORY_TABLE=0
@@ -7346,10 +7334,6 @@ PY
     ;;
 
   run-index)
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for run-index
-    fi
-
     ACTION="stats"
     KEEP=200
     RI_JSON=0
@@ -7369,6 +7353,10 @@ PY
     if [[ ! "$KEEP" =~ ^[0-9]+$ ]] || (( KEEP <= 0 )); then
       echo "ERROR: --keep must be a positive integer" >&2
       exit 2
+    fi
+
+    if [[ "$MODE" == "installed" && "$ACTION" == "prune" ]]; then
+      need_root_for run-index
     fi
 
     if [[ "$MODE" == "repo" ]]; then
@@ -7739,10 +7727,6 @@ PY
     ;;
 
   baseline)
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for baseline
-    fi
-
     target="${1:-}"; shift || true
     BASELINE_UPDATE=0
     BASELINE_LOCAL=0
@@ -7777,6 +7761,10 @@ PY
     if [[ "$BASELINE_UPDATE" -eq 1 && ( "$BASELINE_DIFF" -eq 1 || "$BASELINE_SHOW" -eq 1 ) ]]; then
       echo "ERROR: --update cannot be combined with --diff or --show" >&2
       exit 2
+    fi
+
+    if [[ "$MODE" == "installed" && "$BASELINE_DIFF" -eq 0 && "$BASELINE_SHOW" -eq 0 ]]; then
+      need_root_for baseline
     fi
 
     if [[ "$MODE" == "repo" ]]; then
@@ -8169,10 +8157,6 @@ EOF_DEPS
     linux_maint_cmd_verify_install
     ;;
   doctor)
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for doctor
-    fi
-
     if [[ "$MODE" == "repo" ]]; then
       CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
       LOG_DIR_LOCAL="${LOG_DIR:-$REPO_LOG_DIR}"
@@ -8224,13 +8208,14 @@ EOF_DEPS
         *) echo "Unknown doctor flag: $1" >&2; exit 2;;
       esac
     done
-    if [[ "$DOCTOR_FIX" -eq 1 && "${EUID:-$(id -u)}" -ne 0 ]]; then
-      echo "ERROR: doctor --fix requires root" >&2
-      audit_log_append "doctor-fix" "failure" "reason=requires_root"
-      exit 1
-    fi
-
     if [[ "$DOCTOR_FIX" -eq 1 ]]; then
+      if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+        if [[ "$MODE" == "installed" || "$DOCTOR_FIX_DEPS" -eq 1 ]]; then
+          echo "ERROR: doctor --fix requires root" >&2
+          audit_log_append "doctor-fix" "failure" "reason=requires_root mode=$MODE fix_deps=$DOCTOR_FIX_DEPS"
+          exit 1
+        fi
+      fi
       audit_log_append "doctor-fix" "start" "dry_run=$DOCTOR_DRY_RUN fix_deps=$DOCTOR_FIX_DEPS fix_optional=$DOCTOR_FIX_OPTIONAL cfg_dir=$CFG_DIR"
     fi
 

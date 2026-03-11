@@ -177,7 +177,7 @@ command_usage(){
         "  --json           machine-readable output\n  --sources        show source file order in human output\n  --lint           parse and validate config files only\n  --diff-defaults  show values that differ from built-in defaults" \
         "  linux-maint config\n  linux-maint config --sources\n  linux-maint config --lint\n  linux-maint config --json" \
         "  - rc=2 for structured config errors such as source failure or invalid types" \
-        "  - repo mode: repo-local fallback config (or LM_CFG_DIR)\n  - installed mode: /etc/linux_maint unless overridden"
+        "  - repo mode: repo-local fallback config (or LM_CFG_DIR)\n  - installed mode: /etc/linux_maint unless overridden\n  - read-only command; unreadable files are reported as config errors"
       ;;
     doctor)
       run_help_block \
@@ -187,7 +187,7 @@ command_usage(){
         "  Read-only mode:\n    default              inspect layout, config, writable paths, and dependencies\n    --compact            shorter human summary\n    --json               machine-readable output\n  Fix mode:\n    --fix                repair directories and permissions\n    --fix-deps           also try to install required dependencies\n    --fix-deps-optional  also try to install optional dependencies\n    --dry-run            preview fix actions only\n    --yes                skip interactive confirmation" \
         "  linux-maint doctor\n  linux-maint doctor --compact\n  linux-maint doctor --json\n  sudo linux-maint doctor --fix --yes" \
         "  - non-zero when critical readiness checks fail\n  - fix mode may modify system state and usually requires root" \
-        "  - In repo mode, doctor targets repo-local paths\n  - In installed mode, doctor targets system paths"
+        "  - In repo mode, doctor targets repo-local paths\n  - In installed mode, read-only doctor works without sudo; fix modes still require elevated access for system paths"
       ;;
     self-check)
       run_help_block \
@@ -210,7 +210,7 @@ command_usage(){
         "  - before the first run\n  - after config changes\n  - before escalation to a full fleet execution" \
         "  Runs:\n    1. config_validate\n    2. preflight\n    3. expected-skip summary\n  --json      automation-safe output" \
         "  linux-maint check\n  linux-maint check --json" \
-        "  - Exit code follows the highest underlying severity.\n  - rc=2 for invalid delegated status/config paths in machine-facing flows"
+        "  - Exit code follows the highest underlying severity.\n  - rc=2 for invalid delegated status/config paths in machine-facing flows\n  - read-only command; installed mode does not require sudo unless the underlying files do"
       ;;
     gate)
       echo "Usage: linux-maint gate --policy <file> [--json]";;
@@ -325,7 +325,7 @@ EOF
         "  --last N      number of runs (default 10)\n  --json        machine JSON\n  --table       table output\n  --compact     one-line latest run\n  --sqlite      read from sqlite history index (or set LM_HISTORY_SQLITE=1)" \
         "  linux-maint history --last 10\n  linux-maint history --table\n  linux-maint history --json" \
         "  - rc=2 when the run index is corrupt or unreadable for machine-facing paths" \
-        "  - repo mode reads repo-local state unless LM_RUN_INDEX_FILE overrides it\n  - installed mode reads the installed state dir by default"
+        "  - repo mode reads repo-local state unless LM_RUN_INDEX_FILE overrides it\n  - installed mode reads the installed state dir by default without requiring sudo for read-only access"
       ;;
     run-index)
       run_help_block \
@@ -334,7 +334,7 @@ EOF
         "  - check index size and freshness\n  - prune retained entries safely\n  - export machine-readable index stats" \
         "  --stats      show run index stats (default)\n  --prune      prune to last N entries (default keep=200)\n  --keep N     number of entries to retain\n  --json       machine JSON" \
         "  linux-maint run-index --stats\n  linux-maint run-index --prune --keep 200\n  linux-maint run-index --json" \
-        "  - rc=2 if prune cannot rewrite the index safely"
+        "  - rc=2 if prune cannot rewrite the index safely\n  - installed mode stats/json are read-only; --prune still requires root"
       ;;
     summary)
       echo "Usage: linux-maint summary [--no-color]";;
@@ -383,6 +383,10 @@ Usage: linux-maint baseline <ports|configs|users|sudoers> [flags]
   --show        print baseline contents
   --local-only  no SSH
   --progress|--no-progress
+
+Notes:
+  - In installed mode, --show and --diff are read-only.
+  - Capture/update paths still require write access to the active config root.
 EOF
       ;;
     preflight)

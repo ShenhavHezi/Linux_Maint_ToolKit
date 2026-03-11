@@ -532,7 +532,7 @@ Prerequisites (any one):
 - `linux-maint status` *(root required)*: show last run metadata plus a compact, severity-sorted problems summary by default. Use `--verbose` for raw summary lines.
   - in repo mode, it honors `LOG_DIR` for `last_status_full`, summary logs, and related artifacts.
   - read-only status modes do not create missing repo-local config or log directories.
-- `linux-maint check` *(root required)*: run config validation + preflight and show a short OK/WARN/CRIT summary.
+- `linux-maint check`: run config validation + preflight and show a short OK/WARN/CRIT summary.
   - exits with the highest severity code returned by `config_validate` or `preflight` (`0` OK, `1` WARN, `2` CRIT, `3` UNKNOWN).
   - does not create missing repo-local config directories as a side effect.
   - `--json`: emit machine-friendly summary and expected SKIPs.
@@ -565,7 +565,7 @@ Note: when optional config/baselines are missing, `status`/`report` show an `Exp
 
 - `linux-maint metrics --json` *(root required)*: emit a single JSON snapshot with status + trends + runtimes for automation.
 - `linux-maint metrics --prom` *(root required)*: emit Prometheus textfile metrics to stdout (same contract as `status --prom`; use `--output PATH` for atomic writes).
-- `linux-maint run-index` *(root required)*: show stats for `run_index.jsonl` and optionally prune with `--keep N`.
+- `linux-maint run-index`: show stats for `run_index.jsonl` and optionally prune with `--keep N` (`--prune` still requires root in installed mode).
 
 
 ### `linux-maint status --json` compatibility contract
@@ -1759,12 +1759,12 @@ By default, installed mode should use `/var/lib/linux_maint/last_summary_monitor
 CERTS_SCAN_DIR (optional): if set, cert_monitor scans this directory for cert files (offline expiry check).
 CERTS_SCAN_IGNORE_FILE: file with ignore patterns (substring match) to skip paths (default /etc/linux_maint/certs_scan_ignore.txt).
 CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).
-- `linux-maint config --lint` *(root required)*: validate config file syntax and detect duplicate keys.
+- `linux-maint config --lint`: validate config file syntax and detect duplicate keys.
 
-- `linux-maint baseline <ports|configs|users|sudoers> --update` *(root required)*: capture/update baselines (per-host).
+- `linux-maint baseline <ports|configs|users|sudoers> --update` *(root required in installed mode)*: capture/update baselines (per-host).
   - `--progress|--no-progress`: enable/disable per-host progress (overrides `LM_PROGRESS`).
 
-- `linux-maint doctor --fix` *(root required)*: attempt safe dependency fixes (use `--dry-run` to preview).
+- `linux-maint doctor --fix` *(root required in installed mode)*: attempt safe dependency fixes (use `--dry-run` to preview).
 
 - `linux-maint help <command>`: show concise usage for a specific command (no root required). For full flag details, see this reference.
 
