@@ -356,6 +356,7 @@ run_required "explain_monitor_repo_text_test" bash "$ROOT_DIR/tests/explain_moni
 run_required "ssh_known_hosts_mode_test" bash "$ROOT_DIR/tests/ssh_known_hosts_mode_test.sh"
 run_required "self_check_json_test" bash "$ROOT_DIR/tests/self_check_json_test.sh"
 run_required "self_check_json_schema_test" bash "$ROOT_DIR/tests/self_check_json_schema_test.sh"
+run_required "self_check_json_strict_exit_test" bash "$ROOT_DIR/tests/self_check_json_strict_exit_test.sh"
 run_required "status_reason_rollup_test" bash "$ROOT_DIR/tests/status_reason_rollup_test.sh"
 run_required "status_json_compat_test" bash "$ROOT_DIR/tests/status_json_compat_test.sh"
 run_required "status_json_schema_test" bash "$ROOT_DIR/tests/status_json_schema_test.sh"

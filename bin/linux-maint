@@ -8969,7 +8969,7 @@ print(json.dumps(out, sort_keys=True))
 if strict and not ok:
     raise SystemExit(2)
 PY
-      exit 0
+      exit $?
     fi
 
     section "linux-maint self-check"
