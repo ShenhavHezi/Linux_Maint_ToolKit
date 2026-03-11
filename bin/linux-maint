@@ -8265,6 +8265,7 @@ EOF_DEPS
       }
       ensure_dir() {
         local d="$1"
+        [[ -n "$d" ]] || return 0
         if [[ ! -d "$d" ]]; then
           if [[ "$DOCTOR_DRY_RUN" -eq 1 ]]; then
             fix_actions+=("would create: $d")
@@ -8837,8 +8838,14 @@ PYJSON
     echo ""
     section "Directory permissions"
     perm_fail=0
+    seen_perm_paths=()
     check_perm() {
       local path="$1"
+      [[ -n "$path" ]] || return 0
+      for seen in "${seen_perm_paths[@]:-}"; do
+        [[ "$seen" == "$path" ]] && return 0
+      done
+      seen_perm_paths+=("$path")
       if [[ ! -d "$path" ]]; then
         printf "%-40s %s\n" "$path" "${C_RED}MISSING${C_RESET}"
         return 0
