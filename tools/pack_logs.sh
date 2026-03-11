@@ -181,7 +181,7 @@ copy_config_file() {
       fi
       ;;
     *)
-      cp -a "$src" "$dest" 2>/dev/null || true
+      cp -Lf "$src" "$dest" 2>/dev/null || true
       [[ -e "$dest" ]] && LAST_COPY_OK=1
       ;;
   esac
@@ -231,7 +231,7 @@ fi
 
 cfg_files=()
 if [[ -d "$CFG_DIR" && -r "$CFG_DIR" ]]; then
-  mapfile -t cfg_files < <(find "$CFG_DIR" -type f 2>/dev/null || true)
+  mapfile -t cfg_files < <(find "$CFG_DIR" \( -type f -o -type l \) 2>/dev/null || true)
 fi
 
 meta_files=()
@@ -404,25 +404,29 @@ EOF
   fi
 } > "$bundle_root/meta/redaction_report.txt"
 
-cat > "$bundle_root/meta/support_handoff.txt" <<'EOF'
-linux-maint support handoff
-
-1. Share the bundle artifact with the escalation target.
-2. Include a short human summary:
-   linux-maint report --short
-3. Include machine-readable context if requested:
-   linux-maint export --json
-4. After extracting the bundle, start with:
-   meta/bundle_manifest.txt
-   meta/bundle_meta.txt
-   meta/redaction_report.txt
-   meta/bundle_integrity.txt
-   meta/bundle_hashes.txt
-5. Verify the transferred artifact:
-   sha256sum <bundle.tar.gz>
-6. If you received a GPG-encrypted bundle:
-   gpg --decrypt --output bundle.tar.gz <bundle.tar.gz.gpg>
-EOF
+{
+  echo "linux-maint support handoff"
+  echo ""
+  echo "1. Share the bundle artifact with the escalation target."
+  echo "2. Include a short human summary:"
+  echo "   linux-maint report --short"
+  echo "3. Include machine-readable context if requested:"
+  echo "   linux-maint export --json"
+  echo "4. After extracting the bundle, start with:"
+  echo "   meta/bundle_manifest.txt"
+  echo "   meta/bundle_meta.txt"
+  echo "   meta/redaction_report.txt"
+  if [[ "$integrity_enabled" -eq 1 ]]; then
+    echo "   meta/bundle_integrity.txt"
+  fi
+  if [[ "$hash_enabled" -eq 1 ]]; then
+    echo "   meta/bundle_hashes.txt"
+  fi
+  echo "5. Verify the transferred artifact:"
+  echo "   sha256sum <bundle.tar.gz>"
+  echo "6. If you received a GPG-encrypted bundle:"
+  echo "   gpg --decrypt --output bundle.tar.gz <bundle.tar.gz.gpg>"
+} > "$bundle_root/meta/support_handoff.txt"
 
 # --- Bundle integrity manifest (size + sha256 per file) ---
 if [[ "$integrity_enabled" -eq 1 ]]; then

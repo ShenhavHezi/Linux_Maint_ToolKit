@@ -4779,6 +4779,26 @@ reason_next_steps(){
   esac
 }
 
+resolve_reasons_doc_path() {
+  local f="$REPO_ROOT/docs/REASONS.md"
+  if [[ ! -f "$f" ]]; then
+    for alt in \
+      "$SHARE/docs/REASONS.md" \
+      "$PREFIX/share/Linux_Maint_ToolKit/docs/REASONS.md" \
+      "$PREFIX/share/linux-maint/docs/REASONS.md" \
+      "/usr/share/Linux_Maint_ToolKit/docs/REASONS.md" \
+      "/usr/share/linux-maint/docs/REASONS.md" \
+      "/usr/share/linux_maint/docs/REASONS.md" \
+    ; do
+      if [[ -f "$alt" ]]; then
+        f="$alt"
+        break
+      fi
+    done
+  fi
+  printf '%s\n' "$f"
+}
+
 
 # ---- run() flags parsing (CLI-first, env-compatible) ----
 # Maps:
@@ -7689,13 +7709,21 @@ with open(conf_path, "r", encoding="utf-8") as f:
 found = {k: False for k, _ in settings}
 replaced = {k: False for k, _ in settings}
 actions = []
+active_present = {k: False for k, _ in settings}
+
+for line in lines:
+    for key, _ in settings:
+        if re.match(r"\s*%s\s*=" % re.escape(key), line):
+            active_present[key] = True
 
 for i, line in enumerate(lines):
     for key, val in settings:
         if found[key]:
             continue
-        if re.match(r"\\s*#?\\s*%s\\s*=" % re.escape(key), line):
+        if re.match(r"\s*#?\s*%s\s*=" % re.escape(key), line):
             if line.lstrip().startswith("#"):
+                if active_present[key]:
+                    continue
                 lines[i] = f"{key}={val}\n"
                 replaced[key] = True
                 actions.append(f"set: {key}={val} (was commented)")
@@ -7840,20 +7868,7 @@ PY
           echo "Usage: linux-maint explain reason <token>" >&2
           exit 2
         fi
-        f="$REPO_ROOT/docs/REASONS.md"
-        if [[ ! -f "$f" ]]; then
-          # installed mode: docs may be under share
-          for alt in \
-            "$SHARE/docs/REASONS.md" \
-            "$PREFIX/share/Linux_Maint_ToolKit/docs/REASONS.md" \
-            "$PREFIX/share/linux-maint/docs/REASONS.md" \
-            "/usr/share/Linux_Maint_ToolKit/docs/REASONS.md" \
-            "/usr/share/linux-maint/docs/REASONS.md" \
-            "/usr/share/linux_maint/docs/REASONS.md" \
-          ; do
-            if [[ -f "$alt" ]]; then f="$alt"; break; fi
-          done
-        fi
+        f="$(resolve_reasons_doc_path)"
         if [[ ! -f "$f" ]]; then
           echo "ERROR: reasons doc not found: $f" >&2
           exit 1
@@ -8030,7 +8045,7 @@ EOF_DEPS
         echo "required_deps=${req:-none}"
         echo "optional_deps=${opt:-none}"
         echo "common_reasons=$reasons"
-        echo "see=docs/REASONS.md"
+        echo "see=$(resolve_reasons_doc_path)"
         ;;
 
       status)
