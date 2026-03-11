@@ -966,7 +966,11 @@ if [[ ! -s "$SUMMARY_FILE" ]]; then
     printf '%s\n' "$warn_line" >> "$logfile" 2>/dev/null || true
   fi
 fi
-ln -sfn "$(basename "$SUMMARY_FILE")" "$SUMMARY_LATEST_FILE" 2>/dev/null || true
+summary_latest_target="$SUMMARY_FILE"
+if [[ "$(dirname -- "$SUMMARY_LATEST_FILE")" == "$(dirname -- "$SUMMARY_FILE")" ]]; then
+  summary_latest_target="$(basename -- "$SUMMARY_FILE")"
+fi
+ln -sfn "$summary_latest_target" "$SUMMARY_LATEST_FILE" 2>/dev/null || true
 rm -f "$tmp_summary" 2>/dev/null || true
 
 # Also write JSON + Prometheus outputs (best-effort)
@@ -1047,7 +1051,10 @@ if json_file:
             if os.path.islink(json_latest) or os.path.exists(json_latest):
                 try: os.unlink(json_latest)
                 except: pass
-            os.symlink(os.path.basename(json_file),json_latest)
+            json_target = os.path.abspath(json_file)
+            if os.path.dirname(os.path.abspath(json_latest)) == os.path.dirname(os.path.abspath(json_file)):
+                json_target = os.path.basename(json_file)
+            os.symlink(json_target, json_latest)
         except: pass
 
 status_map={"OK":0,"WARN":1,"CRIT":2,"UNKNOWN":3,"SKIP":3}
