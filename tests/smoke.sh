@@ -77,6 +77,8 @@ run_required "config_type_validation_test" bash "$ROOT_DIR/tests/config_type_val
 run_required "config_no_config_json_test" bash "$ROOT_DIR/tests/config_no_config_json_test.sh"
 run_required "config_source_failure_test" bash "$ROOT_DIR/tests/config_source_failure_test.sh"
 run_required "config_source_failure_human_hint_test" bash "$ROOT_DIR/tests/config_source_failure_human_hint_test.sh"
+run_required "config_lint_test" bash "$ROOT_DIR/tests/config_lint_test.sh"
+run_required "config_lint_duplicates_exit_test" bash "$ROOT_DIR/tests/config_lint_duplicates_exit_test.sh"
 run_required "config_unreadable_sources_json_test" bash "$ROOT_DIR/tests/config_unreadable_sources_json_test.sh"
 run_required "config_unreadable_sources_lint_test" bash "$ROOT_DIR/tests/config_unreadable_sources_lint_test.sh"
 run_required "installed_read_only_commands_no_root_test" bash "$ROOT_DIR/tests/installed_read_only_commands_no_root_test.sh"

@@ -20,7 +20,7 @@ mkdir -p "$prefix/bin" "$prefix/sbin" "$prefix/lib" "$prefix/libexec/linux_maint
 
 cp "$ROOT_DIR/bin/linux-maint" "$prefix/bin/linux-maint"
 chmod +x "$prefix/bin/linux-maint"
-for support_lib in linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh linux_maint_tui.sh linux_maint_reporting.sh linux_maint_advanced.sh linux_maint_history.sh; do
+for support_lib in linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh linux_maint_tui.sh linux_maint_config.sh linux_maint_reporting.sh linux_maint_advanced.sh linux_maint_history.sh; do
   cp "$ROOT_DIR/lib/$support_lib" "$prefix/lib/$support_lib"
 done
 printf '#!/usr/bin/env bash\nexit 0\n' > "$prefix/sbin/run_full_health_monitor.sh"
@@ -48,68 +48,75 @@ SH
 chmod +x "$shim/systemctl"
 
 out="$(PATH="$shim:$PATH" PREFIX="$prefix" LM_CFG_DIR="$cfg" LOG_DIR="$logs" LM_STATE_DIR="$state" LM_LOCKDIR="$lock" LM_SYSTEMD_UNIT_DIRS="$unitdir" "$prefix/bin/linux-maint" verify-install 2>&1)"
+clean_out="$(printf '%s\n' "$out" | sed -E $'s/\x1B\\[[0-9;]*[[:alpha:]]//g')"
 
-printf '%s\n' "$out" | grep -q "^OK: verify-release helper: $prefix/libexec/linux_maint/verify_release.sh$" || {
+printf '%s\n' "$clean_out" | grep -q "^OK: verify-release helper: $prefix/libexec/linux_maint/verify_release.sh$" || {
   echo "verify-install did not validate installed verify-release helper" >&2
   echo "$out" >&2
   exit 1
 }
 
-printf '%s\n' "$out" | grep -q "^OK: runtime support lib: $prefix/lib/linux_maint_runtime.sh$" || {
+printf '%s\n' "$clean_out" | grep -q "^OK: runtime support lib: $prefix/lib/linux_maint_runtime.sh$" || {
   echo "verify-install did not validate installed runtime support lib" >&2
   echo "$out" >&2
   exit 1
 }
 
-printf '%s\n' "$out" | grep -q "^OK: admin support lib: $prefix/lib/linux_maint_admin.sh$" || {
+printf '%s\n' "$clean_out" | grep -q "^OK: admin support lib: $prefix/lib/linux_maint_admin.sh$" || {
   echo "verify-install did not validate installed admin support lib" >&2
   echo "$out" >&2
   exit 1
 }
 
-printf '%s\n' "$out" | grep -q "^OK: tui support lib: $prefix/lib/linux_maint_tui.sh$" || {
+printf '%s\n' "$clean_out" | grep -q "^OK: tui support lib: $prefix/lib/linux_maint_tui.sh$" || {
   echo "verify-install did not validate installed tui support lib" >&2
   echo "$out" >&2
   exit 1
 }
 
-printf '%s\n' "$out" | grep -q "^OK: reporting support lib: $prefix/lib/linux_maint_reporting.sh$" || {
+printf '%s\n' "$clean_out" | grep -q "^OK: config support lib: $prefix/lib/linux_maint_config.sh$" || {
+  echo "verify-install did not validate installed config support lib" >&2
+  echo "$out" >&2
+  exit 1
+}
+
+printf '%s\n' "$clean_out" | grep -q "^OK: reporting support lib: $prefix/lib/linux_maint_reporting.sh$" || {
   echo "verify-install did not validate installed reporting support lib" >&2
   echo "$out" >&2
   exit 1
 }
 
-printf '%s\n' "$out" | grep -q "^OK: advanced support lib: $prefix/lib/linux_maint_advanced.sh$" || {
+printf '%s\n' "$clean_out" | grep -q "^OK: advanced support lib: $prefix/lib/linux_maint_advanced.sh$" || {
   echo "verify-install did not validate installed advanced support lib" >&2
   echo "$out" >&2
   exit 1
 }
 
-printf '%s\n' "$out" | grep -q "^OK: history support lib: $prefix/lib/linux_maint_history.sh$" || {
+printf '%s\n' "$clean_out" | grep -q "^OK: history support lib: $prefix/lib/linux_maint_history.sh$" || {
   echo "verify-install did not validate installed history support lib" >&2
   echo "$out" >&2
   exit 1
 }
 
-printf '%s\n' "$out" | grep -q "^OK: upgrade helper: $prefix/libexec/linux_maint/upgrade_release.sh$" || {
+printf '%s\n' "$clean_out" | grep -q "^OK: upgrade helper: $prefix/libexec/linux_maint/upgrade_release.sh$" || {
   echo "verify-install did not validate installed upgrade helper" >&2
   echo "$out" >&2
   exit 1
 }
 
-printf '%s\n' "$out" | grep -q "^OK: unit file: $unitdir/linux-maint.service$" || {
+printf '%s\n' "$clean_out" | grep -q "^OK: unit file: $unitdir/linux-maint.service$" || {
   echo "verify-install did not detect service unit in configured systemd dirs" >&2
   echo "$out" >&2
   exit 1
 }
 
-printf '%s\n' "$out" | grep -q "^OK: unit file: $unitdir/linux-maint.timer$" || {
+printf '%s\n' "$clean_out" | grep -q "^OK: unit file: $unitdir/linux-maint.timer$" || {
   echo "verify-install did not detect timer unit in configured systemd dirs" >&2
   echo "$out" >&2
   exit 1
 }
 
-printf '%s\n' "$out" | grep -q '^verify-install ok$' || {
+printf '%s\n' "$clean_out" | grep -q '^verify-install ok$' || {
   echo "verify-install installed layout did not complete successfully" >&2
   echo "$out" >&2
   exit 1

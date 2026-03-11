@@ -8,22 +8,17 @@ cfg="$(mktemp -d)"
 trap 'rm -rf "$cfg"' EXIT
 
 cat > "$cfg/linux-maint.conf" <<'EOF'
-LM_OK=1
-BAD LINE
-LM_OK=2
+LM_NOTIFY=0
+LM_NOTIFY=1
 EOF
 
 set +e
 out="$(LM_CFG_DIR="$cfg" bash "$LM" config --lint 2>&1)"
 rc=$?
 set -e
+
 [[ "$rc" -eq 1 ]] || {
-  echo "config --lint should exit 1 for invalid lines and duplicates, got rc=$rc" >&2
-  echo "$out" >&2
-  exit 1
-}
-printf '%s\n' "$out" | grep -q 'invalid lines:' || {
-  echo "config --lint missing invalid lines section" >&2
+  echo "config --lint should exit 1 for duplicate keys, got rc=$rc" >&2
   echo "$out" >&2
   exit 1
 }
@@ -32,5 +27,10 @@ printf '%s\n' "$out" | grep -q 'duplicate keys:' || {
   echo "$out" >&2
   exit 1
 }
+printf '%s\n' "$out" | grep -q 'LM_NOTIFY' || {
+  echo "config --lint missing duplicate key name" >&2
+  echo "$out" >&2
+  exit 1
+}
 
-echo "config lint ok"
+echo "config lint duplicates exit ok"
