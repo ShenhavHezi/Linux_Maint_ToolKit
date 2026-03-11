@@ -1247,6 +1247,20 @@ checksum_warn() {
   fi
 }
 
+artifact_warn() {
+  local reason="$1" msg="$2"
+  local warn_line="monitor=wrapper host=runner status=WARN reason=$reason msg=$msg"
+  echo "WARN: $msg" >> "$tmp_report"
+  echo "$warn_line" >> "$tmp_report"
+  if [[ -s "$SUMMARY_FILE" ]]; then
+    printf '%s\n' "$warn_line" >> "$SUMMARY_FILE" 2>/dev/null || true
+  fi
+  if [[ -s "$logfile" ]]; then
+    printf '%s\n' "[WARN] $msg" >> "$logfile" 2>/dev/null || true
+    printf '%s\n' "$warn_line" >> "$logfile" 2>/dev/null || true
+  fi
+}
+
 if [[ -n "${SUMMARY_FILE:-}" ]]; then
   if ! write_checksum "$SUMMARY_FILE"; then
     checksum_warn "checksum write failed for $SUMMARY_FILE"
@@ -1260,7 +1274,13 @@ fi
 
 status_dir="$(dirname "$STATUS_FILE")"
 mkdir -p "$status_dir" 2>/dev/null || true
-tmp_status_file="$(mktemp -p "$status_dir" .last_status_full.XXXXXX 2>/dev/null || true)"
+status_write_ok=0
+tmp_status_file=""
+if [[ -d "$STATUS_FILE" ]]; then
+  :
+else
+  tmp_status_file="$(mktemp -p "$status_dir" .last_status_full.XXXXXX 2>/dev/null || true)"
+fi
 if [[ -n "$tmp_status_file" ]]; then
   {
     echo "timestamp=$(lm_now_iso)"
@@ -1271,7 +1291,11 @@ if [[ -n "$tmp_status_file" ]]; then
     echo "logfile=$logfile"
   } > "$tmp_status_file"
   chmod 0644 "$tmp_status_file" 2>/dev/null || true
-  mv -f "$tmp_status_file" "$STATUS_FILE" 2>/dev/null || true
+  if mv -f "$tmp_status_file" "$STATUS_FILE" 2>/dev/null; then
+    status_write_ok=1
+  else
+    rm -f "$tmp_status_file" 2>/dev/null || true
+  fi
 else
   {
     echo "timestamp=$(lm_now_iso)"
@@ -1280,8 +1304,15 @@ else
     echo "overall=$overall"
     echo "exit_code=$worst"
     echo "logfile=$logfile"
-  } > "$STATUS_FILE"
-  chmod 0644 "$STATUS_FILE" 2>/dev/null || true
+  } > "$STATUS_FILE" 2>/dev/null || true
+  if [[ -f "$STATUS_FILE" && -s "$STATUS_FILE" ]]; then
+    chmod 0644 "$STATUS_FILE" 2>/dev/null || true
+    status_write_ok=1
+  fi
+fi
+
+if [[ "$status_write_ok" -ne 1 ]]; then
+  artifact_warn "status_write_failed" "status write failed: $STATUS_FILE"
 fi
 
 # ---- run index (best-effort) ----
@@ -1297,7 +1328,8 @@ if [[ ! -f "$RUN_INDEX_FILE" && -z "${LM_RUN_INDEX_FILE:-}" && -z "${LM_STATE_DI
     fi
   done
 fi
-python3 - "$RUN_INDEX_FILE" "$RUN_INDEX_KEEP" "$RUN_INDEX_MAX_AGE_DAYS" "$SUMMARY_FILE" "$SUMMARY_JSON_FILE" "$logfile" "$overall" "$worst" "$ts_epoch" "$LM_RUN_ID" <<'PY' || true
+run_index_err="$TMPDIR/run_index_error.$$"
+if ! python3 - "$RUN_INDEX_FILE" "$RUN_INDEX_KEEP" "$RUN_INDEX_MAX_AGE_DAYS" "$SUMMARY_FILE" "$SUMMARY_JSON_FILE" "$logfile" "$overall" "$worst" "$ts_epoch" "$LM_RUN_ID" 2>"$run_index_err" <<'PY'
 import json, os, sys, time, tempfile
 
 path, keep_s, max_age_days_s, summary_file, summary_json, logfile, overall, exit_code, ts_epoch, run_id = sys.argv[1:11]
@@ -1383,6 +1415,7 @@ entry = {
 
 os.makedirs(os.path.dirname(path), exist_ok=True)
 entries = []
+invalid_lines = 0
 try:
     with open(path, "r", encoding="utf-8", errors="ignore") as f:
         for raw in f:
@@ -1392,10 +1425,18 @@ try:
             try:
                 entries.append(json.loads(raw))
             except Exception:
-                # Skip partial/broken JSONL records.
-                continue
+                invalid_lines += 1
 except Exception:
     entries = []
+    invalid_lines = 0
+
+if invalid_lines:
+    print(
+        f"wrapper run index update skipped due to invalid JSON lines: {path} "
+        f"(invalid_lines={invalid_lines})",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
 
 def entry_epoch(e):
     if isinstance(e, dict):
@@ -1426,8 +1467,20 @@ try:
             f.write(json.dumps(e, sort_keys=True) + "\n")
     os.replace(tmp, path)
 except Exception:
-    pass
+    print(f"wrapper run index update failed: {path}", file=sys.stderr)
+    raise SystemExit(2)
 PY
+then
+  if [[ -s "$run_index_err" ]]; then
+    while IFS= read -r line; do
+      [[ -n "$line" ]] || continue
+      printf '%s\n' "[WARN] $line" >> "$logfile" 2>/dev/null || true
+    done < "$run_index_err"
+  else
+    printf '%s\n' "[WARN] wrapper run index update failed: $RUN_INDEX_FILE" >> "$logfile" 2>/dev/null || true
+  fi
+fi
+rm -f "$run_index_err" 2>/dev/null || true
 
 if [[ "${LM_HISTORY_SQLITE:-0}" == "1" || "${LM_HISTORY_SQLITE:-}" == "true" ]]; then
   HISTORY_DB="${LM_HISTORY_DB:-$LM_STATE_DIR/run_index.sqlite}"
