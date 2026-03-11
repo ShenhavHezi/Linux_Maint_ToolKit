@@ -1,11 +1,51 @@
 #!/usr/bin/env bash
 # Reporting/export command helpers for linux-maint.
 
-linux_maint_cmd_report() {
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for report
+linux_maint_reporting_log_dir() {
+    if [[ "$MODE" == "repo" ]]; then
+      printf '%s' "$REPO_LOG_DIR"
+    else
+      printf '%s' "${LOG_DIR:-/var/log/health}"
     fi
+}
 
+linux_maint_reporting_status_file() {
+    local log_dir
+    if [[ "$MODE" == "repo" ]]; then
+      printf '%s' "$REPO_STATUS_FILE"
+    else
+      log_dir="$(linux_maint_reporting_log_dir)"
+      printf '%s/last_status_full' "$log_dir"
+    fi
+}
+
+linux_maint_reporting_summary_latest() {
+    local log_dir
+    if [[ "$MODE" == "repo" ]]; then
+      printf '%s' "$REPO_SUMMARY_LATEST"
+    else
+      log_dir="$(linux_maint_reporting_log_dir)"
+      printf '%s/full_health_monitor_summary_latest.log' "$log_dir"
+    fi
+}
+
+linux_maint_reporting_summary_json_latest() {
+    local log_dir
+    log_dir="$(linux_maint_reporting_log_dir)"
+    printf '%s/full_health_monitor_summary_latest.json' "$log_dir"
+}
+
+linux_maint_reporting_latest_log() {
+    local log_dir
+    if [[ "$MODE" == "repo" ]]; then
+      printf '%s' "$REPO_LATEST_LOG"
+    else
+      log_dir="$(linux_maint_reporting_log_dir)"
+      printf '%s/full_health_monitor_latest.log' "$log_dir"
+    fi
+}
+
+linux_maint_cmd_report() {
     REPORT_JSON=0
     REPORT_COLOR=1
     REPORT_COMPACT=0
@@ -414,10 +454,6 @@ PY
 }
 
 linux_maint_cmd_metrics() {
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for metrics
-    fi
-
     METRICS_JSON=0
     METRICS_PROM=0
     METRICS_OUT=""
@@ -641,10 +677,6 @@ PY
 }
 
 linux_maint_cmd_summary() {
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for summary
-    fi
-
     SUMMARY_COLOR=1
     while [[ $# -gt 0 ]]; do
       case "$1" in
@@ -728,10 +760,6 @@ PY
 }
 
 linux_maint_cmd_status() {
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for status
-    fi
-
     ONLY=""
     TAIL_N=200
     VERBOSE=0
@@ -821,19 +849,8 @@ linux_maint_cmd_status() {
     fi
 
     if [[ "$PROM" -eq 1 ]]; then
-      status_file=""
-      if [[ "$MODE" == "repo" ]]; then
-        status_file="$REPO_STATUS_FILE"
-      else
-        status_file="/var/log/health/last_status_full"
-      fi
-
-      summary_file=""
-      if [[ "$MODE" == "repo" ]]; then
-        summary_file="$REPO_SUMMARY_LATEST"
-      else
-        summary_file="$INST_SUMMARY_LATEST"
-      fi
+      status_file="$(linux_maint_reporting_status_file)"
+      summary_file="$(linux_maint_reporting_summary_latest)"
 
       python3 - "$status_file" "$summary_file" <<'PY'
 import os, sys, re
@@ -928,8 +945,8 @@ PY
         summary_file="$REPO_SUMMARY_LATEST"
         log_dir="$REPO_LOG_DIR"
       else
-        summary_file="$INST_SUMMARY_LATEST"
-        log_dir="/var/log/health"
+        summary_file="$(linux_maint_reporting_summary_latest)"
+        log_dir="$(linux_maint_reporting_log_dir)"
       fi
       if [[ -n "$SINCE" ]]; then
         tmp_since="$(mktemp -p "$TMPDIR" linux_maint_status_since.XXXXXX.log)"
@@ -1065,11 +1082,7 @@ PY
 
     # History mode: show last N wrapper runs (best-effort)
     if [[ "${LAST_N:-0}" -gt 0 ]]; then
-      if [[ "$MODE" == "repo" ]]; then
-        log_dir="$REPO_LOG_DIR"
-      else
-        log_dir="/var/log/health"
-      fi
+      log_dir="$(linux_maint_reporting_log_dir)"
       echo "=== Last ${LAST_N} runs ==="
       color_total() {
         local kv="$1" key val
@@ -1106,21 +1119,9 @@ PY
 
     if [[ "$JSON" -eq 1 ]]; then
       # JSON mode: emit a single JSON object and exit.
-      status_file=""
-      if [[ "$MODE" == "repo" ]]; then
-        status_file="$REPO_STATUS_FILE"
-      else
-        status_file="/var/log/health/last_status_full"
-      fi
-
-      summary_file=""
-      if [[ "$MODE" == "repo" ]]; then
-        summary_file="$REPO_SUMMARY_LATEST"
-        log_dir="$REPO_LOG_DIR"
-      else
-        summary_file="$INST_SUMMARY_LATEST"
-        log_dir="/var/log/health"
-      fi
+      status_file="$(linux_maint_reporting_status_file)"
+      summary_file="$(linux_maint_reporting_summary_latest)"
+      log_dir="$(linux_maint_reporting_log_dir)"
 
       if [[ -n "$SINCE" ]]; then
         tmp_since="$(mktemp -p "$TMPDIR" linux_maint_status_since.XXXXXX.log)"
@@ -1299,11 +1300,7 @@ PY
     if [[ "$QUIET" -eq 0 && "$SHOW_META" -eq 1 ]]; then
 
       # Banner: overall health (best-effort)
-      if [[ "$MODE" == "repo" ]]; then
-        status_file="$REPO_STATUS_FILE"
-      else
-        status_file="/var/log/health/last_status_full"
-      fi
+      status_file="$(linux_maint_reporting_status_file)"
       if [[ -f "$status_file" ]]; then
         overall_val="$(awk -F= '$1=="overall"{print $2}' "$status_file" 2>/dev/null || true)"
         exit_val="$(awk -F= '$1=="exit_code"{print $2}' "$status_file" 2>/dev/null || true)"
@@ -1335,7 +1332,6 @@ PY
         echo "No status file: $REPO_STATUS_FILE"
       fi
     else
-      status_file="/var/log/health/last_status_full"
       section "Mode"
       echo "${C_BOLD}installed${C_RESET}"
       echo "prefix: ${C_BOLD}${PREFIX}${C_RESET}"
@@ -1345,6 +1341,7 @@ PY
       echo "build_info: ${C_BOLD}$SHARE/BUILD_INFO${C_RESET}"
       [[ -f "$SHARE/BUILD_INFO" ]] && { echo ""; cat "$SHARE/BUILD_INFO"; }
       echo ""; section "Last run status"
+      status_file="$(linux_maint_reporting_status_file)"
       if [[ -f "$status_file" ]]; then
         cat "$status_file"
       else
@@ -1366,8 +1363,8 @@ PY
       summary_file="$REPO_SUMMARY_LATEST"
       log_dir="$REPO_LOG_DIR"
     else
-      summary_file="$INST_SUMMARY_LATEST"
-      log_dir="/var/log/health"
+      summary_file="$(linux_maint_reporting_summary_latest)"
+      log_dir="$(linux_maint_reporting_log_dir)"
     fi
 
     if [[ "$QUIET" -eq 0 && "$SUMMARY_ONLY" -eq 0 && "$EXPECTED_SKIPS" -eq 0 && "$SHOW_META" -eq 1 ]]; then
@@ -1748,10 +1745,10 @@ PY
         missing_summary_logs_cmd="linux-maint logs 200"
         missing_summary_doctor_cmd="linux-maint doctor"
       else
-        missing_summary_log_dir="/var/log/health"
+        missing_summary_log_dir="$(linux_maint_reporting_log_dir)"
         missing_summary_run_cmd="sudo linux-maint run"
         missing_summary_logs_cmd="sudo linux-maint logs 200"
-        missing_summary_doctor_cmd="sudo linux-maint doctor"
+        missing_summary_doctor_cmd="linux-maint doctor"
       fi
       echo "No summary file: $summary_file"
       if [[ "$TABLE" -eq 1 ]]; then
@@ -1774,7 +1771,7 @@ PY
       echo "- Check logs: $missing_summary_logs_cmd"
       echo "- Diagnose: $missing_summary_doctor_cmd"
       echo "Falling back to grepping latest wrapper log"
-      log="/var/log/health/full_health_monitor_latest.log"
+      log="$(linux_maint_reporting_latest_log)"
       [[ "$MODE" == "repo" ]] && log="$REPO_LATEST_LOG"
       if [[ -f "$log" ]]; then
         grep -E " status=(WARN|CRIT|UNKNOWN)|SKIP:|SUMMARY_RESULT|FINAL_STATUS_SUMMARY|^\\[.*\\] monitor=" "$log" | tail -n 120 || true
@@ -1786,10 +1783,6 @@ PY
 }
 
 linux_maint_cmd_trend() {
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for trend
-    fi
-
     LAST_N=10
     JSON=0
     CSV=0
@@ -1855,11 +1848,10 @@ linux_maint_cmd_trend() {
       trap atomic_output_end EXIT
     fi
 
+    log_dir="$(linux_maint_reporting_log_dir)"
     if [[ "$MODE" == "repo" ]]; then
-      log_dir="${LOG_DIR:-$REPO_LOG_DIR}"
       cache_dir="${LM_STATE_DIR:-$REPO_LOG_DIR}"
     else
-      log_dir="/var/log/health"
       cache_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
     fi
 
@@ -2156,10 +2148,6 @@ PY
 }
 
 linux_maint_cmd_runtimes() {
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for runtimes
-    fi
-
     RT_JSON=0
     RT_LAST=1
     RT_COLOR=1
@@ -2269,10 +2257,6 @@ PY
 }
 
 linux_maint_cmd_export() {
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for export
-    fi
-
     EXPORT_JSON=0
     EXPORT_CSV=0
     EXPORT_JSONL=0
@@ -2301,10 +2285,10 @@ linux_maint_cmd_export() {
       log_file="$REPO_LATEST_LOG"
       summary_json="$REPO_LOG_DIR/full_health_monitor_summary_latest.json"
     else
-      summary_file="$INST_SUMMARY_LATEST"
-      status_file="/var/log/health/last_status_full"
-      log_file="/var/log/health/full_health_monitor_latest.log"
-      summary_json="/var/log/health/full_health_monitor_summary_latest.json"
+      summary_file="$(linux_maint_reporting_summary_latest)"
+      status_file="$(linux_maint_reporting_status_file)"
+      log_file="$(linux_maint_reporting_latest_log)"
+      summary_json="$(linux_maint_reporting_summary_json_latest)"
     fi
 
     python3 - "$MODE" "$EXPORT_CSV" "$EXPORT_JSONL" "$status_file" "$summary_file" "$summary_json" "$log_file" <<'PY'

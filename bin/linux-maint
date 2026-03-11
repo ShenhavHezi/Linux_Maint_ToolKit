@@ -4921,7 +4921,7 @@ resolve_resume_run_id(){
     state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
   fi
   index_file="${LM_RUN_INDEX_FILE:-$state_dir/run_index.jsonl}"
-  if [[ ! -f "$index_file" ]]; then
+  if [[ ! -f "$index_file" && -z "${LM_RUN_INDEX_FILE:-}" && -z "${LM_STATE_DIR:-}" ]]; then
     for alt in /var/tmp/run_index.jsonl /var/tmp/linux_maint/run_index.jsonl /tmp/linux_maint/run_index.jsonl; do
       if [[ -f "$alt" ]]; then
         index_file="$alt"
@@ -4934,6 +4934,7 @@ resolve_resume_run_id(){
 import json, sys
 path = sys.argv[1]
 run_id = ""
+invalid_lines = 0
 with open(path, "r", encoding="utf-8", errors="ignore") as f:
     for raw in f:
         raw = raw.strip()
@@ -4942,10 +4943,18 @@ with open(path, "r", encoding="utf-8", errors="ignore") as f:
         try:
             obj = json.loads(raw)
         except Exception:
+            invalid_lines += 1
             continue
         rid = obj.get("run_id")
         if isinstance(rid, str) and rid:
             run_id = rid
+if invalid_lines:
+    print(
+        f"ERROR: run --resume latest requires valid JSON lines in run index: {path} "
+        f"(invalid_lines={invalid_lines})",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
 print(run_id)
 PY
 }
@@ -5257,7 +5266,13 @@ case "$subcmd" in
     fi
 
     if [[ -n "${RUN_RESUME:-}" ]]; then
-      resume_id="$(resolve_resume_run_id "$RUN_RESUME" || true)"
+      set +e
+      resume_id="$(resolve_resume_run_id "$RUN_RESUME")"
+      resume_rc=$?
+      set -e
+      if [[ "$resume_rc" -eq 2 ]]; then
+        exit 2
+      fi
       if [[ -z "${resume_id:-}" ]]; then
         echo "ERROR: unable to resolve --resume target '$RUN_RESUME'" >&2
         echo "Hint: pass an explicit run_id from linux-maint history --json" >&2
