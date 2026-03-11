@@ -25,6 +25,61 @@ chmod +x "$prefix/sbin/run_full_health_monitor.sh"
 printf '# library\n' > "$prefix/lib/linux_maint.sh"
 printf '# conf helper\n' > "$prefix/lib/linux_maint_conf.sh"
 printf 'project=Linux_Maint_ToolKit\nversion=v0.0.0\ncommit=test\n' > "$prefix/share/linux_maint/BUILD_INFO"
+cat > "$prefix/libexec/linux_maint/summary_diff.py" <<'EOF'
+#!/usr/bin/env python3
+import json
+import sys
+
+prev_path, cur_path = sys.argv[1:3]
+json_mode = len(sys.argv) > 3 and sys.argv[3] == "--json"
+
+def read_rows(path):
+    rows = {}
+    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+        for raw in f:
+            raw = raw.strip()
+            if not raw or not raw.startswith("monitor="):
+                continue
+            row = {}
+            for token in raw.split():
+                if "=" in token:
+                    k, v = token.split("=", 1)
+                    row[k] = v
+            key = f'{row.get("monitor","")}|{row.get("host","")}'
+            rows[key] = row
+    return rows
+
+prev_rows = read_rows(prev_path)
+cur_rows = read_rows(cur_path)
+added = []
+removed = []
+changed = []
+for key, row in cur_rows.items():
+    if key not in prev_rows:
+        added.append({"key": key, "current": row})
+    elif prev_rows[key] != row:
+        changed.append({"key": key, "previous": prev_rows[key], "current": row})
+for key, row in prev_rows.items():
+    if key not in cur_rows:
+        removed.append({"key": key, "previous": row})
+
+payload = {
+    "schema_version": 1,
+    "diff_json_contract_version": 1,
+    "diff_prev": prev_path,
+    "diff_cur": cur_path,
+    "added": added,
+    "removed": removed,
+    "changed": changed,
+}
+
+if json_mode:
+    print(json.dumps(payload, sort_keys=True))
+else:
+    print(f"diff_prev={prev_path}")
+    print(f"diff_cur={cur_path}")
+EOF
+chmod +x "$prefix/libexec/linux_maint/summary_diff.py"
 
 printf '%s\n' localhost > "$cfg/servers.txt"
 : > "$cfg/excluded.txt"
@@ -76,6 +131,12 @@ cat > "$logs/full_health_monitor_latest.log" <<'EOF'
 [2026-03-11 01:02:03] SUMMARY_HOSTS ok=1 warn=1 crit=1 unknown=0 skipped=0
 EOF
 
+cat > "$state/last_summary_monitor_lines.log" <<'EOF'
+monitor=health_monitor host=localhost status=OK
+monitor=service_monitor host=web-1 status=OK
+monitor=network_monitor host=web-2 status=OK
+EOF
+
 lm="$prefix/bin/linux-maint"
 common_env=(
   "PREFIX=$prefix"
@@ -110,5 +171,8 @@ printf '%s' "$runtimes_out" | python3 -c 'import json,sys; obj=json.load(sys.std
 
 export_out="$(env "${common_env[@]}" "$lm" export --json 2>&1)"
 printf '%s' "$export_out" | python3 -c 'import json,sys; obj=json.load(sys.stdin); assert obj["mode"]=="installed"; assert obj["last_status"]["overall"]=="CRIT"; assert len(obj["rows"])==3'
+
+diff_out="$(env "${common_env[@]}" "$lm" diff --json 2>&1)"
+printf '%s' "$diff_out" | python3 -c 'import json,sys; obj=json.load(sys.stdin); assert "added" in obj; assert "changed" in obj; assert any(item["key"]=="service_monitor|web-1" for item in obj["changed"]); assert any(item["key"]=="network_monitor|web-2" for item in obj["changed"])'
 
 echo "installed reporting commands ok"
