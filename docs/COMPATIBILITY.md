@@ -15,7 +15,7 @@ Expected to work (best-effort):
 ## CI coverage snapshot
 
 The CI pipeline currently exercises:
-- repo-mode/bash compatibility on Ubuntu 18.04, Ubuntu 24.04, Debian 12, and Rocky Linux 9
+- repo-mode/bash compatibility on Ubuntu 24.04, Debian 12, and Rocky Linux 9
 - install/reinstall/uninstall lifecycle smoke on Ubuntu 24.04, Debian 12, and Rocky Linux 9
 - RPM build + install smoke on Rocky Linux 9
 

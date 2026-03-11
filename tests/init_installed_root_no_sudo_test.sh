@@ -15,7 +15,7 @@ mkdir -p "$prefix/bin" "$prefix/lib" "$prefix/share/linux_maint/templates" "$cfg
 
 cp "$ROOT_DIR/bin/linux-maint" "$fake_lm"
 chmod +x "$fake_lm"
-for support_lib in linux_maint.sh linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh; do
+for support_lib in linux_maint.sh linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh linux_maint_tui.sh; do
   cp "$ROOT_DIR/lib/$support_lib" "$prefix/lib/$support_lib"
 done
 cp -a "$ROOT_DIR/etc/linux_maint" "$prefix/share/linux_maint/templates/"

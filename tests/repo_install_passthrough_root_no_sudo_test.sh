@@ -15,6 +15,7 @@ chmod +x "$repo/bin/linux-maint"
 cp "$ROOT_DIR/lib/linux_maint.sh" "$repo/lib/linux_maint.sh"
 cp "$ROOT_DIR/lib/linux_maint_runtime.sh" "$repo/lib/linux_maint_runtime.sh"
 cp "$ROOT_DIR/lib/linux_maint_admin.sh" "$repo/lib/linux_maint_admin.sh"
+cp "$ROOT_DIR/lib/linux_maint_tui.sh" "$repo/lib/linux_maint_tui.sh"
 
 cat > "$repo/install.sh" <<'SH'
 #!/usr/bin/env bash

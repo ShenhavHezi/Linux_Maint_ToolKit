@@ -96,6 +96,7 @@ lib/linux_maint_conf.sh
 lib/linux_maint_runtime.sh
 lib/linux_maint_admin.sh
 lib/linux_maint_help.sh
+lib/linux_maint_tui.sh
 tools/verify_release.sh
 tools/upgrade_release.sh
 tools/pack_logs.sh

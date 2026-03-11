@@ -137,6 +137,7 @@ linux_maint_cmd_verify_install() {
     linux_maint_check_file "runtime support lib" "$PREFIX/lib/linux_maint_runtime.sh"
     linux_maint_check_file "admin support lib" "$PREFIX/lib/linux_maint_admin.sh"
     linux_maint_check_file "help support lib" "$PREFIX/lib/linux_maint_help.sh"
+    linux_maint_check_file "tui support lib" "$PREFIX/lib/linux_maint_tui.sh"
   fi
 
   if [[ "$MODE" == "repo" ]]; then

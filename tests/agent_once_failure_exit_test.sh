@@ -12,7 +12,7 @@ mkdir -p "$workdir/bin"
 ln -s "$ROOT_DIR/monitors" "$workdir/monitors"
 mkdir -p "$workdir/lib"
 ln -s "$ROOT_DIR/lib/linux_maint.sh" "$workdir/lib/linux_maint.sh"
-for support_lib in linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh; do
+for support_lib in linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh linux_maint_tui.sh; do
   ln -s "$ROOT_DIR/lib/$support_lib" "$workdir/lib/$support_lib"
 done
 ln -s "$ROOT_DIR/run_full_health_monitor.sh" "$workdir/run_full_health_monitor.sh"

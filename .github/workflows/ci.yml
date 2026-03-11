@@ -131,11 +131,6 @@ jobs:
             pkg_install: dnf -y update && dnf -y install --setopt=install_weak_deps=False bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute
             allow_failure: false
             legacy_checkout: false
-          - distro: ubuntu-18.04
-            image: ubuntu:18.04
-            pkg_install: apt-get update && apt-get install -y bash coreutils findutils gawk grep sed tar gzip python3 ca-certificates openssl iproute2 git
-            allow_failure: false
-            legacy_checkout: true
           - distro: centos-7
             image: centos:7
             pkg_install: yum -y --setopt=skip_if_unavailable=true install bash coreutils findutils gawk grep sed tar gzip openssl iproute git || true; yum -y --setopt=skip_if_unavailable=true install python3 || yum -y --setopt=skip_if_unavailable=true install python36 || true

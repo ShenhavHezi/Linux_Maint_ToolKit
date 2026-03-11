@@ -39,6 +39,14 @@ assert_absent "$ci" 'uses: actions/checkout@v4' \
   "ci workflow still references checkout v4"
 assert_absent "$release_notes" 'uses: actions/checkout@v4' \
   "release notes workflow still references checkout v4"
+assert_absent "$ci" 'ubuntu-18.04' \
+  "ci workflow still includes ubuntu-18.04 in the compatibility matrix"
+assert_contains "$ci" 'ubuntu-24.04' \
+  "ci workflow missing ubuntu-24.04 in the compatibility matrix"
+assert_contains "$ci" 'debian-12' \
+  "ci workflow missing debian-12 in the compatibility matrix"
+assert_contains "$ci" 'rockylinux-9' \
+  "ci workflow missing rockylinux-9 in the compatibility matrix"
 
 assert_contains "$ci" 'uses: actions/attest@v4' \
   "ci workflow missing artifact attestation step"
