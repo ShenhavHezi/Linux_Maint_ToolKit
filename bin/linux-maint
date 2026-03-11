@@ -8149,7 +8149,7 @@ EOF_DEPS
       SUMMARY_DIR_LOCAL="${SUMMARY_DIR:-$REPO_LOG_DIR}"
       STATE_DIR_LOCAL="${LM_STATE_DIR:-$REPO_LOG_DIR}"
       LOCK_DIR_LOCAL="${LM_LOCKDIR:-/tmp}"
-      INVENTORY_DIR_LOCAL="${LM_INVENTORY_OUTPUT_DIR:-/var/log/inventory}"
+      INVENTORY_DIR_LOCAL="${LM_INVENTORY_OUTPUT_DIR:-}"
       DOCTOR_INIT_CMD="linux-maint init"
       DOCTOR_PREFLIGHT_CMD="linux-maint preflight"
       DOCTOR_RUN_CMD="linux-maint run"
@@ -8353,6 +8353,7 @@ EOF_DEPS
     fi
 
     if [[ "$DOCTOR_JSON" -eq 1 ]]; then
+      set +e
       MODE="$MODE" PREFIX="$PREFIX" WRAPPER="$wrapper" LIBEXEC="$LIBEXEC" LINUX_MAINT_LIB="${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" CFG_DIR="$CFG_DIR" LOG_DIR="$LOG_DIR_LOCAL" SUMMARY_DIR="$SUMMARY_DIR_LOCAL" STATE_DIR="$STATE_DIR_LOCAL" LOCK_DIR="$LOCK_DIR_LOCAL" INVENTORY_DIR="$INVENTORY_DIR_LOCAL" DOCTOR_STRICT="$DOCTOR_STRICT" DOCTOR_INIT_CMD="$DOCTOR_INIT_CMD" DOCTOR_PREFLIGHT_CMD="$DOCTOR_PREFLIGHT_CMD" DOCTOR_RUN_CMD="$DOCTOR_RUN_CMD" DOCTOR_WRITE_PREFIX="$DOCTOR_WRITE_PREFIX" FIX_ACTIONS_FILE="$fix_actions_file" python3 - <<'PYJSON'
 import json
 import os
@@ -8385,24 +8386,35 @@ def has_cmd(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
 
-def active_hosts_count(path: pathlib.Path) -> int:
+def active_hosts_count(path: pathlib.Path):
     if not path.is_file():
-        return 0
+        return 0, ""
     count = 0
-    for raw in path.read_text(errors="ignore").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        count += 1
-    return count
+    try:
+        for raw in path.read_text(errors="ignore").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            count += 1
+    except PermissionError:
+        return 0, "permission_denied"
+    except OSError as exc:
+        return 0, str(exc)
+    return count, ""
 
 
 config_files = ["servers.txt", "excluded.txt", "services.txt", "emails.txt"]
+hosts_configured, servers_error = active_hosts_count(cfg_path / "servers.txt")
 config = {
     "dir_exists": cfg_path.is_dir(),
     "files": {name: (cfg_path / name).exists() for name in config_files},
-    "hosts_configured": active_hosts_count(cfg_path / "servers.txt"),
+    "hosts_configured": hosts_configured,
 }
+if servers_error:
+    config["servers_readable"] = False
+    config["servers_error"] = servers_error
+else:
+    config["servers_readable"] = True
 
 fix_suggestions = []
 fix_seen = set()
@@ -8422,7 +8434,9 @@ else:
         add_fix(
             f"Create {cfg_dir}/servers.txt (example: printf '%s\\n' localhost | {write_prefix}tee {cfg_dir}/servers.txt)"
         )
-    elif active_hosts_count(servers_path) == 0:
+    elif servers_error:
+        add_fix(f"Ensure {cfg_dir}/servers.txt is readable")
+    elif hosts_configured == 0:
         add_fix(f"Add hosts to {cfg_dir}/servers.txt (one per line)")
     if services_path.exists() and services_path.stat().st_size == 0:
         add_fix(f"Populate {cfg_dir}/services.txt with critical services (one per line)")
@@ -8551,6 +8565,9 @@ result = {
     ],
 }
 
+perm_fail = any(item.get("severity") == "CRIT" for item in dir_permissions)
+result["ok"] = not perm_fail
+
 if fix_actions_file and os.path.exists(fix_actions_file):
     try:
         with open(fix_actions_file, "r", encoding="utf-8", errors="ignore") as f:
@@ -8569,14 +8586,21 @@ if fix_actions_file and os.path.exists(fix_actions_file):
         pass
 
 print(json.dumps(result, sort_keys=True))
+raise SystemExit(2 if strict and perm_fail else 0)
 PYJSON
+      doctor_json_rc=$?
+      set -e
       if [[ -n "$fix_actions_file" ]]; then
         rm -f "$fix_actions_file" 2>/dev/null || true
       fi
       if [[ "$DOCTOR_FIX" -eq 1 ]]; then
-        audit_log_append "doctor-fix" "success" "json=1 dry_run=$DOCTOR_DRY_RUN"
+        if [[ "$doctor_json_rc" -eq 0 ]]; then
+          audit_log_append "doctor-fix" "success" "json=1 dry_run=$DOCTOR_DRY_RUN"
+        else
+          audit_log_append "doctor-fix" "failure" "json=1 dry_run=$DOCTOR_DRY_RUN rc=$doctor_json_rc"
+        fi
       fi
-      exit 0
+      exit "$doctor_json_rc"
     fi
 
     section "linux-maint doctor"
@@ -8623,14 +8647,22 @@ PYJSON
     if [[ -d "$CFG_DIR" ]]; then
       printf "%-44s %s\n" "FILE" "STATUS"
       for f in "$CFG_DIR/servers.txt" "$CFG_DIR/excluded.txt" "$CFG_DIR/services.txt" "$CFG_DIR/emails.txt"; do
-        if [[ -e "$f" ]]; then
+        if [[ "$f" == "$CFG_DIR/servers.txt" && -e "$f" && ! -r "$f" ]]; then
+          printf "%-44s %s\n" "$f" "${C_YELLOW}UNREADABLE${C_RESET}"
+        elif [[ -e "$f" ]]; then
           printf "%-44s %s\n" "$f" "${C_GREEN}OK${C_RESET}"
         else
           printf "%-44s %s\n" "$f" "${C_RED}MISSING${C_RESET}"
         fi
       done
 
-      if [[ ! -s "$CFG_DIR/servers.txt" ]]; then
+      if [[ ! -e "$CFG_DIR/servers.txt" ]]; then
+        echo "WARN: servers.txt missing/empty" >&2
+        add_fix "Create $CFG_DIR/servers.txt (example: printf '%s\\n' localhost | ${DOCTOR_WRITE_PREFIX}tee $CFG_DIR/servers.txt)"
+      elif [[ ! -r "$CFG_DIR/servers.txt" ]]; then
+        echo "WARN: servers.txt is unreadable" >&2
+        add_fix "Ensure $CFG_DIR/servers.txt is readable"
+      elif [[ ! -s "$CFG_DIR/servers.txt" ]]; then
         echo "WARN: servers.txt missing/empty" >&2
         add_fix "Create $CFG_DIR/servers.txt (example: printf '%s\\n' localhost | ${DOCTOR_WRITE_PREFIX}tee $CFG_DIR/servers.txt)"
       else
