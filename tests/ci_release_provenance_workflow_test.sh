@@ -25,10 +25,14 @@ assert_absent() {
   fi
 }
 
-assert_contains "$ci" 'uses: actions/checkout@v5' \
-  "ci workflow did not upgrade checkout to v5"
-assert_contains "$release_notes" 'uses: actions/checkout@v5' \
-  "release notes workflow did not upgrade checkout to v5"
+assert_contains "$ci" 'uses: actions/checkout@v6' \
+  "ci workflow did not upgrade checkout to v6"
+assert_contains "$release_notes" 'uses: actions/checkout@v6' \
+  "release notes workflow did not upgrade checkout to v6"
+assert_absent "$ci" 'uses: actions/checkout@v5' \
+  "ci workflow still references checkout v5"
+assert_absent "$release_notes" 'uses: actions/checkout@v5' \
+  "release notes workflow still references checkout v5"
 assert_absent "$ci" 'uses: actions/checkout@v3' \
   "ci workflow still references checkout v3"
 assert_absent "$ci" 'uses: actions/checkout@v4' \

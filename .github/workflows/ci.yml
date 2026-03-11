@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -72,7 +72,7 @@ jobs:
       attestations: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -180,7 +180,7 @@ jobs:
 
       - name: Checkout (actions)
         if: ${{ !matrix.legacy_checkout }}
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Checkout (legacy manual)
         if: ${{ matrix.legacy_checkout && steps.compat_ready.outputs.ready == '1' }}
@@ -280,7 +280,7 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -317,7 +317,7 @@ jobs:
           dnf -y install rpm-build rsync tar systemd-rpm-macros python3
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Generate BUILD_INFO (CI)
         run: |
