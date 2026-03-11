@@ -565,10 +565,13 @@ def parse_kv_line(line: str):
 def read_summary_rows(summary_path):
     rows = []
     if summary_path and os.path.exists(summary_path):
-        with open(summary_path, "r", encoding="utf-8", errors="ignore") as f:
-            for line in f:
-                if line.startswith("monitor="):
-                    rows.append(parse_kv_line(line))
+        try:
+            with open(summary_path, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    if line.startswith("monitor="):
+                        rows.append(parse_kv_line(line))
+        except Exception:
+            return rows
     return rows
 
 def ensure_totals(src):
@@ -2444,16 +2447,19 @@ def parse_log_summary(log_path):
     summary_hosts=None
     if not log_path or not os.path.exists(log_path):
         return summary_result, summary_hosts
-    with open(log_path,'r',encoding='utf-8',errors='ignore') as f:
-        for line in f:
-            if 'SUMMARY_RESULT' in line:
-                m=re.search(r'SUMMARY_RESULT\\s+(.*)$', line)
-                if m:
-                    summary_result=parse_kv_line(m.group(1))
-            elif 'SUMMARY_HOSTS' in line:
-                m=re.search(r'SUMMARY_HOSTS\\s+(.*)$', line)
-                if m:
-                    summary_hosts=parse_kv_line(m.group(1))
+    try:
+        with open(log_path,'r',encoding='utf-8',errors='ignore') as f:
+            for line in f:
+                if 'SUMMARY_RESULT' in line:
+                    m=re.search(r'SUMMARY_RESULT\\s+(.*)$', line)
+                    if m:
+                        summary_result=parse_kv_line(m.group(1))
+                elif 'SUMMARY_HOSTS' in line:
+                    m=re.search(r'SUMMARY_HOSTS\\s+(.*)$', line)
+                    if m:
+                        summary_hosts=parse_kv_line(m.group(1))
+    except Exception:
+        return None, None
     return summary_result, summary_hosts
 
 def worst_status(rows):
