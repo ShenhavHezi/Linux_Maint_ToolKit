@@ -20,19 +20,31 @@ linux_maint_reporting_status_file() {
 }
 
 linux_maint_reporting_summary_latest() {
-    local log_dir
+    local summary_dir
     if [[ "$MODE" == "repo" ]]; then
       printf '%s' "$REPO_SUMMARY_LATEST"
     else
-      log_dir="$(linux_maint_reporting_log_dir)"
-      printf '%s/full_health_monitor_summary_latest.log' "$log_dir"
+      summary_dir="$(linux_maint_reporting_summary_dir)"
+      printf '%s/full_health_monitor_summary_latest.log' "$summary_dir"
+    fi
+}
+
+linux_maint_reporting_summary_dir() {
+    if [[ "$MODE" == "repo" ]]; then
+      printf '%s' "$REPO_SUMMARY_DIR"
+    else
+      printf '%s' "${SUMMARY_DIR:-$(linux_maint_reporting_log_dir)}"
     fi
 }
 
 linux_maint_reporting_summary_json_latest() {
-    local log_dir
-    log_dir="$(linux_maint_reporting_log_dir)"
-    printf '%s/full_health_monitor_summary_latest.json' "$log_dir"
+    local summary_dir
+    if [[ "$MODE" == "repo" ]]; then
+      printf '%s' "$REPO_SUMMARY_JSON_LATEST"
+    else
+      summary_dir="$(linux_maint_reporting_summary_dir)"
+      printf '%s/full_health_monitor_summary_latest.json' "$summary_dir"
+    fi
 }
 
 linux_maint_reporting_latest_log() {
@@ -946,10 +958,10 @@ PY
       # Resolve summary file path the same way status does.
       if [[ "$MODE" == "repo" ]]; then
         summary_file="$REPO_SUMMARY_LATEST"
-        log_dir="$REPO_LOG_DIR"
+        log_dir="$(linux_maint_reporting_summary_dir)"
       else
         summary_file="$(linux_maint_reporting_summary_latest)"
-        log_dir="$(linux_maint_reporting_log_dir)"
+        log_dir="$(linux_maint_reporting_summary_dir)"
       fi
       if [[ -n "$SINCE" ]]; then
         tmp_since="$(mktemp -p "$TMPDIR" linux_maint_status_since.XXXXXX.log)"
@@ -1085,7 +1097,7 @@ PY
 
     # History mode: show last N wrapper runs (best-effort)
     if [[ "${LAST_N:-0}" -gt 0 ]]; then
-      log_dir="$(linux_maint_reporting_log_dir)"
+      log_dir="$(linux_maint_reporting_summary_dir)"
       echo "=== Last ${LAST_N} runs ==="
       color_total() {
         local kv="$1" key val
@@ -1124,7 +1136,7 @@ PY
       # JSON mode: emit a single JSON object and exit.
       status_file="$(linux_maint_reporting_status_file)"
       summary_file="$(linux_maint_reporting_summary_latest)"
-      log_dir="$(linux_maint_reporting_log_dir)"
+      log_dir="$(linux_maint_reporting_summary_dir)"
 
       if [[ -n "$SINCE" ]]; then
         tmp_since="$(mktemp -p "$TMPDIR" linux_maint_status_since.XXXXXX.log)"
@@ -1374,10 +1386,10 @@ PY
     summary_file=""
     if [[ "$MODE" == "repo" ]]; then
       summary_file="$REPO_SUMMARY_LATEST"
-      log_dir="$REPO_LOG_DIR"
+      log_dir="$(linux_maint_reporting_summary_dir)"
     else
       summary_file="$(linux_maint_reporting_summary_latest)"
-      log_dir="$(linux_maint_reporting_log_dir)"
+      log_dir="$(linux_maint_reporting_summary_dir)"
     fi
 
     if [[ "$QUIET" -eq 0 && "$SUMMARY_ONLY" -eq 0 && "$EXPECTED_SKIPS" -eq 0 && "$SHOW_META" -eq 1 ]]; then
@@ -1753,12 +1765,12 @@ PY
       fi
     else
       if [[ "$MODE" == "repo" ]]; then
-        missing_summary_log_dir="$REPO_LOG_DIR"
+        missing_summary_log_dir="$(linux_maint_reporting_summary_dir)"
         missing_summary_run_cmd="linux-maint run"
         missing_summary_logs_cmd="linux-maint logs 200"
         missing_summary_doctor_cmd="linux-maint doctor"
       else
-        missing_summary_log_dir="$(linux_maint_reporting_log_dir)"
+        missing_summary_log_dir="$(linux_maint_reporting_summary_dir)"
         missing_summary_run_cmd="sudo linux-maint run"
         missing_summary_logs_cmd="sudo linux-maint logs 200"
         missing_summary_doctor_cmd="linux-maint doctor"
@@ -1865,7 +1877,7 @@ linux_maint_cmd_trend() {
       trap atomic_output_end EXIT
     fi
 
-    log_dir="$(linux_maint_reporting_log_dir)"
+    log_dir="$(linux_maint_reporting_summary_dir)"
     if [[ "$MODE" == "repo" ]]; then
       cache_dir="${LM_STATE_DIR:-$REPO_LOG_DIR}"
     else
@@ -2300,7 +2312,7 @@ linux_maint_cmd_export() {
       summary_file="$REPO_SUMMARY_LATEST"
       status_file="$REPO_STATUS_FILE"
       log_file="$REPO_LATEST_LOG"
-      summary_json="$REPO_LOG_DIR/full_health_monitor_summary_latest.json"
+      summary_json="$REPO_SUMMARY_JSON_LATEST"
     else
       summary_file="$(linux_maint_reporting_summary_latest)"
       status_file="$(linux_maint_reporting_status_file)"

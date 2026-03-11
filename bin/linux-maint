@@ -3054,9 +3054,10 @@ tui_pack_logs_wizard(){
 
 tui_recent_artifacts_block(){
   local summary log statusf
-  local log_dir
+  local log_dir summary_dir
   log_dir="$(tui_effective_log_dir)"
-  summary="$log_dir/full_health_monitor_summary_latest.log"
+  summary_dir="$(tui_effective_summary_dir)"
+  summary="$summary_dir/full_health_monitor_summary_latest.log"
   log="$log_dir/full_health_monitor_latest.log"
   statusf="$log_dir/last_status_full"
   local tmp
@@ -3115,9 +3116,10 @@ tui_menu_quick_actions(){
 
 tui_run_next_steps(){
   local rc="$1"
-  local summary log log_dir
+  local summary log log_dir summary_dir
   log_dir="$(tui_effective_log_dir)"
-  summary="$log_dir/full_health_monitor_summary_latest.log"
+  summary_dir="$(tui_effective_summary_dir)"
+  summary="$summary_dir/full_health_monitor_summary_latest.log"
   log="$log_dir/full_health_monitor_latest.log"
   local status_json overall
   status_json="$(NO_COLOR=1 "$0" status --json 2>/dev/null || true)"
@@ -5518,13 +5520,8 @@ case "$subcmd" in
     if [[ -t 1 ]]; then
       echo ""
       echo "Run complete (exit_code=$rc)"
-      if [[ "$MODE" == "repo" ]]; then
-        echo "Summary: $REPO_SUMMARY_LATEST"
-        echo "Log: $REPO_LATEST_LOG"
-      else
-        echo "Summary: $(linux_maint_reporting_summary_latest)"
-        echo "Log: $(linux_maint_reporting_latest_log)"
-      fi
+      echo "Summary: $(linux_maint_reporting_summary_latest)"
+      echo "Log: $(linux_maint_reporting_latest_log)"
       echo "Next: linux-maint report"
       echo "Tip: linux-maint status --reasons 5"
       echo "If WARN/CRIT: linux-maint doctor"

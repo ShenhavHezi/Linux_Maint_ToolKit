@@ -98,7 +98,7 @@ jobs:
           subject-path: ${{ steps.release_artifacts.outputs.tarball }}
 
       - name: Upload release artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: linux-maint-release-dist
           path: |
@@ -109,8 +109,6 @@ jobs:
   bash-compat-matrix:
     name: Bash compatibility (${{ matrix.distro }})
     runs-on: ubuntu-latest
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     continue-on-error: ${{ matrix.allow_failure || false }}
     strategy:
       fail-fast: false
@@ -369,7 +367,7 @@ jobs:
 
       - name: Upload smoke logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: smoke-logs-rocky9
           path: |
@@ -379,7 +377,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload RPM artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: linux-maint-rpm-rocky9
           path: /tmp/linux-maint-rpmbuild/RPMS/**/*.rpm

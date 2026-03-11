@@ -159,6 +159,14 @@ tui_effective_log_dir() {
   fi
 }
 
+tui_effective_summary_dir() {
+  if [[ "$MODE" == "repo" ]]; then
+    printf '%s' "${SUMMARY_DIR:-$REPO_SUMMARY_DIR}"
+  else
+    printf '%s' "${SUMMARY_DIR:-$(tui_effective_log_dir)}"
+  fi
+}
+
 tui_effective_state_dir() {
   if [[ "$MODE" == "repo" ]]; then
     printf '%s' "${LM_STATE_DIR:-$REPO_LOG_DIR}"
@@ -207,9 +215,9 @@ tui_latest_log_path() {
 }
 
 tui_latest_summary_json_path() {
-  local log_dir
-  log_dir="$(tui_effective_log_dir)"
-  echo "$log_dir/full_health_monitor_summary_latest.json"
+  local summary_dir
+  summary_dir="$(tui_effective_summary_dir)"
+  echo "$summary_dir/full_health_monitor_summary_latest.json"
 }
 
 tui_status_snapshot_json() {

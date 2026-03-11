@@ -9,10 +9,11 @@ trap 'rm -rf "$workdir"' EXIT
 prefix="$workdir/prefix"
 cfg="$workdir/etc_linux_maint"
 logs="$workdir/logs"
+summary="$workdir/summary"
 state="$workdir/state"
 lock="$workdir/lock"
 mkdir -p "$prefix/bin" "$prefix/sbin" "$prefix/lib" "$prefix/libexec/linux_maint" \
-  "$prefix/share/linux_maint" "$cfg" "$logs" "$state" "$lock"
+  "$prefix/share/linux_maint" "$cfg" "$logs" "$summary" "$state" "$lock"
 
 cp "$ROOT_DIR/bin/linux-maint" "$prefix/bin/linux-maint"
 chmod +x "$prefix/bin/linux-maint"
@@ -96,13 +97,13 @@ run_id=run-installed-001
 logfile=$logs/full_health_monitor_latest.log
 EOF
 
-cat > "$logs/full_health_monitor_summary_latest.log" <<'EOF'
+cat > "$summary/full_health_monitor_summary_latest.log" <<'EOF'
 monitor=health_monitor host=localhost status=OK
 monitor=service_monitor host=web-1 status=WARN reason=failed_units
 monitor=network_monitor host=web-2 status=CRIT reason=http_failed
 EOF
 
-cat > "$logs/full_health_monitor_summary_latest.json" <<'EOF'
+cat > "$summary/full_health_monitor_summary_latest.json" <<'EOF'
 {
   "meta": {
     "generated_at": "2026-03-11T01:02:03Z"
@@ -115,7 +116,7 @@ cat > "$logs/full_health_monitor_summary_latest.json" <<'EOF'
 }
 EOF
 
-cat > "$logs/full_health_monitor_summary_2026-03-11_010203.log" <<'EOF'
+cat > "$summary/full_health_monitor_summary_2026-03-11_010203.log" <<'EOF'
 monitor=health_monitor host=localhost status=OK
 monitor=service_monitor host=web-1 status=WARN reason=failed_units
 monitor=network_monitor host=web-2 status=CRIT reason=http_failed
@@ -142,6 +143,7 @@ common_env=(
   "PREFIX=$prefix"
   "LM_CFG_DIR=$cfg"
   "LOG_DIR=$logs"
+  "SUMMARY_DIR=$summary"
   "LM_STATE_DIR=$state"
   "LM_LOCKDIR=$lock"
   "NO_COLOR=1"

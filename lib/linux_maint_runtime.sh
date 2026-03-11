@@ -38,10 +38,12 @@ lm_init_runtime_context() {
   MODE="installed"
   [[ "$wrapper" == "$REPO_WRAPPER" ]] && MODE="repo"
   REPO_LOG_DIR="${LOG_DIR:-$REPO_ROOT/.logs}"
+  REPO_SUMMARY_DIR="${SUMMARY_DIR:-$REPO_LOG_DIR}"
   REPO_STATUS_FILE="$REPO_LOG_DIR/last_status_full"
   REPO_LATEST_LOG="$REPO_LOG_DIR/full_health_monitor_latest.log"
-  REPO_SUMMARY_LATEST="$REPO_LOG_DIR/full_health_monitor_summary_latest.log"
-  INST_SUMMARY_LATEST="/var/log/health/full_health_monitor_summary_latest.log"
+  REPO_SUMMARY_LATEST="$REPO_SUMMARY_DIR/full_health_monitor_summary_latest.log"
+  REPO_SUMMARY_JSON_LATEST="$REPO_SUMMARY_DIR/full_health_monitor_summary_latest.json"
+  INST_SUMMARY_LATEST="${SUMMARY_DIR:-${LOG_DIR:-/var/log/health}}/full_health_monitor_summary_latest.log"
 }
 
 repo_tool_path() {

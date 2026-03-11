@@ -15,12 +15,13 @@ trap cleanup EXIT
 MODE=repo
 LM_CFG_DIR="$tmp_root/cfg"
 LOG_DIR="$tmp_root/logs"
+SUMMARY_DIR="$tmp_root/summary"
 LM_STATE_DIR="$tmp_root/state"
-mkdir -p "$LM_CFG_DIR" "$LOG_DIR" "$LM_STATE_DIR"
+mkdir -p "$LM_CFG_DIR" "$LOG_DIR" "$SUMMARY_DIR" "$LM_STATE_DIR"
 printf '%s\n' "localhost" > "$LM_CFG_DIR/servers.txt"
 touch "$LOG_DIR/full_health_monitor_latest.log"
 touch "$LM_STATE_DIR/run_index.jsonl"
-cat > "$LOG_DIR/full_health_monitor_summary_latest.json" <<'JSON'
+cat > "$SUMMARY_DIR/full_health_monitor_summary_latest.json" <<'JSON'
 {"rows":[{"monitor":"network_monitor","host":"web-2","status":"CRIT","reason":"http_failed"}],"problems":[{"monitor":"network_monitor","host":"web-2","status":"CRIT","reason":"http_failed"}],"reason_rollup":[{"reason":"http_failed","count":1}],"totals":{"OK":0,"WARN":0,"CRIT":1,"UNKNOWN":0,"SKIP":0},"meta":{"overall":"CRIT"}}
 JSON
 
@@ -47,7 +48,7 @@ about_rank="$(tui_palette_rank about docs "$status_json" "$boot_snapshot")"
   exit 1
 }
 
-rm -f "$LOG_DIR/full_health_monitor_summary_latest.json"
+rm -f "$SUMMARY_DIR/full_health_monitor_summary_latest.json"
 missing_boot="$(tui_bootstrap_state_snapshot)"
 first_setup_rank="$(tui_palette_rank first_setup overview "" "$missing_boot")"
 report_missing_rank="$(tui_palette_rank report overview "" "$missing_boot")"

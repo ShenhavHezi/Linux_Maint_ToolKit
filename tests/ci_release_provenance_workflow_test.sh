@@ -39,6 +39,12 @@ assert_absent "$ci" 'uses: actions/checkout@v4' \
   "ci workflow still references checkout v4"
 assert_absent "$release_notes" 'uses: actions/checkout@v4' \
   "release notes workflow still references checkout v4"
+assert_contains "$ci" 'uses: actions/upload-artifact@v6' \
+  "ci workflow did not upgrade upload-artifact to v6"
+assert_absent "$ci" 'uses: actions/upload-artifact@v4' \
+  "ci workflow still references upload-artifact v4"
+assert_absent "$ci" 'ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true' \
+  "ci workflow still allows insecure node runtime"
 assert_absent "$ci" 'ubuntu-18.04' \
   "ci workflow still includes ubuntu-18.04 in the compatibility matrix"
 assert_contains "$ci" 'ubuntu-24.04' \
