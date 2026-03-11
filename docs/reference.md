@@ -1,6 +1,22 @@
 # Linux Maintenance Toolkit Reference
 
-This document contains the detailed reference sections moved out of the main README.
+Use this page when you need exact command behavior, file paths, JSON contracts, or environment knobs.
+
+If you want a faster operator path first, start with:
+- [FIRST_5_MINUTES.md](FIRST_5_MINUTES.md)
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md)
+- [troubleshooting.md](troubleshooting.md)
+- [architecture.md](architecture.md)
+
+## Section guide
+
+- **Coverage and monitor behavior**: optional packages, monitor reference, follow-up hints
+- **Configuration and tuning**: notification, timeouts, TUI settings, monitor knobs
+- **Machine contracts**: summary lines, exit codes, JSON schemas, installed layout
+- **Operator commands**: CLI and menu behavior, advanced commands, environment
+- **Deployment and lifecycle**: config files, RPM, offline install, log rotation, upgrade
+
+The examples below prefer installed-mode paths for clarity. In repo mode, the same commands work with repo-local defaults and overrides described in the CLI sections.
 
 
 ## Optional packages for full coverage (recommended on bare metal)
@@ -147,11 +163,11 @@ You can tune the interactive menu behavior via environment variables:
 - `LM_TUI_BACKEND` = `gum|dialog|whiptail` (force a specific backend)
 - `LM_TUI_DASH_REFRESH` = seconds (auto-refresh interval; `0` disables)
 - `TUI_BANNER_WIDTH` = integer (banner width for gum backend)
-- `LM_TUI_DEFAULT_STATUS_VIEW` = `table|compact` (default view in Reports -> Status)
+- `LM_TUI_DEFAULT_STATUS_VIEW` = `table|compact` (default status-oriented view when the TUI opens a status screen)
 - `LM_TUI_DEFAULT_PROBLEMS` = integer (default problem rows in drilldown/status JSON fetch)
 - `LM_TUI_DEFAULT_REASONS` = integer (default reason rows in drilldown/status JSON fetch)
 - `LM_TUI_PREVIEW` = `1|0` (show `Will run: ...` preview before command execution in menu)
-- `LM_TUI_SHORTCUTS` = `1|0` (enable single-key aliases such as `r/s/d/h`)
+- `LM_TUI_SHORTCUTS` = `1|0` (enable optional single-key aliases in addition to the normal arrow-key flow)
 
 Validation/clamping:
 - `LM_TUI_DASH_REFRESH` is clamped to `0..300`.
@@ -459,17 +475,17 @@ After installation, use the `linux-maint` CLI as the primary interface.
 
 ## Interactive menu (TUI)
 
-`linux-maint menu` launches a local terminal UI for common actions (run, status, report, tools).
-It prefers **gum** for the most polished UI, but falls back to `dialog` or `whiptail`.
+`linux-maint menu` launches the local operator workflow UI.
+It prefers **gum** for the most polished layout, but falls back to `dialog` or `whiptail`.
 
 Highlights:
-- Guided **Run Wizard** for building `run` commands without remembering flags.
-- **Status Drilldown** view with status/host/monitor/reason filters and quick explain actions.
-  - Includes `Explain top filtered problem` (opens both reason and monitor explain views).
-- Guided **Incident Mode** flow in diagnostics for focused checks, reason triage, doctor, and support bundle creation.
-- Post-run **Quick Actions** screen (doctor/logs/reasons/support bundle).
-- **Menu settings** screen (session values, optional save to `~/.config/linux-maint/menu.conf`).
-- Keyboard shortcuts in main menu (`r` run, `s` reports, `d` diagnostics, `h` help) when shortcuts are enabled.
+- Workflow-first sections: `Quickstart`, `Overview`, `Run`, `Triage`, and `Share`
+- Guided **Run Wizard** for building `run` commands without remembering flags
+- **Status drilldown** with status/host/monitor/reason filters and quick explain actions
+- Guided **incident mode** for reason triage, doctor, logs, and support bundle creation
+- Post-run **quick actions** for the most common next steps
+- **Menu settings** for session values and optional save to `~/.config/linux-maint/menu.conf`
+- Arrow-key-first navigation; optional single-key shortcuts remain available when enabled
 
 Examples:
 
@@ -484,8 +500,6 @@ Prerequisites (any one):
 - `whiptail`
 
 ### Commands
-
-
 
 - `linux-maint run` *(root required)*: run the full wrapper (`run_full_health_monitor.sh`).
   - `--progress|--no-progress`: enable/disable the run progress bar (overrides `LM_PROGRESS`).
