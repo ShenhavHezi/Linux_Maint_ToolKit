@@ -1,59 +1,141 @@
 # Configuration
 
-This page explains the primary configuration entrypoints and first-run behavior.
-For full reference, see `docs/reference.md`.
+Use this page when you want to decide what to configure first, where the files live, and which settings matter early.
+
+For exact variable-by-variable detail, use [reference.md](reference.md). For the shortest operator path, use [FIRST_5_MINUTES.md](FIRST_5_MINUTES.md).
+
+## Start with the right scope
+
+Most setups only need a few files at first.
+
+### Minimum useful config
+
+Touch these first:
+
+- `servers.txt` for target hosts
+- `services.txt` for service checks
+- `network_targets.txt` if you want active reachability checks
+
+If `network_targets.txt` is missing or empty, `network_monitor` will `SKIP` cleanly. That is normal on a first run.
+
+### Add later when you need broader coverage
+
+- `certs.txt`
+- `backup_targets.csv`
+- `config_paths.txt`
+- `ports_baseline.txt`
+- `baseline_users.txt`
+- `baseline_sudoers.txt`
 
 ## Where config lives
 
-Templates are in `etc/linux_maint/*.example`.
-Installed configs live in `/etc/linux_maint/`.
-Repo and CI runs can override this with `LM_CFG_DIR=/path/to/config`. When `./run_full_health_monitor.sh` cannot create `/etc/linux_maint`, it falls back to a repo-local config dir (or `LM_CFG_DIR_FALLBACK`) and exports `LM_CFG_DIR` for monitors automatically.
+### Installed mode
 
-Quick overview of templates: `etc/linux_maint/README.md`.
+Default config root:
 
-## The first three files to touch
+- `/etc/linux_maint`
 
-- `servers.txt` — target hosts for SSH mode
-- `services.txt` — services to verify
-- `network_targets.txt` — optional reachability checks (if missing/empty, wrapper emits `SKIP` for `network_monitor`)
+This is the normal production path.
 
-Dark-site tip:
-- In air-gapped environments, keep `network_targets.txt` absent until you have internal targets to test; `network_monitor` will be auto-skipped with a clear `reason=missing:...` summary line.
+### Repo mode
 
-## Common knobs (short list)
+Use repo mode when evaluating, developing, or running from a checkout.
 
-- `MONITOR_TIMEOUT_SECS` (default `600`)
-- `MONITOR_TIMEOUTS_FILE` (per-monitor timeouts; default `/etc/linux_maint/monitor_timeouts.conf`)
-- `MONITOR_RUNTIME_WARN_FILE` (per-monitor runtime warn thresholds; default `/etc/linux_maint/monitor_runtime_warn.conf`)
-- `LM_NOTIFY` (wrapper-level per-run email summary; default `0` / off)
-- `LM_SSH_OPTS` (e.g. `-o BatchMode=yes -o ConnectTimeout=3`)
-- `LM_SSH_ALLOWLIST` (optional regex allowlist for SSH commands; blocks non-matching)
-- `LM_LOCAL_ONLY=true` (force local-only; useful for CI)
-- `LM_DARK_SITE=true` (optional profile for conservative defaults)
-- `LM_CFG_DIR=/path` (override config root for repo/dev/CI runs)
-- `LM_NOTIFY_CONNECT_TIMEOUT=5`, `LM_NOTIFY_MAX_TIME=15` (timeouts for `linux-maint notify`)
-- `LM_TICKET_CONNECT_TIMEOUT=5`, `LM_TICKET_MAX_TIME=15` (timeouts for `linux-maint ticket`)
-- `LM_MAX_PARALLEL` (max parallel SSH fan-out)
-- `LM_MAX_PARALLEL_CAP` (safety cap for LM_MAX_PARALLEL; default 25)
-- `LM_TREND_CACHE=1` (opt-in cache for `linux-maint trend`)
-- `LM_TREND_CACHE_TTL=60` (seconds to reuse cached trend output)
-- `LM_INVENTORY_CACHE=1` (opt-in cache for `inventory_export`)
-- `LM_INVENTORY_CACHE_TTL=3600` (seconds to reuse cached inventory data)
-- `LM_INVENTORY_CACHE_DIR=/var/log/inventory/cache` (optional override for inventory cache)
-- `LM_SSH_TIMEOUT=30` (optional hard timeout for ssh commands when `timeout` exists)
+- `LM_CFG_DIR=/path/to/config` overrides the config root directly
+- if `/etc/linux_maint` is not writable, the wrapper can fall back to a repo-local config root and export `LM_CFG_DIR` for monitors automatically
 
-Details are in `docs/reference.md`.
+Templates live under:
 
-## SSH allowlist (optional)
+- `etc/linux_maint/*.example`
+- `etc/linux_maint/README.md`
 
-If you want to restrict remote commands, set `LM_SSH_ALLOWLIST` in `/etc/linux_maint/linux-maint.conf`.
-This is a comma/space-separated list of regex patterns; a command must match at least one pattern.
+## First configuration decisions
+
+### 1. Local-only or SSH fleet
+
+For local-only checks, keep the inventory simple and prefer:
+
+```bash
+LM_LOCAL_ONLY=true
+```
+
+For fleet mode, populate:
+
+- `servers.txt`
+- optional `excluded.txt`
+- optional `hosts.d/`
+
+### 2. Conservative or broad coverage
+
+If you are in a dark-site or tightly controlled environment:
+
+- leave optional files absent until you want those checks
+- consider `LM_DARK_SITE=true`
+- keep `network_targets.txt` empty until you have internal targets worth probing
+
+### 3. Fast fail or tolerant runtime
+
+Early runtime controls worth knowing:
+
+- `MONITOR_TIMEOUT_SECS`
+- `MONITOR_TIMEOUTS_FILE`
+- `MONITOR_RUNTIME_WARN_FILE`
+- `LM_MAX_PARALLEL`
+- `LM_MAX_PARALLEL_CAP`
+
+## Common knobs worth caring about
+
+These are the settings most operators actually need early:
+
+- `LM_CFG_DIR=/path`
+- `LM_LOCAL_ONLY=true`
+- `LM_DARK_SITE=true`
+- `LM_NOTIFY=0|1`
+- `LM_SSH_OPTS="..."`
+- `LM_SSH_ALLOWLIST="..."`
+- `MONITOR_TIMEOUT_SECS=600`
+- `MONITOR_TIMEOUTS_FILE=<cfg_dir>/monitor_timeouts.conf`
+- `MONITOR_RUNTIME_WARN_FILE=<cfg_dir>/monitor_runtime_warn.conf`
+
+These are useful later, not first:
+
+- `LM_TREND_CACHE=1`
+- `LM_TREND_CACHE_TTL=60`
+- `LM_INVENTORY_CACHE=1`
+- `LM_INVENTORY_CACHE_TTL=3600`
+- `LM_NOTIFY_CONNECT_TIMEOUT=5`
+- `LM_NOTIFY_MAX_TIME=15`
+- `LM_TICKET_CONNECT_TIMEOUT=5`
+- `LM_TICKET_MAX_TIME=15`
+
+## SSH allowlist
+
+If you want to restrict remote commands, set `LM_SSH_ALLOWLIST` in your main config file.
 
 Example:
 
 ```bash
-# /etc/linux_maint/linux-maint.conf
 LM_SSH_ALLOWLIST='^bash -lc |^command -v |^df |^ss |^netstat |^systemctl |^ping |^nc |^curl |^timeout |^chronyc |^ntpq |^timedatectl |^mountpoint |^stat |^uname '
 ```
 
 Start broad, then tighten based on blocked-command warnings.
+
+## A safe first configuration loop
+
+Use this order:
+
+```bash
+linux-maint init --minimal
+linux-maint check
+linux-maint run --plan
+linux-maint run
+linux-maint status --expected-skips
+```
+
+Then add optional files one by one instead of trying to configure every monitor at once.
+
+## When to leave this page
+
+- Use [installation.md](installation.md) when you are deciding how to deploy
+- Use [OPERATIONS.md](OPERATIONS.md) for fleet and deployment workflows
+- Use [reference.md](reference.md) for the full config and environment reference

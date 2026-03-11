@@ -1,57 +1,149 @@
 # Installation
 
-This page covers recommended and manual installation options.
-For a minimal run from the repo, see `README.md`.
+Use this page when you are deciding how to deploy `linux-maint` on a real system.
 
-## Recommended install
+For air-gapped delivery, use [DARK_SITE.md](DARK_SITE.md). For upgrade and rollback, use [UPGRADE.md](UPGRADE.md).
+
+## Choose the path
+
+### Repo mode
+
+Best for:
+
+- evaluation
+- development
+- CI
+- running from a monitoring node without installing system-wide files
+
+Typical flow:
+
+```bash
+git clone https://github.com/ShenhavHezi/Linux_Maint_ToolKit.git
+cd Linux_Maint_ToolKit
+./bin/linux-maint init --minimal
+./bin/linux-maint check
+./bin/linux-maint run
+```
+
+### Installed mode
+
+Best for:
+
+- persistent hosts
+- systemd timer operation
+- stable system-wide paths
+
+Recommended install:
 
 ```bash
 sudo ./install.sh --with-user --with-timer --with-logrotate
+sudo linux-maint init --minimal
+sudo linux-maint verify-install
 ```
 
-Manual install is also supported (see the appendix in this file).
+### RPM mode
 
-## Supported environments (high level)
+Best for:
 
-- Linux distributions: designed for common enterprise distros (RHEL-like, Debian/Ubuntu, SUSE-like). Some monitors auto-detect available tooling.
-- Execution: local host checks and/or distributed checks over SSH from a monitoring node.
-- Schedulers: cron or systemd timer (installer can set these up).
+- RHEL 9 style environments
+- RPM-managed lifecycle
+- packaged install/remove/upgrade workflows
 
-Current CI validation includes:
-- installed lifecycle smoke on Ubuntu 24.04, Debian 12, and Rocky Linux 9
-- RPM build/install smoke on Rocky Linux 9 as the RHEL 9-compatible packaging target
+Rocky Linux 9 is the CI-tested RHEL 9-compatible packaging lane.
 
-## Packaging note
+## What the project targets
 
-RPM packages are supported and tested. DEB packaging is not currently provided.
-For Debian/Ubuntu, use repo mode or the release tarball from `tools/make_tarball.sh`.
-For RHEL 9 environments, Rocky Linux 9 is the CI-tested compatible target for install and RPM validation.
+- primary target: **RHEL 9**
+- also validated in CI on Debian 12, Ubuntu 24.04, and Rocky Linux 9
 
-## Requirements (minimal)
+Minimum practical requirements:
 
-- `bash` + standard core utilities (`awk`, `sed`, `grep`, `df`, `ps`, etc.)
-- `ssh` client for distributed mode
-- `sudo`/root recommended (many checks read privileged state and write to `/var/log` and `/etc/linux_maint`)
+- `bash` 4.2+
+- standard core utilities
+- `python3`
+- `ssh` client for fleet mode
+- root or `sudo` recommended for installed mode
 
-Optional (improves coverage): `smartctl` (smartmontools), `nvme` (nvme-cli), vendor RAID CLIs.
+Optional tooling improves coverage:
 
-## Modes
+- `smartctl`
+- `nvme`
+- vendor RAID CLIs
 
-- Repo mode (`./run_full_health_monitor.sh`, `./bin/linux-maint`): best for evaluation and local development.
-- Installed mode (`linux-maint`, systemd timer/cron): best for production use and scheduled runs.
+## Recommended installed workflow
 
-Repo mode writes wrapper artifacts under `.logs/`. If `/etc/linux_maint` is not writable, the wrapper falls back to a repo-local config directory (or `LM_CFG_DIR_FALLBACK`) and points monitors at that config root automatically.
+```bash
+sudo ./install.sh --with-user --with-timer --with-logrotate
+sudo linux-maint init --minimal
+sudo linux-maint check
+sudo linux-maint verify-install
+sudo linux-maint run
+sudo linux-maint status
+```
 
-If you’re not sure, start with repo mode, then install once you like the output.
+What this gives you:
 
-## Manual install (appendix)
+- installed `linux-maint` CLI
+- wrapper and helper payload
+- config skeleton under `/etc/linux_maint`
+- log/state layout under `/var/log/health` and `/var/lib/linux_maint`
+- optional timer and logrotate integration
 
-If you prefer manual installation or need a custom layout, see `docs/reference.md` for full paths and contracts.
+## Packaging notes
 
-## Config templates (quick note)
+- RPM packaging is supported and tested
+- DEB packaging is not currently provided
+- on Debian/Ubuntu, use repo mode or a verified release tarball
 
-Example configs live under `etc/linux_maint/*.example`. Common ones:
+## Repo vs installed mode
+
+### Repo mode
+
+- safest for trying the toolkit without touching system-wide paths
+- wrapper artifacts default to `.logs/`
+- config can stay repo-local
+
+### Installed mode
+
+- best for long-lived scheduled operation
+- uses `/etc/linux_maint`, `/var/log/health`, and `/var/lib/linux_maint`
+- some checks need root access to inspect privileged state
+
+If you are not sure, start in repo mode, then install once the output and workflow fit your environment.
+
+## Verification after install
+
+Do not stop at “installer finished.”
+
+Run:
+
+```bash
+sudo linux-maint verify-install
+sudo linux-maint check
+sudo linux-maint run --plan
+```
+
+This catches path drift, missing payload members, and readiness problems earlier than waiting for the first scheduled run.
+
+## Manual or custom-layout installs
+
+If you need a custom prefix or a manual layout, use:
+
+- `PREFIX=/custom ./install.sh ...`
+- [reference.md](reference.md) for the installed file layout
+
+## Config templates
+
+Common template files:
+
 - `linux-maint.conf.example`
-- `servers.txt.example` / `services.txt.example`
-- `monitor_timeouts.conf.example` (per-monitor timeouts)
-- `monitor_runtime_warn.conf.example` (per-monitor runtime warn thresholds)
+- `servers.txt.example`
+- `services.txt.example`
+- `monitor_timeouts.conf.example`
+- `monitor_runtime_warn.conf.example`
+
+## When to leave this page
+
+- Use [configuration.md](configuration.md) to decide what to configure first
+- Use [UPGRADE.md](UPGRADE.md) for verified upgrade and rollback flow
+- Use [DARK_SITE.md](DARK_SITE.md) for disconnected delivery

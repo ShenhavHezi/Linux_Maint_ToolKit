@@ -1,69 +1,117 @@
 # Custom Monitors
 
-This guide explains how to add your own monitor scripts and keep their output compatible with the Linux_Maint_ToolKit contract.
+Use this page when you want to add a new monitor without breaking the toolkit’s summary contract.
 
-## Quick start
+For contributor rules and test expectations, also use [../CONTRIBUTING.md](../CONTRIBUTING.md).
 
-1. Generate a template:
+## When to create a custom monitor
+
+Create a new monitor when:
+
+- you need a check that does not fit an existing monitor
+- the output should participate in the normal wrapper summary flow
+- the result should appear in `status`, `report`, `diff`, exports, and support bundles
+
+Do not create a separate monitor when a small extension to an existing monitor is enough.
+
+## Recommended workflow
+
+### 1. Generate a scaffold
 
 ```bash
 tools/new_monitor.sh my_custom_monitor
 ```
 
-2. Edit the new script under `monitors/` and implement your checks.
-3. Run it locally:
+### 2. Implement the check
+
+Edit the script under `monitors/` and keep the logic narrow:
+
+- collect what you need
+- emit summary lines
+- send detail to stderr or logs, not stdout
+
+### 3. Test it directly
 
 ```bash
 bash monitors/my_custom_monitor.sh
 ```
 
-4. Run via the wrapper:
+### 4. Test it through the wrapper
 
 ```bash
-sudo linux-maint run --only my_custom_monitor
+linux-maint run --only my_custom_monitor
 ```
 
-## Summary contract (required)
+## Summary contract
 
-Every monitor must emit at least one `monitor=` summary line using `lm_summary`:
+Every monitor must emit at least one summary line through `lm_summary`:
 
 ```bash
 lm_summary "my_custom_monitor" "$host" "OK"
 ```
 
-Contract notes:
-- Required keys: `monitor`, `host`, `status`, `node`
-- Non-OK statuses must include a `reason=` token (the library adds one if missing).
-- Do not include whitespace in values (use `_` or `-`).
+Required fields:
 
-## Config files
+- `monitor`
+- `host`
+- `status`
+- `node`
 
-If your monitor depends on config files under `/etc/linux_maint`, use `LM_CFG_DIR` for portability:
+Important rules:
+
+- non-OK paths should include `reason=...`
+- one target host should produce one logical summary result per run
+- stdout should remain summary-safe
+- avoid whitespace in emitted values
+
+## Config portability
+
+When your monitor uses config files, resolve them through `LM_CFG_DIR`:
 
 ```bash
 CONFIG_FILE="${LM_CFG_DIR:-/etc/linux_maint}/my_targets.txt"
 ```
 
-The `linux-maint list-monitors` command parses monitor scripts to show config file references.
+That keeps the monitor working in:
+
+- repo mode
+- installed mode
+- CI and temp test roots
 
 ## Common helper patterns
 
-- Per-host loop:
+Per-host loop:
 
 ```bash
 for host in $(lm_hosts); do
-  # lm_ssh "$host" "command"
   lm_summary "my_custom_monitor" "$host" "OK"
 done
 ```
 
-- Dependency checks:
+Dependency guard:
 
 ```bash
 lm_require_cmd "my_custom_monitor" "localhost" awk || exit $?
 ```
 
-## Testing tips
+## What makes a good monitor
 
-- Add unit checks under `tests/` if you introduce new behaviors.
-- Use `linux-maint lint-summary <summary_log>` to validate your summary output.
+A good monitor:
+
+- has one clear purpose
+- degrades clearly when config or dependencies are missing
+- uses stable `reason=` tokens
+- works in repo mode and installed mode
+- does not depend on interactive output
+
+## Testing checklist
+
+- add tests under `tests/` when behavior or contracts change
+- run `linux-maint lint-summary <summary_log>` on generated output when helpful
+- prefer contract tests over brittle text-only assertions
+
+## Related docs
+
+- [reference.md](reference.md) for the full summary contract
+- [REASONS.md](REASONS.md) for stable reason token vocabulary
+- [../CONTRIBUTING.md](../CONTRIBUTING.md) for contributor workflow

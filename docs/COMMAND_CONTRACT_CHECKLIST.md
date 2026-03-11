@@ -1,30 +1,44 @@
-# Command contract checklist (status / report / summary / diff)
+# Command Contract Checklist
 
-Purpose: keep operator-facing output stable and machine-parseable.
+Use this checklist before merging changes that affect operator-facing or machine-facing command output.
 
-Use this checklist any time you change output formatting, filters, JSON shape, or exit behavior for:
+Primary scope:
+
 - `linux-maint status`
 - `linux-maint report`
 - `linux-maint summary`
 - `linux-maint diff`
 
-## Cross-cutting checks
-- [ ] Outputs that are machine-parseable (`--json`, `--prom`, CSV, summary lines) never include ANSI/control chars.
-- [ ] `NO_COLOR=1` reliably disables ANSI; `LM_FORCE_COLOR=1` enables ANSI for table/human views only.
-- [ ] No extra stdout noise (debug/progress) is added to these commands.
-- [ ] Any new output fields are documented in `docs/reference.md` and `docs/QUICK_REFERENCE.md` if user-facing.
-- [ ] If JSON keys/types change, bump the related `*_json_contract_version` and update the schema in `docs/schemas/`.
+## Use this checklist when
 
-## `status` checklist
-- [ ] Default output still includes `totals:` and a `problems:` header.
-- [ ] `--summary` includes `overall=`.
-- [ ] `--summary --table` includes the `STATUS  MONITOR` header.
-- [ ] `--compact` omits the large section headers.
-- [ ] `--json` validates against `docs/schemas/status.json` and keeps `status_json_contract_version` in sync.
-- [ ] `--prom` remains parseable and ANSI-free.
-- [ ] `--strict` fails non-zero with a clear error if summary/JSON are malformed.
+- text layout changes
+- JSON shape changes
+- filtering behavior changes
+- ANSI/color behavior changes
+- exit behavior changes
+- new fields are added to automation output
+
+## Cross-cutting checks
+
+- [ ] Machine-readable outputs (`--json`, `--prom`, CSV, summary lines) stay ANSI-free and parser-safe
+- [ ] `NO_COLOR=1` disables color reliably
+- [ ] `LM_FORCE_COLOR=1` affects only human/table views
+- [ ] No debug or progress noise is added to stdout for machine-facing commands
+- [ ] New user-facing fields are documented in [reference.md](reference.md) and [QUICK_REFERENCE.md](QUICK_REFERENCE.md) when appropriate
+- [ ] If JSON keys or types change, bump the matching `*_json_contract_version` and update the schema under `docs/schemas/`
+
+## `status`
+
+- [ ] Default output still includes `totals:` and `problems:`
+- [ ] `--summary` still includes `overall=`
+- [ ] `--summary --table` still includes the `STATUS  MONITOR` header
+- [ ] `--compact` still omits the large section headers
+- [ ] `--json` still validates against `docs/schemas/status.json`
+- [ ] `--prom` stays parseable and ANSI-free
+- [ ] `--strict` fails clearly when summary or JSON input is malformed
 
 Suggested tests:
+
 - `tests/status_contract_test.sh`
 - `tests/status_summary_test.sh`
 - `tests/status_json_schema_test.sh`
@@ -33,32 +47,40 @@ Suggested tests:
 - `tests/status_prom_test.sh`
 - `tests/json_output_clean_test.sh`
 
-## `report` checklist
-- [ ] Header `=== linux-maint report ===` still prints and `mode=` is present.
-- [ ] `--compact` includes a `totals:` line.
-- [ ] `--table` includes the `STATUS  MONITOR` header and totals table.
-- [ ] `--json` validates against `docs/schemas/report.json` and keeps `report_json_contract_version` in sync.
-- [ ] ANSI behavior matches `NO_COLOR` and `LM_FORCE_COLOR` expectations.
+## `report`
+
+- [ ] Header `=== linux-maint report ===` still prints and `mode=` remains present
+- [ ] `--compact` still includes a `totals:` line
+- [ ] `--table` still includes the `STATUS  MONITOR` header and totals table
+- [ ] `--json` still validates against `docs/schemas/report.json`
+- [ ] ANSI behavior still matches `NO_COLOR` and `LM_FORCE_COLOR`
 
 Suggested tests:
+
 - `tests/report_command_test.sh`
 - `tests/report_short_test.sh`
 - `tests/json_output_clean_test.sh`
 
-## `summary` checklist
-- [ ] Output includes `overall=` and stays single-line.
-- [ ] `NO_COLOR=1` produces ANSI-free output.
-- [ ] No extra lines are printed to stdout.
+## `summary`
+
+- [ ] Output still includes `overall=`
+- [ ] Output stays single-line
+- [ ] `NO_COLOR=1` stays ANSI-free
+- [ ] No extra stdout lines are introduced
 
 Suggested tests:
+
 - `tests/summary_command_test.sh`
 - `tests/json_output_clean_test.sh`
 
-## `diff` checklist
-- [ ] Uses last summary monitor-lines from state dir and reports deltas consistently.
-- [ ] ANSI is present only when color is enabled, and never when `NO_COLOR=1`.
-- [ ] Output remains human-readable without impacting machine outputs.
+## `diff`
+
+- [ ] State-file driven comparison still works from the active state dir
+- [ ] Delta reporting remains stable for new failures, recovered items, and still-bad rows
+- [ ] ANSI appears only when color is enabled
+- [ ] Human readability changes do not leak into machine outputs
 
 Suggested tests:
+
 - `tests/diff_color_test.sh`
 - `tests/summary_diff_canonicalization_test.sh`
