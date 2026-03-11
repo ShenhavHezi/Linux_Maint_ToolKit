@@ -11,9 +11,9 @@ This directory holds the reusable shell libraries loaded by `bin/linux-maint` an
 - `linux_maint_tui.sh` — menu/TUI helpers and workflow rendering.
 - `linux_maint_reporting.sh` — reporting and export command helpers.
 - `linux_maint_advanced.sh` — plugin and advanced command helpers.
+- `linux_maint_history.sh` — history and run-index command helpers.
 - `linux_maint_conf.sh` — installed-mode configuration loader/defaults.
 
 ## Design intent
 
 The split keeps `bin/linux-maint` from becoming a monolith while preserving a Bash-only runtime.
-

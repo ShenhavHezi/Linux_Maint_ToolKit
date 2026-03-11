@@ -156,6 +156,7 @@ run_required "history_repo_hint_test" bash "$ROOT_DIR/tests/history_repo_hint_te
 run_required "history_sqlite_test" bash "$ROOT_DIR/tests/history_sqlite_test.sh"
 run_required "history_invalid_run_index_test" bash "$ROOT_DIR/tests/history_invalid_run_index_test.sh"
 run_required "history_large_index_perf_test" bash "$ROOT_DIR/tests/history_large_index_perf_test.sh"
+run_required "plugin_invalid_name_test" bash "$ROOT_DIR/tests/plugin_invalid_name_test.sh"
 run_required "tune_dark_site_repo_mode_test" bash "$ROOT_DIR/tests/tune_dark_site_repo_mode_test.sh"
 run_required "tune_dark_site_duplicate_key_test" bash "$ROOT_DIR/tests/tune_dark_site_duplicate_key_test.sh"
 run_required "summary_command_test" bash "$ROOT_DIR/tests/summary_command_test.sh"

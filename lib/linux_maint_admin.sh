@@ -140,6 +140,7 @@ linux_maint_cmd_verify_install() {
     linux_maint_check_file "tui support lib" "$PREFIX/lib/linux_maint_tui.sh"
     linux_maint_check_file "reporting support lib" "$PREFIX/lib/linux_maint_reporting.sh"
     linux_maint_check_file "advanced support lib" "$PREFIX/lib/linux_maint_advanced.sh"
+    linux_maint_check_file "history support lib" "$PREFIX/lib/linux_maint_history.sh"
   fi
 
   if [[ "$MODE" == "repo" ]]; then

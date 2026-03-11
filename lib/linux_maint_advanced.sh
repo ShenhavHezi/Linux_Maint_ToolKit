@@ -41,6 +41,19 @@ plugin_registry_file(){
   printf '%s/registry.json' "$root"
 }
 
+plugin_name_is_valid() {
+  [[ "${1:-}" =~ ^[A-Za-z0-9._-]+$ ]]
+}
+
+plugin_validate_name_or_die() {
+  local name="${1:-}" context="${2:-plugin name}"
+  if ! plugin_name_is_valid "$name"; then
+    echo "ERROR: invalid plugin name for $context: $name" >&2
+    echo "Plugin names must match [A-Za-z0-9._-]+" >&2
+    exit 2
+  fi
+}
+
 linux_maint_cmd_plugin() {
     if [[ "$MODE" == "repo" ]]; then
       export LM_CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
@@ -751,6 +764,9 @@ EOF
           echo "ERROR: plugin source directory not found: $src" >&2
           exit 2
         fi
+        if [[ -n "$pname" ]]; then
+          plugin_validate_name_or_die "$pname" "plugin install --name"
+        fi
         if [[ "$MODE" == "installed" ]]; then
           need_root_for plugin
         fi
@@ -762,6 +778,8 @@ EOF
 import datetime, json, os, shutil, sys, tempfile
 src, root, reg_file, pname, force = sys.argv[1:6]
 force = force == "1"
+def valid_name(value):
+    return bool(value) and all(ch.isalnum() or ch in "._-" for ch in value)
 manifest_path = os.path.join(src, "plugin.json")
 meta = {"name": os.path.basename(os.path.abspath(src)), "version": "0.0.0", "description": "", "source": src}
 if os.path.exists(manifest_path):
@@ -777,6 +795,10 @@ if os.path.exists(manifest_path):
 if pname:
     meta["name"] = pname
 name = meta["name"]
+if not valid_name(name):
+    print(f"ERROR: invalid plugin name: {name}", file=sys.stderr)
+    print("Plugin names must match [A-Za-z0-9._-]+", file=sys.stderr)
+    raise SystemExit(2)
 dest = os.path.join(root, name)
 if os.path.exists(dest) and not force:
     print(f"ERROR: plugin already exists: {name}", file=sys.stderr)
@@ -853,6 +875,7 @@ PY
         name="${1:-}"
         shift || true
         [[ -n "$name" ]] || { echo "ERROR: plugin update requires <name>" >&2; exit 2; }
+        plugin_validate_name_or_die "$name" "plugin update"
         src=""
         idx_file="$(plugin_index_default_path)"
         force=1
@@ -917,6 +940,7 @@ PY
         name="${1:-}"
         shift || true
         [[ -n "$name" ]] || { echo "ERROR: plugin verify requires <name>" >&2; exit 2; }
+        plugin_validate_name_or_die "$name" "plugin verify"
         PLUG_JSON=0
         while [[ $# -gt 0 ]]; do
           case "$1" in
@@ -1202,6 +1226,7 @@ PY
         name="${1:-}"
         shift || true
         [[ -n "$name" ]] || { echo "ERROR: plugin remove requires <name>" >&2; exit 2; }
+        plugin_validate_name_or_die "$name" "plugin remove"
         if [[ "$MODE" == "installed" ]]; then
           need_root_for plugin
         fi

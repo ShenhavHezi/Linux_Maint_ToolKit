@@ -20,7 +20,7 @@ mkdir -p "$prefix/bin" "$prefix/sbin" "$prefix/lib" "$prefix/libexec/linux_maint
 
 cp "$ROOT_DIR/bin/linux-maint" "$prefix/bin/linux-maint"
 chmod +x "$prefix/bin/linux-maint"
-for support_lib in linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh linux_maint_tui.sh linux_maint_reporting.sh linux_maint_advanced.sh; do
+for support_lib in linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh linux_maint_tui.sh linux_maint_reporting.sh linux_maint_advanced.sh linux_maint_history.sh; do
   cp "$ROOT_DIR/lib/$support_lib" "$prefix/lib/$support_lib"
 done
 printf '#!/usr/bin/env bash\nexit 0\n' > "$prefix/sbin/run_full_health_monitor.sh"
@@ -81,6 +81,12 @@ printf '%s\n' "$out" | grep -q "^OK: reporting support lib: $prefix/lib/linux_ma
 
 printf '%s\n' "$out" | grep -q "^OK: advanced support lib: $prefix/lib/linux_maint_advanced.sh$" || {
   echo "verify-install did not validate installed advanced support lib" >&2
+  echo "$out" >&2
+  exit 1
+}
+
+printf '%s\n' "$out" | grep -q "^OK: history support lib: $prefix/lib/linux_maint_history.sh$" || {
+  echo "verify-install did not validate installed history support lib" >&2
   echo "$out" >&2
   exit 1
 }

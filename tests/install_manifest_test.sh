@@ -26,6 +26,8 @@ reporting_install_pattern='lib/linux_maint_reporting.sh "$lib/linux_maint_report
 # shellcheck disable=SC2016
 advanced_install_pattern='lib/linux_maint_advanced.sh "$lib/linux_maint_advanced.sh"'
 # shellcheck disable=SC2016
+history_install_pattern='lib/linux_maint_history.sh "$lib/linux_maint_history.sh"'
+# shellcheck disable=SC2016
 runtime_remove_pattern='rm -f "$prefix/lib/linux_maint_runtime.sh"'
 # shellcheck disable=SC2016
 admin_remove_pattern='rm -f "$prefix/lib/linux_maint_admin.sh"'
@@ -35,6 +37,8 @@ tui_remove_pattern='rm -f "$prefix/lib/linux_maint_tui.sh"'
 reporting_remove_pattern='rm -f "$prefix/lib/linux_maint_reporting.sh"'
 # shellcheck disable=SC2016
 advanced_remove_pattern='rm -f "$prefix/lib/linux_maint_advanced.sh"'
+# shellcheck disable=SC2016
+history_remove_pattern='rm -f "$prefix/lib/linux_maint_history.sh"'
 # shellcheck disable=SC2016
 share_remove_pattern='rm -rf "$prefix/share/linux_maint"'
 
@@ -83,6 +87,11 @@ grep -Fq "$advanced_install_pattern" "$script" || {
   exit 1
 }
 
+grep -Fq "$history_install_pattern" "$script" || {
+  echo "install.sh no longer installs linux_maint_history.sh" >&2
+  exit 1
+}
+
 grep -Fq "$bin_remove_pattern" "$script" || {
   echo "install.sh uninstall no longer removes installed linux-maint binary" >&2
   exit 1
@@ -115,6 +124,11 @@ grep -Fq "$reporting_remove_pattern" "$script" || {
 
 grep -Fq "$advanced_remove_pattern" "$script" || {
   echo "install.sh uninstall no longer removes linux_maint_advanced.sh" >&2
+  exit 1
+}
+
+grep -Fq "$history_remove_pattern" "$script" || {
+  echo "install.sh uninstall no longer removes linux_maint_history.sh" >&2
   exit 1
 }
 

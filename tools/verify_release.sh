@@ -99,6 +99,7 @@ lib/linux_maint_help.sh
 lib/linux_maint_tui.sh
 lib/linux_maint_reporting.sh
 lib/linux_maint_advanced.sh
+lib/linux_maint_history.sh
 tools/verify_release.sh
 tools/upgrade_release.sh
 tools/pack_logs.sh

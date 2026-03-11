@@ -78,6 +78,7 @@ write_payload_inventory() {
       "lib/linux_maint_tui.sh" \
       "lib/linux_maint_reporting.sh" \
       "lib/linux_maint_advanced.sh" \
+      "lib/linux_maint_history.sh" \
       "libexec/linux_maint" \
       "share/linux_maint" \
       "share/Linux_Maint_ToolKit"
