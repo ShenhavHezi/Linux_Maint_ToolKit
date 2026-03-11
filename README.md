@@ -125,16 +125,7 @@ If you prefer the menu, start with:
   <img src="docs/assets/menu_demo.gif" alt="linux-maint menu demo gif" width="96%">
 </p>
 
-<p align="center">
-  <img src="docs/assets/menu_welcome_capture.png" alt="linux-maint menu welcome capture" width="96%">
-</p>
-
-<p align="center">
-  <img src="docs/assets/menu_dashboard_capture.png" alt="linux-maint menu overview capture" width="48%">
-  <img src="docs/assets/menu_triage_capture.png" alt="linux-maint menu triage capture" width="48%">
-</p>
-
-These are current captures rendered from the real menu frame output in the test fixtures, not concept art.
+This GIF is rendered from the real menu frame output in the repo fixtures, not concept art.
 
 The menu is designed around the same operator flow as the CLI and docs:
 

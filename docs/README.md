@@ -10,16 +10,7 @@ This is the fastest way to navigate `linux-maint` without guessing which file ma
   <img src="assets/menu_demo.gif" alt="linux-maint menu demo gif" width="96%">
 </p>
 
-<p align="center">
-  <img src="assets/menu_welcome_capture.png" alt="linux-maint menu welcome capture" width="96%">
-</p>
-
-<p align="center">
-  <img src="assets/menu_dashboard_capture.png" alt="linux-maint menu overview capture" width="48%">
-  <img src="assets/menu_triage_capture.png" alt="linux-maint menu triage capture" width="48%">
-</p>
-
-These are current captures rendered from the real menu frame output in the test fixtures.
+This GIF is rendered from the real menu frame output in the repo fixtures.
 
 ## Start Here
 
