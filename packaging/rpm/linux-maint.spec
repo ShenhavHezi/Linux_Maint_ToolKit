@@ -44,6 +44,9 @@ install -d %{buildroot}/usr/share/linux_maint
 install -d %{buildroot}/usr/share/linux_maint/plugins
 install -d %{buildroot}/usr/share/linux_maint/templates
 install -d %{buildroot}/usr/share/Linux_Maint_ToolKit/docs
+install -d %{buildroot}/etc/linux_maint
+install -d %{buildroot}/etc/linux_maint/conf.d
+install -d %{buildroot}/etc/linux_maint/baselines
 
 install -m 0755 bin/linux-maint %{buildroot}/usr/bin/linux-maint
 install -m 0755 run_full_health_monitor.sh %{buildroot}/usr/sbin/run_full_health_monitor.sh
@@ -105,6 +108,9 @@ fi
 /usr/share/Linux_Maint_ToolKit/docs/
 /usr/lib/systemd/system/linux-maint.service
 /usr/lib/systemd/system/linux-maint.timer
+%dir /etc/linux_maint
+%dir /etc/linux_maint/conf.d
+%dir /etc/linux_maint/baselines
 
 %changelog
 * Thu Feb 05 2026 shenhav <shenhav@localhost> - 0.1.0-1
