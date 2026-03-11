@@ -26,6 +26,8 @@
 <p align="center">
   <a href="#quick-start">Quick start</a>
   ·
+  <a href="docs/FIRST_5_MINUTES.md">First 5 minutes</a>
+  ·
   <a href="#operator-workflow">Operator workflow</a>
   ·
   <a href="#documentation-map">Documentation map</a>
@@ -120,6 +122,10 @@ If you prefer the menu, start with:
 ## See The Menu
 
 <p align="center">
+  <img src="docs/assets/menu_demo.gif" alt="linux-maint menu demo gif" width="96%">
+</p>
+
+<p align="center">
   <img src="docs/assets/menu_welcome_capture.png" alt="linux-maint menu welcome capture" width="96%">
 </p>
 
@@ -164,6 +170,7 @@ The menu is designed around the same operator flow as the CLI and docs:
 | If you need to... | Start here |
 | --- | --- |
 | Get oriented quickly | [docs/README.md](docs/README.md) |
+| Get from zero to first useful run | [docs/FIRST_5_MINUTES.md](docs/FIRST_5_MINUTES.md) |
 | Find the most common commands | [docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md) |
 | Install on a host | [docs/installation.md](docs/installation.md) |
 | Upgrade or roll back safely | [docs/UPGRADE.md](docs/UPGRADE.md) |

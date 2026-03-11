@@ -79,6 +79,20 @@ def render_terminal_block(text: str, output: Path, title: str) -> None:
     image.save(output)
 
 
+def build_demo_gif(frames: list[Path], output: Path) -> None:
+    images = [Image.open(path).convert("P", palette=Image.Palette.ADAPTIVE, colors=128) for path in frames]
+    durations = [1200, 900, 900, 900, 1100][: len(images)]
+    images[0].save(
+        output,
+        save_all=True,
+        append_images=images[1:],
+        duration=durations,
+        loop=0,
+        optimize=False,
+        disposal=2,
+    )
+
+
 def capture_main_menu_text() -> str:
     summary_json = (
         '{"rows":[{"monitor":"network_monitor","host":"web-2","status":"CRIT","reason":"http_failed"},'
@@ -125,11 +139,18 @@ def main() -> int:
     ASSETS.mkdir(parents=True, exist_ok=True)
     main_text = capture_main_menu_text()
     overview = load_text(FIXTURES / "menu_section_frame.txt")
+    quickstart = extract_section(load_text(FIXTURES / "menu_all_sections.txt"), "Quickstart")
     triage = extract_section(load_text(FIXTURES / "menu_all_sections.txt"), "Triage")
+    share = extract_section(load_text(FIXTURES / "menu_all_sections.txt"), "Share")
     render_terminal_block(
         main_text,
         ASSETS / "menu_welcome_capture.png",
         "Current menu capture: Welcome",
+    )
+    render_terminal_block(
+        quickstart,
+        ASSETS / "menu_quickstart_capture.png",
+        "Current menu capture: Quickstart",
     )
     render_terminal_block(
         overview,
@@ -140,6 +161,21 @@ def main() -> int:
         triage,
         ASSETS / "menu_triage_capture.png",
         "Current menu capture: Triage",
+    )
+    render_terminal_block(
+        share,
+        ASSETS / "menu_share_capture.png",
+        "Current menu capture: Share",
+    )
+    build_demo_gif(
+        [
+            ASSETS / "menu_welcome_capture.png",
+            ASSETS / "menu_quickstart_capture.png",
+            ASSETS / "menu_dashboard_capture.png",
+            ASSETS / "menu_triage_capture.png",
+            ASSETS / "menu_share_capture.png",
+        ],
+        ASSETS / "menu_demo.gif",
     )
     print("rendered menu capture assets")
     return 0

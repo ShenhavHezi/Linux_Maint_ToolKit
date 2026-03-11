@@ -5,6 +5,7 @@ Use this page when you already know roughly what you need and want the shortest 
 ## Core entry points
 
 - [README.md](README.md)
+- [FIRST_5_MINUTES.md](FIRST_5_MINUTES.md)
 - [QUICK_REFERENCE.md](QUICK_REFERENCE.md)
 - [reference.md](reference.md)
 - [troubleshooting.md](troubleshooting.md)

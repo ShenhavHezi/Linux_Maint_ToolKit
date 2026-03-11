@@ -7,6 +7,10 @@ This is the fastest way to navigate `linux-maint` without guessing which file ma
 ## Menu preview
 
 <p align="center">
+  <img src="assets/menu_demo.gif" alt="linux-maint menu demo gif" width="96%">
+</p>
+
+<p align="center">
   <img src="assets/menu_welcome_capture.png" alt="linux-maint menu welcome capture" width="96%">
 </p>
 
@@ -22,6 +26,7 @@ These are current captures rendered from the real menu frame output in the test 
 | If you want to... | Open this |
 | --- | --- |
 | Understand what the toolkit does | [../README.md](../README.md) |
+| Get through the first useful run fast | [FIRST_5_MINUTES.md](FIRST_5_MINUTES.md) |
 | Get the most common commands fast | [QUICK_REFERENCE.md](QUICK_REFERENCE.md) |
 | Install on a host | [installation.md](installation.md) |
 | Upgrade or roll back safely | [UPGRADE.md](UPGRADE.md) |
@@ -46,6 +51,7 @@ Use this order if you are operating the toolkit on a real system.
 
 ### Get productive quickly
 
+- [FIRST_5_MINUTES.md](FIRST_5_MINUTES.md)
 - [QUICK_REFERENCE.md](QUICK_REFERENCE.md)
 - [RUNBOOK.md](RUNBOOK.md)
 - [OPERATIONS.md](OPERATIONS.md)
