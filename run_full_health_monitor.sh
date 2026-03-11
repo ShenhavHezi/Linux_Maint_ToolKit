@@ -148,6 +148,8 @@ if [[ "${LM_ALLOW_CONCURRENT}" != "1" && "${LM_ALLOW_CONCURRENT}" != "true" ]]; 
         if ! kill -0 "$stale_pid" 2>/dev/null; then
           rm -f "$lock_meta_file" 2>/dev/null || true
         fi
+      else
+        rm -f "$lock_meta_file" 2>/dev/null || true
       fi
     fi
 
@@ -156,8 +158,14 @@ if [[ "${LM_ALLOW_CONCURRENT}" != "1" && "${LM_ALLOW_CONCURRENT}" != "true" ]]; 
       lock_owner=""
       lock_started=""
       if [[ -f "$lock_meta_file" ]]; then
-        lock_owner="$(awk -F= '$1=="pid"{print $2; exit}' "$lock_meta_file" 2>/dev/null || true)"
-        lock_started="$(awk -F= '$1=="started"{print $2; exit}' "$lock_meta_file" 2>/dev/null || true)"
+        lock_owner_raw="$(awk -F= '$1=="pid"{print $2; exit}' "$lock_meta_file" 2>/dev/null || true)"
+        lock_started_raw="$(awk -F= '$1=="started"{print $2; exit}' "$lock_meta_file" 2>/dev/null || true)"
+        if [[ "${lock_owner_raw:-}" =~ ^[0-9]+$ ]]; then
+          lock_owner="$lock_owner_raw"
+        fi
+        if [[ "${lock_started_raw:-}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^[:space:]]+$ ]]; then
+          lock_started="$lock_started_raw"
+        fi
       fi
       echo "ERROR: another linux-maint run is already in progress (lock: $lock_file owner_pid=${lock_owner:-unknown} started=${lock_started:-unknown})" >&2
       exit 2
@@ -417,15 +425,72 @@ if [[ -n "${LM_RESUME_RUN_ID:-}" ]]; then
   resume_from_run_id="${LM_RESUME_RUN_ID}"
   resume_state_file="${LM_STATE_DIR}/run_state_${LM_RESUME_RUN_ID}.log"
   if [[ -f "$resume_state_file" ]]; then
-    while IFS= read -r m; do
-      [[ -n "$m" ]] && completed_on_resume["$m"]=1
-    done < <(awk '
-      /^monitor=/ {
-        for (i=1; i<=NF; i++) {
-          if ($i ~ /^monitor=/) { sub(/^monitor=/, "", $i); print $i; break }
-        }
-      }
-    ' "$resume_state_file" 2>/dev/null | sort -u)
+    resume_state_monitors="$(mktemp -p "$TMPDIR" linux_maint_resume_monitors.XXXXXX 2>/dev/null || true)"
+    resume_state_err="$(mktemp -p "$TMPDIR" linux_maint_resume_err.XXXXXX 2>/dev/null || true)"
+    if [[ -n "$resume_state_monitors" && -n "$resume_state_err" ]] && python3 - "$resume_state_file" "$LM_RESUME_RUN_ID" >"$resume_state_monitors" 2>"$resume_state_err" <<'PY'
+import sys
+
+path, expected = sys.argv[1:3]
+run_id = None
+monitors = set()
+
+try:
+    fh = open(path, "r", encoding="utf-8", errors="ignore")
+except OSError as exc:
+    print(f"cannot read resume state: {exc}", file=sys.stderr)
+    raise SystemExit(2)
+
+with fh:
+    for lineno, raw in enumerate(fh, 1):
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("run_id="):
+            candidate = line.split("=", 1)[1].strip()
+            if not candidate:
+                print("empty run_id header", file=sys.stderr)
+                raise SystemExit(2)
+            if run_id is None:
+                run_id = candidate
+            elif run_id != candidate:
+                print("conflicting run_id headers", file=sys.stderr)
+                raise SystemExit(2)
+            continue
+        if not line.startswith("monitor="):
+            continue
+        monitor = status = rc = None
+        for field in line.split():
+            if field.startswith("monitor="):
+                monitor = field.split("=", 1)[1]
+            elif field.startswith("status="):
+                status = field.split("=", 1)[1]
+            elif field.startswith("rc="):
+                rc = field.split("=", 1)[1]
+        if not monitor or status is None or rc is None:
+            print(f"invalid monitor line at line {lineno}", file=sys.stderr)
+            raise SystemExit(2)
+        monitors.add(monitor)
+
+if run_id != expected:
+    if run_id is None:
+        print("missing run_id header", file=sys.stderr)
+    else:
+        print(f"run_id header mismatch ({run_id})", file=sys.stderr)
+    raise SystemExit(2)
+
+for monitor in sorted(monitors):
+    print(monitor)
+PY
+    then
+      while IFS= read -r m; do
+        [[ -n "$m" ]] && completed_on_resume["$m"]=1
+      done < "$resume_state_monitors"
+    else
+      resume_state_reason="$(head -n 1 "$resume_state_err" 2>/dev/null || true)"
+      [[ -n "$resume_state_reason" ]] || resume_state_reason="invalid resume state"
+      echo "WARN: resume state invalid for run_id=$LM_RESUME_RUN_ID ($resume_state_file): $resume_state_reason; running full monitor set" >&2
+    fi
+    rm -f "$resume_state_monitors" "$resume_state_err" 2>/dev/null || true
   else
     echo "WARN: resume state not found for run_id=$LM_RESUME_RUN_ID ($resume_state_file); running full monitor set" >&2
   fi

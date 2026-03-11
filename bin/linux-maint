@@ -4959,6 +4959,85 @@ print(run_id)
 PY
 }
 
+validate_resume_state_file(){
+  local run_id="${1:-}"
+  local state_dir resume_state_file resume_state_err resume_reason
+  [[ -n "$run_id" ]] || return 1
+  if [[ "$MODE" == "repo" ]]; then
+    state_dir="${LM_STATE_DIR:-$REPO_LOG_DIR}"
+  else
+    state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
+  fi
+  resume_state_file="${state_dir}/run_state_${run_id}.log"
+  if [[ ! -f "$resume_state_file" ]]; then
+    echo "ERROR: run --resume requires resume state file: $resume_state_file" >&2
+    return 2
+  fi
+  resume_state_err="$(mktemp -p "${TMPDIR:-/tmp}" linux_maint_resume_state.XXXXXX 2>/dev/null || true)"
+  if [[ -z "$resume_state_err" ]]; then
+    echo "ERROR: run --resume could not allocate validation temp file" >&2
+    return 2
+  fi
+  if python3 - "$resume_state_file" "$run_id" >/dev/null 2>"$resume_state_err" <<'PY'
+import sys
+
+path, expected = sys.argv[1:3]
+run_id = None
+
+try:
+    fh = open(path, "r", encoding="utf-8", errors="ignore")
+except OSError as exc:
+    print(f"cannot read resume state: {exc}", file=sys.stderr)
+    raise SystemExit(2)
+
+with fh:
+    for lineno, raw in enumerate(fh, 1):
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("run_id="):
+            candidate = line.split("=", 1)[1].strip()
+            if not candidate:
+                print("empty run_id header", file=sys.stderr)
+                raise SystemExit(2)
+            if run_id is None:
+                run_id = candidate
+            elif run_id != candidate:
+                print("conflicting run_id headers", file=sys.stderr)
+                raise SystemExit(2)
+            continue
+        if not line.startswith("monitor="):
+            continue
+        monitor = status = rc = None
+        for field in line.split():
+            if field.startswith("monitor="):
+                monitor = field.split("=", 1)[1]
+            elif field.startswith("status="):
+                status = field.split("=", 1)[1]
+            elif field.startswith("rc="):
+                rc = field.split("=", 1)[1]
+        if not monitor or status is None or rc is None:
+            print(f"invalid monitor line at line {lineno}", file=sys.stderr)
+            raise SystemExit(2)
+
+if run_id != expected:
+    if run_id is None:
+        print("missing run_id header", file=sys.stderr)
+    else:
+        print(f"run_id header mismatch ({run_id})", file=sys.stderr)
+    raise SystemExit(2)
+PY
+  then
+    rm -f "$resume_state_err" 2>/dev/null || true
+    return 0
+  fi
+  resume_reason="$(head -n 1 "$resume_state_err" 2>/dev/null || true)"
+  rm -f "$resume_state_err" 2>/dev/null || true
+  [[ -n "$resume_reason" ]] || resume_reason="invalid resume state"
+  echo "ERROR: run --resume requires valid resume state file: $resume_state_file ($resume_reason)" >&2
+  return 2
+}
+
 within_maintenance_window(){
   local cfg_dir="$1"
   local mw_file="${LM_MAINTENANCE_FILE:-$cfg_dir/maintenance_windows.conf}"
@@ -5276,6 +5355,9 @@ case "$subcmd" in
       if [[ -z "${resume_id:-}" ]]; then
         echo "ERROR: unable to resolve --resume target '$RUN_RESUME'" >&2
         echo "Hint: pass an explicit run_id from linux-maint history --json" >&2
+        exit 2
+      fi
+      if ! validate_resume_state_file "$resume_id"; then
         exit 2
       fi
       export LM_RESUME_RUN_ID="$resume_id"

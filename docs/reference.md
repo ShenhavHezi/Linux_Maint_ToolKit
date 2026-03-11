@@ -507,6 +507,7 @@ Prerequisites (any one):
   - `--skip a,b`: skip selected monitors.
   - `--strict`: fail the run if any monitor emits malformed summary lines (adds `reason=summary_invalid`).
   - `--resume RUN_ID|latest`: resume an interrupted run from saved state.
+    Requires a matching valid `run_state_<run_id>.log` in the active state directory.
   - `--retry N`: SSH retry count per host.
   - `--host-timeout N`: SSH timeout seconds per host command.
   - `--strategy fail-soft|fail-fast|quorum`: execution strategy for host fanout.

@@ -82,6 +82,7 @@ linux-maint run --strategy quorum --quorum-percent 80
 linux-maint run --drain-file <cfg_dir>/hosts_drain.txt --plan
 
 # Resume a previous interrupted run (explicit id or latest from history)
+# Requires the saved run_state_<run_id>.log for that interrupted run.
 linux-maint run --resume latest
 
 # Optional monitor privilege policy (in <cfg_dir>)
