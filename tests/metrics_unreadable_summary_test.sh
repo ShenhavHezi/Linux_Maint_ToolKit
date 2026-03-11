@@ -9,9 +9,11 @@ workdir="$(mktemp -d -p "$TMPDIR")"
 repo_copy="$workdir/repo"
 log_dir="$workdir/logs"
 cfg_dir="$workdir/etc"
+tmp_run_dir="$workdir/tmp"
 testlib_copy_repo_tracked "$repo_copy"
 LM="$repo_copy/bin/linux-maint"
-mkdir -p "$log_dir" "$cfg_dir"
+mkdir -p "$log_dir" "$cfg_dir" "$tmp_run_dir"
+chmod 1777 "$tmp_run_dir"
 trap 'chmod 0644 "$log_dir/full_health_monitor_summary_latest.log" 2>/dev/null || true; rm -rf "$workdir"' EXIT
 
 printf '%s\n' localhost > "$cfg_dir/servers.txt"
@@ -36,18 +38,19 @@ cat > "$log_dir/full_health_monitor_latest.log" <<'EOF'
 EOF
 
 run_metrics() {
-  LOG_DIR="$log_dir" SUMMARY_DIR="$log_dir" LM_CFG_DIR="$cfg_dir" bash "$LM" metrics --json
+  TMPDIR="$tmp_run_dir" LOG_DIR="$log_dir" SUMMARY_DIR="$log_dir" LM_CFG_DIR="$cfg_dir" bash "$LM" metrics --json
 }
 
 if [[ "$(id -u)" -eq 0 ]]; then
   if command -v su >/dev/null 2>&1 && id nobody >/dev/null 2>&1; then
     chmod 0755 "$workdir" "$repo_copy" "$log_dir" "$cfg_dir"
+    chmod 1777 "$tmp_run_dir"
     chmod -R a+rX "$repo_copy"
     chmod 0644 "$log_dir/last_status_full" "$log_dir/full_health_monitor_latest.log"
     chmod 0644 "$cfg_dir/servers.txt" "$cfg_dir/excluded.txt" "$cfg_dir/services.txt"
     chmod 000 "$log_dir/full_health_monitor_summary_latest.log"
     set +e
-    out="$(su -s /bin/bash nobody -c "HOME='$workdir' LOG_DIR='$log_dir' SUMMARY_DIR='$log_dir' LM_CFG_DIR='$cfg_dir' bash '$LM' metrics --json" 2>&1)"
+    out="$(su -s /bin/bash nobody -c "HOME='$workdir' TMPDIR='$tmp_run_dir' LOG_DIR='$log_dir' SUMMARY_DIR='$log_dir' LM_CFG_DIR='$cfg_dir' bash '$LM' metrics --json" 2>&1)"
     rc=$?
     set -e
     if [[ "$rc" -ne 0 ]]; then
