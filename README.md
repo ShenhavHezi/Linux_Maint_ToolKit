@@ -120,9 +120,11 @@ If you prefer the menu, start with:
 ## See The Menu
 
 <p align="center">
-  <img src="docs/assets/menu_dashboard.svg" alt="linux-maint menu dashboard screenshot" width="48%">
-  <img src="docs/assets/menu_triage.svg" alt="linux-maint menu triage screenshot" width="48%">
+  <img src="docs/assets/menu_dashboard_capture.png" alt="linux-maint menu overview capture" width="48%">
+  <img src="docs/assets/menu_triage_capture.png" alt="linux-maint menu triage capture" width="48%">
 </p>
+
+These are current captures rendered from the real menu frame output in the test fixtures, not concept art.
 
 The menu is designed around the same operator flow as the CLI and docs:
 
