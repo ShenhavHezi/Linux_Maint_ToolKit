@@ -54,11 +54,11 @@ monitor=runtime_guard host=runner status=WARN reason=runtime_exceeded target_mon
 S
 
 json_out="$(bash "$LM" status --json --reasons 2)"
-printf '%s' "$json_out" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["status_json_contract_version"]==1; assert isinstance(o["mode"],str); assert isinstance(o["last_status"],dict); assert isinstance(o["totals"],dict); assert isinstance(o["problems"],list); assert isinstance(o["summary_file"],str); assert set(["CRIT","WARN","UNKNOWN","SKIP","OK"])<=set(o["totals"].keys()); rr=o.get("reason_rollup"); assert isinstance(rr,list); assert len(rr)==2; rw=o.get("runtime_warnings"); assert isinstance(rw,list); assert len(rw)==1; assert rw[0]["monitor"]=="runtime_guard"; assert rw[0]["target_monitor"]=="service_monitor"'
+printf '%s' "$json_out" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["status_json_contract_version"]==1; assert isinstance(o["mode"],str); assert isinstance(o["last_status"],dict); assert isinstance(o["totals"],dict); assert isinstance(o["problems"],list); assert isinstance(o["summary_file"],str); assert o["last_status_state"]=="malformed"; assert "missing:overall" in o["last_status_errors"]; assert "missing:exit_code" in o["last_status_errors"]; assert "missing:run_id" in o["last_status_errors"]; assert set(["CRIT","WARN","UNKNOWN","SKIP","OK"])<=set(o["totals"].keys()); rr=o.get("reason_rollup"); assert isinstance(rr,list); assert len(rr)==2; rw=o.get("runtime_warnings"); assert isinstance(rw,list); assert len(rw)==1; assert rw[0]["monitor"]=="runtime_guard"; assert rw[0]["target_monitor"]=="service_monitor"'
 
 # Nullability contract: missing summary file => summary_file is null and empty totals.
 rm -f "$SUMMARY_FILE"
 json_missing="$(bash "$LM" status --json)"
-printf '%s' "$json_missing" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["status_json_contract_version"]==1; assert o["summary_file"] is None; assert o["totals"]["CRIT"]==0 and o["totals"]["WARN"]==0 and o["totals"]["UNKNOWN"]==0 and o["totals"]["SKIP"]==0 and o["totals"]["OK"]==0; assert o["problems"]==[]'
+printf '%s' "$json_missing" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["status_json_contract_version"]==1; assert o["summary_file"] is None; assert o["last_status_state"]=="malformed"; assert o["totals"]["CRIT"]==0 and o["totals"]["WARN"]==0 and o["totals"]["UNKNOWN"]==0 and o["totals"]["SKIP"]==0 and o["totals"]["OK"]==0; assert o["problems"]==[]'
 
 echo "status json compat ok"

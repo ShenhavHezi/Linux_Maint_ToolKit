@@ -7,6 +7,9 @@
     "run_id",
     "status_json_contract_version",
     "mode",
+    "last_status_file",
+    "last_status_state",
+    "last_status_errors",
     "last_status",
     "summary_file",
     "totals",
@@ -18,6 +21,12 @@
     "run_id": { "type": "string" },
     "status_json_contract_version": { "type": "integer" },
     "mode": { "type": "string" },
+    "last_status_file": { "type": ["string", "null"] },
+    "last_status_state": { "type": "string", "enum": ["ok", "missing", "unreadable", "malformed"] },
+    "last_status_errors": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
     "last_status": {
       "type": "object",
       "additionalProperties": { "type": "string" }

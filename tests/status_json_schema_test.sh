@@ -55,5 +55,6 @@ S
 
 json_out="$(bash "$LM" status --json --reasons 2)"
 printf '%s' "$json_out" | python3 "$ROOT_DIR/tools/json_schema_validate.py" "$ROOT_DIR/docs/schemas/status.json"
+printf '%s' "$json_out" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["last_status_state"]=="malformed"; assert isinstance(o["last_status_errors"], list)'
 
 echo "status json schema ok"

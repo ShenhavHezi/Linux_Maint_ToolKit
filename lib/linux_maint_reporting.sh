@@ -57,6 +57,30 @@ linux_maint_reporting_latest_log() {
     fi
 }
 
+linux_maint_reporting_status_file_state() {
+    local path="$1"
+    local -a missing=()
+    local key
+    if [[ -z "$path" || ! -e "$path" ]]; then
+      printf 'missing\n'
+      return 0
+    fi
+    if [[ ! -r "$path" ]]; then
+      printf 'unreadable\n'
+      return 0
+    fi
+    for key in overall exit_code timestamp run_id; do
+      if ! grep -q "^${key}=" "$path" 2>/dev/null; then
+        missing+=("$key")
+      fi
+    done
+    if [[ "${#missing[@]}" -gt 0 ]]; then
+      printf 'malformed:%s\n' "$(IFS=,; echo "${missing[*]}")"
+      return 0
+    fi
+    printf 'ok\n'
+}
+
 linux_maint_cmd_report() {
     REPORT_JSON=0
     REPORT_COLOR=1
@@ -232,6 +256,9 @@ if status_rc != 0:
     raise SystemExit(2)
 if not isinstance(status, dict) or "last_status" not in status or "totals" not in status:
     print("ERROR: report requires valid JSON from status --json", file=sys.stderr)
+    raise SystemExit(2)
+if status.get("last_status_state") in ("unreadable", "malformed"):
+    print("ERROR: report requires readable last_status_full metadata from status --json", file=sys.stderr)
     raise SystemExit(2)
 
 if json_mode:
@@ -1258,6 +1285,19 @@ status=read_kv(status_path)
 run_id = ""
 if isinstance(status, dict):
     run_id = status.get("run_id", "")
+status_state = "missing"
+status_errors = []
+if status_path and os.path.exists(status_path):
+    if os.access(status_path, os.R_OK):
+        missing_keys = [k for k in ("overall", "exit_code", "timestamp", "run_id") if k not in status]
+        if missing_keys:
+            status_state = "malformed"
+            status_errors = [f"missing:{k}" for k in missing_keys]
+        else:
+            status_state = "ok"
+    else:
+        status_state = "unreadable"
+        status_errors = ["unreadable"]
 
 counts={}
 problems=[]
@@ -1306,6 +1346,9 @@ out={
     'schema_version': 1,
     'run_id': run_id,
     'status_json_contract_version': 1,
+    'last_status_file': status_path if status_path and os.path.exists(status_path) else None,
+    'last_status_state': status_state,
+    'last_status_errors': status_errors,
     'last_status': status,
     'summary_file': summary_path if summary_path and os.path.exists(summary_path) else None,
     'totals': {k: counts.get(k,0) for k in ['CRIT','WARN','UNKNOWN','SKIP','OK']},
@@ -1325,7 +1368,9 @@ PY
 
       # Banner: overall health (best-effort)
       status_file="$(linux_maint_reporting_status_file)"
-      if [[ -f "$status_file" ]]; then
+      status_state_info="$(linux_maint_reporting_status_file_state "$status_file")"
+      status_state="${status_state_info%%:*}"
+      if [[ -f "$status_file" && "$status_state" == "ok" ]]; then
         overall_val="$(awk -F= '$1=="overall"{print $2}' "$status_file" 2>/dev/null || true)"
         exit_val="$(awk -F= '$1=="exit_code"{print $2}' "$status_file" 2>/dev/null || true)"
         banner="health=${overall_val:-UNKNOWN} exit_code=${exit_val:-3}"
@@ -1350,8 +1395,14 @@ PY
       echo "linux_maint_lib: ${C_BOLD}${LINUX_MAINT_LIB:-}${C_RESET}"
       echo "logs: ${C_BOLD}${REPO_LOG_DIR}${C_RESET}"
       echo ""; section "Last run status"
+      status_state_info="$(linux_maint_reporting_status_file_state "$REPO_STATUS_FILE")"
+      status_state="${status_state_info%%:*}"
+      status_missing="${status_state_info#*:}"
       if [[ -f "$REPO_STATUS_FILE" && -r "$REPO_STATUS_FILE" ]]; then
         cat "$REPO_STATUS_FILE"
+        if [[ "$status_state" == "malformed" ]]; then
+          echo "Malformed status file: $REPO_STATUS_FILE (missing: ${status_missing//,/ , })"
+        fi
       elif [[ -f "$REPO_STATUS_FILE" ]]; then
         echo "Unreadable status file: $REPO_STATUS_FILE"
       else
@@ -1368,8 +1419,14 @@ PY
       [[ -f "$SHARE/BUILD_INFO" ]] && { echo ""; cat "$SHARE/BUILD_INFO"; }
       echo ""; section "Last run status"
       status_file="$(linux_maint_reporting_status_file)"
+      status_state_info="$(linux_maint_reporting_status_file_state "$status_file")"
+      status_state="${status_state_info%%:*}"
+      status_missing="${status_state_info#*:}"
       if [[ -f "$status_file" && -r "$status_file" ]]; then
         cat "$status_file"
+        if [[ "$status_state" == "malformed" ]]; then
+          echo "Malformed status file: $status_file (missing: ${status_missing//,/ , })"
+        fi
       elif [[ -f "$status_file" ]]; then
         echo "Unreadable status file: $status_file"
       else
