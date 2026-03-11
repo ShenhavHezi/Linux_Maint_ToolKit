@@ -1,34 +1,48 @@
-## Summary
+## Why this PR exists
 
-- What does this change do?
-- Why is it needed?
+- What changes here?
+- Why now?
+- Who benefits: operator, maintainer, packager, contributor, or mixed?
 
-## Scope
+## Change area
 
 - [ ] CLI behavior
-- [ ] TUI/menu behavior
+- [ ] Menu / TUI workflow
 - [ ] Monitor logic
-- [ ] Docs only
+- [ ] Install / upgrade / packaging
+- [ ] Release / CI / workflow tooling
+- [ ] Docs / runbook / templates
 - [ ] Tests only
 
-## Testing
+## Operator impact
+
+- User-facing change:
+- Default behavior changed:
+- Repo mode / installed mode considerations:
+- Rollback or recovery note:
+
+## Validation
 
 - [ ] `make lint`
 - [ ] `make test`
-- [ ] Manual verification (if TUI/interactive behavior changed)
+- [ ] `make quick-check`
+- [ ] Focused manual verification if interactive/package behavior changed
 
-## Compatibility
+Focused commands or scenarios:
 
-- [ ] JSON/schema contract unchanged
-- [ ] Summary line contract unchanged
-- [ ] If changed, docs + release notes updated
+```text
+# paste the real commands you ran
+```
 
-## Rollout
+## Contract and compatibility check
 
-- User impact:
-- Rollback plan:
-- Follow-up tasks (if any):
+- [ ] Summary line contract unchanged or intentionally updated with docs/tests
+- [ ] JSON/schema contract unchanged or intentionally updated with docs/tests
+- [ ] Help/docs/release notes updated when behavior changed
+- [ ] Dark-site / offline behavior considered where relevant
 
-## Notes
+## Risk review
 
-Any risk/rollout considerations?
+- Main risk:
+- How it was reduced:
+- Follow-up work, if any:

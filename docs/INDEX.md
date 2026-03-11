@@ -39,6 +39,7 @@ Use this page when you already know roughly what you need and want the shortest 
 - [COMMAND_CONTRACT_CHECKLIST.md](COMMAND_CONTRACT_CHECKLIST.md)
 - [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)
 - [RELEASE_TEMPLATE.md](RELEASE_TEMPLATE.md)
+- [release_notes/README.md](release_notes/README.md)
 - [release_notes/release_notes_v0.3.4.md](release_notes/release_notes_v0.3.4.md)
 - [release_notes/release_notes_v0.3.3.md](release_notes/release_notes_v0.3.3.md)
 

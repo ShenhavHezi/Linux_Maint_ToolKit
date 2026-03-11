@@ -1,0 +1,67 @@
+<svg width="1200" height="420" viewBox="0 0 1200 420" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">linux-maint documentation map</title>
+  <desc id="desc">A simple visual map showing prepare, run, triage, share, and release documentation areas.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="420" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#E2E8F0"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F8FAFC"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#94A3B8" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="420" rx="28" fill="url(#bg)"/>
+  <text x="56" y="72" fill="#0F172A" font-family="ui-sans-serif, system-ui, sans-serif" font-size="34" font-weight="700">linux-maint docs map</text>
+  <text x="56" y="104" fill="#475569" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18">Follow the same workflow in the docs, CLI help, and menu.</text>
+
+  <rect x="54" y="146" width="198" height="206" rx="22" fill="url(#card)" filter="url(#shadow)"/>
+  <rect x="282" y="146" width="198" height="206" rx="22" fill="url(#card)" filter="url(#shadow)"/>
+  <rect x="510" y="146" width="198" height="206" rx="22" fill="url(#card)" filter="url(#shadow)"/>
+  <rect x="738" y="146" width="198" height="206" rx="22" fill="url(#card)" filter="url(#shadow)"/>
+  <rect x="966" y="146" width="180" height="206" rx="22" fill="url(#card)" filter="url(#shadow)"/>
+
+  <rect x="72" y="166" width="88" height="10" rx="5" fill="#2563EB"/>
+  <text x="72" y="208" fill="#0F172A" font-family="ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700">Prepare</text>
+  <text x="72" y="240" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">installation</text>
+  <text x="72" y="264" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">configuration</text>
+  <text x="72" y="288" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">compatibility</text>
+  <text x="72" y="322" fill="#64748B" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">Start systems safely.</text>
+
+  <rect x="300" y="166" width="88" height="10" rx="5" fill="#16A34A"/>
+  <text x="300" y="208" fill="#0F172A" font-family="ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700">Run</text>
+  <text x="300" y="240" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">quick reference</text>
+  <text x="300" y="264" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">runbook</text>
+  <text x="300" y="288" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">menu / help</text>
+  <text x="300" y="322" fill="#64748B" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">Operate quickly.</text>
+
+  <rect x="528" y="166" width="88" height="10" rx="5" fill="#F59E0B"/>
+  <text x="528" y="208" fill="#0F172A" font-family="ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700">Triage</text>
+  <text x="528" y="240" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">troubleshooting</text>
+  <text x="528" y="264" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">reasons</text>
+  <text x="528" y="288" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">reference</text>
+  <text x="528" y="322" fill="#64748B" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">Find the real problem.</text>
+
+  <rect x="756" y="166" width="88" height="10" rx="5" fill="#7C3AED"/>
+  <text x="756" y="208" fill="#0F172A" font-family="ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700">Share</text>
+  <text x="756" y="240" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">artifacts</text>
+  <text x="756" y="264" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">upgrade</text>
+  <text x="756" y="288" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">dark-site</text>
+  <text x="756" y="322" fill="#64748B" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">Escalate and export.</text>
+
+  <rect x="984" y="166" width="88" height="10" rx="5" fill="#DC2626"/>
+  <text x="984" y="208" fill="#0F172A" font-family="ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700">Release</text>
+  <text x="984" y="240" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">release notes</text>
+  <text x="984" y="264" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">checklist</text>
+  <text x="984" y="288" fill="#334155" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">template</text>
+  <text x="984" y="322" fill="#64748B" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14">Ship and verify cleanly.</text>
+
+  <path d="M252 248H282" stroke="#94A3B8" stroke-width="4" stroke-linecap="round"/>
+  <path d="M480 248H510" stroke="#94A3B8" stroke-width="4" stroke-linecap="round"/>
+  <path d="M708 248H738" stroke="#94A3B8" stroke-width="4" stroke-linecap="round"/>
+  <path d="M936 248H966" stroke="#94A3B8" stroke-width="4" stroke-linecap="round"/>
+</svg>

@@ -2,6 +2,8 @@
 
 This is the fastest way to navigate `linux-maint` without guessing which file matters.
 
+![linux-maint docs map](assets/docs_map.svg)
+
 ## Start Here
 
 | If you want to... | Open this |
@@ -55,7 +57,7 @@ Use this order if you are operating the toolkit on a real system.
 - [DARK_SITE.md](DARK_SITE.md)
 - [ARTIFACTS.md](ARTIFACTS.md)
 - [UPGRADE.md](UPGRADE.md)
-- [release_notes](release_notes/)
+- [release_notes/README.md](release_notes/README.md)
 
 ## Menu and CLI Help
 
@@ -81,6 +83,7 @@ The menu follows the same flow as the docs:
 | Command contract checklist | [COMMAND_CONTRACT_CHECKLIST.md](COMMAND_CONTRACT_CHECKLIST.md) |
 | Release process | [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) |
 | Release note format | [RELEASE_TEMPLATE.md](RELEASE_TEMPLATE.md) |
+| Release history | [release_notes/README.md](release_notes/README.md) |
 | Plugin extension work | [PLUGIN_SDK.md](PLUGIN_SDK.md) |
 | Security handling | [../SECURITY.md](../SECURITY.md), [SECURITY_RESPONSE.md](SECURITY_RESPONSE.md) |
 

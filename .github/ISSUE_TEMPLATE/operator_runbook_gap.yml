@@ -1,0 +1,63 @@
+name: Operator runbook gap
+description: Report unclear guidance in docs, help text, menu wording, or operator workflows.
+title: "[Runbook gap]: "
+labels:
+  - documentation
+  - ops
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when the toolkit technically works, but the operator guidance is missing, hard to follow, or incomplete.
+  - type: textarea
+    id: task
+    attributes:
+      label: What were you trying to do?
+      description: Name the task, not just the page or command.
+      placeholder: Build a support bundle for escalation after a failed upgrade.
+    validations:
+      required: true
+  - type: textarea
+    id: current_flow
+    attributes:
+      label: What path did you try?
+      description: Include commands, menu sections, or docs pages.
+      placeholder: |
+        1. README
+        2. docs/UPGRADE.md
+        3. linux-maint menu -> Share
+    validations:
+      required: true
+  - type: textarea
+    id: missing_guidance
+    attributes:
+      label: What guidance was missing or unclear?
+      placeholder: The docs explain upgrade manifests but do not say which files to attach when escalating.
+    validations:
+      required: true
+  - type: dropdown
+    id: best_fix
+    attributes:
+      label: Where should the fix live?
+      options:
+        - README front page
+        - Quick reference
+        - Reference doc
+        - Troubleshooting guide
+        - Menu / TUI hint
+        - Command help text
+        - Release notes / upgrade docs
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS / distro and mode.
+      placeholder: Rocky Linux 9, installed mode
+  - type: textarea
+    id: suggested_text
+    attributes:
+      label: Suggested wording or fix
+      description: If you already know what should have been said, write it here.
+      placeholder: Add a “Support-ready escalation” subsection under docs/ARTIFACTS.md.

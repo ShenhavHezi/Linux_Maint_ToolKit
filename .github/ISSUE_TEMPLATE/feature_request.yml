@@ -1,0 +1,69 @@
+name: Feature request
+description: Propose an enhancement for operators, maintainers, packaging, or workflow quality.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for improvements that would make the toolkit more effective, safer, or easier to operate.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem should this solve?
+      description: Focus on the operator or maintainer pain, not just the feature name.
+      placeholder: First-time operators still need to bounce between the menu and docs to understand what “Share” includes.
+    validations:
+      required: true
+  - type: dropdown
+    id: persona
+    attributes:
+      label: Primary user
+      options:
+        - On-call operator
+        - Linux administrator
+        - Monitoring node maintainer
+        - Packager / release maintainer
+        - Plugin author
+        - Contributor / developer
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the change in terms of workflow, behavior, and output.
+      placeholder: Add a release history page that highlights the current release, previous stable release, and upgrade guidance.
+    validations:
+      required: true
+  - type: textarea
+    id: flow
+    attributes:
+      label: Desired user flow
+      description: Which command, menu path, or document should improve?
+      placeholder: linux-maint menu -> Share -> Release notes / Upgrade guide
+  - type: checkboxes
+    id: qualities
+    attributes:
+      label: What should the change preserve?
+      options:
+        - label: Backward-compatible CLI behavior
+        - label: Stable summary line contract
+        - label: Stable JSON/schema contracts
+        - label: Repo mode and installed mode parity
+        - label: Dark-site / offline friendliness
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List the minimum result that would make this feel complete.
+      placeholder: |
+        - New page linked from README and docs hub
+        - Latest release is visibly highlighted
+        - Upgrade path is clear for the previous stable release
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: Leave as docs-only, keep this in the README, or expose it only from the menu.

@@ -1,0 +1,102 @@
+name: Bug report
+description: Report a problem with linux-maint behavior, packaging, menu flows, or contracts.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this. Please keep the report concrete and operator-oriented.
+
+        Before filing:
+        - Check the [quick reference](https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/QUICK_REFERENCE.md)
+        - Check the [troubleshooting guide](https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/troubleshooting.md)
+        - If this is security-sensitive, use the private security channel instead of a public issue
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the actual behavior and the expected behavior.
+      placeholder: linux-maint status returned stale data from the wrong log path after a repo-mode override.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where is the problem?
+      options:
+        - CLI command output
+        - Menu / TUI flow
+        - Monitor behavior
+        - Packaging / install / upgrade
+        - Release artifact verification
+        - Docs / runbook guidance
+        - CI / test workflow
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Operating mode
+      options:
+        - repo mode
+        - installed mode
+        - both
+        - not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: linux-maint version
+      description: Output from `linux-maint version` or the release/tag you tested.
+      placeholder: v0.3.4
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS / distro
+      placeholder: RHEL 9.4 / Rocky Linux 9 / Ubuntu 24.04
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Keep this minimal and exact.
+      placeholder: |
+        1. Configure LOG_DIR override
+        2. Run linux-maint status
+        3. Observe stale artifact path
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Commands and output
+      description: Paste the key commands, logs, or summary lines. Redact secrets.
+      render: shell
+      placeholder: |
+        linux-maint check
+        linux-maint status --verbose
+        linux-maint doctor
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: Impact
+      options:
+        - label: Affects human CLI output or help text
+        - label: Affects menu / TUI behavior
+        - label: Affects summary line contract
+        - label: Affects JSON/schema contract
+        - label: Affects install / upgrade / rollback
+        - label: Affects RPM packaging
+  - type: textarea
+    id: extra
+    attributes:
+      label: Extra context
+      description: First known good version, workaround, screenshots, support bundle notes, or anything else useful.
+      placeholder: Support bundle generated successfully; workaround is to export LOG_DIR before running status.
