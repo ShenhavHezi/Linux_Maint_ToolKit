@@ -62,6 +62,10 @@ printf '%s\n' localhost > "$cfg/servers.txt"
 cat > "$cfg/linux-maint.conf" <<'EOF'
 LM_NOTIFY=0
 EOF
+cat > "$logs/full_health_monitor_latest.log" <<'EOF'
+repo log line 1
+repo log line 2
+EOF
 
 cat > "$state/run_index.jsonl" <<'EOF'
 {"run_id":"r1","timestamp":"2026-03-11T00:00:00Z","overall":"OK","exit_code":0,"hosts":{"crit":0,"warn":0,"unknown":0,"skipped":0,"ok":1}}
@@ -95,6 +99,27 @@ doctor_out="$(env "${common_env[@]}" "$lm" doctor --compact 2>&1)"
 printf '%s\n' "$doctor_out" | grep -q '^=== linux-maint doctor ===' || {
   echo "installed doctor should run without root" >&2
   echo "$doctor_out" >&2
+  exit 1
+}
+
+logs_out="$(env "${common_env[@]}" "$lm" logs 1 2>&1)"
+printf '%s\n' "$logs_out" | grep -q '^repo log line 2$' || {
+  echo "installed logs should run without root" >&2
+  echo "$logs_out" >&2
+  exit 1
+}
+
+preflight_out="$(env "${common_env[@]}" "$lm" preflight 2>&1)"
+printf '%s\n' "$preflight_out" | grep -q '^preflight stub$' || {
+  echo "installed preflight should run without root" >&2
+  echo "$preflight_out" >&2
+  exit 1
+}
+
+validate_out="$(env "${common_env[@]}" "$lm" validate 2>&1)"
+printf '%s\n' "$validate_out" | grep -q '^config-validate stub$' || {
+  echo "installed validate should run without root" >&2
+  echo "$validate_out" >&2
   exit 1
 }
 

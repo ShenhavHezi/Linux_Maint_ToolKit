@@ -5897,24 +5897,25 @@ PY
     fi
     ;;
   logs)
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for logs
+    n="${1:-200}"
+    latest_log="$(linux_maint_reporting_latest_log)"
+    if [[ ! -f "$latest_log" ]]; then
+      if [[ "$MODE" == "repo" ]]; then
+        echo "No repo log yet: $latest_log"
+      else
+        echo "No installed log yet: $latest_log"
+      fi
+      exit 1
     fi
-        n="${1:-200}"
-        if [[ "$MODE" == "repo" ]]; then
-          [[ -f "$REPO_LATEST_LOG" ]] || { echo "No repo log yet: $REPO_LATEST_LOG"; exit 1; }
-          if [[ -t 1 ]]; then
-            section "logs (last $n)"
-            echo "file=$REPO_LATEST_LOG"
-          fi
-          tail -n "$n" "$REPO_LATEST_LOG"
-        else
-          if [[ -t 1 ]]; then
-            section "logs (last $n)"
-            echo "file=/var/log/health/full_health_monitor_latest.log"
-          fi
-          exec sudo -n tail -n "$n" /var/log/health/full_health_monitor_latest.log 2>/dev/null || tail -n "$n" /var/log/health/full_health_monitor_latest.log
-        fi
+    if [[ -t 1 ]]; then
+      section "logs (last $n)"
+      echo "file=$latest_log"
+    fi
+    if [[ ! -r "$latest_log" ]]; then
+      echo "Unreadable log file: $latest_log" >&2
+      exit 1
+    fi
+    exec tail -n "$n" "$latest_log"
     ;;
 
   report)
@@ -6340,17 +6341,11 @@ PY
     ;;
 
   preflight)
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for preflight
-    fi
     # shellcheck disable=SC2154  # Populated by lm_init_runtime_context.
     exec bash "$preflight"
     ;;
 
   validate)
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for validate
-    fi
     # shellcheck disable=SC2154  # Populated by lm_init_runtime_context.
     exec bash "$validate"
     ;;

@@ -1282,7 +1282,7 @@ RUN_INDEX_FILE="${LM_RUN_INDEX_FILE:-$LM_STATE_DIR/run_index.jsonl}"
 RUN_INDEX_KEEP="${LM_RUN_INDEX_KEEP:-200}"
 RUN_INDEX_MAX_AGE_DAYS="${LM_RUN_INDEX_MAX_AGE_DAYS:-0}"
 # If the run index previously lived in a legacy location, seed it once.
-if [[ ! -f "$RUN_INDEX_FILE" ]]; then
+if [[ ! -f "$RUN_INDEX_FILE" && -z "${LM_RUN_INDEX_FILE:-}" && -z "${LM_STATE_DIR:-}" ]]; then
   for _old in /var/tmp/run_index.jsonl /var/tmp/linux_maint/run_index.jsonl /tmp/linux_maint/run_index.jsonl; do
     if [[ -f "$_old" ]]; then
       cp -f "$_old" "$RUN_INDEX_FILE" 2>/dev/null || true
