@@ -81,6 +81,63 @@ linux_maint_reporting_status_file_state() {
     printf 'ok\n'
 }
 
+linux_maint_reporting_summary_history_file_state() {
+    local path="$1"
+    local detail
+    if [[ -z "$path" || ! -e "$path" ]]; then
+      printf 'missing\n'
+      return 0
+    fi
+    if [[ ! -r "$path" ]]; then
+      printf 'unreadable\n'
+      return 0
+    fi
+    if detail="$(python3 - "$path" <<'PY'
+import sys
+
+path = sys.argv[1]
+allowed = {"OK", "WARN", "CRIT", "UNKNOWN", "SKIP"}
+had = False
+try:
+    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+        for line in f:
+            line = line.strip()
+            if not line.startswith("monitor="):
+                continue
+            had = True
+            row = {}
+            for tok in line.split():
+                if "=" not in tok:
+                    print("bad_token")
+                    raise SystemExit(1)
+                key, val = tok.split("=", 1)
+                row[key] = val
+            missing = [k for k in ("monitor", "host", "status") if k not in row]
+            if missing:
+                print("missing_" + "_".join(missing))
+                raise SystemExit(1)
+            if row["status"] not in allowed:
+                print("invalid_status")
+                raise SystemExit(1)
+except Exception:
+    print("unreadable")
+    raise SystemExit(2)
+if not had:
+    print("no_monitor_lines")
+    raise SystemExit(1)
+print("ok")
+PY
+)"; then
+      printf 'ok\n'
+      return 0
+    fi
+    if [[ "$detail" == "unreadable" ]]; then
+      printf 'unreadable\n'
+      return 0
+    fi
+    printf 'malformed:%s\n' "$detail"
+}
+
 linux_maint_cmd_report() {
     REPORT_JSON=0
     REPORT_COLOR=1
@@ -470,6 +527,18 @@ if trend and not no_trend:
         print("top_reasons:")
         for r in t_reasons[:10]:
             print(f"{r.get('reason')}={r.get('count')}")
+    t_warnings = trend.get("history_warnings", [])
+    if t_warnings:
+        print("history_warnings:")
+        for warn in t_warnings[:10]:
+            if isinstance(warn, dict):
+                detail = warn.get("detail")
+                msg = f"- skipped {warn.get('state','unknown')} history file: {warn.get('file','')}"
+                if detail:
+                    msg += f" ({detail})"
+                print(msg)
+            else:
+                print(f"- {warn}")
 
 rows = runtimes.get("rows", [])
 if rows and not no_slow:
@@ -996,7 +1065,17 @@ PY
       if [[ -n "$SINCE" ]]; then
         tmp_since="$(mktemp -p "$TMPDIR" linux_maint_status_since.XXXXXX.log)"
         _run_tmpfiles+=("$tmp_since")
-        python3 - "$log_dir" "$SINCE" <<'PY' | while IFS= read -r f; do
+        while IFS= read -r f; do
+          [[ -f "$f" ]] || continue
+          history_state_info="$(linux_maint_reporting_summary_history_file_state "$f")"
+          history_state="${history_state_info%%:*}"
+          history_detail="${history_state_info#*:}"
+          if [[ "$history_state" != "ok" ]]; then
+            echo "ERROR: strict status validation failed (bad history summary: $f [$history_state${history_detail:+:$history_detail}])" >&2
+            exit 2
+          fi
+          cat "$f" >> "$tmp_since"
+        done < <(python3 - "$log_dir" "$SINCE" <<'PY'
 import os, re, sys, time
 log_dir, since = sys.argv[1:3]
 m = re.match(r'^(\d+)([smhd])$', since)
@@ -1027,8 +1106,7 @@ rows.sort()
 for _,p in rows:
     print(p)
 PY
-          [[ -f "$f" ]] && cat "$f" >> "$tmp_since"
-        done
+)
         summary_file="$tmp_since"
       fi
       if [[ ! -f "$summary_file" ]]; then
@@ -1127,7 +1205,12 @@ PY
 
     # History mode: show last N wrapper runs (best-effort)
     if [[ "${LAST_N:-0}" -gt 0 ]]; then
+      local history_state_info history_state history_detail
+      local -a history_candidates=()
+      local -a history_warning_lines=()
+      local shown=0
       log_dir="$(linux_maint_reporting_summary_dir)"
+      mapfile -t history_candidates < <(find "$log_dir" -maxdepth 1 -type f -name 'full_health_monitor_summary_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9].log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | awk '{print $2}')
       echo "=== Last ${LAST_N} runs ==="
       color_total() {
         local kv="$1" key val
@@ -1146,8 +1229,18 @@ PY
           *) printf '%s' "$kv" ;;
         esac
       }
-      # shellcheck disable=SC2012
-      ls -1t "$log_dir"/full_health_monitor_summary_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9].log 2>/dev/null | head -n "$LAST_N" | while read -r f; do
+      for f in "${history_candidates[@]}"; do
+        history_state_info="$(linux_maint_reporting_summary_history_file_state "$f")"
+        history_state="${history_state_info%%:*}"
+        history_detail="${history_state_info#*:}"
+        if [[ "$history_state" != "ok" ]]; then
+          if [[ "$history_state" == "malformed" ]]; then
+            history_warning_lines+=("- skipped malformed history file: $f ($history_detail)")
+          else
+            history_warning_lines+=("- skipped ${history_state} history file: $f")
+          fi
+          continue
+        fi
         ts="$(basename "$f" | sed -E "s/^full_health_monitor_summary_([0-9-]+)_(\\d+)[.]log$/\1T\2/")"
         totals="$(awk '/^monitor=/{for(i=1;i<=NF;i++) if($i ~ /^status=/){split($i,a,"="); s=a[2]; c[s]++}} END{printf("CRIT=%d WARN=%d UNKNOWN=%d SKIP=%d OK=%d",c["CRIT"]+0,c["WARN"]+0,c["UNKNOWN"]+0,c["SKIP"]+0,c["OK"]+0)}' "$f" 2>/dev/null)"
         if [[ "$LM_COLOR" -eq 1 ]]; then
@@ -1158,7 +1251,19 @@ PY
           totals="${colored_totals[*]}"
         fi
         echo "$ts $totals file=$f"
+        shown=$((shown + 1))
+        if (( shown >= LAST_N )); then
+          break
+        fi
       done
+      if (( shown == 0 )); then
+        echo "No readable summary artifacts found in: $log_dir"
+      fi
+      if (( ${#history_warning_lines[@]} > 0 )); then
+        echo ""
+        echo "History warnings:"
+        printf '%s\n' "${history_warning_lines[@]}"
+      fi
       exit 0
     fi
 
@@ -1167,11 +1272,31 @@ PY
       status_file="$(linux_maint_reporting_status_file)"
       summary_file="$(linux_maint_reporting_summary_latest)"
       log_dir="$(linux_maint_reporting_summary_dir)"
+      history_warnings_json=""
 
       if [[ -n "$SINCE" ]]; then
         tmp_since="$(mktemp -p "$TMPDIR" linux_maint_status_since.XXXXXX.log)"
         _run_tmpfiles+=("$tmp_since")
-        python3 - "$log_dir" "$SINCE" <<'PY' | while IFS= read -r f; do
+        history_valid_files=0
+        while IFS= read -r f; do
+          [[ -f "$f" ]] || continue
+          history_state_info="$(linux_maint_reporting_summary_history_file_state "$f")"
+          history_state="${history_state_info%%:*}"
+          history_detail="${history_state_info#*:}"
+          if [[ "$history_state" == "ok" ]]; then
+            cat "$f" >> "$tmp_since"
+            history_valid_files=$((history_valid_files + 1))
+          else
+            if [[ -n "$history_warnings_json" ]]; then
+              history_warnings_json+=$'\n'
+            fi
+            if [[ "$history_state" == "malformed" ]]; then
+              history_warnings_json+="${history_state}:$f:$history_detail"
+            else
+              history_warnings_json+="${history_state}:$f"
+            fi
+          fi
+        done < <(python3 - "$log_dir" "$SINCE" <<'PY'
 import os, re, sys, time
 log_dir, since = sys.argv[1:3]
 m = re.match(r'^(\d+)([smhd])$', since)
@@ -1202,12 +1327,15 @@ rows.sort()
 for _,p in rows:
     print(p)
 PY
-          [[ -f "$f" ]] && cat "$f" >> "$tmp_since"
-        done
-        summary_file="$tmp_since"
+)
+        if (( history_valid_files > 0 )); then
+          summary_file="$tmp_since"
+        else
+          summary_file=""
+        fi
       fi
 
-      python3 - "$MODE" "$status_file" "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" <<'PY'
+      STATUS_HISTORY_WARNINGS="$history_warnings_json" python3 - "$MODE" "$status_file" "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" <<'PY'
 import json, os, re, sys
 
 mode, status_path, summary_path, only, limit, host_filter, monitor_filter, match_mode, reasons_limit = sys.argv[1:10]
@@ -1215,6 +1343,7 @@ limit=int(limit)
 reasons_limit=int(reasons_limit)
 redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
 redact_json_strict = os.environ.get("LM_REDACT_JSON_STRICT","0") in ("1","true","TRUE","yes","YES")
+history_warnings_raw = os.environ.get("STATUS_HISTORY_WARNINGS", "")
 
 def read_kv(path):
     d={}
@@ -1355,6 +1484,17 @@ out={
     'problems': problems[:limit],
     'runtime_warnings': runtime_warnings,
 }
+if history_warnings_raw:
+    warnings = []
+    for raw in history_warnings_raw.splitlines():
+        if not raw:
+            continue
+        parts = raw.split(":", 2)
+        entry = {"state": parts[0], "file": parts[1] if len(parts) > 1 else ""}
+        if len(parts) > 2:
+            entry["detail"] = parts[2]
+        warnings.append(entry)
+    out['history_warnings'] = warnings
 if reasons_limit > 0:
     rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
     out['reason_rollup']=[{'reason':r,'count':c} for r,c in rollup[:reasons_limit]]
@@ -1466,7 +1606,24 @@ PY
     if [[ -n "$SINCE" ]]; then
       tmp_since="$(mktemp -p "$TMPDIR" linux_maint_status_since.XXXXXX.log)"
       _run_tmpfiles+=("$tmp_since")
-      python3 - "$log_dir" "$SINCE" <<'PY' | while IFS= read -r f; do
+      history_valid_files=0
+      history_warning_lines=()
+      while IFS= read -r f; do
+        [[ -f "$f" ]] || continue
+        history_state_info="$(linux_maint_reporting_summary_history_file_state "$f")"
+        history_state="${history_state_info%%:*}"
+        history_detail="${history_state_info#*:}"
+        if [[ "$history_state" == "ok" ]]; then
+          cat "$f" >> "$tmp_since"
+          history_valid_files=$((history_valid_files + 1))
+        else
+          if [[ "$history_state" == "malformed" ]]; then
+            history_warning_lines+=("- skipped malformed history file: $f ($history_detail)")
+          else
+            history_warning_lines+=("- skipped ${history_state} history file: $f")
+          fi
+        fi
+      done < <(python3 - "$log_dir" "$SINCE" <<'PY'
 import os, re, sys, time
 log_dir, since = sys.argv[1:3]
 m = re.match(r'^(\d+)([smhd])$', since)
@@ -1497,9 +1654,12 @@ rows.sort()
 for _,p in rows:
     print(p)
 PY
-        [[ -f "$f" ]] && cat "$f" >> "$tmp_since"
-      done
-      summary_file="$tmp_since"
+)
+      if (( history_valid_files > 0 )); then
+        summary_file="$tmp_since"
+      else
+        summary_file=""
+      fi
     fi
 
     if [[ -f "$summary_file" && -r "$summary_file" ]]; then
@@ -1868,6 +2028,16 @@ PY
         echo "No log found at: $log"
         hint_line "run linux-maint run to generate logs"
       fi
+      if [[ -n "${history_warning_lines+x}" && ${#history_warning_lines[@]} -gt 0 ]]; then
+        echo ""
+        echo "History warnings:"
+        printf '%s\n' "${history_warning_lines[@]}"
+      fi
+    fi
+    if [[ -n "${history_warning_lines+x}" && ${#history_warning_lines[@]} -gt 0 ]] && [[ -f "$summary_file" && -r "$summary_file" ]]; then
+      echo ""
+      echo "History warnings:"
+      printf '%s\n' "${history_warning_lines[@]}"
     fi
 }
 
@@ -2101,10 +2271,45 @@ order=['CRIT','WARN','UNKNOWN','SKIP','OK']
 overall={k:0 for k in order}
 reason_counts={}
 runs=[]
+history_warnings=[]
 
 def get_kv(line, key):
     m=re.search(rf"\b{re.escape(key)}=([^ ]+)", line)
     return m.group(1) if m else None
+
+def parse_run_file(fp):
+    rc={k:0 for k in order}
+    had=False
+    try:
+        with open(fp,'r',encoding='utf-8',errors='ignore') as f:
+            for line in f:
+                line=line.strip()
+                if not line.startswith('monitor='):
+                    continue
+                had=True
+                row={}
+                for tok in line.split():
+                    if "=" not in tok:
+                        return None, {"file": fp, "state": "malformed", "detail": "bad_token"}
+                    key, val = tok.split("=", 1)
+                    row[key] = val
+                missing = [k for k in ("monitor","host","status") if k not in row]
+                if missing:
+                    return None, {"file": fp, "state": "malformed", "detail": "missing_" + "_".join(missing)}
+                st=row["status"]
+                if st not in rc:
+                    return None, {"file": fp, "state": "malformed", "detail": "invalid_status"}
+                rc[st]+=1
+                overall[st]=overall.get(st,0)+1
+                if st!='OK':
+                    reason=row.get('reason')
+                    if reason:
+                        reason_counts[reason]=reason_counts.get(reason,0)+1
+    except Exception:
+        return None, {"file": fp, "state": "unreadable"}
+    if not had:
+        return None, {"file": fp, "state": "malformed", "detail": "no_monitor_lines"}
+    return rc, None
 
 cache_hit = False
 if cache_enabled and cache_file and os.path.exists(cache_file):
@@ -2116,27 +2321,17 @@ if cache_enabled and cache_file and os.path.exists(cache_file):
                 runs = cached.get("runs", [])
                 overall = cached.get("totals", overall)
                 reason_counts = {r["reason"]: r["count"] for r in cached.get("reasons", [])}
+                history_warnings = cached.get("history_warnings", [])
                 cache_hit = True
     except Exception:
         cache_hit = False
 
 if not cache_hit:
     for fp in files:
-        rc={k:0 for k in order}
-        with open(fp,'r',encoding='utf-8',errors='ignore') as f:
-            for line in f:
-                line=line.strip()
-                if not line.startswith('monitor='):
-                    continue
-                st=get_kv(line,'status') or 'UNKNOWN'
-                if st not in rc:
-                    st='UNKNOWN'
-                rc[st]+=1
-                overall[st]=overall.get(st,0)+1
-                if st!='OK':
-                    reason=get_kv(line,'reason')
-                    if reason:
-                        reason_counts[reason]=reason_counts.get(reason,0)+1
+        rc, warning = parse_run_file(fp)
+        if warning:
+            history_warnings.append(warning)
+            continue
         runs.append({'file': fp, 'totals': rc})
 
 rollup=sorted(reason_counts.items(), key=lambda kv: (-kv[1], kv[0]))
@@ -2177,7 +2372,7 @@ if anomaly_enabled:
             })
         anomaly["signals"].sort(key=lambda s: (-s["zscore"], s["metric"]))
 if json_mode:
-    out={'schema_version': 1, 'trend_json_contract_version': 1, 'runs':runs, 'totals':overall, 'reasons':[{'reason':r,'count':c} for r,c in rollup], 'anomaly': anomaly}
+    out={'schema_version': 1, 'trend_json_contract_version': 1, 'runs':runs, 'totals':overall, 'reasons':[{'reason':r,'count':c} for r,c in rollup], 'anomaly': anomaly, 'history_warnings': history_warnings}
     if redact_json or redact_json_strict:
         out = redact_json_obj(out)
     print(json.dumps(out, indent=2, sort_keys=True))
@@ -2201,6 +2396,15 @@ else:
           print(f"{reason}={count}")
     else:
       print('none')
+    if history_warnings:
+      print('')
+      print(c('history_warnings:', "1;36"))
+      for warn in history_warnings[:20]:
+          detail = warn.get("detail")
+          msg = f"- skipped {warn.get('state','unknown')} history file: {warn.get('file','')}"
+          if detail:
+              msg += f" ({detail})"
+          print(msg)
     if anomaly_enabled:
       print('')
       print(c('anomaly_signals:', "1;36"))
@@ -2228,6 +2432,7 @@ if cache_enabled and cache_file and not cache_hit:
             "runs": runs,
             "totals": overall,
             "reasons": [{"reason": r, "count": c} for r,c in rollup],
+            "history_warnings": history_warnings,
         }
         with open(cache_file, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2, sort_keys=True)
