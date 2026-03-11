@@ -29,8 +29,8 @@ lm_require_cmd "inode_monitor" "localhost" sed || exit $?
 # ========================
 # Script configuration
 # ========================
-THRESHOLDS="/etc/linux_maint/inode_thresholds.txt"   # CSV: mountpoint,warn%,crit% (supports '*' default)
-EXCLUDE_MOUNTS="/etc/linux_maint/inode_exclude.txt"  # Optional: list of mountpoints to skip
+THRESHOLDS="${THRESHOLDS:-$(lm_cfg_path inode_thresholds.txt)}"   # CSV: mountpoint,warn%,crit% (supports '*' default)
+EXCLUDE_MOUNTS="${EXCLUDE_MOUNTS:-$(lm_cfg_path inode_exclude.txt)}"  # Optional: list of mountpoints to skip
 
 # Defaults if not specified per mount / default row (*)
 DEFAULT_WARN=80

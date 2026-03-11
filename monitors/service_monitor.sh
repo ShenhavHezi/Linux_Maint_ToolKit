@@ -43,7 +43,7 @@ trap emit_early_exit_summary EXIT
 # ========================
 # Script configuration
 # ========================
-SERVICES="${SERVICES:-/etc/linux_maint/services.txt}"     # One service per line (unit name). Comments (#…) and blanks allowed.
+SERVICES="${SERVICES:-$(lm_cfg_path services.txt)}"     # One service per line (unit name). Comments (#…) and blanks allowed.
 AUTO_RESTART="false"                          # "true" to attempt restart on failure (requires root or sudo NOPASSWD)
 MAIL_SUBJECT_PREFIX='[Service Monitor]'
 EMAIL_ON_ALERT="false"                        # "true" to email when any service is not active

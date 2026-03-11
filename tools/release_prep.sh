@@ -55,32 +55,4 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   exit 0
 fi
 
-python3 - "$ROOT_DIR/docs/README.md" "$NOTES_OUT" <<'PY'
-import re
-import sys
-from pathlib import Path
-
-readme_path, notes_path = map(Path, sys.argv[1:3])
-notes_rel = notes_path.as_posix()
-if notes_rel.startswith(str(readme_path.parent) + "/"):
-  notes_rel = notes_rel[len(str(readme_path.parent)) + 1:]
-notes_rel = f"docs/{notes_rel}" if not notes_rel.startswith("docs/") else notes_rel
-
-def update_readme(path: Path, notes: str) -> None:
-    lines = path.read_text(encoding="utf-8").splitlines()
-    out = []
-    pat = re.compile(r"`(docs/release_notes/release_notes_v[^`]+)`")
-    replaced = False
-    for line in lines:
-        if line.strip().startswith("- Release notes (latest):"):
-            found = pat.findall(line)
-            items = [notes] + [f for f in found if f != notes]
-            items = items[:2]
-            line = "- Release notes (latest): " + ", ".join(f"`{f}`" for f in items)
-            replaced = True
-        out.append(line)
-    if replaced:
-        path.write_text("\n".join(out) + "\n", encoding="utf-8")
-
-update_readme(readme_path, notes_rel)
-PY
+python3 "$ROOT_DIR/tools/update_release_notes_refs.py" "$ROOT_DIR/docs/README.md" "$NOTES_OUT"

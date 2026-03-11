@@ -8,21 +8,12 @@ trap 'rm -rf "$workdir"' EXIT
 
 repo="$workdir/repo"
 mkdir -p "$repo"
-(
-  cd "$ROOT_DIR"
-  git ls-files -z | while IFS= read -r -d '' path; do
-    [[ -e "$path" ]] && printf '%s\0' "$path"
-  done | tar --null -T - -cf - | tar -xf - -C "$repo"
-)
+. "$ROOT_DIR/tests/testlib.sh"
+testlib_copy_repo_tracked "$repo"
 
 (
   cd "$repo"
-  git -c init.defaultBranch=main init >/dev/null
-  git config user.name test
-  git config user.email test@example.com
-  git add .
-  git commit -m "test repo" >/dev/null
-
+  testlib_init_git_repo "$repo"
   bash ./tools/gen_build_info.sh >/dev/null
   OUTDIR="$repo/dist" bash ./tools/make_tarball.sh >/dev/null
   version="$(head -n 1 VERSION | tr -d '[:space:]')"

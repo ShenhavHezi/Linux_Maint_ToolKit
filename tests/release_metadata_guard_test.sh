@@ -8,16 +8,7 @@ CURRENT_REL="docs/release_notes/release_notes_v${CURRENT_VERSION}.md"
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
-copy_repo(){
-  local dest="$1"
-  mkdir -p "$dest"
-  (
-    cd "$ROOT_DIR"
-    git ls-files -z | while IFS= read -r -d '' path; do
-      [[ -e "$path" ]] && printf '%s\0' "$path"
-    done | tar --null -T - -cf - | tar -xf - -C "$dest"
-  )
-}
+. "$ROOT_DIR/tests/testlib.sh"
 
 remove_release_refs(){
   local doc_path="$1"
@@ -43,7 +34,7 @@ PY
 }
 
 repo_missing_note="$workdir/missing_note"
-copy_repo "$repo_missing_note"
+testlib_copy_repo_tracked "$repo_missing_note"
 rm -f "$repo_missing_note/$CURRENT_REL"
 set +e
 out="$(bash "$repo_missing_note/tools/release_check.sh" 2>&1)"
@@ -60,7 +51,7 @@ grep -q 'Current version release notes missing' <<< "$out" || {
 }
 
 repo_missing_readme_ref="$workdir/missing_readme_ref"
-copy_repo "$repo_missing_readme_ref"
+testlib_copy_repo_tracked "$repo_missing_readme_ref"
 remove_release_refs "$repo_missing_readme_ref/docs/README.md"
 set +e
 out="$(bash "$repo_missing_readme_ref/tools/release_audit.sh" 2>&1)"

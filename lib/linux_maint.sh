@@ -21,10 +21,11 @@ if [[ -z "${LM_LOGFILE:-}" ]]; then
     LM_LOGFILE="${TMPDIR:-/tmp}/linux_maint.log"
   fi
 fi
-: "${LM_EMAILS:=/etc/linux_maint/emails.txt}"
-: "${LM_EXCLUDED:=/etc/linux_maint/excluded.txt}"
-: "${LM_SERVERLIST:=/etc/linux_maint/servers.txt}"
-: "${LM_HOSTS_DIR:=/etc/linux_maint/hosts.d}"   # optional host groups directory
+: "${LM_CFG_DIR:=/etc/linux_maint}"
+: "${LM_EMAILS:=${LM_CFG_DIR}/emails.txt}"
+: "${LM_EXCLUDED:=${LM_CFG_DIR}/excluded.txt}"
+: "${LM_SERVERLIST:=${LM_CFG_DIR}/servers.txt}"
+: "${LM_HOSTS_DIR:=${LM_CFG_DIR}/hosts.d}"   # optional host groups directory
 : "${LM_GROUP:=}"                          # optional group name (maps to $LM_HOSTS_DIR/<group>.txt)
 : "${LM_LOCKDIR:=/var/lock}"
 if [[ -z "${LM_STATE_DIR:-}" ]]; then
@@ -247,6 +248,23 @@ lm_mktemp() {
   local dir
   dir="$(lm_pick_tmpdir 2>/dev/null)" || dir="${TMPDIR:-/tmp}"
   mktemp -p "$dir" "$tmpl"
+}
+
+# ========= Config root helpers =========
+lm_cfg_root() {
+  printf '%s' "${LM_CFG_DIR:-/etc/linux_maint}"
+}
+
+lm_cfg_path() {
+  local rel="${1:-}"
+  local root
+  root="$(lm_cfg_root)"
+  rel="${rel#/}"
+  if [[ -z "$rel" ]]; then
+    printf '%s' "$root"
+  else
+    printf '%s/%s' "$root" "$rel"
+  fi
 }
 
 # ========= Timing helper =========

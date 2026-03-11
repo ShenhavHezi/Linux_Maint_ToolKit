@@ -8,19 +8,10 @@ CURRENT_REL="docs/release_notes/release_notes_v${CURRENT_VERSION}.md"
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
-copy_repo(){
-  local dest="$1"
-  mkdir -p "$dest"
-  (
-    cd "$ROOT_DIR"
-    git ls-files -z | while IFS= read -r -d '' path; do
-      [[ -e "$path" ]] && printf '%s\0' "$path"
-    done | tar --null -T - -cf - | tar -xf - -C "$dest"
-  )
-}
+. "$ROOT_DIR/tests/testlib.sh"
 
 repo_missing_changelog="$workdir/missing_changelog"
-copy_repo "$repo_missing_changelog"
+testlib_copy_repo_tracked "$repo_missing_changelog"
 python3 - "$repo_missing_changelog/CHANGELOG.md" "$CURRENT_VERSION" <<'PY'
 import sys
 from pathlib import Path
@@ -45,7 +36,7 @@ grep -q "CHANGELOG missing current release entry: v${CURRENT_VERSION}" <<< "$out
 }
 
 repo_bad_notes="$workdir/bad_notes"
-copy_repo "$repo_bad_notes"
+testlib_copy_repo_tracked "$repo_bad_notes"
 python3 - "$repo_bad_notes/$CURRENT_REL" <<'PY'
 import sys
 from pathlib import Path

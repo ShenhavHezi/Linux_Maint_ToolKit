@@ -7,32 +7,11 @@ CURRENT_VERSION="$(head -n 1 "$ROOT_DIR/VERSION" | tr -d '[:space:]')"
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
-copy_repo() {
-  local dest="$1"
-  mkdir -p "$dest"
-  (
-    cd "$ROOT_DIR"
-    tar --exclude=.git --exclude=dist --exclude=.logs --exclude=.tmp_test -cf - .
-  ) | tar -xf - -C "$dest"
-}
-
-build_release_tarball() {
-  local repo="$1"
-  (
-    cd "$repo"
-    git -c init.defaultBranch=main init >/dev/null
-    git config user.name test
-    git config user.email test@example.com
-    git add .
-    git commit -m "test repo" >/dev/null
-    bash ./tools/gen_build_info.sh >/dev/null 2>&1
-    OUTDIR="$repo/dist" bash ./tools/make_tarball.sh >/dev/null
-  )
-}
+. "$ROOT_DIR/tests/testlib.sh"
 
 release_repo="$workdir/release_repo"
-copy_repo "$release_repo"
-build_release_tarball "$release_repo"
+testlib_copy_repo_worktree "$release_repo"
+testlib_build_release_tarball "$release_repo"
 
 tarball="$(find "$release_repo/dist" -maxdepth 1 -type f -name "Linux_Maint_ToolKit-v${CURRENT_VERSION}-*.tgz" | head -n 1)"
 [[ -f "$tarball" ]] || {

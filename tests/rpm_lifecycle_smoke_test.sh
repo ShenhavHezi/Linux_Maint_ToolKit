@@ -24,21 +24,14 @@ CURRENT_VERSION="$(head -n 1 "$ROOT_DIR/VERSION" | tr -d '[:space:]')"
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
+. "$ROOT_DIR/tests/testlib.sh"
+
 old_tree="$workdir/old_tree"
 new_tree="$workdir/new_tree"
 old_out="$workdir/out_old"
 new_out="$workdir/out_new"
 old_work="$workdir/rpmbuild_old"
 new_work="$workdir/rpmbuild_new"
-
-copy_repo() {
-  local dest="$1"
-  mkdir -p "$dest"
-  (
-    cd "$ROOT_DIR"
-    tar --exclude=.git --exclude=dist --exclude=.logs --exclude=.tmp_test -cf - .
-  ) | tar -xf - -C "$dest"
-}
 
 next_patch_version() {
   python3 - "$1" <<'PY'
@@ -74,8 +67,8 @@ assert_missing() {
   }
 }
 
-copy_repo "$old_tree"
-copy_repo "$new_tree"
+testlib_copy_repo_worktree "$old_tree"
+testlib_copy_repo_worktree "$new_tree"
 
 NEW_VERSION="$(next_patch_version "$CURRENT_VERSION")"
 printf '%s\n' "$NEW_VERSION" > "$new_tree/VERSION"

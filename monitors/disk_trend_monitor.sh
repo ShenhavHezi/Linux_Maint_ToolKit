@@ -63,7 +63,7 @@ MIN_POINTS=2
 EXCLUDE_FSTYPES_RE='^(tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup2?|debugfs|rpc_pipefs|autofs|devpts|mqueue|hugetlbfs|fuse\..*|binfmt_misc|pstore|nsfs)$'
 
 # Optional exclude mountpoints file
-EXCLUDE_MOUNTS_FILE="/etc/linux_maint/disk_trend_exclude_mounts.txt"
+EXCLUDE_MOUNTS_FILE="${EXCLUDE_MOUNTS_FILE:-$(lm_cfg_path disk_trend_exclude_mounts.txt)}"
 
 ALERTS_FILE="$(lm_mktemp disk_trend_monitor.alerts.XXXXXX)"
 cleanup_tmpfiles(){ rm -f "$ALERTS_FILE" 2>/dev/null || true; }
