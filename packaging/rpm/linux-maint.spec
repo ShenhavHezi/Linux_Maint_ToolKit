@@ -103,6 +103,7 @@ fi
 /usr/lib/linux_maint_runtime.sh
 /usr/lib/linux_maint_admin.sh
 /usr/lib/linux_maint_help.sh
+%dir /usr/libexec/linux_maint
 /usr/libexec/linux_maint/*
 /usr/share/linux_maint/
 /usr/share/Linux_Maint_ToolKit/docs/

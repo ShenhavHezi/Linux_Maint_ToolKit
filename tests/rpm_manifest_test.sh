@@ -41,6 +41,8 @@ assert_contains '/usr/lib/linux_maint_runtime.sh' \
   "rpm spec no longer ships linux_maint_runtime.sh"
 assert_contains '/usr/lib/linux_maint_admin.sh' \
   "rpm spec no longer ships linux_maint_admin.sh"
+assert_contains '%dir /usr/libexec/linux_maint' \
+  "rpm spec no longer owns /usr/libexec/linux_maint"
 assert_contains '%dir /etc/linux_maint/conf.d' \
   "rpm spec no longer ships /etc/linux_maint/conf.d"
 assert_contains '%dir /etc/linux_maint/baselines' \
