@@ -47,7 +47,7 @@ exit 1
 SH
 chmod +x "$shim/systemctl"
 
-out="$(PATH="$shim:$PATH" PREFIX="$prefix" LINUX_MAINT_LIB="$prefix/lib/linux_maint.sh" LM_CFG_DIR="$cfg" LOG_DIR="$logs" LM_STATE_DIR="$state" LM_LOCKDIR="$lock" LM_SYSTEMD_UNIT_DIRS="$unitdir" "$prefix/bin/linux-maint" verify-install 2>&1)"
+out="$(PATH="$shim:$PATH" PREFIX="$prefix" LM_CFG_DIR="$cfg" LOG_DIR="$logs" LM_STATE_DIR="$state" LM_LOCKDIR="$lock" LM_SYSTEMD_UNIT_DIRS="$unitdir" "$prefix/bin/linux-maint" verify-install 2>&1)"
 
 printf '%s\n' "$out" | grep -q "^OK: verify-release helper: $prefix/libexec/linux_maint/verify_release.sh$" || {
   echo "verify-install did not validate installed verify-release helper" >&2

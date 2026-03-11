@@ -20,6 +20,8 @@ lm_init_runtime_context() {
   LIBEXEC="$PREFIX/libexec/linux_maint"
   SHARE="$PREFIX/share/linux_maint"
 
+  export LINUX_MAINT_LIB="${LINUX_MAINT_LIB:-$PREFIX/lib/linux_maint.sh}"
+
   wrapper="$SBIN/run_full_health_monitor.sh"
   preflight="$LIBEXEC/preflight_check.sh"
   validate="$LIBEXEC/config_validate.sh"
