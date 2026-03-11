@@ -6,6 +6,11 @@ ROOT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
+if [[ "$(id -u)" -eq 0 ]]; then
+  echo "SKIP: installed mutating root-gate test requires non-root context"
+  exit 0
+fi
+
 prefix="$workdir/prefix"
 cfg="$workdir/etc_linux_maint"
 state="$workdir/state"
