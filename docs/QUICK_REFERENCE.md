@@ -297,9 +297,11 @@ linux-maint self-check
 linux-maint self-check --json
 # Verify offline tarball checksum
 sha256sum -c SHA256SUMS
+# Inspect local provenance metadata
+cat release_provenance.json
 # If linux-maint is already installed on the verification host:
-linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
-# This also checks BUILD_INFO/VERSION, install-critical members, and matching release notes for tagged tarballs.
+linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS --manifest release_provenance.json
+# This also checks provenance metadata, BUILD_INFO/VERSION, install-critical members, and matching release notes for tagged tarballs.
 # Release metadata/governance audit
 ./tools/release_audit.sh
 

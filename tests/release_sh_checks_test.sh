@@ -17,8 +17,8 @@ printf '%s\n' "$out" | grep -q 'would run: ./tools/release_audit.sh' || {
 }
 
 out_tarball="$(bash "$REL" 9.9.9 --dry-run --allow-dirty --with-tarball 2>&1 || true)"
-printf '%s\n' "$out_tarball" | grep -q 'would build tarball, verify it, and update checksum in notes' || {
-  echo "release.sh dry-run missing tarball verification note" >&2
+printf '%s\n' "$out_tarball" | grep -q 'would build tarball, verify it, and update checksum/provenance in notes' || {
+  echo "release.sh dry-run missing tarball verification/provenance note" >&2
   echo "$out_tarball" >&2
   exit 1
 }

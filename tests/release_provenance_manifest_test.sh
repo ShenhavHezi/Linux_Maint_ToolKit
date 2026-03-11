@@ -26,15 +26,34 @@ mkdir -p "$repo"
   version="$(head -n 1 VERSION | tr -d '[:space:]')"
   tarball="$(find dist -maxdepth 1 -type f -name "Linux_Maint_ToolKit-v${version}-*.tgz" | head -n 1)"
   manifest="dist/release_provenance.json"
-  [[ -n "$tarball" && -f "$tarball" ]] || {
-    echo "make_tarball.sh did not create expected tarball name for version $version" >&2
+
+  [[ -f "$tarball" ]] || {
+    echo "expected tarball missing" >&2
     exit 1
   }
   [[ -f "$manifest" ]] || {
-    echo "make_tarball.sh did not create release provenance manifest" >&2
+    echo "expected provenance manifest missing" >&2
     exit 1
   }
-  bash ./tools/verify_release.sh "$tarball" --sums dist/SHA256SUMS --manifest "$manifest" >/dev/null
+
+  TARBALL_PATH="$tarball" MANIFEST_PATH="$manifest" EXPECTED_VERSION="$version" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+tarball = Path(os.environ["TARBALL_PATH"])
+manifest = json.loads(Path(os.environ["MANIFEST_PATH"]).read_text(encoding="utf-8"))
+
+assert manifest["release_provenance_version"] == 1
+assert manifest["artifact"] == tarball.name
+assert manifest["version"] == os.environ["EXPECTED_VERSION"]
+assert manifest["tag"] == f"v{os.environ['EXPECTED_VERSION']}"
+assert manifest["sha256sums"] == "SHA256SUMS"
+assert manifest["build_info"] == "BUILD_INFO"
+assert len(manifest["sha256"]) == 64
+assert manifest["commit"]
+assert manifest["built_at_utc"]
+PY
 )
 
-echo "make tarball roundtrip ok"
+echo "release provenance manifest ok"

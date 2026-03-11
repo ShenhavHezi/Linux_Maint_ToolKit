@@ -4,16 +4,19 @@ set -euo pipefail
 
 usage(){
   cat <<USAGE
-Usage: $0 <tarball> [--sums FILE] [--sig FILE]
+Usage: $0 <tarball> [--sums FILE] [--sig FILE] [--manifest FILE]
 
 Examples:
   $0 dist/Linux_Maint_ToolKit-*.tgz
   $0 dist/Linux_Maint_ToolKit-*.tgz --sums dist/SHA256SUMS
   $0 dist/Linux_Maint_ToolKit-*.tgz --sums dist/SHA256SUMS --sig dist/Linux_Maint_ToolKit-*.tgz.asc
+  $0 dist/Linux_Maint_ToolKit-*.tgz --sums dist/SHA256SUMS --manifest dist/release_provenance.json
 
 Behavior:
 - Always verifies SHA256 checksum from SHA256SUMS (default next to tarball).
 - If --sig is provided, verifies detached signature with gpg.
+- If --manifest is provided, verifies release provenance metadata. If omitted,
+  sibling dist/release_provenance.json is validated when present.
 USAGE
 }
 
@@ -22,11 +25,13 @@ USAGE
 TARBALL="$1"; shift
 SUMS_FILE=""
 SIG_FILE=""
+MANIFEST_FILE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --sums) SUMS_FILE="$2"; shift 2 ;;
     --sig) SIG_FILE="$2"; shift 2 ;;
+    --manifest) MANIFEST_FILE="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -38,6 +43,12 @@ if [[ -z "$SUMS_FILE" ]]; then
   SUMS_FILE="$(dirname "$TARBALL")/SHA256SUMS"
 fi
 [[ -f "$SUMS_FILE" ]] || { echo "ERROR: checksum file not found: $SUMS_FILE" >&2; exit 1; }
+if [[ -z "$MANIFEST_FILE" ]]; then
+  candidate_manifest="$(dirname "$TARBALL")/release_provenance.json"
+  if [[ -f "$candidate_manifest" ]]; then
+    MANIFEST_FILE="$candidate_manifest"
+  fi
+fi
 
 base="$(basename "$TARBALL")"
 line="$(grep -E "[[:space:]]${base}$" "$SUMS_FILE" || true)"
@@ -49,6 +60,7 @@ line="$(grep -E "[[:space:]]${base}$" "$SUMS_FILE" || true)"
 )
 
 echo "checksum verification ok: $base"
+actual_sha="$(sha256sum "$TARBALL" | awk '{print $1}')"
 
 tar_version=""
 tar_sha=""
@@ -139,6 +151,49 @@ if [[ -n "$tar_version" ]]; then
   fi
 fi
 echo "tarball contents verification ok"
+
+if [[ -n "$MANIFEST_FILE" ]]; then
+  [[ -f "$MANIFEST_FILE" ]] || { echo "ERROR: provenance manifest not found: $MANIFEST_FILE" >&2; exit 1; }
+  command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 required for provenance manifest verification" >&2; exit 1; }
+  MANIFEST_FILE="$MANIFEST_FILE" \
+  EXPECTED_ARTIFACT="$base" \
+  EXPECTED_SHA256="$actual_sha" \
+  EXPECTED_VERSION="${tar_version#v}" \
+  EXPECTED_TAG="$tar_version" \
+  EXPECTED_COMMIT="$tar_sha" \
+  python3 - <<'PY'
+import json
+import os
+import sys
+
+manifest_path = os.environ["MANIFEST_FILE"]
+with open(manifest_path, "r", encoding="utf-8") as fh:
+    payload = json.load(fh)
+
+if payload.get("release_provenance_version") != 1:
+    raise SystemExit(f"ERROR: unsupported release provenance version in {manifest_path}")
+
+checks = {
+    "artifact": os.environ["EXPECTED_ARTIFACT"],
+    "sha256": os.environ["EXPECTED_SHA256"],
+}
+expected_version = os.environ.get("EXPECTED_VERSION")
+expected_tag = os.environ.get("EXPECTED_TAG")
+expected_commit = os.environ.get("EXPECTED_COMMIT")
+if expected_version:
+    checks["version"] = expected_version
+if expected_tag:
+    checks["tag"] = expected_tag
+if expected_commit:
+    checks["commit"] = expected_commit
+
+for key, expected in checks.items():
+    actual = payload.get(key)
+    if actual != expected:
+      raise SystemExit(f"ERROR: provenance manifest mismatch for {key}: expected {expected}, got {actual}")
+PY
+  echo "provenance manifest verification ok: $(basename "$MANIFEST_FILE")"
+fi
 
 if [[ -n "$SIG_FILE" ]]; then
   [[ -f "$SIG_FILE" ]] || { echo "ERROR: signature file not found: $SIG_FILE" >&2; exit 1; }

@@ -14,7 +14,7 @@ Automates:
   - release notes draft from docs/RELEASE_TEMPLATE.md
   - docs/README.md + docs/INDEX.md updated when notes live under docs/release_notes/
   - optional git tag and GitHub release
-  - optional tarball build + checksum injection into notes
+  - optional tarball build + checksum/provenance injection into notes
 
 Examples:
   tools/release.sh 0.1.5
@@ -96,7 +96,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "[dry-run] would update CHANGELOG.md with date $DATE_UTC and tag $TAG"
   echo "[dry-run] would write notes: $NOTES_OUT"
   if [[ "$WITH_TARBALL" -eq 1 ]]; then
-    echo "[dry-run] would build tarball, verify it, and update checksum in notes"
+    echo "[dry-run] would build tarball, verify it, and update checksum/provenance in notes"
   fi
   echo "[dry-run] no git commit/tag/release"
   exit 0
@@ -244,6 +244,8 @@ fi
 
 tarball=""
 sums_file="dist/SHA256SUMS"
+manifest_file="dist/release_provenance.json"
+signature_file=""
 checksum=""
 if [[ "$WITH_TARBALL" -eq 1 ]]; then
   ./tools/make_tarball.sh
@@ -255,24 +257,33 @@ if [[ "$WITH_TARBALL" -eq 1 ]]; then
   if command -v sha256sum >/dev/null 2>&1; then
     checksum="$(sha256sum "$tarball" | awk '{print $1}')"
   fi
-  ./tools/verify_release.sh "$tarball" --sums "$sums_file"
+  if [[ -f "dist/$(basename "$tarball").asc" ]]; then
+    signature_file="dist/$(basename "$tarball").asc"
+  fi
+  ./tools/verify_release.sh "$tarball" --sums "$sums_file" --manifest "$manifest_file"
   if [[ -n "$checksum" && -f "$NOTES_OUT" ]]; then
-    python3 - "$NOTES_OUT" "$checksum" "$(basename "$tarball")" <<'PY'
+    python3 - "$NOTES_OUT" "$checksum" "$(basename "$tarball")" "$(basename "$manifest_file")" <<'PY'
 import sys
 from pathlib import Path
 
-path, checksum, tarball = sys.argv[1:4]
+path, checksum, tarball, manifest = sys.argv[1:5]
 lines = Path(path).read_text().splitlines()
 out = []
-replaced = False
+checksum_replaced = False
+manifest_replaced = False
 for line in lines:
     if line.strip().startswith("- SHA256SUMS:"):
         out.append(f"- SHA256SUMS: {checksum}  {tarball}")
-        replaced = True
+        checksum_replaced = True
+    elif line.strip().startswith("- Provenance manifest:"):
+        out.append(f"- Provenance manifest: {manifest}")
+        manifest_replaced = True
     else:
         out.append(line)
-if not replaced:
+if not checksum_replaced:
     out.append(f"- SHA256SUMS: {checksum}  {tarball}")
+if not manifest_replaced:
+    out.append(f"- Provenance manifest: {manifest}")
 Path(path).write_text("\n".join(out).rstrip() + "\n")
 PY
   fi
@@ -285,7 +296,14 @@ if [[ "$DO_RELEASE" -eq 1 ]]; then
   fi
   git push origin "${TAG}"
   if [[ -n "$tarball" && -f "$tarball" && -f "$sums_file" ]]; then
-    gh release create "${TAG}" --title "${TAG}" --notes-file "${NOTES_OUT}" "$tarball" "$sums_file"
+    release_assets=("$tarball" "$sums_file")
+    if [[ -f "$manifest_file" ]]; then
+      release_assets+=("$manifest_file")
+    fi
+    if [[ -n "$signature_file" && -f "$signature_file" ]]; then
+      release_assets+=("$signature_file")
+    fi
+    gh release create "${TAG}" --title "${TAG}" --notes-file "${NOTES_OUT}" "${release_assets[@]}"
   else
     gh release create "${TAG}" --title "${TAG}" --notes-file "${NOTES_OUT}"
   fi

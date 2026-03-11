@@ -4,12 +4,15 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   shellcheck-and-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -63,13 +66,18 @@ jobs:
 
   release-discipline:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Release integrity checks
+      - name: Build and verify release artifacts
+        id: release_artifacts
         run: |
           set -euo pipefail
           ./tools/release_check.sh
@@ -77,7 +85,26 @@ jobs:
           ./tools/make_tarball.sh
           tarball="$(find dist -maxdepth 1 -type f -name 'Linux_Maint_ToolKit-v*.tgz' -printf '%T@ %p\n' | sort -nr | head -n 1 | awk '{print $2}')"
           test -n "$tarball"
-          ./tools/verify_release.sh "$tarball" --sums dist/SHA256SUMS
+          manifest="dist/release_provenance.json"
+          test -f "$manifest"
+          ./tools/verify_release.sh "$tarball" --sums dist/SHA256SUMS --manifest "$manifest"
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+          echo "manifest=$manifest" >> "$GITHUB_OUTPUT"
+
+      - name: Attest release tarball
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ steps.release_artifacts.outputs.tarball }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-maint-release-dist
+          path: |
+            ${{ steps.release_artifacts.outputs.tarball }}
+            dist/SHA256SUMS
+            ${{ steps.release_artifacts.outputs.manifest }}
 
   bash-compat-matrix:
     name: Bash compatibility (${{ matrix.distro }})
@@ -153,7 +180,7 @@ jobs:
 
       - name: Checkout (actions)
         if: ${{ !matrix.legacy_checkout }}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Checkout (legacy manual)
         if: ${{ matrix.legacy_checkout && steps.compat_ready.outputs.ready == '1' }}
@@ -253,7 +280,7 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -277,6 +304,10 @@ jobs:
 
   build-rpm-rocky9:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     container:
       image: rockylinux:9
     steps:
@@ -286,7 +317,7 @@ jobs:
           dnf -y install rpm-build rsync tar systemd-rpm-macros python3
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Generate BUILD_INFO (CI)
         run: |
@@ -296,10 +327,14 @@ jobs:
 
 
       - name: Build RPM
+        id: rpm_artifacts
         run: |
           ./packaging/rpm/build_rpm.sh
+          rpm_path="$(find /tmp/linux-maint-rpmbuild/RPMS -type f -name '*.rpm' | sort | head -n 1)"
+          test -n "$rpm_path"
+          echo "rpm=$rpm_path" >> "$GITHUB_OUTPUT"
           echo "=== RPM query info (rpm -qp --info) ==="
-          rpm -qp --info /tmp/linux-maint-rpmbuild/RPMS/noarch/*.rpm || true
+          rpm -qp --info "$rpm_path" || true
 
       - name: Install RPM (smoke)
         run: |
@@ -328,6 +363,12 @@ jobs:
       - name: RPM lifecycle smoke
         run: |
           LM_RPM_LIFECYCLE_ALLOW_SYSTEM=1 bash tests/rpm_lifecycle_smoke_test.sh
+
+      - name: Attest RPM artifact
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ steps.rpm_artifacts.outputs.rpm }}
 
 
 

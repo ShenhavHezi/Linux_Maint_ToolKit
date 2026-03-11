@@ -59,16 +59,20 @@ This file contains counters derived from `monitor=` summary lines.
 
 ## Release artifacts (integrity)
 
-Release tarballs are accompanied by `SHA256SUMS`:
+Release tarballs are accompanied by `SHA256SUMS` and `release_provenance.json`:
 
 ```bash
 cd dist
 sha256sum -c SHA256SUMS
 # optional if linux-maint is already installed on the verification host
-linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
+linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS --manifest release_provenance.json
 ```
 
-`linux-maint verify-release` validates the checksum, `BUILD_INFO` / `VERSION` metadata, the required install payload members (`install.sh`, CLI/lib payload, helper tools, plugin index), and the matching release notes file for tagged release tarballs.
+`release_provenance.json` records the tarball name, SHA-256, version, tag, commit, branch, build time, and optional detached signature filename.
+
+`linux-maint verify-release` validates the checksum, optional provenance manifest, `BUILD_INFO` / `VERSION` metadata, the required install payload members (`install.sh`, CLI/lib payload, helper tools, plugin index), and the matching release notes file for tagged release tarballs.
+
+GitHub CI also emits artifact attestations for the built release tarball and Rocky RPM artifact on `push` runs.
 
 ## Upgrade manifests
 
@@ -84,7 +88,7 @@ The manifest records the current version, target version, config snapshot path, 
 
 ## Packaging outputs
 
-- Tarball builds: `dist/Linux_Maint_ToolKit-v<VERSION>-<sha>.tgz` and `dist/SHA256SUMS`
+- Tarball builds: `dist/Linux_Maint_ToolKit-v<VERSION>-<sha>.tgz`, `dist/SHA256SUMS`, and `dist/release_provenance.json`
 - RPM builds: `dist/rpm/` (created by `packaging/rpm/build_rpm.sh`)
 
 To customize output paths, set `OUTDIR` when building:

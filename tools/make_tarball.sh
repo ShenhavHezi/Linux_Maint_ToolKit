@@ -64,8 +64,6 @@ branch=${branch}
 built_at_utc=${date_utc}
 EOF
 
-# Create tarball
-
 tarball="$OUTDIR_ABS/${name}.tgz"
 ( cd "$workdir" && tar -czf "$tarball" . )
 
@@ -76,9 +74,12 @@ sums_file="$OUTDIR_ABS/SHA256SUMS"
 ( cd "$OUTDIR_ABS" && sha256sum "$(basename "$tarball")" > "$(basename "$sums_file")" )
 echo "Wrote: $sums_file"
 
+checksum="$(sha256sum "$tarball" | awk '{print $1}')"
 echo "Contents checksum (sha256):"
-sha256sum "$tarball" | awk '{print $1"  "$2}'
+printf '%s  %s\n' "$checksum" "$tarball"
 
+sig_file=""
+sig_name=""
 
 # Optional detached signature (requires gpg and SIGN_KEY).
 # Example: SIGN_KEY="ops-release@example.com" ./tools/make_tarball.sh
@@ -86,5 +87,43 @@ if command -v gpg >/dev/null 2>&1 && [[ -n "${SIGN_KEY:-}" ]]; then
   sig_file="$OUTDIR/$(basename "$tarball").asc"
   gpg --batch --yes --armor --detach-sign --local-user "$SIGN_KEY" \
     --output "$sig_file" "$tarball"
+  sig_name="$(basename "$sig_file")"
   echo "Wrote: $sig_file"
 fi
+
+manifest_file="$OUTDIR_ABS/release_provenance.json"
+python3 - "$manifest_file" "$(basename "$tarball")" "$checksum" "$(basename "$sums_file")" "$version" "$version_tag" "$sha" "$branch" "$date_utc" "$sig_name" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+(
+    manifest_path,
+    artifact_name,
+    sha256,
+    sums_name,
+    version,
+    tag,
+    commit,
+    branch,
+    built_at_utc,
+    signature_name,
+) = sys.argv[1:11]
+
+payload = {
+    "release_provenance_version": 1,
+    "artifact": artifact_name,
+    "sha256": sha256,
+    "sha256sums": sums_name,
+    "version": version,
+    "tag": tag,
+    "commit": commit,
+    "branch": branch,
+    "built_at_utc": built_at_utc,
+    "build_info": "BUILD_INFO",
+    "signature": signature_name or None,
+}
+
+Path(manifest_path).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+echo "Wrote: $manifest_file"
