@@ -7347,7 +7347,7 @@ PY
       state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
     fi
     index_file="${LM_RUN_INDEX_FILE:-$state_dir/run_index.jsonl}"
-    if [[ ! -f "$index_file" ]]; then
+    if [[ ! -f "$index_file" && -z "${LM_RUN_INDEX_FILE:-}" && -z "${LM_STATE_DIR:-}" ]]; then
       for alt in /var/tmp/run_index.jsonl /var/tmp/linux_maint/run_index.jsonl /tmp/linux_maint/run_index.jsonl; do
         if [[ -f "$alt" ]]; then
           index_file="$alt"
@@ -7395,6 +7395,23 @@ count = len(entries)
 last = entries[-1] if entries else {}
 
 if action == "prune":
+    if invalid:
+        if json_mode:
+            emit_json({
+                "exists": True,
+                "path": path,
+                "total_before": count,
+                "invalid_lines": invalid,
+                "error": "invalid_lines",
+                "message": "run-index prune requires valid JSON lines",
+            })
+        else:
+            print(
+                f"ERROR: run-index prune requires valid JSON lines in {path} "
+                f"(invalid_lines={invalid})",
+                file=sys.stderr,
+            )
+        sys.exit(2)
     if keep > 0 and count > keep:
         entries = entries[-keep:]
     try:
@@ -7500,7 +7517,11 @@ PY
       esac
     done
 
-    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+    if [[ "$MODE" == "repo" ]]; then
+      CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+    else
+      CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+    fi
     init_runner=()
     if [[ "$MODE" == "installed" && "$(id -u)" -ne 0 ]]; then
       if command -v sudo >/dev/null 2>&1; then
@@ -7590,7 +7611,13 @@ PY
     sub="${1:-}"; shift || true
     case "$sub" in
       dark-site)
-        CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+        if [[ "$MODE" == "repo" ]]; then
+          CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+          TUNE_LAST_RUN_LOG_DIR="${LOG_DIR:-$REPO_LOG_DIR}"
+        else
+          CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
+          TUNE_LAST_RUN_LOG_DIR="${LOG_DIR:-/var/log/health}"
+        fi
         CONF="$CFG_DIR/linux-maint.conf"
 
         if [[ "$MODE" == "installed" ]]; then
@@ -7623,17 +7650,18 @@ EOF
           echo "create: $CONF"
         fi
 
-        python3 - "$CONF" <<'PY'
+        TUNE_LAST_RUN_LOG_DIR="$TUNE_LAST_RUN_LOG_DIR" python3 - "$CONF" <<'PY'
 import os, re, sys, tempfile
 
 conf_path = sys.argv[1]
+last_run_log_dir = os.environ.get("TUNE_LAST_RUN_LOG_DIR", "/var/log/health").replace('"', '\\"')
 settings = [
     ("LM_DARK_SITE", "true"),
     ("LM_LOCAL_ONLY", "true"),
     ("LM_NOTIFY_ONLY_ON_CHANGE", "1"),
     ("MONITOR_TIMEOUT_SECS", "300"),
     ("LM_LAST_RUN_MAX_AGE_MIN", "1800"),
-    ("LM_LAST_RUN_LOG_DIR", "\"/var/log/health\""),
+    ("LM_LAST_RUN_LOG_DIR", f"\"{last_run_log_dir}\""),
     ("LM_FS_RO_EXCLUDE_RE", "'^(proc|sysfs|devtmpfs|tmpfs|devpts|cgroup2?|cgroup|debugfs|tracefs|mqueue|hugetlbfs|pstore|squashfs|overlay|rpc_pipefs|autofs|fuse\\\\..*|binfmt_misc|iso9660)$'"),
 ]
 

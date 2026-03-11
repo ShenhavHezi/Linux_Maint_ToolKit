@@ -122,6 +122,7 @@ run_required "check_json_test" bash "$ROOT_DIR/tests/check_json_test.sh"
 run_required "check_json_schema_test" bash "$ROOT_DIR/tests/check_json_schema_test.sh"
 run_required "check_exit_code_test" bash "$ROOT_DIR/tests/check_exit_code_test.sh"
 run_required "check_no_side_effects_test" bash "$ROOT_DIR/tests/check_no_side_effects_test.sh"
+run_required "init_repo_default_cfg_dir_test" bash "$ROOT_DIR/tests/init_repo_default_cfg_dir_test.sh"
 run_required "gate_command_test" bash "$ROOT_DIR/tests/gate_command_test.sh"
 run_required_if_cmd perl "gate_invalid_status_test" bash "$ROOT_DIR/tests/gate_invalid_status_test.sh"
 run_required "diff_color_test" bash "$ROOT_DIR/tests/diff_color_test.sh"
@@ -135,6 +136,7 @@ run_required "history_repo_hint_test" bash "$ROOT_DIR/tests/history_repo_hint_te
 run_required "history_sqlite_test" bash "$ROOT_DIR/tests/history_sqlite_test.sh"
 run_required "history_invalid_run_index_test" bash "$ROOT_DIR/tests/history_invalid_run_index_test.sh"
 run_required "history_large_index_perf_test" bash "$ROOT_DIR/tests/history_large_index_perf_test.sh"
+run_required "tune_dark_site_repo_mode_test" bash "$ROOT_DIR/tests/tune_dark_site_repo_mode_test.sh"
 run_required "summary_command_test" bash "$ROOT_DIR/tests/summary_command_test.sh"
 run_required_if_cmd perl "summary_invalid_status_test" bash "$ROOT_DIR/tests/summary_invalid_status_test.sh"
 run_required "status_summary_test" bash "$ROOT_DIR/tests/status_summary_test.sh"
@@ -362,6 +364,8 @@ run_required "summary_json_schema_test" bash "$ROOT_DIR/tests/summary_json_schem
 run_required "run_index_schema_test" bash "$ROOT_DIR/tests/run_index_schema_test.sh"
 run_required "run_index_prune_test" bash "$ROOT_DIR/tests/run_index_prune_test.sh"
 run_required "run_index_prune_write_failure_test" bash "$ROOT_DIR/tests/run_index_prune_write_failure_test.sh"
+run_required "run_index_explicit_state_no_fallback_test" bash "$ROOT_DIR/tests/run_index_explicit_state_no_fallback_test.sh"
+run_required "run_index_prune_invalid_lines_test" bash "$ROOT_DIR/tests/run_index_prune_invalid_lines_test.sh"
 fi
 
 # Sudo-gated tests
