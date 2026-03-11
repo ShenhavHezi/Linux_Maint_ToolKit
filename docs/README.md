@@ -1,46 +1,92 @@
-# Documentation index
+# Documentation Hub
 
-Start here to navigate operator and contributor documentation.
+This is the fastest way to navigate `linux-maint` without guessing which file matters.
 
-## Operator docs
+## Start Here
 
-- Quick reference (cheat-sheet): `docs/QUICK_REFERENCE.md`
-- Operator runbook (short): `docs/RUNBOOK.md`
-- Full reference (configuration, monitors, outputs): `docs/reference.md`
-- Monitors matrix: `docs/MONITORS_MATRIX.md`
-- Configuration: `docs/configuration.md`
-- Custom monitors: `docs/CUSTOM_MONITORS.md`
-- Plugin SDK (baseline): `docs/PLUGIN_SDK.md`
-- Installation: `docs/installation.md`
-- Compatibility matrix: `docs/COMPATIBILITY.md`
-- Troubleshooting: `docs/troubleshooting.md`
-- Dark-site / offline usage: `docs/DARK_SITE.md`
-- Reason tokens: `docs/REASONS.md`
-- FAQ: `docs/FAQ.md`
-- Day-2 ops: `docs/DAY2.md`
-- Operations quickstart: `docs/OPERATIONS.md`
-- Upgrade and rollback: `docs/UPGRADE.md`
-- Artifacts and logs: `docs/ARTIFACTS.md`
-- Examples: `docs/examples/README.md`
-- Interactive menu (TUI): `linux-maint menu`
-- Reasons quick reference: `docs/REASONS.md#top-10-reasons-quick-reference`
-- Short index (quick links): `docs/INDEX.md`
+| If you want to... | Open this |
+| --- | --- |
+| Understand what the toolkit does | [../README.md](../README.md) |
+| Get the most common commands fast | [QUICK_REFERENCE.md](QUICK_REFERENCE.md) |
+| Install on a host | [installation.md](installation.md) |
+| Upgrade or roll back safely | [UPGRADE.md](UPGRADE.md) |
+| Work in an air-gapped environment | [DARK_SITE.md](DARK_SITE.md) |
+| Understand every command and JSON contract | [reference.md](reference.md) |
+| Troubleshoot an active problem | [troubleshooting.md](troubleshooting.md) |
 
-## Contributor docs
+## Operator Workflow
 
-- Contributing: `CONTRIBUTING.md`
-- Contributors guide: `CONTRIBUTORS.md`
-- Development notes: `docs/development.md`
-- Command contract checklist: `docs/COMMAND_CONTRACT_CHECKLIST.md`
-- Release checklist: `docs/RELEASE_CHECKLIST.md`
-- Release template: `docs/RELEASE_TEMPLATE.md`
-- Release notes (latest): `docs/release_notes/release_notes_v0.3.4.md`, `docs/release_notes/release_notes_v0.3.3.md`
-- TUI style guide: `docs/TUI_STYLE_GUIDE.md`
-- TUI style addendum (menu updates): `docs/TUI_STYLE_GUIDE_ADDENDUM.md`
-- Security policy: `SECURITY.md`
-- Security response: `docs/SECURITY_RESPONSE.md`
-- Security best practices report: `docs/security_best_practices_report.md`
+Use this order if you are operating the toolkit on a real system.
 
-## Architecture
+1. **Prepare**
+   Open [installation.md](installation.md), [configuration.md](configuration.md), and [COMPATIBILITY.md](COMPATIBILITY.md).
+2. **Run**
+   Start with [QUICK_REFERENCE.md](QUICK_REFERENCE.md), [RUNBOOK.md](RUNBOOK.md), or `linux-maint menu`.
+3. **Triage**
+   Use [troubleshooting.md](troubleshooting.md), [REASONS.md](REASONS.md), [OPERATIONS.md](OPERATIONS.md), and [DAY2.md](DAY2.md).
+4. **Export and escalate**
+   Use [ARTIFACTS.md](ARTIFACTS.md), [UPGRADE.md](UPGRADE.md), and [FAQ.md](FAQ.md).
 
-- High-level data flow: `docs/architecture.md`
+## Pick By Task
+
+### Get productive quickly
+
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md)
+- [RUNBOOK.md](RUNBOOK.md)
+- [OPERATIONS.md](OPERATIONS.md)
+- [FAQ.md](FAQ.md)
+
+### Set up or change configuration
+
+- [configuration.md](configuration.md)
+- [installation.md](installation.md)
+- [COMPATIBILITY.md](COMPATIBILITY.md)
+- [CUSTOM_MONITORS.md](CUSTOM_MONITORS.md)
+
+### Investigate results and reasons
+
+- [troubleshooting.md](troubleshooting.md)
+- [REASONS.md](REASONS.md)
+- [reference.md](reference.md)
+- [MONITORS_MATRIX.md](MONITORS_MATRIX.md)
+
+### Work offline or ship artifacts
+
+- [DARK_SITE.md](DARK_SITE.md)
+- [ARTIFACTS.md](ARTIFACTS.md)
+- [UPGRADE.md](UPGRADE.md)
+- [release_notes](release_notes/)
+
+## Menu and CLI Help
+
+- `linux-maint help`
+- `linux-maint help menu`
+- `linux-maint menu`
+- [TUI_STYLE_GUIDE.md](TUI_STYLE_GUIDE.md)
+
+The menu follows the same flow as the docs:
+
+- `Quickstart`
+- `Overview`
+- `Run`
+- `Triage`
+- `Share`
+
+## Contributors and Maintainers
+
+| Topic | Start here |
+| --- | --- |
+| Contributing rules | [../CONTRIBUTING.md](../CONTRIBUTING.md) |
+| Development notes | [development.md](development.md) |
+| Command contract checklist | [COMMAND_CONTRACT_CHECKLIST.md](COMMAND_CONTRACT_CHECKLIST.md) |
+| Release process | [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) |
+| Release note format | [RELEASE_TEMPLATE.md](RELEASE_TEMPLATE.md) |
+| Plugin extension work | [PLUGIN_SDK.md](PLUGIN_SDK.md) |
+| Security handling | [../SECURITY.md](../SECURITY.md), [SECURITY_RESPONSE.md](SECURITY_RESPONSE.md) |
+
+## Reference Shelf
+
+- [reference.md](reference.md)
+- [INDEX.md](INDEX.md)
+- [architecture.md](architecture.md)
+- [examples/README.md](examples/README.md)

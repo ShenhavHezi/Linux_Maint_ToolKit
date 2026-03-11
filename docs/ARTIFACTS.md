@@ -37,6 +37,24 @@ Only these `monitor=` lines are written into the summary artifacts.
 - `linux-maint export --json|--jsonl|--csv` — structured output for external systems
 - `linux-maint pack-logs` — support bundle (includes `meta/bundle_manifest.txt`, `meta/redaction_report.txt`, `meta/support_handoff.txt`, and `meta/bundle_integrity.txt` when `sha256sum`+`stat` are available; supports `--gpg` encryption)
 
+## Support bundle handoff
+
+When escalating an incident, send these together:
+
+1. the generated archive from `linux-maint pack-logs`
+2. `meta/support_handoff.txt`
+3. the output of `linux-maint status --verbose`
+4. the exact toolkit version from `linux-maint version`
+
+Inside the bundle, check these files first:
+
+- `meta/bundle_manifest.txt`
+- `meta/redaction_report.txt`
+- `meta/support_handoff.txt`
+- `meta/bundle_integrity.txt` when present
+
+If the bundle was encrypted, include the intended recipient details out-of-band so the receiver can confirm the correct key path.
+
 To decrypt a GPG-encrypted bundle:
 
 ```bash
@@ -85,6 +103,8 @@ GitHub CI also emits artifact attestations for the built release tarball and Roc
 - `<state_dir>/upgrades/latest`
 
 The manifest records the current version, target version, config snapshot path, payload inventory path, rollback artifact path (when supplied), and the final verify/install result.
+
+These files are meant for rollback and post-upgrade review. If an upgrade fails, keep the entire `<state_dir>/upgrades/<run-id>/` directory together when debugging.
 
 ## Packaging outputs
 

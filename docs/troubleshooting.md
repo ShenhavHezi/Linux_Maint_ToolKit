@@ -3,6 +3,22 @@
 This page covers common operator workflows, expected first-run SKIPs, and quick fixes.
 For full CLI reference, see `docs/reference.md`.
 
+## Fastest incident path
+
+If you are under time pressure, use this order:
+
+1. `linux-maint status --verbose`
+2. `linux-maint doctor`
+3. `linux-maint diff`
+4. `linux-maint pack-logs --out /tmp`
+
+If you prefer the menu:
+
+1. `linux-maint menu`
+2. `Overview`
+3. `Triage`
+4. `Share`
+
 ## How to read the examples
 
 - Examples below use repo-mode form: `linux-maint ...`
@@ -48,8 +64,15 @@ linux-maint deps
 linux-maint export --json
 linux-maint export --csv
 linux-maint pack-logs --out /tmp
-# or open: linux-maint menu -> Export -> pack logs
+# or open: linux-maint menu -> Share -> pack logs
 ```
+
+For a support-ready escalation, also include:
+
+- `linux-maint version`
+- the active mode: repo or installed
+- distro and shell version
+- the bundle handoff note in `meta/support_handoff.txt`
 
 ## First run expectations (normal SKIPs)
 

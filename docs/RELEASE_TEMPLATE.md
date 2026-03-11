@@ -1,28 +1,65 @@
 # Release Notes Template
 
-## Version
-- Version: 
-- Date (UTC): 
-- Git tag: 
+Use this template for tagged releases so operators can understand impact quickly.
+
+## Header
+
+- Version:
+- Date (UTC):
+- Git tag:
+- Commit:
+
+## Summary
+
+Write 2 to 4 short lines that answer:
+
+- What changed for operators?
+- What changed for packagers or maintainers?
+- Is this mainly features, fixes, or release hardening?
 
 ## Highlights
+
 - 
 
-## Breaking changes
-- None
+## Operator impact
 
-## New features
 - 
+
+## Upgrade and compatibility notes
+
+- Breaking changes:
+  - None
+- Upgrade notes:
+  - 
+- Compatibility notes:
+  - 
 
 ## Fixes
+
 - 
 
-## Docs
+## Docs and UX
+
 - 
 
-## Compatibility / upgrade notes
-- 
+## Validation
 
-## Checksums (if releasing a tarball)
-- SHA256SUMS: 
+- `bash tools/release_check.sh`
+- `bash tools/release_audit.sh`
+- `bash tests/smoke.sh`
+- additional focused checks:
+  - 
+
+## Release assets
+
+- Tarball:
+- SHA256SUMS:
 - Provenance manifest:
+- Detached signature:
+
+## Operator follow-up
+
+- Recommended post-upgrade verification:
+  - `linux-maint verify-install`
+  - `linux-maint status`
+  - `linux-maint doctor`
