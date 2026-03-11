@@ -33,7 +33,7 @@ cat > "$log_dir/full_health_monitor_latest.log" <<'EOF'
 EOF
 
 run_metrics() {
-  LOG_DIR="$log_dir" LM_CFG_DIR="$cfg_dir" bash "$LM" metrics --json
+  LOG_DIR="$log_dir" SUMMARY_DIR="$log_dir" LM_CFG_DIR="$cfg_dir" bash "$LM" metrics --json
 }
 
 if [[ "$(id -u)" -eq 0 ]]; then
@@ -42,7 +42,15 @@ if [[ "$(id -u)" -eq 0 ]]; then
     chmod 0644 "$log_dir/last_status_full" "$log_dir/full_health_monitor_latest.log"
     chmod 0644 "$cfg_dir/servers.txt" "$cfg_dir/excluded.txt" "$cfg_dir/services.txt"
     chmod 000 "$log_dir/full_health_monitor_summary_latest.log"
-    out="$(su -s /bin/bash nobody -c "LOG_DIR='$log_dir' LM_CFG_DIR='$cfg_dir' bash '$LM' metrics --json" 2>&1)"
+    set +e
+    out="$(su -s /bin/bash nobody -c "HOME='$workdir' LOG_DIR='$log_dir' SUMMARY_DIR='$log_dir' LM_CFG_DIR='$cfg_dir' bash '$LM' metrics --json" 2>&1)"
+    rc=$?
+    set -e
+    if [[ "$rc" -ne 0 ]]; then
+      echo "metrics unreadable summary root-path failure rc=$rc" >&2
+      echo "$out" >&2
+      exit 1
+    fi
   else
     echo "metrics unreadable summary skipped under root: no su/nobody"
     exit 0
