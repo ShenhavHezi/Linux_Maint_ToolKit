@@ -10,7 +10,9 @@ repo="$workdir/repo"
 mkdir -p "$repo"
 (
   cd "$ROOT_DIR"
-  git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$repo"
+  git ls-files -z | while IFS= read -r -d '' path; do
+    [[ -e "$path" ]] && printf '%s\0' "$path"
+  done | tar --null -T - -cf - | tar -xf - -C "$repo"
 )
 
 (

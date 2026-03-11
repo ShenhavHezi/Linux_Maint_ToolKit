@@ -116,7 +116,6 @@ check_release_notes_folder(){
 check_governance
 check_release_notes_folder
 check_release_refs "$ROOT_DIR/docs/README.md" "docs/README.md"
-check_release_refs "$ROOT_DIR/docs/INDEX.md" "docs/INDEX.md"
 
 if [[ "$fail" -ne 0 ]]; then
   echo "release_audit: FAILED" >&2

@@ -104,6 +104,15 @@ The wrapper returns the worst exit code across executed monitors.
 Use these files intentionally to reduce merge conflicts:
 - Update `ToDoList.txt` only when roadmap scope/priority/status truly changes.
 - Update `CHANGELOG.md` for releases using `docs/RELEASE_TEMPLATE.md`.
+- Keep `docs/README.md` as the single docs hub instead of adding more index pages.
+
+## Maintainer release tools
+
+- Release checklist: `docs/RELEASE_CHECKLIST.md`
+- Release template: `docs/RELEASE_TEMPLATE.md`
+- Release history: `docs/release_notes/README.md`
+- Release validation: `tools/release_check.sh` and `tools/release_audit.sh`
+- Tarball build and verification: `tools/make_tarball.sh` and `tools/verify_release.sh`
 
 ## Git hooks (optional)
 

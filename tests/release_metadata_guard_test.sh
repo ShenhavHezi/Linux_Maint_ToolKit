@@ -13,11 +13,13 @@ copy_repo(){
   mkdir -p "$dest"
   (
     cd "$ROOT_DIR"
-    git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$dest"
+    git ls-files -z | while IFS= read -r -d '' path; do
+      [[ -e "$path" ]] && printf '%s\0' "$path"
+    done | tar --null -T - -cf - | tar -xf - -C "$dest"
   )
 }
 
-remove_release_ref(){
+remove_release_refs(){
   local doc_path="$1"
   python3 - "$doc_path" "$CURRENT_REL" <<'PY'
 import sys
@@ -26,7 +28,15 @@ from pathlib import Path
 path = Path(sys.argv[1])
 current = sys.argv[2]
 text = path.read_text(encoding="utf-8")
-for pattern in (f"`{current}`, ", f", `{current}`", f"`{current}`"):
+for pattern in (
+    f"`{current}`, ",
+    f", `{current}`",
+    f"`{current}`",
+    "`docs/release_notes/README.md`, ",
+    ", `docs/release_notes/README.md`",
+    "`docs/release_notes/README.md`",
+    "(release_notes/README.md)",
+):
     text = text.replace(pattern, "")
 path.write_text(text, encoding="utf-8")
 PY
@@ -51,7 +61,7 @@ grep -q 'Current version release notes missing' <<< "$out" || {
 
 repo_missing_readme_ref="$workdir/missing_readme_ref"
 copy_repo "$repo_missing_readme_ref"
-remove_release_ref "$repo_missing_readme_ref/docs/README.md"
+remove_release_refs "$repo_missing_readme_ref/docs/README.md"
 set +e
 out="$(bash "$repo_missing_readme_ref/tools/release_audit.sh" 2>&1)"
 rc=$?
@@ -60,25 +70,8 @@ set -e
   echo "release_audit.sh succeeded without current release notes reference in docs/README.md" >&2
   exit 1
 }
-grep -q 'docs/README.md missing current release notes reference' <<< "$out" || {
-  echo "release_audit.sh did not flag docs/README.md current release notes drift" >&2
-  echo "$out" >&2
-  exit 1
-}
-
-repo_missing_index_ref="$workdir/missing_index_ref"
-copy_repo "$repo_missing_index_ref"
-remove_release_ref "$repo_missing_index_ref/docs/INDEX.md"
-set +e
-out="$(bash "$repo_missing_index_ref/tools/release_audit.sh" 2>&1)"
-rc=$?
-set -e
-[[ "$rc" -ne 0 ]] || {
-  echo "release_audit.sh succeeded without current release notes reference in docs/INDEX.md" >&2
-  exit 1
-}
-grep -q 'docs/INDEX.md missing current release notes reference' <<< "$out" || {
-  echo "release_audit.sh did not flag docs/INDEX.md current release notes drift" >&2
+grep -Eq 'docs/README.md missing (current release notes reference|release notes references)' <<< "$out" || {
+  echo "release_audit.sh did not flag docs/README.md release notes drift" >&2
   echo "$out" >&2
   exit 1
 }

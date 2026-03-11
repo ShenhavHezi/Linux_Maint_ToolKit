@@ -4,7 +4,7 @@
 - [ ] Decide version and run `make release-prep VERSION=x.y.z`.
 - [ ] Keep `VERSION` in strict `x.y.z` form (no leading `v`).
 - [ ] Place release notes under `docs/release_notes/` (archive), not `dist/`.
-- [ ] Ensure `VERSION`, `docs/README.md`, and `docs/INDEX.md` all point at the same current release notes file.
+- [ ] Ensure `VERSION` and `docs/README.md` point at the same current release notes file.
 - [ ] Ensure `CHANGELOG.md` contains the current `- Release vx.y.z` entry and the current release notes title/version/tag fields match `VERSION`.
 - [ ] Run `./tools/release_check.sh`.
 - [ ] Run `./tools/release_audit.sh`.

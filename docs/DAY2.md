@@ -1,77 +1,74 @@
-# Day-2 Operations Guide
+# Day-2 Maintenance
 
-This guide covers routine operations after initial rollout.
+This page covers routine maintenance after rollout: patching, baseline refresh, runtime tuning, and trend review.
 
-## Patching flow
-
-1. Review status:
+## Patch and verify
 
 ```bash
-sudo linux-maint status --reasons 5
-```
-
-2. Apply patches using your distro tooling (example):
-
-```bash
+linux-maint status --reasons 5
 sudo dnf update -y
+linux-maint run
+linux-maint status
+linux-maint diff
 ```
 
-3. Re-run and confirm:
+Use your own distro package workflow if you are not on RHEL-like systems.
+
+## Baseline refresh after approved changes
+
+Update baselines only after the new state is accepted.
+
+Ports baseline:
 
 ```bash
-sudo linux-maint run
-sudo linux-maint status
+linux-maint run
+# then enable the baseline update path for ports and re-run
 ```
 
-## Baseline refresh
-
-### Ports baseline
-
-- If you expect a known change in listening ports, update the baseline:
+Config drift baseline:
 
 ```bash
-sudo linux-maint run
-# then set BASELINE_UPDATE=true in /etc/linux_maint/ports_baseline_monitor.conf and re-run
+linux-maint run
+# then enable the baseline update path for config drift and re-run
 ```
 
-### Config drift baseline
-
-- For accepted config changes, update baseline:
+User and sudoers baselines:
 
 ```bash
-sudo linux-maint run
-# then set BASELINE_UPDATE=true in /etc/linux_maint/config_drift_monitor.conf and re-run
+linux-maint baseline users --update
+linux-maint baseline sudoers --update
 ```
 
-## Runtime warn tuning
-
-1. Identify slow monitors:
+## Runtime tuning
 
 ```bash
 linux-maint runtimes --last 3
-```
-
-2. Add thresholds:
-
-```bash
-sudo tee /etc/linux_maint/monitor_runtime_warn.conf >/dev/null <<'EOF2'
+sudo tee /etc/linux_maint/monitor_runtime_warn.conf >/dev/null <<'EOF'
 network_monitor=30
 backup_check=120
-EOF2
+EOF
 ```
 
-3. Validate warnings appear when thresholds are exceeded.
+Then rerun and confirm the threshold behavior is useful.
 
 ## Trend and regression review
 
 ```bash
-sudo linux-maint trend --last 10
-sudo linux-maint diff
+linux-maint trend --last 10
+linux-maint diff
+linux-maint history --last 10 --table
 ```
 
-## Support bundle
+## Support and escalation
 
 ```bash
-sudo linux-maint pack-logs --out /tmp
+linux-maint doctor
+linux-maint pack-logs --out /tmp
 ```
 
+## Companion docs
+
+- [RUNBOOK.md](RUNBOOK.md)
+- [troubleshooting.md](troubleshooting.md)
+- [ARTIFACTS.md](ARTIFACTS.md)
+- [REASONS.md](REASONS.md)

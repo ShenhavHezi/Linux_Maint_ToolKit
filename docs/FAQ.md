@@ -42,10 +42,10 @@ linux-maint run --plan --json
 ```
 
 ## How do I move quickly in the TUI menu?
-Open `linux-maint menu`. In gum mode, use `?` for the help overlay, `/` for action search, `1-9` for the visible actions, and the task sections `Overview / Run / Investigate / Repair / Export / Docs` to stay on the shortest operator path.
+Open `linux-maint menu`. In gum mode, use `?` for the help overlay, `/` for action search, `1-9` for the visible actions, and the task sections `Quickstart / Overview / Run / Triage / Share` to stay on the shortest operator path.
 
 ## How do I create a support bundle from the menu?
-Open `linux-maint menu`, go to `Export`, then choose `pack logs`. That opens the guided bundle wizard so you can pick the output directory, redaction, hashing, and optional GPG encryption without remembering the CLI flags.
+Open `linux-maint menu`, go to `Share`, then choose `pack logs`. That opens the guided bundle wizard so you can pick the output directory, redaction, hashing, and optional GPG encryption without remembering the CLI flags.
 
 ## How do I produce machine-readable outputs safely?
 Use `--json` and optional redaction:
@@ -65,5 +65,5 @@ sha256sum -c SHA256SUMS
 If `linux-maint` is already installed on the verification host, you can also use the built-in helper:
 
 ```bash
-linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS
+linux-maint verify-release Linux_Maint_ToolKit-*.tgz --sums SHA256SUMS --manifest release_provenance.json
 ```

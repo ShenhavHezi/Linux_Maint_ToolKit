@@ -55,12 +55,12 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   exit 0
 fi
 
-python3 - "$ROOT_DIR/docs/README.md" "$ROOT_DIR/docs/INDEX.md" "$NOTES_OUT" <<'PY'
+python3 - "$ROOT_DIR/docs/README.md" "$NOTES_OUT" <<'PY'
 import re
 import sys
 from pathlib import Path
 
-readme_path, index_path, notes_path = map(Path, sys.argv[1:4])
+readme_path, notes_path = map(Path, sys.argv[1:3])
 notes_rel = notes_path.as_posix()
 if notes_rel.startswith(str(readme_path.parent) + "/"):
   notes_rel = notes_rel[len(str(readme_path.parent)) + 1:]
@@ -82,27 +82,5 @@ def update_readme(path: Path, notes: str) -> None:
     if replaced:
         path.write_text("\n".join(out) + "\n", encoding="utf-8")
 
-def update_index(path: Path, notes: str) -> None:
-    lines = path.read_text(encoding="utf-8").splitlines()
-    link = f"- [`{notes}`]({notes.replace('docs/','')})"
-    if any(link in line for line in lines):
-        return
-    out = []
-    inserted = False
-    for line in lines:
-        if not inserted and "security_best_practices_report.md" in line:
-            out.append(line)
-            out.append(link)
-            inserted = True
-            continue
-        if not inserted and "release_notes_v" in line:
-            out.append(link)
-            inserted = True
-        out.append(line)
-    if not inserted:
-        out.append(link)
-    path.write_text("\n".join(out) + "\n", encoding="utf-8")
-
 update_readme(readme_path, notes_rel)
-update_index(index_path, notes_rel)
 PY

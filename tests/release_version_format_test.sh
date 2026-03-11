@@ -11,7 +11,9 @@ copy_repo(){
   mkdir -p "$dest"
   (
     cd "$ROOT_DIR"
-    git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$dest"
+    git ls-files -z | while IFS= read -r -d '' path; do
+      [[ -e "$path" ]] && printf '%s\0' "$path"
+    done | tar --null -T - -cf - | tar -xf - -C "$dest"
   )
 }
 

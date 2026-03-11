@@ -1,72 +1,62 @@
-# Operator runbook (short)
+# Operator Runbook
 
-This is a minimal, practical workflow for first-time setup and day-2 operations.
+Use this page for the normal daily operator loop after the toolkit is already set up.
 
-## 1) Install (installed mode)
+If you are new to the project, start with [FIRST_5_MINUTES.md](FIRST_5_MINUTES.md) instead.
 
-```bash
-sudo ./install.sh
-sudo linux-maint init
-```
-
-If you are running from a repo checkout (no install), you can still use `linux-maint` directly, but the default paths live under the repo.
-
-## 2) First run (safe baseline)
+## Daily loop
 
 ```bash
-sudo linux-maint run
-sudo linux-maint status
+linux-maint status
+linux-maint report --short
+linux-maint menu
 ```
 
-If you see `SKIP` entries for optional configs, that is expected. Use:
+Use this when you need the fastest human answer.
+
+## When something looks wrong
 
 ```bash
-sudo linux-maint status --expected-skips
+linux-maint status --verbose
+linux-maint diff
+linux-maint doctor
+linux-maint logs 200
 ```
 
-## 3) Create baselines (one-time)
+If you prefer the menu:
 
-Baselines are required for the following monitors:
-- ports baseline
-- config drift baseline
-- user/sudoers baseline
+1. `Overview`
+2. `Triage`
+3. `Share`
 
-Generate them after the system is in a known-good state:
+## When you want a fresh run
 
 ```bash
-sudo linux-maint baseline ports --update
-sudo linux-maint baseline configs --update
-sudo linux-maint baseline users --update
-sudo linux-maint baseline sudoers --update
+linux-maint check
+linux-maint run --plan
+linux-maint run
+linux-maint status --verbose
 ```
 
-## 4) Day-2 checks (regular)
-
-Daily:
-```bash
-sudo linux-maint status
-sudo linux-maint report --short
-```
-
-Weekly:
-```bash
-sudo linux-maint trend --last 10
-sudo linux-maint runtimes --last 3
-```
-
-When something fails:
-```bash
-sudo linux-maint status --verbose
-sudo linux-maint logs 200
-sudo linux-maint doctor
-```
-
-## 5) Automation (optional)
-
-If you want machine-friendly output:
+## When you need escalation artifacts
 
 ```bash
-sudo linux-maint status --json
-sudo linux-maint report --json
-sudo linux-maint check --json
+linux-maint pack-logs --out /tmp
+linux-maint export --json
+linux-maint report --short
 ```
+
+## When you need machine-readable output
+
+```bash
+linux-maint status --json
+linux-maint report --json
+linux-maint check --json
+```
+
+## Best companion docs
+
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md)
+- [troubleshooting.md](troubleshooting.md)
+- [ARTIFACTS.md](ARTIFACTS.md)
+- [REASONS.md](REASONS.md)

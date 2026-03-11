@@ -11,7 +11,7 @@ Usage (repo mode):
 ```bash
 cp -r docs/examples/minimal_config /tmp/linux_maint
 export LM_CFG_DIR=/tmp/linux_maint
-sudo ./bin/linux-maint run
+./bin/linux-maint run
 ```
 
 Replace hostnames and service names before using in production.

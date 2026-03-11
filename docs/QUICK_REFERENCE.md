@@ -93,13 +93,13 @@ EOF
 # Interactive TUI menu (gum if present, else dialog/whiptail)
 linux-maint menu
 
-# Main menu layout: Quickstart / Overview / Run / Investigate / Repair / Export / Docs
+# Main menu layout: Quickstart / Overview / Run / Triage / Share
 # Quickstart -> first setup guides init, config review, check, plan, and starter baselines
 # Quickstart also provides direct shortcuts for servers.txt, hosts.d, and key setup docs
 # gum controls: ? for help overlay, / for smart action search, 1-9 for visible actions
 # . opens visible action previews before you select one
 # smart palette examples: first run, triage, bundle, report, logs, doctor
-# Export -> pack logs opens the guided support-bundle wizard
+# Share -> pack logs opens the guided support-bundle wizard
 # empty states now explain what is missing when no summary/history/logs exist yet
 # dialog/whiptail now show the same context, readiness, and recommended-start summary inline
 # command preview now shows reads, writes, risk, and likely next step before execution

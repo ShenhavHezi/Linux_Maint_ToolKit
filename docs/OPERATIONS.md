@@ -1,186 +1,104 @@
-# Operations Quickstart (first 10 minutes)
+# Fleet And Operations Guide
 
-This guide is a short, operator‑friendly runbook for getting meaningful output fast.
+This page is for real host and fleet operation after you understand the basic local flow.
 
-## 1) Install (recommended installed mode)
+If you just want the first successful run, use [FIRST_5_MINUTES.md](FIRST_5_MINUTES.md).
 
-From a repo checkout:
+## Recommended operations path
+
+1. install or confirm the intended mode
+2. initialize minimal config
+3. validate with `check`
+4. preview with `run --plan`
+5. execute `run`
+6. review `status`, `report`, and `diff`
+7. package artifacts when escalation is needed
+
+## Installed host setup
 
 ```bash
 sudo ./install.sh --with-user --with-timer --with-logrotate
-```
-
-Verify layout and paths:
-
-```bash
 sudo linux-maint verify-install
-```
-
-## 2) Initialize minimal config
-
-```bash
 sudo linux-maint init --minimal
-```
-
-Edit the three files created under `/etc/linux_maint/`:
-- `servers.txt` — target hosts for SSH mode
-- `excluded.txt` — optional exclusions
-- `services.txt` — systemd units to verify
-
-## 3) First run (local + SSH targets)
-
-```bash
-sudo linux-maint run
-sudo linux-maint status
-```
-
-If you see `status=SKIP` entries, they usually mean optional config is missing. That is expected on a first run.
-
-## 4) Validate and preflight
-
-```bash
 sudo linux-maint check
 ```
 
-This runs config validation, preflight dependency checks, and prints expected SKIPs.
-
-## 5) Review results
+## Fleet run workflow
 
 ```bash
-sudo linux-maint status
+sudo linux-maint run --group prod --parallel 10 --plan
+sudo linux-maint run --group prod --parallel 10
 sudo linux-maint status --verbose
-sudo linux-maint status --json
+sudo linux-maint report --short
 ```
 
-## 6) Dry‑run a fleet
+Use `hosts.d` groups when you want repeatable scopes instead of ad-hoc host lists.
+
+## SSH strict mode
+
+If you require strict host-key verification:
 
 ```bash
-sudo linux-maint run --group prod --dry-run
-```
-
-## 7) SSH strict-mode quickstart
-
-If you require strict host key verification:
-
-```bash
-# Seed dedicated known_hosts (installed mode)
 sudo /usr/local/libexec/linux_maint/seed_known_hosts.sh --hosts-file /etc/linux_maint/servers.txt
-
-# Enable strict mode in config
 echo "LM_SSH_KNOWN_HOSTS_MODE=strict" | sudo tee -a /etc/linux_maint/linux-maint.conf >/dev/null
 ```
 
-Pinned known_hosts file (stronger pinning):
+Optional stronger pinning:
 
 ```bash
 echo "LM_SSH_KNOWN_HOSTS_PIN_FILE=/var/lib/linux_maint/known_hosts.pinned" | sudo tee -a /etc/linux_maint/linux-maint.conf >/dev/null
-```
-
-Optional verification (detect key changes):
-
-```bash
 sudo /usr/local/libexec/linux_maint/seed_known_hosts.sh --hosts-file /etc/linux_maint/servers.txt --check
 ```
 
-Re-run after seeding:
+## CI or deployment gate
+
+Create a small policy file:
 
 ```bash
-sudo linux-maint run
-```
-
-## 8) Common next fixes
-
-- `reason=missing_dependency` → install the missing command on the target.
-- `reason=config_missing` → populate the referenced config file under `/etc/linux_maint/`.
-- `reason=baseline_missing` → create or allow baseline auto‑init where supported.
-
-## 9) First‑run expected SKIPs
-
-Run this to confirm optional gates:
-
-```bash
-sudo linux-maint status --expected-skips
-```
-
-## 10) Troubleshooting bundle (offline‑friendly)
-
-```bash
-sudo linux-maint doctor
-sudo linux-maint pack-logs --out /tmp
-```
-
-## 11) Prometheus textfile quickstart
-
-Wrapper runs write a textfile by default at:
-`/var/lib/node_exporter/textfile_collector/linux_maint.prom`
-
-Minimal scrape timer example:
-
-```ini
-# /etc/systemd/system/linux-maint-prom.timer
-[Unit]
-Description=linux-maint Prometheus textfile refresh
-
-[Timer]
-OnCalendar=*:0/5
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-```ini
-# /etc/systemd/system/linux-maint-prom.service
-[Unit]
-Description=linux-maint Prometheus textfile refresh
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/run_full_health_monitor.sh
-```
-
-## 11) Repo mode (if you are not installed)
-
-```bash
-sudo ./run_full_health_monitor.sh
-sudo ./bin/linux-maint status
-```
-
-## 12) Reference docs
-
-- Full configuration and monitor reference: `docs/reference.md`
-- Reason token glossary: `docs/REASONS.md`
-- Offline/dark‑site guide: `docs/DARK_SITE.md`
-- Upgrade and rollback: `docs/UPGRADE.md`
-- Reasons quick reference (top 10): `docs/REASONS.md#top-10-reasons-quick-reference`
-
-## 13) CI deploy gate (block on health regression)
-
-Create `policy.conf`:
-
-```bash
+cat > policy.conf <<'EOF'
 max_crit=0
 max_warn=5
 max_unknown=10
 max_skip=200
 require_overall=
+EOF
 ```
 
-Pipeline sequence:
+Then gate on current health:
 
 ```bash
-sudo linux-maint run
+linux-maint run
 linux-maint gate --policy policy.conf
+linux-maint gate --policy policy.conf --json
 ```
 
-If the gate fails (`exit 2`), block deployment and attach:
+If the gate fails, attach:
 
 ```bash
-linux-maint gate --policy policy.conf --json
-sudo linux-maint report --short
-sudo linux-maint pack-logs --out /tmp
+linux-maint report --short
+linux-maint pack-logs --out /tmp
 ```
 
-Recommended CI behavior:
-- gate pass (`0`): continue deploy stage.
-- gate fail (`2`): mark pipeline failed and open ticket/incident with report + bundle.
+## Prometheus textfile flow
+
+The wrapper can refresh:
+
+```text
+/var/lib/node_exporter/textfile_collector/linux_maint.prom
+```
+
+Use:
+
+```bash
+linux-maint metrics --prom
+```
+
+or schedule the wrapper/service path for periodic refresh.
+
+## Companion docs
+
+- [configuration.md](configuration.md)
+- [COMPATIBILITY.md](COMPATIBILITY.md)
+- [DARK_SITE.md](DARK_SITE.md)
+- [UPGRADE.md](UPGRADE.md)
+- [ARTIFACTS.md](ARTIFACTS.md)

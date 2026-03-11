@@ -32,9 +32,9 @@ Use this order if you are operating the toolkit on a real system.
 1. **Prepare**
    Open [installation.md](installation.md), [configuration.md](configuration.md), and [COMPATIBILITY.md](COMPATIBILITY.md).
 2. **Run**
-   Start with [QUICK_REFERENCE.md](QUICK_REFERENCE.md), [RUNBOOK.md](RUNBOOK.md), or `linux-maint menu`.
+   Start with [FIRST_5_MINUTES.md](FIRST_5_MINUTES.md), [QUICK_REFERENCE.md](QUICK_REFERENCE.md), or `linux-maint menu`.
 3. **Triage**
-   Use [troubleshooting.md](troubleshooting.md), [REASONS.md](REASONS.md), [OPERATIONS.md](OPERATIONS.md), and [DAY2.md](DAY2.md).
+   Use [troubleshooting.md](troubleshooting.md), [REASONS.md](REASONS.md), [RUNBOOK.md](RUNBOOK.md), and [DAY2.md](DAY2.md).
 4. **Export and escalate**
    Use [ARTIFACTS.md](ARTIFACTS.md), [UPGRADE.md](UPGRADE.md), and [FAQ.md](FAQ.md).
 
@@ -45,7 +45,6 @@ Use this order if you are operating the toolkit on a real system.
 - [FIRST_5_MINUTES.md](FIRST_5_MINUTES.md)
 - [QUICK_REFERENCE.md](QUICK_REFERENCE.md)
 - [RUNBOOK.md](RUNBOOK.md)
-- [OPERATIONS.md](OPERATIONS.md)
 - [FAQ.md](FAQ.md)
 
 ### Set up or change configuration
@@ -53,6 +52,7 @@ Use this order if you are operating the toolkit on a real system.
 - [configuration.md](configuration.md)
 - [installation.md](installation.md)
 - [COMPATIBILITY.md](COMPATIBILITY.md)
+- [OPERATIONS.md](OPERATIONS.md)
 - [CUSTOM_MONITORS.md](CUSTOM_MONITORS.md)
 
 ### Investigate results and reasons
@@ -68,6 +68,7 @@ Use this order if you are operating the toolkit on a real system.
 - [ARTIFACTS.md](ARTIFACTS.md)
 - [UPGRADE.md](UPGRADE.md)
 - [release_notes/README.md](release_notes/README.md)
+- Release notes (latest): `docs/release_notes/release_notes_v0.3.4.md`, `docs/release_notes/README.md`
 
 ## Menu and CLI Help
 
@@ -89,7 +90,6 @@ The menu follows the same flow as the docs:
 | Topic | Start here |
 | --- | --- |
 | Contributing rules | [../CONTRIBUTING.md](../CONTRIBUTING.md) |
-| Development notes | [development.md](development.md) |
 | Command contract checklist | [COMMAND_CONTRACT_CHECKLIST.md](COMMAND_CONTRACT_CHECKLIST.md) |
 | Release process | [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) |
 | Release note format | [RELEASE_TEMPLATE.md](RELEASE_TEMPLATE.md) |
@@ -100,6 +100,5 @@ The menu follows the same flow as the docs:
 ## Reference Shelf
 
 - [reference.md](reference.md)
-- [INDEX.md](INDEX.md)
 - [architecture.md](architecture.md)
 - [examples/README.md](examples/README.md)
