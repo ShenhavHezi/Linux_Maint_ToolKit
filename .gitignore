@@ -12,6 +12,7 @@
 dist/
 .logs/
 README.md.bak
+plugins/registry.json
 
 # local test logs variants
 .logs_*/

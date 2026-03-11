@@ -90,12 +90,15 @@ The menu follows the same flow as the docs:
 | Topic | Start here |
 | --- | --- |
 | Contributing rules | [../CONTRIBUTING.md](../CONTRIBUTING.md) |
+| Maintainer rules | [../AGENTS.md](../AGENTS.md) |
+| Roadmap | [ROADMAP.md](ROADMAP.md) |
 | Command contract checklist | [COMMAND_CONTRACT_CHECKLIST.md](COMMAND_CONTRACT_CHECKLIST.md) |
 | Release process | [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) |
 | Release note format | [RELEASE_TEMPLATE.md](RELEASE_TEMPLATE.md) |
 | Release history | [release_notes/README.md](release_notes/README.md) |
 | Plugin extension work | [PLUGIN_SDK.md](PLUGIN_SDK.md) |
 | Security handling | [../SECURITY.md](../SECURITY.md), [SECURITY_RESPONSE.md](SECURITY_RESPONSE.md) |
+| Audits and reports | [reports/README.md](reports/README.md) |
 
 ## Reference Shelf
 

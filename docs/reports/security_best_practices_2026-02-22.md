@@ -50,4 +50,3 @@ Overall, the project already has several good security controls (SSH option vali
 1. Decide whether to **reject** unsafe targets (strict) or **sanitize** them (lenient).
 2. Implement input validation in `network_monitor.sh` and host sanitization in `user_monitor.sh`.
 3. Add tests to lock in the new behaviors.
-

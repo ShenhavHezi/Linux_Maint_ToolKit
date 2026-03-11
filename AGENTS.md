@@ -10,7 +10,7 @@ No new runtime dependencies.
 - Prefer minimal patches; no refactors unless requested.
 - Any behavior/output change requires: tests update + docs update.
 - Keep docs under `docs/` (release notes are archived in `docs/`, not `dist/`).
-- Update `ToDoList.txt` when behavior or operator-facing docs change.
+- Update `docs/ROADMAP.md` when roadmap or maintainer planning state changes.
 
 ## Required local tests (before declaring DONE)
 - bash tests/smoke.sh

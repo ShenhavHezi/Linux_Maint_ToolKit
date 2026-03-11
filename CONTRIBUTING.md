@@ -6,7 +6,7 @@ This repo is a working Linux maintenance toolkit. Please keep changes small, saf
 
 This file is the single contribution guide for the repo.
 
-Read `AGENTS.MD` first for the project rules and required local test commands.
+Read `AGENTS.md` first for the project rules and required local test commands.
 
 ## Development workflow
 
@@ -102,7 +102,7 @@ The wrapper returns the worst exit code across executed monitors.
 ## Docs and changelog expectations
 
 Use these files intentionally to reduce merge conflicts:
-- Update `ToDoList.txt` only when roadmap scope/priority/status truly changes.
+- Update `docs/ROADMAP.md` only when roadmap scope/priority/status truly changes.
 - Update `CHANGELOG.md` for releases using `docs/RELEASE_TEMPLATE.md`.
 - Keep `docs/README.md` as the single docs hub instead of adding more index pages.
 
