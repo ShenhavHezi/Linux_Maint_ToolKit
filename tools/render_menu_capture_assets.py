@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import subprocess
+import tempfile
 import sys
 
 from PIL import Image, ImageDraw, ImageFont
@@ -78,10 +79,58 @@ def render_terminal_block(text: str, output: Path, title: str) -> None:
     image.save(output)
 
 
+def capture_main_menu_text() -> str:
+    summary_json = (
+        '{"rows":[{"monitor":"network_monitor","host":"web-2","status":"CRIT","reason":"http_failed"},'
+        '{"monitor":"service_monitor","host":"web-1","status":"WARN","reason":"service_inactive"}],'
+        '"problems":[{"monitor":"network_monitor","host":"web-2","status":"CRIT","reason":"http_failed"}],'
+        '"reason_rollup":[{"reason":"http_failed","count":1},{"reason":"service_inactive","count":1}],'
+        '"totals":{"OK":0,"WARN":1,"CRIT":1,"UNKNOWN":0,"SKIP":0},"meta":{"overall":"CRIT"}}'
+    )
+    with tempfile.TemporaryDirectory(prefix="linux_maint_menu_capture_") as tmp:
+        fixture_root = Path(tmp)
+        logs_dir = fixture_root / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        (logs_dir / "full_health_monitor_summary_latest.json").write_text(summary_json, encoding="utf-8")
+        bash_script = f"""
+set -euo pipefail
+ROOT_DIR={str(ROOT)!r}
+LM="$ROOT_DIR/bin/linux-maint"
+source "$LM" >/dev/null 2>&1
+MODE=repo
+LOG_DIR={str(logs_dir)!r}
+LM_CFG_DIR=/tmp/linux_maint_cfg_fixture
+LM_STATE_DIR=/tmp/linux_maint_state_fixture
+TUI_BACKEND=gum
+TUI_MENU_STYLE=full
+NO_COLOR=1
+catalog=$'quickstart|Start here: first setup, guided rescue, and escalation [q]\\n'\
+$'overview|See fleet health, latest problems, and the fast answer [o]\\n'\
+$'run|Run checks, preview scope, and launch safely [r]\\n'\
+$'triage|Investigate failures and repair safely [t]\\n'\
+$'share|Share reports, bundles, and reference docs [s]\\n'\
+$'exit|Exit [x]\\n'
+tui_gum_render_menu_frame "Choose your next step" "main" "$catalog" 10 2>&1 >/dev/null
+"""
+        out = subprocess.check_output(["bash", "-lc", bash_script], text=True)
+    lines = [line.rstrip() for line in out.splitlines()]
+    while lines and not lines[0]:
+        lines.pop(0)
+    while lines and not lines[-1]:
+        lines.pop()
+    return "\n".join(lines)
+
+
 def main() -> int:
     ASSETS.mkdir(parents=True, exist_ok=True)
+    main_text = capture_main_menu_text()
     overview = load_text(FIXTURES / "menu_section_frame.txt")
     triage = extract_section(load_text(FIXTURES / "menu_all_sections.txt"), "Triage")
+    render_terminal_block(
+        main_text,
+        ASSETS / "menu_welcome_capture.png",
+        "Current menu capture: Welcome",
+    )
     render_terminal_block(
         overview,
         ASSETS / "menu_dashboard_capture.png",

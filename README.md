@@ -120,6 +120,10 @@ If you prefer the menu, start with:
 ## See The Menu
 
 <p align="center">
+  <img src="docs/assets/menu_welcome_capture.png" alt="linux-maint menu welcome capture" width="96%">
+</p>
+
+<p align="center">
   <img src="docs/assets/menu_dashboard_capture.png" alt="linux-maint menu overview capture" width="48%">
   <img src="docs/assets/menu_triage_capture.png" alt="linux-maint menu triage capture" width="48%">
 </p>

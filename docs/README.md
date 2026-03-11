@@ -7,6 +7,10 @@ This is the fastest way to navigate `linux-maint` without guessing which file ma
 ## Menu preview
 
 <p align="center">
+  <img src="assets/menu_welcome_capture.png" alt="linux-maint menu welcome capture" width="96%">
+</p>
+
+<p align="center">
   <img src="assets/menu_dashboard_capture.png" alt="linux-maint menu overview capture" width="48%">
   <img src="assets/menu_triage_capture.png" alt="linux-maint menu triage capture" width="48%">
 </p>
