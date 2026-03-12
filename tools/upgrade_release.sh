@@ -70,18 +70,6 @@ write_payload_inventory() {
     for rel in \
       "bin/linux-maint" \
       "sbin/run_full_health_monitor.sh" \
-      "lib/linux_maint.sh" \
-      "lib/linux_maint_conf.sh" \
-      "lib/linux_maint_runtime.sh" \
-      "lib/linux_maint_admin.sh" \
-      "lib/linux_maint_help.sh" \
-      "lib/linux_maint_tui.sh" \
-      "lib/linux_maint_config.sh" \
-      "lib/linux_maint_diag.sh" \
-      "lib/linux_maint_reporting.sh" \
-      "lib/linux_maint_advanced.sh" \
-      "lib/linux_maint_history.sh" \
-      "lib/linux_maint_ops.sh" \
       "libexec/linux_maint" \
       "share/linux_maint" \
       "share/Linux_Maint_ToolKit"
@@ -93,6 +81,9 @@ write_payload_inventory() {
         printf '%s\n' "$rel"
       fi
     done
+    if [[ -d "$prefix/lib" ]]; then
+      find "$prefix/lib" -maxdepth 1 -type f -name 'linux_maint*.sh' -printf 'lib/%f\n' | LC_ALL=C sort
+    fi
   } > "$out"
 }
 

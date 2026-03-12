@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 TESTLIB_ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+TESTLIB_RELEASE_LIBS_FILE="$TESTLIB_ROOT_DIR/lib/RELEASE_LIBS.txt"
 
 testlib_copy_repo_tracked() {
   local dest="$1"
@@ -42,6 +43,10 @@ testlib_init_git_repo() {
 }
 
 testlib_release_libs() {
+  if [[ -f "$TESTLIB_RELEASE_LIBS_FILE" ]]; then
+    cat "$TESTLIB_RELEASE_LIBS_FILE"
+    return 0
+  fi
   find "$TESTLIB_ROOT_DIR/lib" -maxdepth 1 -type f -name 'linux_maint*.sh' -printf '%f\n' | LC_ALL=C sort
 }
 
@@ -107,8 +112,10 @@ testlib_link_support_libs() {
 testlib_write_release_lib_stubs() {
   local dest="$1"
   mkdir -p "$dest"
+  : > "$dest/RELEASE_LIBS.txt"
   while IFS= read -r base; do
     printf '#!/usr/bin/env bash\n' > "$dest/$base"
+    printf '%s\n' "$base" >> "$dest/RELEASE_LIBS.txt"
   done < <(testlib_release_libs)
 }
 

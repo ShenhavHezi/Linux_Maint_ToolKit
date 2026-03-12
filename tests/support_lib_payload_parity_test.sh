@@ -11,28 +11,25 @@ upgrade_tool="$ROOT_DIR/tools/upgrade_release.sh"
 admin_lib="$ROOT_DIR/lib/linux_maint_admin.sh"
 
 while IFS= read -r lib_name; do
-  grep -Fq "lib/$lib_name" "$verify_tool" || {
-    echo "verify_release.sh missing required member for $lib_name" >&2
+  grep -Fq "lib/RELEASE_LIBS.txt" "$verify_tool" || {
+    echo "verify_release.sh no longer consumes the release lib manifest" >&2
     exit 1
   }
-  grep -Fq "lib/$lib_name" "$upgrade_tool" || {
-    echo "upgrade_release.sh missing rollback manifest entry for $lib_name" >&2
+  grep -Fq "find \"\$prefix/lib\" -maxdepth 1 -type f -name 'linux_maint*.sh'" "$upgrade_tool" || {
+    echo "upgrade_release.sh no longer inventories installed release libs dynamically" >&2
     exit 1
   }
-  grep -Fq "lib/$lib_name" "$install_script" || {
-    echo "install.sh missing install payload reference for $lib_name" >&2
+  # shellcheck disable=SC2016
+  grep -Fq 'RELEASE_LIBS_FILE="$SCRIPT_DIR/lib/RELEASE_LIBS.txt"' "$install_script" || {
+    echo "install.sh no longer consumes the release lib manifest" >&2
     exit 1
   }
-  grep -Fq "rm -f \"\$prefix/lib/$lib_name\"" "$install_script" || {
-    echo "install.sh uninstall missing cleanup for $lib_name" >&2
+  grep -Fq 'done < lib/RELEASE_LIBS.txt' "$rpm_spec" || {
+    echo "rpm spec no longer consumes the release lib manifest" >&2
     exit 1
   }
-  grep -Fq "install -m 0755 lib/$lib_name %{buildroot}/usr/lib/$lib_name" "$rpm_spec" || {
-    echo "rpm spec missing install step for $lib_name" >&2
-    exit 1
-  }
-  grep -Fq "/usr/lib/$lib_name" "$rpm_spec" || {
-    echo "rpm spec missing shipped file entry for $lib_name" >&2
+  grep -Fq 'packaging/rpm/support_lib_files.list' "$rpm_spec" || {
+    echo "rpm spec no longer generates support lib file entries from the manifest" >&2
     exit 1
   }
   grep -Fq "$lib_name" "$admin_lib" || {

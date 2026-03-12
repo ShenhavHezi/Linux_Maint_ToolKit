@@ -50,18 +50,11 @@ install -d %{buildroot}/etc/linux_maint/baselines
 
 install -m 0755 bin/linux-maint %{buildroot}/usr/bin/linux-maint
 install -m 0755 run_full_health_monitor.sh %{buildroot}/usr/sbin/run_full_health_monitor.sh
-install -m 0755 lib/linux_maint.sh %{buildroot}/usr/lib/linux_maint.sh
-install -m 0755 lib/linux_maint_conf.sh %{buildroot}/usr/lib/linux_maint_conf.sh
-install -m 0755 lib/linux_maint_runtime.sh %{buildroot}/usr/lib/linux_maint_runtime.sh
-install -m 0755 lib/linux_maint_admin.sh %{buildroot}/usr/lib/linux_maint_admin.sh
-install -m 0755 lib/linux_maint_help.sh %{buildroot}/usr/lib/linux_maint_help.sh
-install -m 0755 lib/linux_maint_tui.sh %{buildroot}/usr/lib/linux_maint_tui.sh
-install -m 0755 lib/linux_maint_config.sh %{buildroot}/usr/lib/linux_maint_config.sh
-install -m 0755 lib/linux_maint_diag.sh %{buildroot}/usr/lib/linux_maint_diag.sh
-install -m 0755 lib/linux_maint_reporting.sh %{buildroot}/usr/lib/linux_maint_reporting.sh
-install -m 0755 lib/linux_maint_advanced.sh %{buildroot}/usr/lib/linux_maint_advanced.sh
-install -m 0755 lib/linux_maint_history.sh %{buildroot}/usr/lib/linux_maint_history.sh
-install -m 0755 lib/linux_maint_ops.sh %{buildroot}/usr/lib/linux_maint_ops.sh
+: > packaging/rpm/support_lib_files.list
+while IFS= read -r lib_name; do
+  install -m 0755 "lib/${lib_name}" "%{buildroot}/usr/lib/${lib_name}"
+  printf '/usr/lib/%s\n' "$lib_name" >> packaging/rpm/support_lib_files.list
+done < lib/RELEASE_LIBS.txt
 
 # monitors + tools
 install -m 0755 monitors/*.sh %{buildroot}/usr/libexec/linux_maint/
@@ -102,21 +95,9 @@ if [ $1 -eq 0 ]; then
   /usr/bin/systemctl daemon-reload >/dev/null 2>&1 || true
 fi
 
-%files
+%files -f packaging/rpm/support_lib_files.list
 /usr/bin/linux-maint
 /usr/sbin/run_full_health_monitor.sh
-/usr/lib/linux_maint.sh
-/usr/lib/linux_maint_conf.sh
-/usr/lib/linux_maint_runtime.sh
-/usr/lib/linux_maint_admin.sh
-/usr/lib/linux_maint_help.sh
-/usr/lib/linux_maint_tui.sh
-/usr/lib/linux_maint_config.sh
-/usr/lib/linux_maint_diag.sh
-/usr/lib/linux_maint_reporting.sh
-/usr/lib/linux_maint_advanced.sh
-/usr/lib/linux_maint_history.sh
-/usr/lib/linux_maint_ops.sh
 %dir /usr/libexec/linux_maint
 /usr/libexec/linux_maint/*
 /usr/share/linux_maint/

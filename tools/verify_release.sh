@@ -86,23 +86,12 @@ tar_member_exists(){
   grep -Fxq -- "$member" <<< "$members"
 }
 
-required_tar_members(){
+required_nonlib_tar_members(){
   cat <<'EOF'
 install.sh
 bin/linux-maint
 run_full_health_monitor.sh
-lib/linux_maint.sh
-lib/linux_maint_conf.sh
-lib/linux_maint_runtime.sh
-lib/linux_maint_admin.sh
-lib/linux_maint_help.sh
-lib/linux_maint_tui.sh
-lib/linux_maint_config.sh
-lib/linux_maint_diag.sh
-lib/linux_maint_reporting.sh
-lib/linux_maint_advanced.sh
-lib/linux_maint_history.sh
-lib/linux_maint_ops.sh
+lib/RELEASE_LIBS.txt
 tools/verify_release.sh
 tools/upgrade_release.sh
 tools/pack_logs.sh
@@ -149,7 +138,19 @@ while IFS= read -r member; do
     echo "ERROR: tarball missing required member: $member" >&2
     exit 1
   fi
-done < <(required_tar_members)
+done < <(required_nonlib_tar_members)
+release_libs_manifest="$(extract_tar_member "$TARBALL" lib/RELEASE_LIBS.txt)"
+[[ -n "$release_libs_manifest" ]] || {
+  echo "ERROR: tarball missing release lib manifest content" >&2
+  exit 1
+}
+while IFS= read -r lib_name; do
+  [[ -n "$lib_name" ]] || continue
+  if ! tar_member_exists "$tar_members" "lib/$lib_name"; then
+    echo "ERROR: tarball missing required lib member: lib/$lib_name" >&2
+    exit 1
+  fi
+done <<< "$release_libs_manifest"
 if [[ -n "$tar_version" ]]; then
   release_note_member="docs/release_notes/release_notes_${tar_version}.md"
   if ! tar_member_exists "$tar_members" "$release_note_member"; then

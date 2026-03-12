@@ -18,6 +18,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+RELEASE_LIBS_FILE="$SCRIPT_DIR/lib/RELEASE_LIBS.txt"
+
 WITH_USER=false
 WITH_TIMER=false
 WITH_LOGROTATE=false
@@ -85,26 +88,25 @@ maybe_fail_install_stage(){
   fi
 }
 
+read_release_libs() {
+  [[ -f "$RELEASE_LIBS_FILE" ]] || {
+    echo "ERROR: release lib manifest not found: $RELEASE_LIBS_FILE" >&2
+    exit 1
+  }
+  cat "$RELEASE_LIBS_FILE"
+}
+
 install_payload_paths(){
   cat <<'EOF'
 bin/linux-maint
 sbin/run_full_health_monitor.sh
-lib/linux_maint.sh
-lib/linux_maint_conf.sh
-lib/linux_maint_runtime.sh
-lib/linux_maint_admin.sh
-lib/linux_maint_help.sh
-lib/linux_maint_tui.sh
-lib/linux_maint_config.sh
-lib/linux_maint_diag.sh
-lib/linux_maint_reporting.sh
-lib/linux_maint_advanced.sh
-lib/linux_maint_history.sh
-lib/linux_maint_ops.sh
 libexec/linux_maint
 share/linux_maint
 share/Linux_Maint_ToolKit
 EOF
+  while IFS= read -r lib_name; do
+    printf 'lib/%s\n' "$lib_name"
+  done < <(read_release_libs)
 }
 
 backup_existing_payloads(){
@@ -247,18 +249,9 @@ install_files(){
   echo "  library:  $lib/linux_maint.sh"
   echo "  monitors: $libexec/"
 
-  install -D -m 0755 lib/linux_maint.sh "$lib/linux_maint.sh"
-  install -D -m 0755 lib/linux_maint_conf.sh "$lib/linux_maint_conf.sh"
-  install -D -m 0755 lib/linux_maint_runtime.sh "$lib/linux_maint_runtime.sh"
-  install -D -m 0755 lib/linux_maint_admin.sh "$lib/linux_maint_admin.sh"
-  install -D -m 0755 lib/linux_maint_help.sh "$lib/linux_maint_help.sh"
-  install -D -m 0755 lib/linux_maint_tui.sh "$lib/linux_maint_tui.sh"
-  install -D -m 0755 lib/linux_maint_config.sh "$lib/linux_maint_config.sh"
-  install -D -m 0755 lib/linux_maint_diag.sh "$lib/linux_maint_diag.sh"
-  install -D -m 0755 lib/linux_maint_reporting.sh "$lib/linux_maint_reporting.sh"
-  install -D -m 0755 lib/linux_maint_advanced.sh "$lib/linux_maint_advanced.sh"
-  install -D -m 0755 lib/linux_maint_history.sh "$lib/linux_maint_history.sh"
-  install -D -m 0755 lib/linux_maint_ops.sh "$lib/linux_maint_ops.sh"
+  while IFS= read -r lib_name; do
+    install -D -m 0755 "lib/$lib_name" "$lib/$lib_name"
+  done < <(read_release_libs)
   install -D -m 0755 run_full_health_monitor.sh "$sbin/run_full_health_monitor.sh"
   install -D -m 0755 bin/linux-maint "$prefix/bin/linux-maint"
   install -d "$libexec"
@@ -428,18 +421,9 @@ uninstall_files(){
   echo "Uninstalling from prefix: $prefix"
   rm -f "$prefix/bin/linux-maint"
   rm -f "$prefix/sbin/run_full_health_monitor.sh"
-  rm -f "$prefix/lib/linux_maint.sh"
-  rm -f "$prefix/lib/linux_maint_conf.sh"
-  rm -f "$prefix/lib/linux_maint_runtime.sh"
-  rm -f "$prefix/lib/linux_maint_admin.sh"
-  rm -f "$prefix/lib/linux_maint_help.sh"
-  rm -f "$prefix/lib/linux_maint_tui.sh"
-  rm -f "$prefix/lib/linux_maint_config.sh"
-  rm -f "$prefix/lib/linux_maint_diag.sh"
-  rm -f "$prefix/lib/linux_maint_reporting.sh"
-  rm -f "$prefix/lib/linux_maint_advanced.sh"
-  rm -f "$prefix/lib/linux_maint_history.sh"
-  rm -f "$prefix/lib/linux_maint_ops.sh"
+  while IFS= read -r lib_name; do
+    rm -f "$prefix/lib/$lib_name"
+  done < <(read_release_libs)
   rm -rf "$prefix/libexec/linux_maint"
   rm -rf "$prefix/share/linux_maint" 2>/dev/null || true
   rm -rf "$prefix/share/Linux_Maint_ToolKit" 2>/dev/null || true

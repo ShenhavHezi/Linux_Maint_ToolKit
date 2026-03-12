@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$ROOT_DIR/tests/testlib.sh"
 spec="$ROOT_DIR/packaging/rpm/linux-maint.spec"
 
 assert_contains() {
@@ -13,26 +14,10 @@ assert_contains() {
   fi
 }
 
-assert_contains 'install -m 0755 lib/linux_maint_conf.sh %{buildroot}/usr/lib/linux_maint_conf.sh' \
-  "rpm spec no longer installs linux_maint_conf.sh"
-assert_contains 'install -m 0755 lib/linux_maint_runtime.sh %{buildroot}/usr/lib/linux_maint_runtime.sh' \
-  "rpm spec no longer installs linux_maint_runtime.sh"
-assert_contains 'install -m 0755 lib/linux_maint_admin.sh %{buildroot}/usr/lib/linux_maint_admin.sh' \
-  "rpm spec no longer installs linux_maint_admin.sh"
-assert_contains 'install -m 0755 lib/linux_maint_tui.sh %{buildroot}/usr/lib/linux_maint_tui.sh' \
-  "rpm spec no longer installs linux_maint_tui.sh"
-assert_contains 'install -m 0755 lib/linux_maint_config.sh %{buildroot}/usr/lib/linux_maint_config.sh' \
-  "rpm spec no longer installs linux_maint_config.sh"
-assert_contains 'install -m 0755 lib/linux_maint_diag.sh %{buildroot}/usr/lib/linux_maint_diag.sh' \
-  "rpm spec no longer installs linux_maint_diag.sh"
-assert_contains 'install -m 0755 lib/linux_maint_reporting.sh %{buildroot}/usr/lib/linux_maint_reporting.sh' \
-  "rpm spec no longer installs linux_maint_reporting.sh"
-assert_contains 'install -m 0755 lib/linux_maint_advanced.sh %{buildroot}/usr/lib/linux_maint_advanced.sh' \
-  "rpm spec no longer installs linux_maint_advanced.sh"
-assert_contains 'install -m 0755 lib/linux_maint_history.sh %{buildroot}/usr/lib/linux_maint_history.sh' \
-  "rpm spec no longer installs linux_maint_history.sh"
-assert_contains 'install -m 0755 lib/linux_maint_ops.sh %{buildroot}/usr/lib/linux_maint_ops.sh' \
-  "rpm spec no longer installs linux_maint_ops.sh"
+assert_contains ': > packaging/rpm/support_lib_files.list' \
+  "rpm spec no longer prepares a generated support lib file list"
+assert_contains 'done < lib/RELEASE_LIBS.txt' \
+  "rpm spec no longer consumes lib/RELEASE_LIBS.txt"
 assert_contains 'install -m 0755 tools/pack_logs.sh %{buildroot}/usr/libexec/linux_maint/pack_logs.sh' \
   "rpm spec no longer installs pack_logs.sh"
 assert_contains 'install -m 0755 tools/verify_release.sh %{buildroot}/usr/libexec/linux_maint/verify_release.sh' \
@@ -49,31 +34,22 @@ assert_contains 'install -m 0644 plugins/index.json %{buildroot}/usr/share/linux
   "rpm spec no longer installs the packaged plugin index"
 assert_contains 'if [ -f BUILD_INFO ]; then' \
   "rpm spec no longer conditionally installs BUILD_INFO"
-assert_contains '/usr/lib/linux_maint_conf.sh' \
-  "rpm spec no longer ships linux_maint_conf.sh"
-assert_contains '/usr/lib/linux_maint_runtime.sh' \
-  "rpm spec no longer ships linux_maint_runtime.sh"
-assert_contains '/usr/lib/linux_maint_admin.sh' \
-  "rpm spec no longer ships linux_maint_admin.sh"
-assert_contains '/usr/lib/linux_maint_tui.sh' \
-  "rpm spec no longer ships linux_maint_tui.sh"
-assert_contains '/usr/lib/linux_maint_config.sh' \
-  "rpm spec no longer ships linux_maint_config.sh"
-assert_contains '/usr/lib/linux_maint_diag.sh' \
-  "rpm spec no longer ships linux_maint_diag.sh"
-assert_contains '/usr/lib/linux_maint_reporting.sh' \
-  "rpm spec no longer ships linux_maint_reporting.sh"
-assert_contains '/usr/lib/linux_maint_advanced.sh' \
-  "rpm spec no longer ships linux_maint_advanced.sh"
-assert_contains '/usr/lib/linux_maint_history.sh' \
-  "rpm spec no longer ships linux_maint_history.sh"
-assert_contains '/usr/lib/linux_maint_ops.sh' \
-  "rpm spec no longer ships linux_maint_ops.sh"
+assert_contains '%files -f packaging/rpm/support_lib_files.list' \
+  "rpm spec no longer ships generated support lib file entries"
 assert_contains '%dir /usr/libexec/linux_maint' \
   "rpm spec no longer owns /usr/libexec/linux_maint"
 assert_contains '%dir /etc/linux_maint/conf.d' \
   "rpm spec no longer ships /etc/linux_maint/conf.d"
 assert_contains '%dir /etc/linux_maint/baselines' \
   "rpm spec no longer ships /etc/linux_maint/baselines"
+
+grep -Fq 'linux_maint_config.sh' "$ROOT_DIR/lib/RELEASE_LIBS.txt" || {
+  echo "release lib manifest no longer includes linux_maint_config.sh" >&2
+  exit 1
+}
+grep -Fq 'linux_maint_diag.sh' "$ROOT_DIR/lib/RELEASE_LIBS.txt" || {
+  echo "release lib manifest no longer includes linux_maint_diag.sh" >&2
+  exit 1
+}
 
 echo "rpm manifest ok"

@@ -2,180 +2,52 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$ROOT_DIR/tests/testlib.sh"
 script="$ROOT_DIR/install.sh"
-# shellcheck disable=SC2016
-verify_pattern='tools/verify_release.sh "$libexec/verify_release.sh"'
-# shellcheck disable=SC2016
-upgrade_pattern='tools/upgrade_release.sh "$libexec/upgrade_release.sh"'
-# shellcheck disable=SC2016
-version_install_pattern='install -m 0644 VERSION "$prefix/share/linux_maint/VERSION"'
-# shellcheck disable=SC2016
-plugin_index_install_pattern='install -m 0644 plugins/index.json "$prefix/share/linux_maint/plugins/index.json"'
-# shellcheck disable=SC2016
-bin_remove_pattern='rm -f "$prefix/bin/linux-maint"'
-# shellcheck disable=SC2016
-conf_remove_pattern='rm -f "$prefix/lib/linux_maint_conf.sh"'
-# shellcheck disable=SC2016
-runtime_install_pattern='lib/linux_maint_runtime.sh "$lib/linux_maint_runtime.sh"'
-# shellcheck disable=SC2016
-admin_install_pattern='lib/linux_maint_admin.sh "$lib/linux_maint_admin.sh"'
-# shellcheck disable=SC2016
-tui_install_pattern='lib/linux_maint_tui.sh "$lib/linux_maint_tui.sh"'
-# shellcheck disable=SC2016
-config_install_pattern='lib/linux_maint_config.sh "$lib/linux_maint_config.sh"'
-# shellcheck disable=SC2016
-diag_install_pattern='lib/linux_maint_diag.sh "$lib/linux_maint_diag.sh"'
-# shellcheck disable=SC2016
-reporting_install_pattern='lib/linux_maint_reporting.sh "$lib/linux_maint_reporting.sh"'
-# shellcheck disable=SC2016
-advanced_install_pattern='lib/linux_maint_advanced.sh "$lib/linux_maint_advanced.sh"'
-# shellcheck disable=SC2016
-history_install_pattern='lib/linux_maint_history.sh "$lib/linux_maint_history.sh"'
-# shellcheck disable=SC2016
-ops_install_pattern='lib/linux_maint_ops.sh "$lib/linux_maint_ops.sh"'
-# shellcheck disable=SC2016
-runtime_remove_pattern='rm -f "$prefix/lib/linux_maint_runtime.sh"'
-# shellcheck disable=SC2016
-admin_remove_pattern='rm -f "$prefix/lib/linux_maint_admin.sh"'
-# shellcheck disable=SC2016
-tui_remove_pattern='rm -f "$prefix/lib/linux_maint_tui.sh"'
-# shellcheck disable=SC2016
-config_remove_pattern='rm -f "$prefix/lib/linux_maint_config.sh"'
-# shellcheck disable=SC2016
-diag_remove_pattern='rm -f "$prefix/lib/linux_maint_diag.sh"'
-# shellcheck disable=SC2016
-reporting_remove_pattern='rm -f "$prefix/lib/linux_maint_reporting.sh"'
-# shellcheck disable=SC2016
-advanced_remove_pattern='rm -f "$prefix/lib/linux_maint_advanced.sh"'
-# shellcheck disable=SC2016
-history_remove_pattern='rm -f "$prefix/lib/linux_maint_history.sh"'
-# shellcheck disable=SC2016
-ops_remove_pattern='rm -f "$prefix/lib/linux_maint_ops.sh"'
-# shellcheck disable=SC2016
-share_remove_pattern='rm -rf "$prefix/share/linux_maint"'
+release_libs="$ROOT_DIR/lib/RELEASE_LIBS.txt"
 
-grep -Fq "$verify_pattern" "$script" || {
-  echo "install.sh no longer installs verify_release.sh into libexec" >&2
-  exit 1
+assert_contains() {
+  local pattern="$1"
+  local message="$2"
+  if ! grep -Fq -- "$pattern" "$script"; then
+    echo "$message" >&2
+    exit 1
+  fi
 }
 
-grep -Fq "$upgrade_pattern" "$script" || {
-  echo "install.sh no longer installs upgrade_release.sh into libexec" >&2
+# shellcheck disable=SC2016
+assert_contains 'RELEASE_LIBS_FILE="$SCRIPT_DIR/lib/RELEASE_LIBS.txt"' \
+  "install.sh no longer defines the release lib manifest path"
+# shellcheck disable=SC2016
+assert_contains 'while IFS= read -r lib_name; do' \
+  "install.sh no longer loops over release libs"
+# shellcheck disable=SC2016
+assert_contains 'done < <(read_release_libs)' \
+  "install.sh no longer reads the release lib manifest"
+# shellcheck disable=SC2016
+assert_contains 'tools/verify_release.sh "$libexec/verify_release.sh"' \
+  "install.sh no longer installs verify_release.sh into libexec"
+# shellcheck disable=SC2016
+assert_contains 'tools/upgrade_release.sh "$libexec/upgrade_release.sh"' \
+  "install.sh no longer installs upgrade_release.sh into libexec"
+# shellcheck disable=SC2016
+assert_contains 'install -m 0644 VERSION "$prefix/share/linux_maint/VERSION"' \
+  "install.sh no longer installs VERSION into share/linux_maint"
+# shellcheck disable=SC2016
+assert_contains 'install -m 0644 plugins/index.json "$prefix/share/linux_maint/plugins/index.json"' \
+  "install.sh no longer installs the packaged plugin index into share/linux_maint/plugins"
+# shellcheck disable=SC2016
+assert_contains 'rm -f "$prefix/bin/linux-maint"' \
+  "install.sh uninstall no longer removes installed linux-maint binary"
+# shellcheck disable=SC2016
+assert_contains 'rm -rf "$prefix/share/linux_maint"' \
+  "install.sh uninstall no longer removes share/linux_maint payloads"
+grep -Fq 'linux_maint_config.sh' "$release_libs" || {
+  echo "release lib manifest no longer includes linux_maint_config.sh" >&2
   exit 1
 }
-
-grep -Fq "$version_install_pattern" "$script" || {
-  echo "install.sh no longer installs VERSION into share/linux_maint" >&2
-  exit 1
-}
-
-grep -Fq "$plugin_index_install_pattern" "$script" || {
-  echo "install.sh no longer installs the packaged plugin index into share/linux_maint/plugins" >&2
-  exit 1
-}
-
-grep -Fq "$runtime_install_pattern" "$script" || {
-  echo "install.sh no longer installs linux_maint_runtime.sh" >&2
-  exit 1
-}
-
-grep -Fq "$admin_install_pattern" "$script" || {
-  echo "install.sh no longer installs linux_maint_admin.sh" >&2
-  exit 1
-}
-
-grep -Fq "$tui_install_pattern" "$script" || {
-  echo "install.sh no longer installs linux_maint_tui.sh" >&2
-  exit 1
-}
-
-grep -Fq "$config_install_pattern" "$script" || {
-  echo "install.sh no longer installs linux_maint_config.sh" >&2
-  exit 1
-}
-
-grep -Fq "$diag_install_pattern" "$script" || {
-  echo "install.sh no longer installs linux_maint_diag.sh" >&2
-  exit 1
-}
-
-grep -Fq "$reporting_install_pattern" "$script" || {
-  echo "install.sh no longer installs linux_maint_reporting.sh" >&2
-  exit 1
-}
-
-grep -Fq "$advanced_install_pattern" "$script" || {
-  echo "install.sh no longer installs linux_maint_advanced.sh" >&2
-  exit 1
-}
-
-grep -Fq "$history_install_pattern" "$script" || {
-  echo "install.sh no longer installs linux_maint_history.sh" >&2
-  exit 1
-}
-
-grep -Fq "$ops_install_pattern" "$script" || {
-  echo "install.sh no longer installs linux_maint_ops.sh" >&2
-  exit 1
-}
-
-grep -Fq "$bin_remove_pattern" "$script" || {
-  echo "install.sh uninstall no longer removes installed linux-maint binary" >&2
-  exit 1
-}
-
-grep -Fq "$conf_remove_pattern" "$script" || {
-  echo "install.sh uninstall no longer removes linux_maint_conf.sh" >&2
-  exit 1
-}
-
-grep -Fq "$runtime_remove_pattern" "$script" || {
-  echo "install.sh uninstall no longer removes linux_maint_runtime.sh" >&2
-  exit 1
-}
-
-grep -Fq "$admin_remove_pattern" "$script" || {
-  echo "install.sh uninstall no longer removes linux_maint_admin.sh" >&2
-  exit 1
-}
-
-grep -Fq "$tui_remove_pattern" "$script" || {
-  echo "install.sh uninstall no longer removes linux_maint_tui.sh" >&2
-  exit 1
-}
-
-grep -Fq "$config_remove_pattern" "$script" || {
-  echo "install.sh uninstall no longer removes linux_maint_config.sh" >&2
-  exit 1
-}
-
-grep -Fq "$diag_remove_pattern" "$script" || {
-  echo "install.sh uninstall no longer removes linux_maint_diag.sh" >&2
-  exit 1
-}
-
-grep -Fq "$reporting_remove_pattern" "$script" || {
-  echo "install.sh uninstall no longer removes linux_maint_reporting.sh" >&2
-  exit 1
-}
-
-grep -Fq "$advanced_remove_pattern" "$script" || {
-  echo "install.sh uninstall no longer removes linux_maint_advanced.sh" >&2
-  exit 1
-}
-
-grep -Fq "$history_remove_pattern" "$script" || {
-  echo "install.sh uninstall no longer removes linux_maint_history.sh" >&2
-  exit 1
-}
-
-grep -Fq "$ops_remove_pattern" "$script" || {
-  echo "install.sh uninstall no longer removes linux_maint_ops.sh" >&2
-  exit 1
-}
-
-grep -Fq "$share_remove_pattern" "$script" || {
-  echo "install.sh uninstall no longer removes share/linux_maint payloads" >&2
+grep -Fq 'linux_maint_diag.sh' "$release_libs" || {
+  echo "release lib manifest no longer includes linux_maint_diag.sh" >&2
   exit 1
 }
 
