@@ -20,7 +20,9 @@ out="$(LM_CFG_DIR="$cfg" "$ROOT_DIR/bin/linux-maint" doctor)"
 echo "$out" | grep -Eq '^==+ Monitor gates \(what may SKIP\) ==+' 
 echo "$out" | grep -Eq '^==+ Dependencies \(best-effort\) ==+' 
 echo "$out" | grep -Eq '^==+ Fix suggestions ==+'
-echo "$out" | grep -Eq '^==+ Next recommended actions ==+' 
+echo "$out" | grep -Eq '^== Guidance ==$'
+echo "$out" | grep -Eq '^== Summary ==$'
+echo "$out" | grep -Eq '^result=(OK|WARN|CRIT)$'
 echo "$out" | grep -Eq '^network_monitor[[:space:]]+MISSING[[:space:]]+'
 
 echo "ok: doctor offline hints"

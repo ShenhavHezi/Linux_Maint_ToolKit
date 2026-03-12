@@ -30,5 +30,15 @@ printf '%s\n' "$out" | grep -q '^Expected SKIPs' || {
   echo "$out" >&2
   exit 1
 }
+printf '%s\n' "$out" | grep -q '^== Summary ==$' || {
+  echo "check summary header missing" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -Eq '^overall=(OK|WARN|CRIT|UNKNOWN)$' || {
+  echo "check overall summary line missing" >&2
+  echo "$out" >&2
+  exit 1
+}
 
 echo "check command ok"

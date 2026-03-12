@@ -460,7 +460,7 @@ linux_maint_cmd_check() {
       esac
     done
 
-    local cv_out cv_rc pf_out pf_rc cfg_dir ok
+    local cv_out cv_rc pf_out pf_rc cfg_dir ok overall_rc overall_status
     set +e
     if [[ "$CHECK_JSON" -eq 1 ]]; then
       # shellcheck disable=SC2154  # Populated by lm_init_runtime_context.
@@ -489,6 +489,8 @@ linux_maint_cmd_check() {
     if [[ "$MODE" == "repo" ]]; then
       cfg_dir="$(linux_maint_effective_cfg_dir)"
     fi
+    overall_rc="$(linux_maint_aggregate_check_rc "$cv_rc" "$pf_rc")"
+    overall_status="$(linux_maint_rc_to_status "$overall_rc")"
     if [[ "$CHECK_JSON" -eq 1 ]]; then
       ok="false"
       [[ "$cv_rc" -eq 0 && "$pf_rc" -eq 0 ]] && ok="true"
@@ -502,6 +504,27 @@ linux_maint_cmd_check() {
       printf '}\n'
     else
       expected_skips "$cfg_dir"
+      if [[ "$overall_rc" -ne 0 ]]; then
+        echo ""
+        echo "== Guidance =="
+        if [[ "$cv_rc" -ne 0 ]]; then
+          echo "next_step: linux-maint config --lint"
+        fi
+        if [[ "$pf_rc" -ne 0 ]]; then
+          echo "next_step: linux-maint preflight"
+        fi
+        echo "next_step: linux-maint doctor"
+      fi
+      echo ""
+      echo "== Summary =="
+      echo "config_validate=$(linux_maint_rc_to_status "$cv_rc")"
+      echo "preflight=$(linux_maint_rc_to_status "$pf_rc")"
+      echo "overall=$overall_status"
+      case "$overall_rc" in
+        0) echo "${C_GREEN}check ok${C_RESET}" ;;
+        1) echo "${C_YELLOW}check warn${C_RESET}" ;;
+        *) echo "${C_RED}check fail${C_RESET}" ;;
+      esac
     fi
-    exit "$(linux_maint_aggregate_check_rc "$cv_rc" "$pf_rc")"
+    exit "$overall_rc"
 }

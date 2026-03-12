@@ -5,7 +5,7 @@ linux_maint_cmd_doctor() {
   local DOCTOR_LIB_PATH CFG_DIR LOG_DIR_LOCAL SUMMARY_DIR_LOCAL STATE_DIR_LOCAL LOCK_DIR_LOCAL INVENTORY_DIR_LOCAL
   local DOCTOR_INIT_CMD DOCTOR_PREFLIGHT_CMD DOCTOR_RUN_CMD DOCTOR_WRITE_PREFIX
   local DOCTOR_STRICT=0 DOCTOR_JSON=0 DOCTOR_COMPACT=0 DOCTOR_FIX=0 DOCTOR_FIX_DEPS=0 DOCTOR_FIX_OPTIONAL=0 DOCTOR_YES=0 DOCTOR_DRY_RUN=0
-  local fix_actions_file="" doctor_json_rc=0 n_hosts="" perm_fail=0
+  local fix_actions_file="" doctor_json_rc=0 n_hosts="" perm_fail=0 doctor_result="OK"
   local wrapper_path="${wrapper:-}" libexec_path="${LIBEXEC:-}"
   local -a fix_actions=() fix_suggestions=() missing_pkgs=() seen_perm_paths=()
 
@@ -722,15 +722,42 @@ PYJSON
     done
   fi
 
-  if [[ "$DOCTOR_COMPACT" -eq 0 ]]; then
-    echo ""
-    section "Next recommended actions"
-    echo "- linux-maint verify-install"
-    echo "- $DOCTOR_INIT_CMD      # if config is missing"
-    echo "- $DOCTOR_PREFLIGHT_CMD"
-    echo "- $DOCTOR_RUN_CMD"
-    echo "- linux-maint pack-logs --out .  # create bundle for export"
+  if [[ "${#fix_suggestions[@]}" -gt 0 ]]; then
+    doctor_result="WARN"
   fi
+  if [[ "${perm_fail:-0}" -eq 1 ]]; then
+    if [[ "$DOCTOR_STRICT" -eq 1 ]]; then
+      doctor_result="CRIT"
+    else
+      doctor_result="WARN"
+    fi
+  fi
+
+  echo ""
+  echo "== Guidance =="
+  echo "warnings=${#fix_suggestions[@]}"
+  echo "next_step: linux-maint verify-install"
+  if [[ ! -d "$CFG_DIR" || ! -s "$CFG_DIR/servers.txt" ]]; then
+    echo "next_step: $DOCTOR_INIT_CMD"
+  fi
+  echo "next_step: $DOCTOR_PREFLIGHT_CMD"
+  echo "next_step: $DOCTOR_RUN_CMD"
+  if [[ "$DOCTOR_COMPACT" -eq 0 ]]; then
+    echo "next_step: linux-maint pack-logs --out ."
+  fi
+
+  echo ""
+  echo "== Summary =="
+  echo "strict=$DOCTOR_STRICT"
+  echo "fix_suggestions=${#fix_suggestions[@]}"
+  echo "permission_failures=${perm_fail:-0}"
+  echo "result=$doctor_result"
+  case "$doctor_result" in
+    OK) echo "${C_GREEN}doctor ok${C_RESET}" ;;
+    WARN) echo "${C_YELLOW}doctor warn${C_RESET}" ;;
+    *) echo "${C_RED}doctor fail${C_RESET}" ;;
+  esac
+
   if [[ -n "$fix_actions_file" ]]; then
     rm -f "$fix_actions_file" 2>/dev/null || true
   fi
