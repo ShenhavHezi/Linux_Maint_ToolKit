@@ -20,19 +20,17 @@
 
 <p align="center">
   <strong>Fleet health and incident triage for RHEL 9, without a web stack.</strong><br>
-  Offline-first, operator-friendly, and built for SSH-based checks, installed hosts, and air-gapped environments.
+  Offline-first checks, guided triage, and support-ready artifacts for SSH fleets, installed hosts, and air-gapped environments.
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick start</a>
-  ·
+  <strong>Best for:</strong> RHEL 9 and Rocky Linux fleets · SSH monitoring nodes · dark-site operations
+</p>
+
+<p align="center">
   <a href="docs/FIRST_5_MINUTES.md">First 5 minutes</a>
   ·
   <a href="#see-the-menu">Menu demo</a>
-  ·
-  <a href="#operator-workflow">Operator workflow</a>
-  ·
-  <a href="#documentation-map">Documentation map</a>
   ·
   <a href="docs/QUICK_REFERENCE.md">Quick reference</a>
   ·
@@ -46,12 +44,6 @@
 | Install | [installation.md](docs/installation.md) | Best path for installed mode, repo mode, RPM, and dark-site setups |
 | Try | [FIRST_5_MINUTES.md](docs/FIRST_5_MINUTES.md) | Fastest route to a useful first run without reading everything |
 | Operate | `linux-maint menu` | Best daily surface for overview, triage, repair, and sharing |
-
-## Best For
-
-| Best for | Works especially well in | Not trying to be |
-| --- | --- | --- |
-| RHEL 9 and Rocky Linux fleets | SSH monitoring nodes, scheduled checks, dark-site operations | a heavy agent platform or web-console replacement |
 
 ## Workflow At A Glance
 
