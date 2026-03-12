@@ -520,10 +520,11 @@ linux_maint_cmd_check() {
       echo "config_validate=$(linux_maint_rc_to_status "$cv_rc")"
       echo "preflight=$(linux_maint_rc_to_status "$pf_rc")"
       echo "overall=$overall_status"
-      case "$overall_rc" in
-        0) echo "${C_GREEN}check ok${C_RESET}" ;;
-        1) echo "${C_YELLOW}check warn${C_RESET}" ;;
-        *) echo "${C_RED}check fail${C_RESET}" ;;
+      case "$overall_status" in
+        OK) echo "${C_GREEN}check ok${C_RESET}" ;;
+        WARN) echo "${C_YELLOW}check warn${C_RESET}" ;;
+        CRIT) echo "${C_RED}check crit${C_RESET}" ;;
+        *) echo "${C_YELLOW}check unknown${C_RESET}" ;;
       esac
     fi
     exit "$overall_rc"

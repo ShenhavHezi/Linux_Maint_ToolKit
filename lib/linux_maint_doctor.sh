@@ -755,7 +755,7 @@ PYJSON
   case "$doctor_result" in
     OK) echo "${C_GREEN}doctor ok${C_RESET}" ;;
     WARN) echo "${C_YELLOW}doctor warn${C_RESET}" ;;
-    *) echo "${C_RED}doctor fail${C_RESET}" ;;
+    *) echo "${C_RED}doctor crit${C_RESET}" ;;
   esac
 
   if [[ -n "$fix_actions_file" ]]; then

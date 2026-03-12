@@ -33,7 +33,7 @@ printf '%s\n' "$out" | grep -q '^== Summary ==$' || {
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -Eq '^doctor (ok|warn|fail)$' || {
+printf '%s\n' "$out" | grep -Eq '^doctor (ok|warn|crit)$' || {
   echo "doctor final status missing" >&2
   echo "$out" >&2
   exit 1
