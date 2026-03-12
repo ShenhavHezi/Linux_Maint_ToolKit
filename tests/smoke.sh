@@ -147,6 +147,7 @@ run_required "check_no_side_effects_test" bash "$ROOT_DIR/tests/check_no_side_ef
 run_required "init_repo_default_cfg_dir_test" bash "$ROOT_DIR/tests/init_repo_default_cfg_dir_test.sh"
 run_required "gate_command_test" bash "$ROOT_DIR/tests/gate_command_test.sh"
 run_required_if_cmd perl "gate_invalid_status_test" bash "$ROOT_DIR/tests/gate_invalid_status_test.sh"
+run_required "gate_invalid_policy_file_test" bash "$ROOT_DIR/tests/gate_invalid_policy_file_test.sh"
 run_required "gate_unreadable_policy_test" bash "$ROOT_DIR/tests/gate_unreadable_policy_test.sh"
 run_required "diff_color_test" bash "$ROOT_DIR/tests/diff_color_test.sh"
 run_required "diff_json_schema_test" bash "$ROOT_DIR/tests/diff_json_schema_test.sh"

@@ -6099,24 +6099,52 @@ def parse_policy(path):
         "max_skip": 999999,
         "require_overall": "",
     }
+    allowed = {"max_crit", "max_warn", "max_unknown", "max_skip", "require_overall"}
+    allowed_overall = {"", "OK", "WARN", "CRIT", "UNKNOWN", "SKIP"}
+    seen = set()
+    errors = []
     with open(path, "r", encoding="utf-8", errors="ignore") as f:
-        for raw in f:
+        for line_no, raw in enumerate(f, start=1):
             line = raw.strip()
-            if not line or line.startswith("#") or "=" not in line:
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                errors.append(f"line {line_no}: missing '='")
                 continue
             k, v = line.split("=", 1)
             k = k.strip()
             v = v.strip()
+            if k not in allowed:
+                errors.append(f"line {line_no}: unknown key {k}")
+                continue
+            if k in seen:
+                errors.append(f"line {line_no}: duplicate key {k}")
+                continue
+            seen.add(k)
             if k in ("max_crit","max_warn","max_unknown","max_skip"):
                 try:
                     p[k] = int(v)
                 except Exception:
-                    pass
+                    errors.append(f"line {line_no}: {k} must be integer")
             elif k == "require_overall":
-                p[k] = v.upper()
-    return p
+                upper = v.upper()
+                if upper not in allowed_overall:
+                    errors.append(
+                        "line {}: require_overall must be one of {} or empty".format(
+                            line_no,
+                            ",".join(sorted(x for x in allowed_overall if x)),
+                        )
+                    )
+                else:
+                    p[k] = upper
+    return p, errors
 
-policy = parse_policy(policy_file)
+policy, policy_errors = parse_policy(policy_file)
+if policy_errors:
+    print("ERROR: gate requires a valid policy file", file=sys.stderr)
+    for err in policy_errors:
+        print(f"- {err}", file=sys.stderr)
+    raise SystemExit(2)
 if status_rc != 0:
     print("ERROR: gate requires a successful status --json snapshot", file=sys.stderr)
     raise SystemExit(2)
