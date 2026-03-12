@@ -4,7 +4,7 @@
 - Date (UTC): 2026-02-24
 - Git tag: v0.2.5
 
-[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
+[Release history](https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/release_notes/README.md) · [Upgrade guide](https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/UPGRADE.md)
 
 ## Highlights
 - Wrapper SKIP reasons now use stable tokens with `missing=` detail fields.

@@ -4,7 +4,7 @@
 - Date (UTC): 2026-03-02
 - Git tag: v0.2.9
 
-[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
+[Release history](https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/release_notes/README.md) · [Upgrade guide](https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/UPGRADE.md)
 
 ## Highlights
 - Added a run concurrency lock with explicit override/timeout controls to prevent overlapping `linux-maint run` corruption.

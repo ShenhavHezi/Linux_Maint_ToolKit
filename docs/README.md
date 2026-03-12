@@ -90,7 +90,7 @@ The menu follows the same flow as the docs:
 | Topic | Start here |
 | --- | --- |
 | Contributing rules | [../CONTRIBUTING.md](../CONTRIBUTING.md) |
-| Maintainer rules | [../AGENTS.md](../AGENTS.md) |
+| Maintainer rules | [../.github/MAINTAINER_RULES.md](../.github/MAINTAINER_RULES.md) |
 | Roadmap | [ROADMAP.md](ROADMAP.md) |
 | Command contract checklist | [COMMAND_CONTRACT_CHECKLIST.md](COMMAND_CONTRACT_CHECKLIST.md) |
 | Release process | [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) |

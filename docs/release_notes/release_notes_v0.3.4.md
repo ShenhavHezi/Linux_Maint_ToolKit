@@ -4,7 +4,7 @@
 - Date (UTC): 2026-03-10
 - Git tag: v0.3.4
 
-[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
+[Release history](https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/release_notes/README.md) · [Upgrade guide](https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/UPGRADE.md)
 
 ## Highlights
 - Added a dedicated `linux-maint upgrade` workflow for verified tarball upgrades, with rollback manifests, config snapshots, installed payload inventory, and post-upgrade verification.

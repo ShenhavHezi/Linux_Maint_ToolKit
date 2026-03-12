@@ -6,7 +6,7 @@ This repo is a working Linux maintenance toolkit. Please keep changes small, saf
 
 This file is the single contribution guide for the repo.
 
-Read `AGENTS.md` first for the project rules and required local test commands.
+Read `.github/MAINTAINER_RULES.md` first for the project rules and required local test commands.
 
 ## Development workflow
 

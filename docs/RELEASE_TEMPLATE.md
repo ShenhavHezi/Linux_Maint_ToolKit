@@ -9,6 +9,8 @@ Use this template for tagged releases so operators can understand impact quickly
 - Git tag:
 - Commit:
 
+[Release history](https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/release_notes/README.md) · [Upgrade guide](https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/UPGRADE.md)
+
 ## Summary
 
 Write 2 to 4 short lines that answer:

@@ -37,6 +37,39 @@
   <a href="docs/UPGRADE.md">Upgrade guide</a>
 </p>
 
+## Start Here
+
+If you are evaluating the toolkit for the first time, use this order:
+
+1. Install it or run it from a checkout.
+2. Run `linux-maint check`.
+3. Open `linux-maint menu`.
+4. Use `Overview` or `Triage` instead of guessing commands under pressure.
+
+### Best First Path
+
+| Goal | Best starting point |
+| --- | --- |
+| I want the fastest real product experience | Installed mode + `linux-maint menu` |
+| I want to test or develop from a checkout | Repo mode + `./bin/linux-maint menu` |
+| I need a controlled offline rollout | Verified tarball or RPM + [docs/DARK_SITE.md](docs/DARK_SITE.md) |
+| I need a guided onboarding path | [docs/FIRST_5_MINUTES.md](docs/FIRST_5_MINUTES.md) |
+
+## See The Menu
+
+<p align="center">
+  <img src="docs/assets/menu_demo.gif" alt="linux-maint menu demo gif" width="96%">
+</p>
+
+This GIF is rendered from the real menu frame output in the repo fixtures, not concept art.
+
+The menu is designed around the same operator flow as the CLI and docs:
+
+- `Quickstart` for first setup and incident entry
+- `Overview` for current health and top reasons
+- `Triage` for guided drilldown and repair decisions
+- `Share` for reports, metrics, and support bundles
+
 ## Why Teams Use `linux-maint`
 
 - One operator surface for `run`, `status`, `triage`, `repair`, and `export`.
@@ -50,6 +83,19 @@
 
 Choose the path that matches how you want to operate.
 
+### Installed Mode
+
+Best for persistent hosts, timers, and the strongest first-time operator experience.
+
+```bash
+sudo ./install.sh --with-user --with-timer --with-logrotate
+sudo linux-maint init --minimal
+sudo linux-maint check
+sudo linux-maint menu
+sudo linux-maint run
+sudo linux-maint status
+```
+
 ### Repo Mode
 
 Best for development, validation, and running from a monitoring node.
@@ -58,22 +104,9 @@ Best for development, validation, and running from a monitoring node.
 git clone https://github.com/ShenhavHezi/Linux_Maint_ToolKit.git
 cd Linux_Maint_ToolKit
 ./bin/linux-maint check
+./bin/linux-maint menu
 ./run_full_health_monitor.sh
 ./bin/linux-maint status
-./bin/linux-maint menu
-```
-
-### Installed Mode
-
-Best for persistent hosts, timers, and system-wide operations.
-
-```bash
-sudo ./install.sh --with-user --with-timer --with-logrotate
-sudo linux-maint init --minimal
-sudo linux-maint check
-sudo linux-maint run
-sudo linux-maint status
-sudo linux-maint menu
 ```
 
 ### Air-Gapped / Dark-Site
@@ -119,20 +152,20 @@ If you prefer the menu, start with:
 - `Triage` for guided drilldown and recovery
 - `Share` for reports, JSON, metrics, and support bundles
 
-## See The Menu
+## Who It Fits
 
-<p align="center">
-  <img src="docs/assets/menu_demo.gif" alt="linux-maint menu demo gif" width="96%">
-</p>
+Good fit:
 
-This GIF is rendered from the real menu frame output in the repo fixtures, not concept art.
+- RHEL 9 and Rocky Linux environments
+- SSH-based fleet checks from a monitoring node
+- Air-gapped or tightly controlled environments
+- Operators who want both CLI automation and a guided TUI
 
-The menu is designed around the same operator flow as the CLI and docs:
+Poor fit:
 
-- `Quickstart` for first setup and incident entry
-- `Overview` for current health and top reasons
-- `Triage` for guided drilldown and repair decisions
-- `Share` for reports, metrics, and support bundles
+- teams looking for a heavy agent platform
+- environments that require a web UI as the primary interface
+- setups where adding a small Bash/Python operations toolkit is not acceptable
 
 ## Commands You Will Use Often
 

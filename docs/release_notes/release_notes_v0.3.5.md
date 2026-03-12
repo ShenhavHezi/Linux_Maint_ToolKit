@@ -4,7 +4,7 @@
 - Date (UTC): 2026-03-12
 - Git tag: v0.3.5
 
-[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
+[Release history](https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/release_notes/README.md) · [Upgrade guide](https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/UPGRADE.md)
 
 ## Highlights
 - Hardened the operational core again: wrapper/resume behavior, reporting input safety, advanced command validation, and installed-vs-repo path correctness.

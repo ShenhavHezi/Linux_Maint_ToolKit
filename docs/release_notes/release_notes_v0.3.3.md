@@ -4,7 +4,7 @@
 - Date (UTC): 2026-03-09
 - Git tag: v0.3.3
 
-[Release history](README.md) · [Upgrade guide](../UPGRADE.md)
+[Release history](https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/release_notes/README.md) · [Upgrade guide](https://github.com/ShenhavHezi/Linux_Maint_ToolKit/blob/main/docs/UPGRADE.md)
 
 ## Highlights
 - Hardened repo-mode behavior so config, logs, history, readiness checks, support bundles, and operator commands consistently honor repo-local paths and overrides.
