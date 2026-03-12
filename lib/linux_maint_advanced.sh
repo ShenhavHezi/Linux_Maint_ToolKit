@@ -1397,21 +1397,29 @@ def validate_payload(endpoint, payload):
     if not isinstance(payload, dict):
         return "response must be JSON object"
     if endpoint == "status":
+        if "status_json_contract_version" not in payload:
+            return "status payload missing contract version"
         if "last_status" not in payload or "totals" not in payload:
             return "status payload missing contract fields"
         if not isinstance(payload.get("last_status"), dict) or not isinstance(payload.get("totals"), dict):
             return "status payload has invalid field types"
     elif endpoint == "report":
+        if "report_json_contract_version" not in payload:
+            return "report payload missing contract version"
         if "status" not in payload or "trend" not in payload or "runtimes" not in payload:
             return "report payload missing contract fields"
         if not isinstance(payload.get("status"), dict) or not isinstance(payload.get("trend"), dict) or not isinstance(payload.get("runtimes"), dict):
             return "report payload has invalid field types"
     elif endpoint == "metrics":
+        if "metrics_json_contract_version" not in payload:
+            return "metrics payload missing contract version"
         if "status" not in payload or "severity_totals" not in payload:
             return "metrics payload missing contract fields"
         if not isinstance(payload.get("status"), dict) or not isinstance(payload.get("severity_totals"), dict):
             return "metrics payload has invalid field types"
     elif endpoint == "history":
+        if "history_json_contract_version" not in payload:
+            return "history payload missing contract version"
         if "runs" not in payload:
             return "history payload missing contract fields"
         if not isinstance(payload.get("runs"), list):

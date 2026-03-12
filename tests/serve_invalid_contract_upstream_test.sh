@@ -60,7 +60,7 @@ except urllib.error.HTTPError as e:
     payload = json.loads(e.read().decode("utf-8"))
     assert payload["error"] == "invalid_contract"
     assert payload["command"] == "status --json"
-    assert payload["detail"] == "status payload has invalid field types"
+    assert payload["detail"] == "status payload missing contract version"
 else:
     raise SystemExit("expected /status to fail with HTTP 500 for invalid contract upstream")
 PY
