@@ -16,7 +16,7 @@ Last updated: 2026-03-10
   - P3 trust lifecycle baseline: trust policy enforcement (`LM_PLUGIN_TRUST_POLICY_FILE`, `LM_PLUGIN_REQUIRE_TRUST_POLICY`) for index and plugin verification.
   - P3 provenance reporting: `plugin provenance-report` with strict gating and artifact output.
   - P0 repo/runtime hardening: non-root wrapper logfile fallback, `LM_CFG_DIR` propagation, summary host-count fix, and monitor regression tests.
-    - Proof: `tests/wrapper/wrapper_repo_logfile_default_test.sh`, `tests/wrapper/wrapper_cfg_dir_fallback_cert_monitor_test.sh`, `tests/wrapper/wrapper_summary_hosts_line_test.sh`, `tests/config_validate_unreadable_conf_test.sh`, `tests/config_drift_allowlist_test.sh`.
+    - Proof: `tests/wrapper/wrapper_repo_logfile_default_test.sh`, `tests/wrapper/wrapper_cfg_dir_fallback_cert_monitor_test.sh`, `tests/wrapper/wrapper_summary_hosts_line_test.sh`, `tests/core/config_validate_unreadable_conf_test.sh`, `tests/runtime/config_drift_allowlist_test.sh`.
   - P0 plugin lifecycle hardening: forced plugin installs now preserve the previous plugin on source-copy failure.
     - Proof: `tests/plugin_force_install_rollback_test.sh`.
   - P0 integration hardening: `notify`/`ticket` curl calls now use bounded connect/total timeouts with regression tests.
@@ -24,31 +24,31 @@ Last updated: 2026-03-10
   - P0 audit hardening: audit chain writes are now serialized so concurrent operations preserve a valid append-only chain.
     - Proof: `tests/audit_log_concurrency_test.sh`.
   - P0 CLI contract hardening: `check --json` now has an explicit schema/version contract, and `metrics --json` fails fast when delegated `status --json` is invalid.
-    - Proof: `tests/check_json_schema_test.sh`, `tests/reporting/metrics_invalid_status_test.sh`.
+    - Proof: `tests/core/check_json_schema_test.sh`, `tests/reporting/metrics_invalid_status_test.sh`.
   - P0 reporting contract hardening: `trend`/`runtimes`/`export` JSON now carry explicit contract versions, and `export` fails fast on corrupt preferred summary JSON artifacts.
     - Proof: `tests/reporting/trend_command_test.sh`, `tests/reporting/trend_cache_ttl_test.sh`, `tests/reporting/runtimes_json_fields_test.sh`, `tests/reporting/export_invalid_summary_json_test.sh`.
   - P0 run-index hardening: `run-index --prune` now fails on rewrite errors instead of silently reporting success, and `run-index --json` has an explicit contract/schema.
-    - Proof: `tests/run_index_command_test.sh`, `tests/run_index_prune_write_failure_test.sh`.
+    - Proof: `tests/core/run_index_command_test.sh`, `tests/core/run_index_prune_write_failure_test.sh`.
   - P0 history hardening: `history --json` now fails on corrupt `run_index.jsonl` input instead of silently dropping bad lines, with explicit source/schema fields.
-    - Proof: `tests/history_invalid_run_index_test.sh`, `tests/history_sqlite_test.sh`, `tests/history_large_index_perf_test.sh`.
+    - Proof: `tests/core/history_invalid_run_index_test.sh`, `tests/core/history_sqlite_test.sh`, `tests/core/history_large_index_perf_test.sh`.
   - P0 config contract hardening: `config --json` now emits structured, versioned error payloads instead of ad hoc unversioned JSON.
-    - Proof: `tests/config_no_config_json_test.sh`, `tests/config_source_failure_test.sh`, `tests/config_type_validation_test.sh`.
+    - Proof: `tests/core/config_no_config_json_test.sh`, `tests/core/config_source_failure_test.sh`, `tests/core/config_type_validation_test.sh`.
   - P0 operator contract hardening: `doctor`, `self-check`, and `security-profile` JSON outputs now expose explicit schema/contract versions with schema-backed tests.
-    - Proof: `tests/doctor_json_schema_test.sh`, `tests/self_check_json_schema_test.sh`, `tests/security_profile_json_schema_test.sh`.
+    - Proof: `tests/core/doctor_json_schema_test.sh`, `tests/core/self_check_json_schema_test.sh`, `tests/core/security_profile_json_schema_test.sh`.
   - P0 repo/install readiness hardening: `preflight` now respects repo-local config/state/log paths, `init` no longer requires `sudo` in repo mode, and `verify-install` uses repo-mode writable defaults.
     - Proof: `tests/install/preflight_repo_paths_test.sh`, `tests/install/init_repo_mode_no_sudo_test.sh`, `tests/install/verify_install_repo_defaults_test.sh`.
   - P0 readiness/support-bundle hardening: `check` now preserves validation severity in its exit code, and `pack-logs` no longer leaves plaintext bundles on failed `--gpg` setup or stores broken latest-log symlinks.
-    - Proof: `tests/check_exit_code_test.sh`, `tests/pack_logs_gpg_prereq_test.sh`, `tests/pack_logs_symlink_test.sh`.
+    - Proof: `tests/core/check_exit_code_test.sh`, `tests/core/pack_logs_gpg_prereq_test.sh`, `tests/core/pack_logs_symlink_test.sh`.
   - P0 reporting path hardening: repo-mode `status`/`report`/`export` now honor `LOG_DIR` instead of silently reading stale `.logs` artifacts.
     - Proof: `tests/reporting/reporting_repo_log_dir_override_test.sh`.
   - P0 read-only command hardening: `logs`, `status --expected-skips`, and `check` no longer create missing repo-local directories as side effects.
-    - Proof: `tests/reporting/logs_no_side_effects_test.sh`, `tests/reporting/status_expected_skips_no_side_effects_test.sh`, `tests/check_no_side_effects_test.sh`.
+    - Proof: `tests/reporting/logs_no_side_effects_test.sh`, `tests/reporting/status_expected_skips_no_side_effects_test.sh`, `tests/core/check_no_side_effects_test.sh`.
   - P0 operator path hardening: `doctor`, `verify-install`, `config`, `self-check`, `security-profile`, `runtimes`, and repo-mode `pack-logs` now honor repo-local defaults/overrides consistently, and read-only writable checks no longer mutate directories.
-    - Proof: `tests/doctor_repo_paths_test.sh`, `tests/doctor_verify_install_no_side_effects_test.sh`, `tests/repo_cfg_default_operator_test.sh`, `tests/pack_logs_repo_override_test.sh`.
+    - Proof: `tests/core/doctor_repo_paths_test.sh`, `tests/core/doctor_verify_install_no_side_effects_test.sh`, `tests/core/repo_cfg_default_operator_test.sh`, `tests/core/pack_logs_repo_override_test.sh`.
   - P0 repo-mode operator guidance hardening: `run --plan`, `status`, `history`, and `explain` now use repo-local host/config defaults and repo-appropriate hints instead of leaking installed-mode `/etc` and `sudo` guidance.
-    - Proof: `tests/run/run_plan_repo_cfg_defaults_test.sh`, `tests/reporting/status_repo_missing_summary_hints_test.sh`, `tests/history_repo_hint_test.sh`, `tests/explain_config_missing_repo_test.sh`.
+    - Proof: `tests/run/run_plan_repo_cfg_defaults_test.sh`, `tests/reporting/status_repo_missing_summary_hints_test.sh`, `tests/core/history_repo_hint_test.sh`, `tests/core/explain_config_missing_repo_test.sh`.
   - P1 operator UX/help hardening: top-level help, run help, config source-failure hints, and monitor explanations now use repo/install-neutral wording instead of installed-only paths.
-    - Proof: `tests/menu/help_repo_usage_test.sh`, `tests/config_source_failure_human_hint_test.sh`, `tests/explain_monitor_repo_text_test.sh`.
+    - Proof: `tests/menu/help_repo_usage_test.sh`, `tests/core/config_source_failure_human_hint_test.sh`, `tests/core/explain_monitor_repo_text_test.sh`.
   - P1 operator UX/docs polish: menu labels and `help menu` now explain the main operator flows clearly, and the quick reference, troubleshooting guide, and FAQ are repo/install-aware instead of reading as installed-mode-only docs.
     - Proof: `tests/menu/help_menu_structure_test.sh`, `tests/menu/operator_docs_mode_aware_test.sh`, `tests/menu/menu_tty_flow_smoke_test.sh`.
   - P1 TUI upgrade: `linux-maint menu` now opens with a landing overview, keeps repo/install context visible, uses task-based main sections (`Overview/Run/Investigate/Repair/Export/Docs`), and incident mode can execute a recommended triage flow from the top reason class.
@@ -72,7 +72,7 @@ Last updated: 2026-03-10
 - `PARTIAL` End-to-end idempotency checks for repeated runs.
   - Some behavior tested indirectly; no dedicated full idempotency suite yet.
 - `DONE` `self-check --strict`.
-  - Proof: `tests/self_check_strict_test.sh`.
+  - Proof: `tests/core/self_check_strict_test.sh`.
 
 ## P1 - Fleet-grade execution engine
 - `DONE` Parallel/timeout/retry controls (`--parallel`, `--host-timeout`, `--retry`).
@@ -100,7 +100,7 @@ Last updated: 2026-03-10
   - Missing: write-once filesystem controls and external attestation export.
 - `NEXT` Optional FIPS-friendly crypto mode checks.
 - `DONE` Security posture report command.
-  - Proof: `linux-maint security-profile`, `tests/security_profile_command_test.sh`.
+  - Proof: `linux-maint security-profile`, `tests/core/security_profile_command_test.sh`.
 
 ## P2 - Operator UX (CLI + Menu)
 - `DONE` Incident Mode v1 in menu (guided flow baseline).
@@ -112,7 +112,7 @@ Last updated: 2026-03-10
 
 ## P2 - Data and analytics
 - `DONE` Run history SQLite prototype (`history --sqlite`).
-  - Proof: `tests/history_sqlite_test.sh`.
+  - Proof: `tests/core/history_sqlite_test.sh`.
 - `DONE` Trend anomaly detection (z-score / rolling baseline) baseline.
   - Proof: `linux-maint trend --anomaly --anomaly-window N --anomaly-z N`, `tests/reporting/trend_anomaly_test.sh`.
 - `PARTIAL` Diff intelligence/root-cause hints.
@@ -121,7 +121,7 @@ Last updated: 2026-03-10
   - JSON/JSONL/CSV exports are implemented with tests.
   - Missing: richer OpenMetrics histogram buckets/percentiles.
 - `DONE` 100k+ record performance validation baseline for `history`/`trend`.
-  - Proof: `tests/history_large_index_perf_test.sh`, `tests/reporting/trend_large_fixture_perf_test.sh`.
+  - Proof: `tests/core/history_large_index_perf_test.sh`, `tests/reporting/trend_large_fixture_perf_test.sh`.
   - Note: this is a fixture-level baseline, not a full multi-node production load benchmark.
 
 ## P3 - Plugin and extension ecosystem

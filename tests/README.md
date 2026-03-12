@@ -11,9 +11,11 @@ This directory contains the Bash-first regression suite for `linux-maint`.
   - `run/`
   - `reporting/`
   - `advanced/`
+  - `core/`
   - `inspect/`
   - `install/`
   - `release/`
+  - `runtime/`
   - `menu/`
   - `wrapper/`
 - smoke and aggregate entrypoints:
@@ -37,8 +39,10 @@ The suite is intentionally shell-heavy so it matches the runtime environment of 
 - `run/`: `linux-maint run` planning, resume, and execution regressions
 - `reporting/`: `status`, `report`, `metrics`, `trend`, `export`, `runtimes`, `diff`, `logs`, and report/TUI output fixtures
 - `advanced/`: `gate` and adjacent advanced-command contract tests
+- `core/`: config, check, doctor, history, pack-logs, explain, and related core command regressions
 - `inspect/`: monitor listing and summary-lint inspection tests
 - `install/`: install, init, preflight, upgrade, RPM, installed-mode, and payload-parity tests
 - `release/`: tarball and release-discipline verification tests
+- `runtime/`: shared library helpers, monitor/runtime checks, summary contract helpers, and monitor-focused regressions
 - `menu/`: TUI, menu flow, and help/UX regression tests
 - `wrapper/`: wrapper-side artifact, fallback, and failure-path tests

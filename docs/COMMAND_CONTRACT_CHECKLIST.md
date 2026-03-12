@@ -45,7 +45,7 @@ Suggested tests:
 - `tests/reporting/status_json_compat_test.sh`
 - `tests/reporting/status_last_color_test.sh`
 - `tests/reporting/status_prom_test.sh`
-- `tests/json_output_clean_test.sh`
+- `tests/core/json_output_clean_test.sh`
 
 ## `report`
 
@@ -59,7 +59,7 @@ Suggested tests:
 
 - `tests/reporting/report_command_test.sh`
 - `tests/reporting/report_short_test.sh`
-- `tests/json_output_clean_test.sh`
+- `tests/core/json_output_clean_test.sh`
 
 ## `summary`
 
@@ -71,7 +71,7 @@ Suggested tests:
 Suggested tests:
 
 - `tests/reporting/summary_command_test.sh`
-- `tests/json_output_clean_test.sh`
+- `tests/core/json_output_clean_test.sh`
 
 ## `diff`
 
@@ -83,4 +83,4 @@ Suggested tests:
 Suggested tests:
 
 - `tests/reporting/diff_color_test.sh`
-- `tests/summary_diff_canonicalization_test.sh`
+- `tests/runtime/summary_diff_canonicalization_test.sh`

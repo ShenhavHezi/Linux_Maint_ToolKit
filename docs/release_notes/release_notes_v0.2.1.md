@@ -16,7 +16,7 @@
 
 ## New features
 - `tools/seed_known_hosts.sh` to pre‑populate `LM_SSH_KNOWN_HOSTS_FILE` for strict mode.
-- `docs/schemas/run_index.json` and `tests/run_index_schema_test.sh` for history/run_index validation.
+- `docs/schemas/run_index.json` and `tests/core/run_index_schema_test.sh` for history/run_index validation.
 - Prometheus contract notes (label stability, status encoding, top‑N reason behavior).
 - `tools/docs_link_check.sh` wired into CI to catch broken internal links.
 - `tools/release_prep.sh` and `make release-prep` to bump version/changelog and draft notes.

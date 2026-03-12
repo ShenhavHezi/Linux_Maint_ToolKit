@@ -55,6 +55,22 @@ For the full local maintainer flow (lint + smoke):
 make dev-check
 ```
 
+## Where to change code
+
+- top-level dispatch and startup live in `bin/linux-maint`
+- command behavior should usually be changed in the owning support lib under `lib/`
+- mode/path defaults belong in `lib/linux_maint_runtime.sh`
+- see `lib/README.md` for the command-to-lib ownership map
+
+## Test areas
+
+- `tests/core/`: config, check, doctor, history, explain, pack-logs, and core command/output behavior
+- `tests/runtime/`: shared lib helpers, monitor/runtime regressions, and summary-contract support checks
+- `tests/reporting/`: status/report/metrics/trend/export/diff/logs
+- `tests/run/`: `linux-maint run`
+- `tests/install/`: install/init/preflight/upgrade/RPM lifecycle
+- `tests/advanced/`: gate and advanced-command contract tests
+
 ## Monitor output contract (summary lines)
 
 Each monitor should emit at least one machine-parseable summary line:

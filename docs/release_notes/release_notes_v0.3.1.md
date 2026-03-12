@@ -37,7 +37,7 @@
 These features are optional and operator-invoked; they do not alter default run/report flow unless explicitly used.
 
 ## Tests added/expanded
-- `tests/security_profile_command_test.sh`
+- `tests/core/security_profile_command_test.sh`
 - `tests/advanced/gate_command_test.sh`
 - `tests/plugin_command_test.sh`
 - `tests/plugin_init_test.sh`
