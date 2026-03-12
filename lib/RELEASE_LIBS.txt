@@ -15,3 +15,4 @@ linux_maint_advanced.sh
 linux_maint_adminops.sh
 linux_maint_history.sh
 linux_maint_ops.sh
+linux_maint_inspect.sh

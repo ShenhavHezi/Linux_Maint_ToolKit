@@ -19,6 +19,7 @@ This directory holds the reusable shell libraries loaded by `bin/linux-maint` an
 - `linux_maint_adminops.sh` — notify, ticket, audit-log, and cm-hook helpers.
 - `linux_maint_history.sh` — history and run-index command helpers.
 - `linux_maint_ops.sh` — baseline, tune, explain, and support-bundle helpers.
+- `linux_maint_inspect.sh` — monitor catalog and summary-lint command helpers.
 - `linux_maint_conf.sh` — installed-mode configuration loader/defaults.
 
 ## Design intent
