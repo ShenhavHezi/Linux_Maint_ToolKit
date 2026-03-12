@@ -2,6 +2,7 @@
 set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$ROOT_DIR/tests/testlib.sh"
 
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
@@ -35,35 +36,12 @@ statedir="$workdir/var/lib/linux_maint"
   exit 1
 }
 
-[[ -f "$prefix/lib/linux_maint_help.sh" ]] || {
-  echo "install.sh did not install linux_maint_help.sh into custom lib dir" >&2
-  exit 1
-}
-
-[[ -f "$prefix/lib/linux_maint_runtime.sh" ]] || {
-  echo "install.sh did not install linux_maint_runtime.sh into custom lib dir" >&2
-  exit 1
-}
-
-[[ -f "$prefix/lib/linux_maint_admin.sh" ]] || {
-  echo "install.sh did not install linux_maint_admin.sh into custom lib dir" >&2
-  exit 1
-}
-
-[[ -f "$prefix/lib/linux_maint_tui.sh" ]] || {
-  echo "install.sh did not install linux_maint_tui.sh into custom lib dir" >&2
-  exit 1
-}
-
-[[ -f "$prefix/lib/linux_maint_reporting.sh" ]] || {
-  echo "install.sh did not install linux_maint_reporting.sh into custom lib dir" >&2
-  exit 1
-}
-
-[[ -f "$prefix/lib/linux_maint_advanced.sh" ]] || {
-  echo "install.sh did not install linux_maint_advanced.sh into custom lib dir" >&2
-  exit 1
-}
+while IFS= read -r lib_name; do
+  [[ -f "$prefix/lib/$lib_name" ]] || {
+    echo "install.sh did not install $lib_name into custom lib dir" >&2
+    exit 1
+  }
+done < <(testlib_release_libs)
 
 [[ -f "$cfg/linux-maint.conf" ]] || {
   echo "install.sh did not install linux-maint.conf into override cfg dir" >&2
