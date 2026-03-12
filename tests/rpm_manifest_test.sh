@@ -29,6 +29,8 @@ assert_contains 'install -m 0755 lib/linux_maint_advanced.sh %{buildroot}/usr/li
   "rpm spec no longer installs linux_maint_advanced.sh"
 assert_contains 'install -m 0755 lib/linux_maint_history.sh %{buildroot}/usr/lib/linux_maint_history.sh' \
   "rpm spec no longer installs linux_maint_history.sh"
+assert_contains 'install -m 0755 lib/linux_maint_ops.sh %{buildroot}/usr/lib/linux_maint_ops.sh' \
+  "rpm spec no longer installs linux_maint_ops.sh"
 assert_contains 'install -m 0755 tools/pack_logs.sh %{buildroot}/usr/libexec/linux_maint/pack_logs.sh' \
   "rpm spec no longer installs pack_logs.sh"
 assert_contains 'install -m 0755 tools/verify_release.sh %{buildroot}/usr/libexec/linux_maint/verify_release.sh' \
@@ -61,6 +63,8 @@ assert_contains '/usr/lib/linux_maint_advanced.sh' \
   "rpm spec no longer ships linux_maint_advanced.sh"
 assert_contains '/usr/lib/linux_maint_history.sh' \
   "rpm spec no longer ships linux_maint_history.sh"
+assert_contains '/usr/lib/linux_maint_ops.sh' \
+  "rpm spec no longer ships linux_maint_ops.sh"
 assert_contains '%dir /usr/libexec/linux_maint' \
   "rpm spec no longer owns /usr/libexec/linux_maint"
 assert_contains '%dir /etc/linux_maint/conf.d' \

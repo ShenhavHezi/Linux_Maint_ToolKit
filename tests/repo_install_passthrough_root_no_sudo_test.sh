@@ -19,6 +19,7 @@ cp "$ROOT_DIR/lib/linux_maint_tui.sh" "$repo/lib/linux_maint_tui.sh"
 cp "$ROOT_DIR/lib/linux_maint_reporting.sh" "$repo/lib/linux_maint_reporting.sh"
 cp "$ROOT_DIR/lib/linux_maint_advanced.sh" "$repo/lib/linux_maint_advanced.sh"
 cp "$ROOT_DIR/lib/linux_maint_history.sh" "$repo/lib/linux_maint_history.sh"
+cp "$ROOT_DIR/lib/linux_maint_ops.sh" "$repo/lib/linux_maint_ops.sh"
 
 cat > "$repo/install.sh" <<'SH'
 #!/usr/bin/env bash

@@ -9,7 +9,7 @@ trap 'rm -rf "$workdir"' EXIT
 
 fake_lm="$workdir/linux-maint"
 mkdir -p "$workdir/lib"
-for support_lib in linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh linux_maint_tui.sh linux_maint_reporting.sh linux_maint_history.sh; do
+for support_lib in linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh linux_maint_tui.sh linux_maint_reporting.sh linux_maint_history.sh linux_maint_ops.sh; do
   ln -s "$ROOT_DIR/lib/$support_lib" "$workdir/lib/$support_lib"
 done
 cp "$ROOT_DIR/lib/linux_maint_advanced.sh" "$workdir/lib/linux_maint_advanced.sh"

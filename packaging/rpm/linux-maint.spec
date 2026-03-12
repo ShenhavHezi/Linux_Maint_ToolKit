@@ -60,6 +60,7 @@ install -m 0755 lib/linux_maint_config.sh %{buildroot}/usr/lib/linux_maint_confi
 install -m 0755 lib/linux_maint_reporting.sh %{buildroot}/usr/lib/linux_maint_reporting.sh
 install -m 0755 lib/linux_maint_advanced.sh %{buildroot}/usr/lib/linux_maint_advanced.sh
 install -m 0755 lib/linux_maint_history.sh %{buildroot}/usr/lib/linux_maint_history.sh
+install -m 0755 lib/linux_maint_ops.sh %{buildroot}/usr/lib/linux_maint_ops.sh
 
 # monitors + tools
 install -m 0755 monitors/*.sh %{buildroot}/usr/libexec/linux_maint/
@@ -113,6 +114,7 @@ fi
 /usr/lib/linux_maint_reporting.sh
 /usr/lib/linux_maint_advanced.sh
 /usr/lib/linux_maint_history.sh
+/usr/lib/linux_maint_ops.sh
 %dir /usr/libexec/linux_maint
 /usr/libexec/linux_maint/*
 /usr/share/linux_maint/

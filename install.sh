@@ -99,6 +99,7 @@ lib/linux_maint_config.sh
 lib/linux_maint_reporting.sh
 lib/linux_maint_advanced.sh
 lib/linux_maint_history.sh
+lib/linux_maint_ops.sh
 libexec/linux_maint
 share/linux_maint
 share/Linux_Maint_ToolKit
@@ -255,6 +256,7 @@ install_files(){
   install -D -m 0755 lib/linux_maint_reporting.sh "$lib/linux_maint_reporting.sh"
   install -D -m 0755 lib/linux_maint_advanced.sh "$lib/linux_maint_advanced.sh"
   install -D -m 0755 lib/linux_maint_history.sh "$lib/linux_maint_history.sh"
+  install -D -m 0755 lib/linux_maint_ops.sh "$lib/linux_maint_ops.sh"
   install -D -m 0755 run_full_health_monitor.sh "$sbin/run_full_health_monitor.sh"
   install -D -m 0755 bin/linux-maint "$prefix/bin/linux-maint"
   install -d "$libexec"
@@ -421,6 +423,7 @@ uninstall_files(){
   rm -f "$prefix/lib/linux_maint_reporting.sh"
   rm -f "$prefix/lib/linux_maint_advanced.sh"
   rm -f "$prefix/lib/linux_maint_history.sh"
+  rm -f "$prefix/lib/linux_maint_ops.sh"
   rm -rf "$prefix/libexec/linux_maint"
   rm -rf "$prefix/share/linux_maint" 2>/dev/null || true
   rm -rf "$prefix/share/Linux_Maint_ToolKit" 2>/dev/null || true

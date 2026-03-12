@@ -13,6 +13,7 @@ TS="${TS:-$(date -u +%Y%m%dT%H%M%SZ)}"
 
 # Allow explicit paths (useful for repo vs installed)
 LOG_DIR="${LOG_DIR:-/var/log/health}"
+SUMMARY_DIR="${SUMMARY_DIR:-$LOG_DIR}"
 CFG_DIR="${CFG_DIR:-/etc/linux_maint}"
 STATE_DIR="${STATE_DIR:-/var/lib/linux_maint}"
 
@@ -210,8 +211,8 @@ list_latest() {
 log_files=()
 for f in \
   "$LOG_DIR/full_health_monitor_latest.log" \
-  "$LOG_DIR/full_health_monitor_summary_latest.log" \
-  "$LOG_DIR/full_health_monitor_summary_latest.json" \
+  "$SUMMARY_DIR/full_health_monitor_summary_latest.log" \
+  "$SUMMARY_DIR/full_health_monitor_summary_latest.json" \
   "$LOG_DIR/last_status_full" \
   ; do
   if [[ -e "$f" ]]; then
@@ -223,9 +224,11 @@ MAX_LOGS="${MAX_LOGS:-3}"
 if [[ -d "$LOG_DIR" ]]; then
   mapfile -t _list < <(list_latest "${LOG_DIR}/full_health_monitor_*.log" "$MAX_LOGS")
   log_files+=("${_list[@]}")
-  mapfile -t _list < <(list_latest "${LOG_DIR}/full_health_monitor_summary_*.log" "$MAX_LOGS")
+fi
+if [[ -d "$SUMMARY_DIR" ]]; then
+  mapfile -t _list < <(list_latest "${SUMMARY_DIR}/full_health_monitor_summary_*.log" "$MAX_LOGS")
   log_files+=("${_list[@]}")
-  mapfile -t _list < <(list_latest "${LOG_DIR}/full_health_monitor_summary_*.json" "$MAX_LOGS")
+  mapfile -t _list < <(list_latest "${SUMMARY_DIR}/full_health_monitor_summary_*.json" "$MAX_LOGS")
   log_files+=("${_list[@]}")
 fi
 
@@ -364,6 +367,7 @@ redaction=$redact_state
 hashes=$hash_state
 gpg=$gpg_state
 log_dir=$LOG_DIR
+summary_dir=$SUMMARY_DIR
 cfg_dir=$CFG_DIR
 state_dir=$STATE_DIR
 repo_root=${REPO_ROOT:-}
@@ -372,6 +376,7 @@ EOF
 cat > "$bundle_root/meta/bundle_manifest.txt" <<EOF
 created_utc=$TS
 log_dir=$LOG_DIR
+summary_dir=$SUMMARY_DIR
 cfg_dir=$CFG_DIR
 state_dir=$STATE_DIR
 repo_root=${REPO_ROOT:-}
