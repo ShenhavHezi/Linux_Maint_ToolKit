@@ -6,7 +6,7 @@ mkdir -p "$TMPDIR"
 # Test: per-monitor timeout overrides are honored by the wrapper.
 # Use a purpose-built slow monitor to keep behavior deterministic across distros.
 
-REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}" )/.." && pwd)"
+REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}" )/../.." && pwd)"
 
 # CI/base images should provide timeout (coreutils), but keep test resilient.
 if ! command -v timeout >/dev/null 2>&1; then

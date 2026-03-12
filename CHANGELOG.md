@@ -8,6 +8,11 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-03-12
 
+- Release v0.3.6
+- (no notable changes)
+
+## 2026-03-12
+
 - Release v0.3.5
 - Hardened wrapper/run/reporting behavior for corrupt or unreadable artifacts, resume-state validation, sidecar/state write failure visibility, and clearer historical summary warnings.
 - Tightened advanced command correctness across `serve`, `plugin`, `policy`, and generated monitor scaffolds, including stricter contract validation and safer installed/RPM path behavior.

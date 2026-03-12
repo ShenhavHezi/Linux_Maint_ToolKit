@@ -169,7 +169,9 @@ Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 tpl = Path(tpl_path).read_text().splitlines()
 out = []
 for line in tpl:
-    if line.startswith("- Version:"):
+    if line.startswith("# Release Notes"):
+        out.append(f"# Release Notes v{version}")
+    elif line.startswith("- Version:"):
         out.append(f"- Version: {version}")
     elif line.startswith("- Date (UTC):"):
         out.append(f"- Date (UTC): {date}")
@@ -184,7 +186,7 @@ if [[ "$NOTES_OUT" == docs/release_notes/* ]]; then
   python3 "$ROOT_DIR/tools/update_release_notes_refs.py" "$ROOT_DIR/docs/README.md" "$NOTES_OUT"
 fi
 
-git add VERSION CHANGELOG.md "$NOTES_OUT" docs/README.md
+git add VERSION CHANGELOG.md "$NOTES_OUT" docs/README.md docs/release_notes/README.md
 if [[ "$NO_COMMIT" -ne 1 ]]; then
   git commit -m "Release ${TAG}"
 fi
