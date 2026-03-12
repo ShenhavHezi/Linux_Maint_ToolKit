@@ -147,7 +147,7 @@ linux_maint_cmd_verify_install() {
   echo "wrapper=$wrapper"
   echo "lib=${LINUX_MAINT_LIB:-$PREFIX/lib/linux_maint.sh}"
 
-  local fail=0 warn_count=0
+  local fail=0 fail_count=0 warn_count=0 ok_count=0
   local -a next_steps=()
 
   linux_maint_add_next_step() {
@@ -159,26 +159,41 @@ linux_maint_cmd_verify_install() {
     next_steps+=("$msg")
   }
 
+  linux_maint_echo_ok() {
+    ok_count=$((ok_count + 1))
+    echo "${C_GREEN}OK${C_RESET}: $*"
+  }
+
+  linux_maint_echo_warn() {
+    warn_count=$((warn_count + 1))
+    echo "${C_YELLOW}WARN${C_RESET}: $*" >&2
+  }
+
+  linux_maint_echo_fail() {
+    fail=1
+    fail_count=$((fail_count + 1))
+    echo "${C_RED}MISSING${C_RESET}: $*" >&2
+  }
+
   linux_maint_check_file() {
     local label="$1" path="$2"
     if [[ -e "$path" ]]; then
-      echo "${C_GREEN}OK${C_RESET}: $label: $path"
+      linux_maint_echo_ok "$label: $path"
     else
-      echo "${C_RED}MISSING${C_RESET}: $label: $path" >&2
-      fail=1
+      linux_maint_echo_fail "$label: $path"
     fi
   }
 
   linux_maint_check_exec() {
     local label="$1" path="$2"
     if [[ -x "$path" ]]; then
-      echo "${C_GREEN}OK${C_RESET}: $label: $path"
+      linux_maint_echo_ok "$label: $path"
     elif [[ -e "$path" ]]; then
       echo "${C_RED}NOT EXECUTABLE${C_RESET}: $label: $path" >&2
       fail=1
+      fail_count=$((fail_count + 1))
     else
-      echo "${C_RED}MISSING${C_RESET}: $label: $path" >&2
-      fail=1
+      linux_maint_echo_fail "$label: $path"
     fi
   }
 
@@ -186,10 +201,9 @@ linux_maint_cmd_verify_install() {
     local label="$1" path="$2"
     if [[ -d "$path" ]]; then
       if [[ -w "$path" ]]; then
-        echo "${C_GREEN}OK${C_RESET}: writable $label: $path"
+        linux_maint_echo_ok "writable $label: $path"
       else
-        echo "${C_YELLOW}WARN${C_RESET}: not writable $label: $path" >&2
-        warn_count=$((warn_count + 1))
+        linux_maint_echo_warn "not writable $label: $path"
         case "$label" in
           lockdir|state|logs)
             linux_maint_add_next_step "rerun with sudo if you want installed-mode writable path checks to pass"
@@ -197,8 +211,7 @@ linux_maint_cmd_verify_install() {
         esac
       fi
     else
-      echo "${C_YELLOW}WARN${C_RESET}: missing dir $label: $path" >&2
-      warn_count=$((warn_count + 1))
+      linux_maint_echo_warn "missing dir $label: $path"
       linux_maint_add_next_step "create or configure $label path: $path"
     fi
   }
@@ -206,8 +219,7 @@ linux_maint_cmd_verify_install() {
   linux_maint_check_release_support_libs() {
     local manifest="$1" lib_name=""
     if [[ ! -f "$manifest" ]]; then
-      echo "${C_RED}MISSING${C_RESET}: support lib manifest: $manifest" >&2
-      fail=1
+      linux_maint_echo_fail "support lib manifest: $manifest"
       return
     fi
     linux_maint_check_file "support lib manifest" "$manifest"
@@ -251,8 +263,7 @@ linux_maint_cmd_verify_install() {
     linux_maint_check_file "excluded" "$CFG_DIR/excluded.txt"
     linux_maint_check_file "services" "$CFG_DIR/services.txt"
   else
-    echo "WARN: config dir missing: $CFG_DIR" >&2
-    warn_count=$((warn_count + 1))
+    linux_maint_echo_warn "config dir missing: $CFG_DIR"
     linux_maint_add_next_step "run linux-maint init to create starter config files"
   fi
 
@@ -281,10 +292,26 @@ linux_maint_cmd_verify_install() {
       done
     done <<< "$unit_dirs"
     if [[ -n "$svc" || -n "$tmr" ]]; then
-      [[ -n "$svc" ]] && echo "OK: unit file: $svc" || echo "WARN: missing unit file: linux-maint.service" >&2
-      [[ -n "$tmr" ]] && echo "OK: unit file: $tmr" || echo "WARN: missing unit file: linux-maint.timer" >&2
-      systemctl is-enabled linux-maint.timer >/dev/null 2>&1 && echo "OK: timer enabled" || echo "INFO: timer not enabled (or systemd unavailable)"
-      systemctl is-active linux-maint.timer >/dev/null 2>&1 && echo "OK: timer active" || echo "INFO: timer not active (or systemd unavailable)"
+      if [[ -n "$svc" ]]; then
+        linux_maint_echo_ok "unit file: $svc"
+      else
+        linux_maint_echo_warn "missing unit file: linux-maint.service"
+      fi
+      if [[ -n "$tmr" ]]; then
+        linux_maint_echo_ok "unit file: $tmr"
+      else
+        linux_maint_echo_warn "missing unit file: linux-maint.timer"
+      fi
+      if systemctl is-enabled linux-maint.timer >/dev/null 2>&1; then
+        linux_maint_echo_ok "timer enabled"
+      else
+        echo "INFO: timer not enabled (or systemd unavailable)"
+      fi
+      if systemctl is-active linux-maint.timer >/dev/null 2>&1; then
+        linux_maint_echo_ok "timer active"
+      else
+        echo "INFO: timer not active (or systemd unavailable)"
+      fi
     else
       echo "INFO: systemd unit files not present (ok if not installed with --with-timer)"
     fi
@@ -299,6 +326,11 @@ linux_maint_cmd_verify_install() {
       printf 'next_step: %s\n' "${next_steps[@]}"
     fi
   fi
+
+  echo "== Summary =="
+  echo "checks_ok=$ok_count"
+  echo "warnings=$warn_count"
+  echo "failures=$fail_count"
 
   if [[ "$fail" -ne 0 ]]; then
     echo "verify-install FAIL" >&2

@@ -18,5 +18,9 @@ printf '%s\n' localhost > "$cfg_dir/servers.txt"
 out="$(LM_CFG_DIR="$cfg_dir" "$LM" verify-install 2>/dev/null)"
 
 echo "$out" | grep -q '^verify-install ok$'
+echo "$out" | grep -q '^== Summary ==$'
+echo "$out" | grep -q '^checks_ok='
+echo "$out" | grep -q '^warnings='
+echo "$out" | grep -q '^failures='
 
 echo "ok: verify-install"
