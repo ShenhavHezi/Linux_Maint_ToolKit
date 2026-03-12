@@ -4015,32 +4015,9 @@ case "$subcmd" in
       emit_run_plan "$local_monitors"
     fi
 
-    if [[ "${RUN_RESPECT_MAINT:-0}" -eq 1 ]]; then
-      if ! within_maintenance_window "$cfg_dir"; then
-        echo "Run skipped: outside configured maintenance window ($cfg_dir/maintenance_windows.conf)"
-        exit 0
-      fi
-    fi
-
-    # Run wrapper (installed or repo mode) and print a short footer when interactive.
-    audit_log_append "run" "start" "wrapper=$wrapper local_only=${LM_LOCAL_ONLY:-false} group=${LM_GROUP:-} strategy=${LM_EXEC_STRATEGY:-fail-soft}"
-    if [[ "$wrapper" == "$SBIN"/* ]]; then
-      "$wrapper"
-    else
-      bash "$wrapper"
-    fi
-    rc=$?
-    audit_log_append "run" "$([[ "$rc" -eq 0 ]] && echo success || echo failure)" "rc=$rc wrapper=$wrapper"
-    if [[ -t 1 ]]; then
-      echo ""
-      echo "Run complete (exit_code=$rc)"
-      echo "Summary: $(linux_maint_reporting_summary_latest)"
-      echo "Log: $(linux_maint_reporting_latest_log)"
-      echo "Next: linux-maint report"
-      echo "Tip: linux-maint status --reasons 5"
-      echo "If WARN/CRIT: linux-maint doctor"
-    fi
-    exit $rc
+    run_enforce_maintenance_window "$cfg_dir"
+    run_execute_wrapper "$wrapper"
+    exit "${RUN_EXEC_RC:-1}"
     ;;
 
   list-monitors)
