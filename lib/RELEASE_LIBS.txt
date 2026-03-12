@@ -4,6 +4,7 @@ linux_maint_runtime.sh
 linux_maint_admin.sh
 linux_maint_help.sh
 linux_maint_tui.sh
+linux_maint_menu.sh
 linux_maint_config.sh
 linux_maint_init.sh
 linux_maint_diag.sh

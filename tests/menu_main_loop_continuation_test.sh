@@ -12,21 +12,19 @@ trap cleanup EXIT
 
 RUN_MENU_COUNT=0
 QUICKSTART_MENU_COUNT=0
-REPAIR_MENU_COUNT=0
+TRIAGE_MENU_COUNT=0
 EXIT_SEEN=0
 
 run_menu_quickstart() { QUICKSTART_MENU_COUNT=$((QUICKSTART_MENU_COUNT+1)); }
 run_menu_overview() { :; }
 run_menu_run() { RUN_MENU_COUNT=$((RUN_MENU_COUNT+1)); }
-run_menu_investigate() { :; }
-run_menu_repair() { REPAIR_MENU_COUNT=$((REPAIR_MENU_COUNT+1)); }
-run_menu_export() { :; }
-run_menu_docs() { :; }
+run_menu_triage() { TRIAGE_MENU_COUNT=$((TRIAGE_MENU_COUNT+1)); }
+run_menu_share() { :; }
 
 cat > "$MENU_QUEUE_FILE" <<'EOF'
 q
 r
-p
+t
 x
 EOF
 
@@ -43,10 +41,8 @@ while true; do
     quickstart) run_menu_quickstart ;;
     overview) run_menu_overview ;;
     run) run_menu_run ;;
-    investigate) run_menu_investigate ;;
-    repair) run_menu_repair ;;
-    export) run_menu_export ;;
-    docs) run_menu_docs ;;
+    triage) run_menu_triage ;;
+    share) run_menu_share ;;
     exit) EXIT_SEEN=1; break ;;
   esac
 done
@@ -59,8 +55,8 @@ done
   echo "expected run submenu once, got $RUN_MENU_COUNT" >&2
   exit 1
 }
-[[ "$REPAIR_MENU_COUNT" -eq 1 ]] || {
-  echo "expected repair submenu once after run, got $REPAIR_MENU_COUNT" >&2
+[[ "$TRIAGE_MENU_COUNT" -eq 1 ]] || {
+  echo "expected triage submenu once after run, got $TRIAGE_MENU_COUNT" >&2
   exit 1
 }
 [[ "$EXIT_SEEN" -eq 1 ]] || {
