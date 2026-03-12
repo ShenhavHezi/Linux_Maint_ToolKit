@@ -219,7 +219,7 @@ jobs:
           chmod +x tests/smoke.sh
           if [[ "${{ matrix.distro }}" == "rockylinux-9" ]]; then
             bash tests/runtime/bash_min_version_guard_test.sh
-            bash tests/help_command_test.sh
+            bash tests/menu/help_command_test.sh
             bash tests/core/check_command_test.sh
             bash tests/core/config_command_test.sh
             echo "rocky compat subset ok"
@@ -292,10 +292,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash tests/install_override_layout_test.sh
-          bash tests/install_lifecycle_smoke_test.sh
-          bash tests/install_upgrade_from_release_test.sh
-          bash tests/verify_install_test.sh
+          bash tests/install/install_override_layout_test.sh
+          bash tests/install/install_lifecycle_smoke_test.sh
+          bash tests/install/install_upgrade_from_release_test.sh
+          bash tests/install/verify_install_test.sh
 
   build-rpm-rocky9:
     runs-on: ubuntu-latest
@@ -357,7 +357,7 @@ jobs:
 
       - name: RPM lifecycle smoke
         run: |
-          LM_RPM_LIFECYCLE_ALLOW_SYSTEM=1 bash tests/rpm_lifecycle_smoke_test.sh
+          LM_RPM_LIFECYCLE_ALLOW_SYSTEM=1 bash tests/install/rpm_lifecycle_smoke_test.sh
 
       - name: Attest RPM artifact
         if: ${{ github.event_name == 'push' }}

@@ -57,6 +57,18 @@ assert_contains "$ci" 'debian-12' \
   "ci workflow missing debian-12 in the compatibility matrix"
 assert_contains "$ci" 'rockylinux-9' \
   "ci workflow missing rockylinux-9 in the compatibility matrix"
+assert_contains "$ci" 'bash tests/menu/help_command_test.sh' \
+  "ci workflow missing moved help command test path"
+assert_contains "$ci" 'bash tests/install/install_lifecycle_smoke_test.sh' \
+  "ci workflow missing moved install lifecycle test path"
+assert_contains "$ci" 'bash tests/install/rpm_lifecycle_smoke_test.sh' \
+  "ci workflow missing moved rpm lifecycle test path"
+assert_absent "$ci" 'bash tests/help_command_test.sh' \
+  "ci workflow still references old top-level help command test path"
+assert_absent "$ci" 'bash tests/install_lifecycle_smoke_test.sh' \
+  "ci workflow still references old top-level install lifecycle test path"
+assert_absent "$ci" 'bash tests/rpm_lifecycle_smoke_test.sh' \
+  "ci workflow still references old top-level rpm lifecycle test path"
 
 assert_contains "$ci" 'uses: actions/attest@v4' \
   "ci workflow missing artifact attestation step"
