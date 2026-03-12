@@ -77,13 +77,6 @@ ${C_CYAN}Help / reference${C_RESET}:
   explain status <S>      Explain a status value (OK/WARN/CRIT/UNKNOWN/SKIP)
   help                    Show this help
 
-${C_CYAN}Menu sections${C_RESET}:
-  Quickstart              First setup, guided rescue, and escalation workflows
-  Overview                Fleet health, latest problems, and fast answers
-  Run                     Execute checks, preview plans, and scope runs
-  Triage                  Investigate failures and repair safely
-  Share                   Reports, bundles, exports, and reference docs
-
 ${C_CYAN}Environment${C_RESET}:
   LM_PROGRESS=0         disable progress bar during run
   NO_COLOR=1            disable colored output

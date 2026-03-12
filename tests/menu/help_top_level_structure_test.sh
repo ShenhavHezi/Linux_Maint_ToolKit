@@ -21,11 +21,6 @@ printf '%s\n' "$out" | grep -q '^Automation / integrations:$' || {
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q '^Menu sections:$' || {
-  echo "top-level help missing menu sections section" >&2
-  echo "$out" >&2
-  exit 1
-}
 printf '%s\n' "$out" | grep -q '^Examples by task:$' || {
   echo "top-level help missing examples-by-task section" >&2
   echo "$out" >&2
@@ -41,20 +36,4 @@ printf '%s\n' "$out" | grep -q '^  menu[[:space:]]\+Interactive operations conso
   echo "$out" >&2
   exit 1
 }
-printf '%s\n' "$out" | grep -q '^  Quickstart[[:space:]]\+First setup, guided rescue, and escalation workflows$' || {
-  echo "top-level help missing quickstart menu section" >&2
-  echo "$out" >&2
-  exit 1
-}
-printf '%s\n' "$out" | grep -q '^  Triage[[:space:]]\+Investigate failures and repair safely$' || {
-  echo "top-level help missing triage menu section" >&2
-  echo "$out" >&2
-  exit 1
-}
-printf '%s\n' "$out" | grep -q '^  Share[[:space:]]\+Reports, bundles, exports, and reference docs$' || {
-  echo "top-level help missing share menu section" >&2
-  echo "$out" >&2
-  exit 1
-}
-
 echo "help top-level structure ok"

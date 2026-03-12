@@ -287,10 +287,15 @@ install_files(){
   mkdir -p "$INSTALL_CFG_DIR/conf.d"
   chmod 0755 "$INSTALL_CFG_DIR/conf.d" || true
 
-  # Build/version info (optional; present in offline release tarballs)
-  # Ensure BUILD_INFO exists for installed-mode `linux-maint version`
-  if [ ! -f "BUILD_INFO" ] && [ -x "tools/gen_build_info.sh" ]; then
-    ./tools/gen_build_info.sh >/dev/null 2>&1 || true
+  # Build/version info
+  # Repo checkout installs should refresh BUILD_INFO from current VERSION/git state.
+  # Extracted release tarballs should keep their packaged BUILD_INFO.
+  if [ -x "tools/gen_build_info.sh" ]; then
+    if [ -d ".git" ]; then
+      ./tools/gen_build_info.sh >/dev/null 2>&1 || true
+    elif [ ! -f "BUILD_INFO" ]; then
+      ./tools/gen_build_info.sh >/dev/null 2>&1 || true
+    fi
   fi
   mkdir -p "$prefix/share/linux_maint"
   mkdir -p "$prefix/share/linux_maint/plugins"
