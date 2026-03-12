@@ -96,6 +96,7 @@ lib/linux_maint_admin.sh
 lib/linux_maint_help.sh
 lib/linux_maint_tui.sh
 lib/linux_maint_config.sh
+lib/linux_maint_diag.sh
 lib/linux_maint_reporting.sh
 lib/linux_maint_advanced.sh
 lib/linux_maint_history.sh
@@ -253,6 +254,7 @@ install_files(){
   install -D -m 0755 lib/linux_maint_help.sh "$lib/linux_maint_help.sh"
   install -D -m 0755 lib/linux_maint_tui.sh "$lib/linux_maint_tui.sh"
   install -D -m 0755 lib/linux_maint_config.sh "$lib/linux_maint_config.sh"
+  install -D -m 0755 lib/linux_maint_diag.sh "$lib/linux_maint_diag.sh"
   install -D -m 0755 lib/linux_maint_reporting.sh "$lib/linux_maint_reporting.sh"
   install -D -m 0755 lib/linux_maint_advanced.sh "$lib/linux_maint_advanced.sh"
   install -D -m 0755 lib/linux_maint_history.sh "$lib/linux_maint_history.sh"
@@ -433,6 +435,7 @@ uninstall_files(){
   rm -f "$prefix/lib/linux_maint_help.sh"
   rm -f "$prefix/lib/linux_maint_tui.sh"
   rm -f "$prefix/lib/linux_maint_config.sh"
+  rm -f "$prefix/lib/linux_maint_diag.sh"
   rm -f "$prefix/lib/linux_maint_reporting.sh"
   rm -f "$prefix/lib/linux_maint_advanced.sh"
   rm -f "$prefix/lib/linux_maint_history.sh"

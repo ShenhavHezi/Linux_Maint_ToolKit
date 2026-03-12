@@ -77,6 +77,7 @@ write_payload_inventory() {
       "lib/linux_maint_help.sh" \
       "lib/linux_maint_tui.sh" \
       "lib/linux_maint_config.sh" \
+      "lib/linux_maint_diag.sh" \
       "lib/linux_maint_reporting.sh" \
       "lib/linux_maint_advanced.sh" \
       "lib/linux_maint_history.sh" \
