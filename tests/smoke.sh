@@ -360,6 +360,7 @@ run_required "verify_install_installed_layout_test" bash "$INSTALL_TEST_DIR/veri
 run_required "install_override_layout_test" bash "$INSTALL_TEST_DIR/install_override_layout_test.sh"
 run_required "install_systemd_best_effort_test" bash "$INSTALL_TEST_DIR/install_systemd_best_effort_test.sh"
 run_required "install_refreshes_build_info_test" bash "$INSTALL_TEST_DIR/install_refreshes_build_info_test.sh"
+run_required "gen_build_info_omit_empty_ci_fields_test" bash "$INSTALL_TEST_DIR/gen_build_info_omit_empty_ci_fields_test.sh"
 run_required "install_rollback_prefix_failure_test" bash "$INSTALL_TEST_DIR/install_rollback_prefix_failure_test.sh"
 run_required "install_rollback_systemd_logrotate_failure_test" bash "$INSTALL_TEST_DIR/install_rollback_systemd_logrotate_failure_test.sh"
 run_required "doctor_verify_install_no_side_effects_test" bash "$CORE_TEST_DIR/doctor_verify_install_no_side_effects_test.sh"

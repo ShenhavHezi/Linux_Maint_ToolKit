@@ -23,16 +23,16 @@ CI_RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-${CI_RUN_ATTEMPT:-}}"
 CI_REF="${GITHUB_REF:-${CI_REF:-}}"
 CI_SHA="${GITHUB_SHA:-${CI_SHA:-}}"
 
-cat > "$ROOT/BUILD_INFO" <<EOF
-format=linux_maint_build_info
-schema_version=1
-version=$VER
-commit=$SHA
-build_time_utc=$STAMP
-ci_run_id=$CI_RUN_ID
-ci_run_attempt=$CI_RUN_ATTEMPT
-ci_ref=$CI_REF
-ci_sha=$CI_SHA
-EOF
+{
+  printf 'format=linux_maint_build_info\n'
+  printf 'schema_version=1\n'
+  printf 'version=%s\n' "$VER"
+  printf 'commit=%s\n' "$SHA"
+  printf 'build_time_utc=%s\n' "$STAMP"
+  [[ -n "$CI_RUN_ID" ]] && printf 'ci_run_id=%s\n' "$CI_RUN_ID"
+  [[ -n "$CI_RUN_ATTEMPT" ]] && printf 'ci_run_attempt=%s\n' "$CI_RUN_ATTEMPT"
+  [[ -n "$CI_REF" ]] && printf 'ci_ref=%s\n' "$CI_REF"
+  [[ -n "$CI_SHA" ]] && printf 'ci_sha=%s\n' "$CI_SHA"
+} > "$ROOT/BUILD_INFO"
 
 echo "Wrote $ROOT/BUILD_INFO" >&2
