@@ -28,6 +28,8 @@
   ·
   <a href="docs/FIRST_5_MINUTES.md">First 5 minutes</a>
   ·
+  <a href="#see-the-menu">Menu demo</a>
+  ·
   <a href="#operator-workflow">Operator workflow</a>
   ·
   <a href="#documentation-map">Documentation map</a>
@@ -36,6 +38,29 @@
   ·
   <a href="docs/UPGRADE.md">Upgrade guide</a>
 </p>
+
+## Install · Try · Operate
+
+| Stage | Start here | Why |
+| --- | --- | --- |
+| Install | [installation.md](docs/installation.md) | Best path for installed mode, repo mode, RPM, and dark-site setups |
+| Try | [FIRST_5_MINUTES.md](docs/FIRST_5_MINUTES.md) | Fastest route to a useful first run without reading everything |
+| Operate | `linux-maint menu` | Best daily surface for overview, triage, repair, and sharing |
+
+## See The Menu
+
+<p align="center">
+  <img src="docs/assets/menu_demo.gif" alt="linux-maint menu demo gif" width="96%">
+</p>
+
+This GIF is rendered from the real menu frame output in the repo fixtures, not concept art.
+
+The menu is designed around the same operator flow as the CLI and docs:
+
+- `Quickstart` for first setup and incident entry
+- `Overview` for current health and top reasons
+- `Triage` for guided drilldown and repair decisions
+- `Share` for reports, metrics, and support bundles
 
 ## Start Here
 
@@ -54,21 +79,6 @@ If you are evaluating the toolkit for the first time, use this order:
 | I want to test or develop from a checkout | Repo mode + `./bin/linux-maint menu` |
 | I need a controlled offline rollout | Verified tarball or RPM + [docs/DARK_SITE.md](docs/DARK_SITE.md) |
 | I need a guided onboarding path | [docs/FIRST_5_MINUTES.md](docs/FIRST_5_MINUTES.md) |
-
-## See The Menu
-
-<p align="center">
-  <img src="docs/assets/menu_demo.gif" alt="linux-maint menu demo gif" width="96%">
-</p>
-
-This GIF is rendered from the real menu frame output in the repo fixtures, not concept art.
-
-The menu is designed around the same operator flow as the CLI and docs:
-
-- `Quickstart` for first setup and incident entry
-- `Overview` for current health and top reasons
-- `Triage` for guided drilldown and repair decisions
-- `Share` for reports, metrics, and support bundles
 
 ## Why Teams Use `linux-maint`
 
