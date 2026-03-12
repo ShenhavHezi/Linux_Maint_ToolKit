@@ -403,9 +403,22 @@ EOF
 
   maybe_fail_install_stage "after_systemd_write"
 
-  systemctl daemon-reload
-  systemctl enable --now linux-maint.timer
-  systemctl status linux-maint.timer --no-pager || true
+  run_systemctl_best_effort() {
+    local timeout_secs=15
+    if command -v timeout >/dev/null 2>&1; then
+      timeout "$timeout_secs" systemctl "$@" >/dev/null 2>&1
+    else
+      systemctl "$@" >/dev/null 2>&1
+    fi
+  }
+
+  if command -v systemctl >/dev/null 2>&1; then
+    run_systemctl_best_effort daemon-reload || echo "WARN: systemctl daemon-reload failed" >&2
+    run_systemctl_best_effort enable --now linux-maint.timer || echo "WARN: unable to enable/start linux-maint.timer" >&2
+    run_systemctl_best_effort status linux-maint.timer --no-pager || true
+  else
+    echo "INFO: systemctl not found; installed unit files only" >&2
+  fi
 }
 
 uninstall_files(){

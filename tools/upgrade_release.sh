@@ -221,6 +221,8 @@ PREFIX="${LINUX_MAINT_PREFIX:-${PREFIX:-/usr/local}}"
 CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
 LOG_DIR="${LOG_DIR:-/var/log/health}"
 STATE_DIR="${LM_STATE_DIR:-/var/lib/linux_maint}"
+INSTALL_SYSTEMD_DIR="${LM_INSTALL_SYSTEMD_DIR:-/etc/systemd/system}"
+INSTALL_LOGROTATE_FILE="${LM_INSTALL_LOGROTATE_FILE:-/etc/logrotate.d/linux_maint}"
 WITH_USER=0
 WITH_TIMER=0
 WITH_LOGROTATE=0
@@ -388,6 +390,8 @@ set +e
   LM_INSTALL_CFG_DIR="$CFG_DIR" \
   LM_INSTALL_LOG_DIR="$LOG_DIR" \
   LM_INSTALL_STATE_DIR="$STATE_DIR" \
+  LM_INSTALL_SYSTEMD_DIR="$INSTALL_SYSTEMD_DIR" \
+  LM_INSTALL_LOGROTATE_FILE="$INSTALL_LOGROTATE_FILE" \
   bash ./install.sh "${install_flags[@]}"
 )
 INSTALL_RC_VALUE=$?
@@ -400,6 +404,9 @@ fi
 
 set +e
 verify_install_env=(env PREFIX="$PREFIX" LM_CFG_DIR="$CFG_DIR" LOG_DIR="$LOG_DIR" LM_STATE_DIR="$STATE_DIR")
+if [[ -n "$INSTALL_SYSTEMD_DIR" ]]; then
+  verify_install_env+=(LM_SYSTEMD_UNIT_DIRS="$INSTALL_SYSTEMD_DIR")
+fi
 if [[ -n "${LM_LOCKDIR:-}" ]]; then
   verify_install_env+=(LM_LOCKDIR="$LM_LOCKDIR")
 fi
