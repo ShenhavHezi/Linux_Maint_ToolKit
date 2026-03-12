@@ -123,10 +123,10 @@ linux-maint init --minimal
 linux-maint init --force
 
 # Upgrade from a verified release tarball (installed mode)
-linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --check --sums ./SHA256SUMS
-linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --check --json --sums ./SHA256SUMS
-sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --sums ./SHA256SUMS
-sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate
+linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.7-<sha>.tgz --check --sums ./SHA256SUMS
+linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.7-<sha>.tgz --check --json --sums ./SHA256SUMS
+sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.7-<sha>.tgz --sums ./SHA256SUMS
+sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.7-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate
 # --check also shows target release date, compatibility notes, and artifact checks
 
 # Inventory-aware run planning

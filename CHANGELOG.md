@@ -8,6 +8,14 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 ## 2026-03-12
 
+- Release v0.3.7
+- Added richer upgrade assessment output with target release date, compatibility notes, artifact-presence checks, and stronger next-step guidance for `linux-maint upgrade --check`.
+- Deepened `baseline status` with freshness/drift summaries, attention items, changed-host totals, and better refresh guidance in both human and JSON output.
+- Improved inventory-aware run planning by surfacing inventory metadata presence and discovered role/env/tag values, and by failing clearly when filters match zero hosts.
+- Continued CLI polish by aligning `trend`, `runtimes`, `history`, and related reporting error paths with the newer guidance/summary style.
+
+## 2026-03-12
+
 - Release v0.3.6
 - (no notable changes)
 
