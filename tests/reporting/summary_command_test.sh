@@ -10,6 +10,16 @@ printf '%s\n' "$out" | grep -q 'overall=' || {
   echo "$out" >&2
   exit 1
 }
+printf '%s\n' "$out" | grep -q '^== Summary ==$' || {
+  echo "summary footer missing" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -Eq '^summary (ok|warn|crit|unknown)$' || {
+  echo "summary final status missing" >&2
+  echo "$out" >&2
+  exit 1
+}
 
 no_color_out="$(NO_COLOR=1 bash "$LM" summary 2>/dev/null || true)"
 printf '%s\n' "$no_color_out" | grep -q $'\033' && {

@@ -163,6 +163,10 @@ payload = {
 print(json.dumps(payload, indent=2, sort_keys=True))
 PY
   else
+    local result="OK"
+    if [[ "${#warnings[@]}" -gt 0 ]]; then
+      result="WARN"
+    fi
     echo "linux-maint upgrade --check"
     echo "tarball=$tarball"
     echo "current_version=${current_version:-unknown}"
@@ -185,8 +189,26 @@ PY
       printf -- "- %s\n" "${warnings[@]}"
     fi
     echo ""
-    echo "Suggested next step:"
-    echo "  sudo linux-maint upgrade $tarball${SUMS_FILE:+ --sums $SUMS_FILE}"
+    echo "== Guidance =="
+    if [[ "$result" == "OK" ]]; then
+      echo "next_step: sudo linux-maint upgrade $tarball${SUMS_FILE:+ --sums $SUMS_FILE}"
+    else
+      if [[ "$relation" == "same" ]]; then
+        echo "next_step: choose a newer release tarball before upgrading"
+      elif [[ "$relation" == "downgrade" ]]; then
+        echo "next_step: confirm you intend a rollback before proceeding"
+      fi
+      echo "next_step: review the target release notes and upgrade guide"
+      echo "next_step: sudo linux-maint upgrade $tarball${SUMS_FILE:+ --sums $SUMS_FILE}"
+    fi
+    echo ""
+    echo "== Summary =="
+    echo "current_version=${current_version:-unknown}"
+    echo "target_version=${target_version:-unknown}"
+    echo "relation=$relation"
+    echo "warnings=${#warnings[@]}"
+    echo "result=$result"
+    echo "upgrade check ${result,,}"
   fi
 }
 

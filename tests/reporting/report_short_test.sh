@@ -24,8 +24,14 @@ printf '%s\n' "$out" | grep -q '^totals:' || {
   exit 1
 }
 
-printf '%s\n' "$out" | grep -q '^next_steps:' || {
-  echo "report --short next_steps missing" >&2
+printf '%s\n' "$out" | grep -q '^== Guidance ==$' || {
+  echo "report --short guidance missing" >&2
+  echo "$out" >&2
+  exit 1
+}
+
+printf '%s\n' "$out" | grep -q '^== Summary ==$' || {
+  echo "report --short summary missing" >&2
   echo "$out" >&2
   exit 1
 }

@@ -363,6 +363,25 @@ else:
             f"{row['kind']:<9} {row['file_count']:>5} {age_label:>8} {str(row['stale']).lower():<6} "
             f"{(row['latest_status'] or '-'): <8} {' '.join(details)}"
         )
+    stale_count = sum(1 for row in rows if row["stale"])
+    drift_count = sum(1 for row in rows if (row["latest_status"] or "OK") not in ("OK", None))
+    missing_inputs = sum(1 for row in rows if row["support_file"] and not row["support_exists"])
+    result = "WARN" if stale_count or drift_count or missing_inputs else "OK"
+    print("")
+    print("== Guidance ==")
+    if result == "OK":
+        print("next_step: linux-maint run")
+    else:
+        print("next_step: linux-maint baseline ports --update")
+        print("next_step: linux-maint baseline configs --update")
+        print("next_step: linux-maint report")
+    print("")
+    print("== Summary ==")
+    print(f"stale_items={stale_count}")
+    print(f"drift_items={drift_count}")
+    print(f"missing_inputs={missing_inputs}")
+    print(f"result={result}")
+    print(f"baseline status {'ok' if result == 'OK' else 'warn'}")
 PY
     exit 0
   fi

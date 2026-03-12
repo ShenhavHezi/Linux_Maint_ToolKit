@@ -54,6 +54,21 @@ printf '%s\n' "$out" | grep -q '^mode=' || {
   echo "$out" >&2
   exit 1
 }
+printf '%s\n' "$out" | grep -q '^== Guidance ==$' || {
+  echo "report guidance header missing" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q '^== Summary ==$' || {
+  echo "report summary header missing" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -Eq '^report (ok|warn|crit|unknown)$' || {
+  echo "report final status missing" >&2
+  echo "$out" >&2
+  exit 1
+}
 
 json_out="$(env "${common_env[@]}" bash "$LM" report --json 2>/dev/null || true)"
 printf '%s\n' "$json_out" | grep -q '"status"' || {

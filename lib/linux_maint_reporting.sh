@@ -228,6 +228,10 @@ linux_maint_cmd_report() {
       trap atomic_output_end EXIT
     fi
 
+    status_file="$(linux_maint_reporting_status_file)"
+
+    status_file="$(linux_maint_reporting_status_file)"
+
     tmp_status="$(mktemp -p "$TMPDIR" linux_maint_report_status.XXXXXX.json)"
     tmp_trend="$(mktemp -p "$TMPDIR" linux_maint_report_trend.XXXXXX.json)"
     tmp_runtimes="$(mktemp -p "$TMPDIR" linux_maint_report_runtimes.XXXXXX.json)"
@@ -337,6 +341,17 @@ def color_status(st, text=None):
         return c(label, "1;36")
     return label
 
+def final_label(cmd, result):
+    mapping = {
+        "OK": ("1;32", "ok"),
+        "WARN": ("1;33", "warn"),
+        "CRIT": ("1;31", "crit"),
+        "UNKNOWN": ("1;33", "unknown"),
+        "SKIP": ("1;36", "skip"),
+    }
+    code, word = mapping.get(result, ("1;33", str(result).lower()))
+    return c(f"{cmd} {word}", code)
+
 def read_json(p):
     try:
         with open(p, "r", encoding="utf-8") as f:
@@ -414,9 +429,25 @@ if short:
             print(line)
     else:
         print("\nproblems: none (all OK)")
-    print(c("\nnext_steps:", "1;36"))
-    print("  - run: linux-maint doctor")
-    print("  - run: linux-maint status --verbose")
+    guidance = []
+    if overall != "OK":
+        guidance.extend(["linux-maint doctor", "linux-maint status --verbose"])
+    else:
+        guidance.append("linux-maint run")
+    print("\n== Guidance ==")
+    seen = set()
+    for step in guidance:
+        if step in seen:
+            continue
+        seen.add(step)
+        print(f"next_step: {step}")
+    print("\n== Summary ==")
+    print(f"overall={overall}")
+    print(f"exit_code={exit_code}")
+    print(f"problems={len(problems)}")
+    print("history_warnings=0")
+    print(f"result={overall}")
+    print(final_label("report", overall))
     raise SystemExit(0)
 if not compact:
     banner = f"health={color_status(overall)} exit_code={exit_code}"
@@ -596,6 +627,32 @@ if rows and not no_slow:
     else:
         for r in rows[:10]:
             print(f"{r.get('monitor')} ms={r.get('ms')}")
+history_warning_count = 0
+if isinstance(trend, dict):
+    history_warning_count = len(trend.get("history_warnings", []) or [])
+guidance = []
+if overall != "OK":
+    guidance.extend(["linux-maint doctor", "linux-maint status --verbose"])
+else:
+    guidance.append("linux-maint run")
+if history_warning_count:
+    guidance.append("linux-maint status --since 1d")
+if rows and overall != "OK":
+    guidance.append("linux-maint runtimes --last 5")
+print("\n== Guidance ==")
+seen = set()
+for step in guidance:
+    if step in seen:
+        continue
+    seen.add(step)
+    print(f"next_step: {step}")
+print("\n== Summary ==")
+print(f"overall={overall}")
+print(f"exit_code={exit_code}")
+print(f"problems={len(problems)}")
+print(f"history_warnings={history_warning_count}")
+print(f"result={overall}")
+print(final_label("report", overall))
 PY
 
     rm -f "$tmp_status" "$tmp_trend" "$tmp_runtimes" 2>/dev/null || true
@@ -871,6 +928,17 @@ def color_status(st, text=None):
         return c(label,"1;36")
     return label
 
+def final_label(cmd, result):
+    mapping = {
+        "OK": ("1;32", "ok"),
+        "WARN": ("1;33", "warn"),
+        "CRIT": ("1;31", "crit"),
+        "UNKNOWN": ("1;33", "unknown"),
+        "SKIP": ("1;36", "skip"),
+    }
+    code, word = mapping.get(result, ("1;33", str(result).lower()))
+    return c(f"{cmd} {word}", code)
+
 try:
     with open(path, "r", encoding="utf-8") as f:
         status = json.load(f)
@@ -906,6 +974,17 @@ if summary_file:
     parts.append(f"summary={summary_file}")
 
 print(" ".join(parts))
+if overall != "OK":
+    print("")
+    print("== Guidance ==")
+    print("next_step: linux-maint status --verbose")
+    print("next_step: linux-maint doctor")
+print("")
+print("== Summary ==")
+print(f"overall={overall}")
+print(f"exit_code={exit_code}")
+print(f"result={overall}")
+print(final_label("summary", overall))
 PY
     rm -f "$tmp_status" 2>/dev/null || true
 }
@@ -983,6 +1062,8 @@ linux_maint_cmd_status() {
       fi
       trap atomic_output_end EXIT
     fi
+
+    status_file="$(linux_maint_reporting_status_file)"
 
     if [[ "$SUMMARY_ONLY" -eq 1 ]]; then
       "$0" summary --no-color
@@ -1544,7 +1625,6 @@ PY
     if [[ "$QUIET" -eq 0 && "$SHOW_META" -eq 1 ]]; then
 
       # Banner: overall health (best-effort)
-      status_file="$(linux_maint_reporting_status_file)"
       status_state_info="$(linux_maint_reporting_status_file_state "$status_file")"
       status_state="${status_state_info%%:*}"
       if [[ -f "$status_file" && "$status_state" == "ok" ]]; then
@@ -2072,6 +2152,44 @@ PY
       echo ""
       echo "History warnings:"
       printf '%s\n' "${history_warning_lines[@]}"
+    fi
+    if [[ "$QUIET" -eq 0 ]]; then
+      status_state_info="$(linux_maint_reporting_status_file_state "$status_file")"
+      status_state="${status_state_info%%:*}"
+      status_overall="UNKNOWN"
+      status_exit="3"
+      history_warning_count=0
+      if [[ -n "${history_warning_lines+x}" ]]; then
+        history_warning_count="${#history_warning_lines[@]}"
+      fi
+      if [[ -f "$status_file" && -r "$status_file" && "$status_state" == "ok" ]]; then
+        status_overall="$(awk -F= '$1=="overall"{print $2}' "$status_file" 2>/dev/null || printf 'UNKNOWN\n')"
+        status_exit="$(awk -F= '$1=="exit_code"{print $2}' "$status_file" 2>/dev/null || printf '3\n')"
+      fi
+      echo ""
+      echo "== Guidance =="
+      if [[ "$status_overall" == "OK" ]]; then
+        echo "next_step: linux-maint run"
+      else
+        echo "next_step: linux-maint doctor"
+        echo "next_step: linux-maint status --verbose"
+      fi
+      if [[ "$history_warning_count" -gt 0 ]]; then
+        echo "next_step: linux-maint status --since 1d"
+      fi
+      echo ""
+      echo "== Summary =="
+      echo "overall=$status_overall"
+      echo "exit_code=$status_exit"
+      echo "history_warnings=$history_warning_count"
+      echo "result=$status_overall"
+      case "$status_overall" in
+        OK) echo "${C_GREEN}status ok${C_RESET}" ;;
+        WARN) echo "${C_YELLOW}status warn${C_RESET}" ;;
+        CRIT) echo "${C_RED}status crit${C_RESET}" ;;
+        SKIP) echo "${C_CYAN}status skip${C_RESET}" ;;
+        *) echo "${C_YELLOW}status unknown${C_RESET}" ;;
+      esac
     fi
 }
 

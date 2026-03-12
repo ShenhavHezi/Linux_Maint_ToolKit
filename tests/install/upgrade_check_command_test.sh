@@ -59,3 +59,25 @@ assert "target release matches the installed version" in payload["warnings"], pa
 PY
 
 echo "upgrade check command ok"
+
+human_out="$(
+  "$prefix/bin/linux-maint" upgrade "$tarball" \
+    --check \
+    --sums "$release_repo/dist/SHA256SUMS"
+)"
+
+printf '%s\n' "$human_out" | grep -q '^== Guidance ==$' || {
+  echo "upgrade check guidance header missing" >&2
+  echo "$human_out" >&2
+  exit 1
+}
+printf '%s\n' "$human_out" | grep -q '^== Summary ==$' || {
+  echo "upgrade check summary header missing" >&2
+  echo "$human_out" >&2
+  exit 1
+}
+printf '%s\n' "$human_out" | grep -q '^upgrade check warn$' || {
+  echo "upgrade check final label missing" >&2
+  echo "$human_out" >&2
+  exit 1
+}

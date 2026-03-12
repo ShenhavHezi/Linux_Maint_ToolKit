@@ -34,3 +34,14 @@ tip: run 'linux-maint doctor' for fix suggestions
 reasons (top 5):
 http_failed=1
 service_inactive=1
+
+== Guidance ==
+next_step: linux-maint doctor
+next_step: linux-maint status --verbose
+
+== Summary ==
+overall=CRIT
+exit_code=2
+history_warnings=0
+result=CRIT
+status crit

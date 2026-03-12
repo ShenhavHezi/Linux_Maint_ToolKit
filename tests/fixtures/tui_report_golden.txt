@@ -13,6 +13,14 @@ problems (top 5):
 CRIT network_monitor host=web-2 reason=http_failed
 WARN service_monitor host=web-1 reason=service_inactive
 
-next_steps:
-  - run: linux-maint doctor
-  - run: linux-maint status --verbose
+== Guidance ==
+next_step: linux-maint doctor
+next_step: linux-maint status --verbose
+
+== Summary ==
+overall=CRIT
+exit_code=2
+problems=2
+history_warnings=0
+result=CRIT
+report crit
