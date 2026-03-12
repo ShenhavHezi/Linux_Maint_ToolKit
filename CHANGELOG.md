@@ -6,6 +6,15 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 - (add changes here)
 
+## 2026-03-12
+
+- Release v0.3.5
+- Hardened wrapper/run/reporting behavior for corrupt or unreadable artifacts, resume-state validation, sidecar/state write failure visibility, and clearer historical summary warnings.
+- Tightened advanced command correctness across `serve`, `plugin`, `policy`, and generated monitor scaffolds, including stricter contract validation and safer installed/RPM path behavior.
+- Continued reducing `bin/linux-maint` complexity by splitting config, history, reporting, advanced, and operational helper blocks into support libraries.
+- Strengthened install/release/upgrade safety with support-lib payload parity guards, cleaner RPM/release build discipline, custom-layout upgrade propagation, and bounded best-effort systemd handling.
+- Refined repository and docs structure so the public repo surface, docs hub, release history, and maintainer guidance are cleaner and more consistent.
+
 ## 2026-03-10
 
 - Release v0.3.4

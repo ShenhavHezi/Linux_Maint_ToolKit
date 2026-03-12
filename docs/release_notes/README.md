@@ -6,6 +6,7 @@ Use this page when you want the shortest path to recent releases and upgrade con
 
 | Version | Focus | Open |
 | --- | --- | --- |
+| `v0.3.5` | runtime hardening, helper-library splits, safer install/upgrade behavior, stricter advanced command validation | [release_notes_v0.3.5.md](release_notes_v0.3.5.md) |
 | `v0.3.4` | upgrade workflow, packaging hardening, Rocky/RHEL9 lifecycle coverage, CLI split | [release_notes_v0.3.4.md](release_notes_v0.3.4.md) |
 | `v0.3.3` | menu/TUI polish, docs and operator UX upgrades, release hardening | [release_notes_v0.3.3.md](release_notes_v0.3.3.md) |
 | `v0.3.2` | earlier operator workflow and platform-hardening baseline | [release_notes_v0.3.2.md](release_notes_v0.3.2.md) |
@@ -21,6 +22,7 @@ If you are upgrading:
 
 ## Full history
 
+- [release_notes_v0.3.5.md](release_notes_v0.3.5.md)
 - [release_notes_v0.3.4.md](release_notes_v0.3.4.md)
 - [release_notes_v0.3.3.md](release_notes_v0.3.3.md)
 - [release_notes_v0.3.2.md](release_notes_v0.3.2.md)

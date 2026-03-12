@@ -37,6 +37,7 @@ lm_init_runtime_context() {
 
   MODE="installed"
   [[ "$wrapper" == "$REPO_WRAPPER" ]] && MODE="repo"
+  export LINUX_MAINT_LIB="$(lm_core_library_path)"
   REPO_LOG_DIR="${LOG_DIR:-$REPO_ROOT/.logs}"
   REPO_SUMMARY_DIR="${SUMMARY_DIR:-$REPO_LOG_DIR}"
   REPO_STATUS_FILE="$REPO_LOG_DIR/last_status_full"
@@ -44,6 +45,19 @@ lm_init_runtime_context() {
   REPO_SUMMARY_LATEST="$REPO_SUMMARY_DIR/full_health_monitor_summary_latest.log"
   REPO_SUMMARY_JSON_LATEST="$REPO_SUMMARY_DIR/full_health_monitor_summary_latest.json"
   INST_SUMMARY_LATEST="${SUMMARY_DIR:-${LOG_DIR:-/var/log/health}}/full_health_monitor_summary_latest.log"
+}
+
+lm_core_library_path() {
+  local installed_lib="$PREFIX/lib/linux_maint.sh"
+  if [[ "$MODE" == "repo" ]]; then
+    printf '%s' "${LINUX_MAINT_LIB:-$REPO_LIB}"
+    return 0
+  fi
+  if [[ -f "$installed_lib" ]]; then
+    printf '%s' "$installed_lib"
+    return 0
+  fi
+  printf '%s' "${LINUX_MAINT_LIB:-$installed_lib}"
 }
 
 repo_tool_path() {
