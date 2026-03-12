@@ -1705,13 +1705,20 @@ except Exception:
 if not isinstance(status, dict) or "status_json_contract_version" not in status or "last_status" not in status or "totals" not in status:
     print("ERROR: gate requires status --json contract fields", file=sys.stderr)
     raise SystemExit(2)
-totals = status.get("totals") or {}
-overall = str((status.get("last_status") or {}).get("overall") or "UNKNOWN").upper()
-
-crit = int(totals.get("CRIT", 0) or 0)
-warn = int(totals.get("WARN", 0) or 0)
-unknown = int(totals.get("UNKNOWN", 0) or 0)
-skip = int(totals.get("SKIP", 0) or 0)
+last_status = status.get("last_status")
+totals = status.get("totals")
+if not isinstance(last_status, dict) or not isinstance(totals, dict):
+    print("ERROR: gate requires status --json contract fields", file=sys.stderr)
+    raise SystemExit(2)
+overall = str(last_status.get("overall") or "UNKNOWN").upper()
+try:
+    crit = int(totals.get("CRIT", 0) or 0)
+    warn = int(totals.get("WARN", 0) or 0)
+    unknown = int(totals.get("UNKNOWN", 0) or 0)
+    skip = int(totals.get("SKIP", 0) or 0)
+except Exception:
+    print("ERROR: gate requires integer severity totals from status --json", file=sys.stderr)
+    raise SystemExit(2)
 
 violations = []
 if crit > policy["max_crit"]:
@@ -1923,8 +1930,13 @@ except Exception:
 if not isinstance(obj, dict) or "status_json_contract_version" not in obj or "last_status" not in obj:
     print("ERROR: ai-assist requires status --json contract fields", file=sys.stderr)
     raise SystemExit(2)
-overall=str((obj.get("last_status") or {}).get("overall","UNKNOWN"))
-reasons=[r.get("reason") for r in (obj.get("reason_rollup") or []) if isinstance(r,dict)]
+last_status = obj.get("last_status")
+reason_rollup = obj.get("reason_rollup")
+if not isinstance(last_status, dict) or (reason_rollup is not None and not isinstance(reason_rollup, list)):
+    print("ERROR: ai-assist requires status --json contract fields", file=sys.stderr)
+    raise SystemExit(2)
+overall=str(last_status.get("overall","UNKNOWN"))
+reasons=[r.get("reason") for r in (reason_rollup or []) if isinstance(r,dict)]
 hints=[]
 map_hint={
   "ssh_unreachable":"Check network path, DNS, and SSH keys.",
