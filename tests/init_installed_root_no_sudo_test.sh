@@ -19,7 +19,7 @@ chmod +x "$fake_lm"
 testlib_copy_release_libs "$ROOT_DIR" "$prefix/lib" linux_maint_conf.sh
 cp -a "$ROOT_DIR/etc/linux_maint" "$prefix/share/linux_maint/templates/"
 
-perl -0pi -e 's/if \[\[ "\$MODE" == "installed" \]\]; then\n      need_root_for init\n    fi/if [[ "$MODE" == "installed" ]]; then\n      :\n    fi/' "$fake_lm"
+perl -0pi -e 's/if \[\[ "\$MODE" == "installed" \]\]; then\n    need_root_for init\n  fi/if [[ "$MODE" == "installed" ]]; then\n    :\n  fi/' "$prefix/lib/linux_maint_init.sh"
 
 cat > "$shim/id" <<'SH'
 #!/usr/bin/env bash

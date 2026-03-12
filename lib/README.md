@@ -10,10 +10,13 @@ This directory holds the reusable shell libraries loaded by `bin/linux-maint` an
 - `linux_maint_help.sh` — CLI help rendering.
 - `linux_maint_tui.sh` — menu/TUI helpers and workflow rendering.
 - `linux_maint_config.sh` — config inspection and check command helpers.
+- `linux_maint_init.sh` — init/bootstrap command helpers.
 - `linux_maint_doctor.sh` — doctor diagnostics and fix workflow helpers.
 - `linux_maint_reporting.sh` — reporting and export command helpers.
 - `linux_maint_advanced.sh` — plugin and advanced command helpers.
+- `linux_maint_adminops.sh` — notify, ticket, audit-log, and cm-hook helpers.
 - `linux_maint_history.sh` — history and run-index command helpers.
+- `linux_maint_ops.sh` — baseline, tune, explain, and support-bundle helpers.
 - `linux_maint_conf.sh` — installed-mode configuration loader/defaults.
 
 ## Design intent
