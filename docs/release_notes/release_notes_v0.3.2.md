@@ -64,8 +64,8 @@
   - `ToDoList.txt` session checkpoint and queue state
 
 ## Test coverage added
-- `tests/export_jsonl_test.sh`
-- `tests/export_jsonl_schema_test.sh`
+- `tests/reporting/export_jsonl_test.sh`
+- `tests/reporting/export_jsonl_schema_test.sh`
 - `tests/ticket_json_schema_test.sh`
 - `tests/cm_hook_json_schema_test.sh`
 - `tests/audit_log_json_schema_test.sh`

@@ -39,12 +39,12 @@ Primary scope:
 
 Suggested tests:
 
-- `tests/status_contract_test.sh`
-- `tests/status_summary_test.sh`
-- `tests/status_json_schema_test.sh`
-- `tests/status_json_compat_test.sh`
-- `tests/status_last_color_test.sh`
-- `tests/status_prom_test.sh`
+- `tests/reporting/status_contract_test.sh`
+- `tests/reporting/status_summary_test.sh`
+- `tests/reporting/status_json_schema_test.sh`
+- `tests/reporting/status_json_compat_test.sh`
+- `tests/reporting/status_last_color_test.sh`
+- `tests/reporting/status_prom_test.sh`
 - `tests/json_output_clean_test.sh`
 
 ## `report`
@@ -57,8 +57,8 @@ Suggested tests:
 
 Suggested tests:
 
-- `tests/report_command_test.sh`
-- `tests/report_short_test.sh`
+- `tests/reporting/report_command_test.sh`
+- `tests/reporting/report_short_test.sh`
 - `tests/json_output_clean_test.sh`
 
 ## `summary`
@@ -70,7 +70,7 @@ Suggested tests:
 
 Suggested tests:
 
-- `tests/summary_command_test.sh`
+- `tests/reporting/summary_command_test.sh`
 - `tests/json_output_clean_test.sh`
 
 ## `diff`

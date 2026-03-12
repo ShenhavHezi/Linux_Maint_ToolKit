@@ -38,7 +38,7 @@
 - `tests/release/release_audit_test.sh`
 - `tests/release/release_audit_make_target_test.sh`
 - `tests/release/release_sh_checks_test.sh`
-- `tests/status_prom_parse_safety_test.sh`
+- `tests/reporting/status_prom_parse_safety_test.sh`
 - `tests/menu/menu_run_loop_continuation_test.sh`
 
 ## Release tooling

@@ -3,6 +3,7 @@ set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$ROOT_DIR/tests/testlib.sh"
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
@@ -13,13 +14,7 @@ mkdir -p "$repo/bin" "$repo/lib" "$repo/monitors" "$shim"
 cp "$ROOT_DIR/bin/linux-maint" "$repo/bin/linux-maint"
 chmod +x "$repo/bin/linux-maint"
 cp "$ROOT_DIR/lib/linux_maint.sh" "$repo/lib/linux_maint.sh"
-cp "$ROOT_DIR/lib/linux_maint_runtime.sh" "$repo/lib/linux_maint_runtime.sh"
-cp "$ROOT_DIR/lib/linux_maint_admin.sh" "$repo/lib/linux_maint_admin.sh"
-cp "$ROOT_DIR/lib/linux_maint_tui.sh" "$repo/lib/linux_maint_tui.sh"
-cp "$ROOT_DIR/lib/linux_maint_reporting.sh" "$repo/lib/linux_maint_reporting.sh"
-cp "$ROOT_DIR/lib/linux_maint_advanced.sh" "$repo/lib/linux_maint_advanced.sh"
-cp "$ROOT_DIR/lib/linux_maint_history.sh" "$repo/lib/linux_maint_history.sh"
-cp "$ROOT_DIR/lib/linux_maint_ops.sh" "$repo/lib/linux_maint_ops.sh"
+testlib_copy_support_libs "$ROOT_DIR" "$repo/lib"
 
 cat > "$repo/install.sh" <<'SH'
 #!/usr/bin/env bash

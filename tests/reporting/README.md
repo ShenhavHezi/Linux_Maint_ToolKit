@@ -1,4 +1,4 @@
 ## Reporting Tests
 
-This directory holds reporting-adjacent tests for `diff`, `logs`, and output fixtures that
-belong with the reporting surface.
+This directory holds the reporting surface regressions for `status`, `report`, `metrics`,
+`trend`, `export`, `runtimes`, `summary`, plus `diff`, `logs`, and their output fixtures.

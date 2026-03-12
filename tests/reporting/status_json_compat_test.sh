@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+TMPDIR="${TMPDIR:-/tmp}"
+
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+LM="$ROOT_DIR/bin/linux-maint"
+LOG_DIR="$ROOT_DIR/.logs"
+mkdir -p "$LOG_DIR"
+
+SUMMARY_FILE="$LOG_DIR/full_health_monitor_summary_latest.log"
+STATUS_FILE="$LOG_DIR/last_status_full"
+
+bak_summary="$(mktemp "${TMPDIR}"/lm_summary_bak.XXXXXX)"
+bak_status="$(mktemp "${TMPDIR}"/lm_status_bak.XXXXXX)"
+had_summary=0
+had_status=0
+
+if [[ -f "$SUMMARY_FILE" ]]; then
+  cp "$SUMMARY_FILE" "$bak_summary"
+  had_summary=1
+fi
+if [[ -f "$STATUS_FILE" ]]; then
+  cp "$STATUS_FILE" "$bak_status"
+  had_status=1
+fi
+
+cleanup(){
+  if [[ "$had_summary" -eq 1 ]]; then
+    cp "$bak_summary" "$SUMMARY_FILE"
+  else
+    rm -f "$SUMMARY_FILE"
+  fi
+  if [[ "$had_status" -eq 1 ]]; then
+    cp "$bak_status" "$STATUS_FILE"
+  else
+    rm -f "$STATUS_FILE"
+  fi
+  rm -f "$bak_summary" "$bak_status"
+}
+trap cleanup EXIT
+
+cat > "$STATUS_FILE" <<'S'
+status=warn
+timestamp=2099-01-01T00:00:00+00:00
+host=testnode
+S
+
+cat > "$SUMMARY_FILE" <<'S'
+monitor=service_monitor host=web-1 status=WARN reason=failed_units
+monitor=network_monitor host=web-1 status=CRIT reason=http_down
+monitor=backup_check host=backup-1 status=SKIP reason=missing_targets_file
+monitor=service_monitor host=db-1 status=OK
+monitor=runtime_guard host=runner status=WARN reason=runtime_exceeded target_monitor=service_monitor runtime_ms=120000 threshold_ms=60000
+S
+
+json_out="$(bash "$LM" status --json --reasons 2)"
+printf '%s' "$json_out" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["status_json_contract_version"]==1; assert isinstance(o["mode"],str); assert isinstance(o["last_status"],dict); assert isinstance(o["totals"],dict); assert isinstance(o["problems"],list); assert isinstance(o["summary_file"],str); assert o["last_status_state"]=="malformed"; assert "missing:overall" in o["last_status_errors"]; assert "missing:exit_code" in o["last_status_errors"]; assert "missing:run_id" in o["last_status_errors"]; assert set(["CRIT","WARN","UNKNOWN","SKIP","OK"])<=set(o["totals"].keys()); rr=o.get("reason_rollup"); assert isinstance(rr,list); assert len(rr)==2; rw=o.get("runtime_warnings"); assert isinstance(rw,list); assert len(rw)==1; assert rw[0]["monitor"]=="runtime_guard"; assert rw[0]["target_monitor"]=="service_monitor"'
+
+# Nullability contract: missing summary file => summary_file is null and empty totals.
+rm -f "$SUMMARY_FILE"
+json_missing="$(bash "$LM" status --json)"
+printf '%s' "$json_missing" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["status_json_contract_version"]==1; assert o["summary_file"] is None; assert o["last_status_state"]=="malformed"; assert o["totals"]["CRIT"]==0 and o["totals"]["WARN"]==0 and o["totals"]["UNKNOWN"]==0 and o["totals"]["SKIP"]==0 and o["totals"]["OK"]==0; assert o["problems"]==[]'
+
+echo "status json compat ok"
