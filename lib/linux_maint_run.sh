@@ -330,3 +330,204 @@ if violations:
     raise SystemExit(2)
 PY
 }
+
+resolve_run_cfg_dir(){
+  if [[ "$MODE" == "repo" ]]; then
+    printf '%s\n' "${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+  else
+    printf '%s\n' "/etc/linux_maint"
+  fi
+}
+
+run_apply_mode_defaults(){
+  if [[ "$MODE" == "repo" ]]; then
+    local repo_cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+    export LM_CFG_DIR="${LM_CFG_DIR:-$repo_cfg_dir}"
+    export LM_SERVERLIST="${LM_SERVERLIST:-$repo_cfg_dir/servers.txt}"
+    export LM_EXCLUDED="${LM_EXCLUDED:-$repo_cfg_dir/excluded.txt}"
+    export LM_HOSTS_DIR="${LM_HOSTS_DIR:-$repo_cfg_dir/hosts.d}"
+  fi
+}
+
+run_validate_execution_args(){
+  if [[ -n "${LM_SSH_RETRY:-}" ]] && [[ ! "${LM_SSH_RETRY}" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: --retry must be a non-negative integer" >&2
+    exit 2
+  fi
+  if [[ -n "${LM_SSH_TIMEOUT:-}" ]] && [[ ! "${LM_SSH_TIMEOUT}" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: --host-timeout must be a non-negative integer" >&2
+    exit 2
+  fi
+  case "${LM_EXEC_STRATEGY:-fail-soft}" in
+    fail-soft|fail-fast|quorum) ;;
+    *)
+      echo "ERROR: --strategy must be one of fail-soft|fail-fast|quorum" >&2
+      exit 2
+      ;;
+  esac
+  if [[ "${LM_EXEC_STRATEGY:-fail-soft}" == "quorum" ]]; then
+    if [[ ! "${LM_EXEC_QUORUM_PERCENT:-80}" =~ ^[0-9]+$ ]] || (( LM_EXEC_QUORUM_PERCENT < 1 || LM_EXEC_QUORUM_PERCENT > 100 )); then
+      echo "ERROR: --quorum-percent must be an integer in range 1..100" >&2
+      exit 2
+    fi
+  fi
+}
+
+run_prepare_resume_state(){
+  local resume_id resume_rc
+  if [[ -n "${RUN_RESUME:-}" ]]; then
+    set +e
+    resume_id="$(resolve_resume_run_id "$RUN_RESUME")"
+    resume_rc=$?
+    set -e
+    if [[ "$resume_rc" -eq 2 ]]; then
+      exit 2
+    fi
+    if [[ -z "${resume_id:-}" ]]; then
+      echo "ERROR: unable to resolve --resume target '$RUN_RESUME'" >&2
+      echo "Hint: pass an explicit run_id from linux-maint history --json" >&2
+      exit 2
+    fi
+    if ! validate_resume_state_file "$resume_id"; then
+      exit 2
+    fi
+    export LM_RESUME_RUN_ID="$resume_id"
+    export LM_RUN_ID="$resume_id"
+  fi
+  if [[ -n "${RUN_DRAIN_FILE:-}" ]]; then
+    export LM_DRAIN_MODE=1
+    export LM_DRAIN_FILE="$RUN_DRAIN_FILE"
+  fi
+}
+
+prepare_run_monitor_selection(){
+  local cfg_dir="$1"
+  local local_monitors
+
+  if [[ -n "${RUN_ONLY:-}" ]]; then
+    validate_monitor_list "$(normalize_monitor_list "$RUN_ONLY")" || exit $?
+  fi
+  if [[ -n "${RUN_SKIP:-}" ]]; then
+    validate_monitor_list "$(normalize_monitor_list "$RUN_SKIP")" || exit $?
+  fi
+
+  if [[ -n "${RUN_ONLY:-}" || -n "${RUN_SKIP:-}" ]]; then
+    mapfile -t _monitors < <(filter_monitors_only_skip "${RUN_ONLY:-}" "${RUN_SKIP:-}")
+    if [[ "${#_monitors[@]}" -eq 0 ]]; then
+      echo "ERROR: monitor filter produced empty list" >&2
+      exit 2
+    fi
+    export LM_MONITORS="${_monitors[*]}"
+  fi
+  if [[ -n "${LM_MONITORS:-}" ]]; then
+    read -r -a _lm_list <<< "${LM_MONITORS}"
+    validate_monitor_list "$(printf '%s\n' "${_lm_list[@]}")" || exit $?
+  fi
+
+  local_monitors="$(resolve_run_monitors_text)"
+  if [[ -z "$local_monitors" ]]; then
+    echo "ERROR: no monitors resolved for run" >&2
+    exit 2
+  fi
+  enforce_monitor_privilege_policy "$local_monitors" "$cfg_dir"
+  RUN_LOCAL_MONITORS="$local_monitors"
+  export RUN_LOCAL_MONITORS
+}
+
+run_debug_dump(){
+  local wrapper="$1"
+  [[ "${DEBUG:-0}" -eq 1 ]] || return 0
+  echo "=== linux-maint run debug ==="
+  echo "MODE=${MODE}"
+  echo "wrapper=${wrapper}"
+  echo "LM_GROUP=${LM_GROUP:-}"
+  echo "LM_HOSTS_DIR=${LM_HOSTS_DIR:-}"
+  echo "LM_SERVERLIST=${LM_SERVERLIST:-}"
+  echo "LM_EXCLUDED=${LM_EXCLUDED:-}"
+  echo "LM_MAX_PARALLEL=${LM_MAX_PARALLEL:-}"
+  echo "LM_LOCAL_ONLY=${LM_LOCAL_ONLY:-}"
+  echo "LM_MONITORS=${LM_MONITORS:-}"
+  echo "LM_SSH_OPTS=${LM_SSH_OPTS:-}"
+  echo "LM_SSH_RETRY=${LM_SSH_RETRY:-}"
+  echo "LM_SSH_TIMEOUT=${LM_SSH_TIMEOUT:-}"
+  echo "LM_EXEC_STRATEGY=${LM_EXEC_STRATEGY:-}"
+  echo "LM_EXEC_QUORUM_PERCENT=${LM_EXEC_QUORUM_PERCENT:-}"
+  echo "LM_DRAIN_FILE=${LM_DRAIN_FILE:-}"
+  echo "LIMIT=${LIMIT:-0}"
+  echo "SHUFFLE=${SHUFFLE:-0}"
+  echo "PLAN_ONLY=${PLAN_ONLY:-0}"
+  echo "DRY_RUN=${DRY_RUN:-0}"
+  echo "RUN_JSON=${RUN_JSON:-0}"
+  echo "RUN_RESUME=${RUN_RESUME:-}"
+  echo "RUN_RESPECT_MAINT=${RUN_RESPECT_MAINT:-0}"
+  echo "LM_RESUME_RUN_ID=${LM_RESUME_RUN_ID:-}"
+  echo "============================="
+}
+
+emit_run_plan(){
+  local local_monitors="$1"
+  local gf first h m
+
+  if [[ -n "${LM_GROUP:-}" ]]; then
+    gf="${LM_HOSTS_DIR:-/etc/linux_maint/hosts.d}/${LM_GROUP}.txt"
+    [[ -f "$gf" ]] || echo "NOTE: LM_GROUP=$LM_GROUP but group file not found: $gf (will fall back)" >&2
+  fi
+
+  mapfile -t _hosts < <(resolve_run_hosts)
+
+  if [[ "${RUN_JSON:-0}" -eq 1 ]]; then
+    printf '{'
+    printf '"mode":"%s",' "$MODE"
+    if [[ "${LM_LOCAL_ONLY:-false}" == "true" ]]; then
+      printf '"local_only":true,'
+    else
+      printf '"local_only":false,'
+    fi
+    printf '"parallel":%s,' "${LM_MAX_PARALLEL:-0}"
+    printf '"retry":%s,' "${LM_SSH_RETRY:-0}"
+    printf '"host_timeout":%s,' "${LM_SSH_TIMEOUT:-0}"
+    printf '"strategy":"%s",' "$(json_escape "${LM_EXEC_STRATEGY:-fail-soft}")"
+    printf '"quorum_percent":%s,' "${LM_EXEC_QUORUM_PERCENT:-80}"
+    if [[ -n "${LM_GROUP:-}" ]]; then
+      printf '"group":"%s",' "$(json_escape "$LM_GROUP")"
+    else
+      printf '"group":null,'
+    fi
+    printf '"limit":%s,' "${LIMIT:-0}"
+    printf '"shuffle":%s,' "$([[ "${SHUFFLE:-0}" -eq 1 ]] && echo true || echo false)"
+    printf '"hosts":['
+    first=1
+    for h in "${_hosts[@]}"; do
+      [[ "$first" -eq 0 ]] && printf ','
+      first=0
+      printf '"%s"' "$(json_escape "$h")"
+    done
+    printf '],"monitors":['
+    first=1
+    while IFS= read -r m; do
+      [[ -z "$m" ]] && continue
+      [[ "$first" -eq 0 ]] && printf ','
+      first=0
+      printf '"%s"' "$(json_escape "$m")"
+    done <<< "$local_monitors"
+    printf ']}\n'
+    exit 0
+  fi
+
+  if [[ -t 1 ]]; then
+    section "run plan"
+    echo "mode=${MODE} local_only=${LM_LOCAL_ONLY:-false} parallel=${LM_MAX_PARALLEL:-0}"
+    [[ -n "${LM_GROUP:-}" ]] && echo "group=${LM_GROUP}"
+    echo ""
+  fi
+  echo "Resolved hosts (${#_hosts[@]}):"
+  printf '%s\n' "${_hosts[@]}"
+  if [[ -t 1 ]]; then
+    echo ""
+    echo "Monitors ($(printf '%s\n' "$local_monitors" | sed '/^$/d' | wc -l | tr -d ' ')):"
+  fi
+  if [[ -n "$local_monitors" ]]; then
+    printf '%s\n' "$local_monitors"
+  fi
+  exit 0
+}
