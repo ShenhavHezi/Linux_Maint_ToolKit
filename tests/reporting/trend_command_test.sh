@@ -26,6 +26,10 @@ out="$(bash "$LM" trend --last 2)"
 echo "$out" | grep -q '^trend_runs=2 '
 echo "$out" | grep -q 'totals: CRIT=1 WARN=2 UNKNOWN=1 SKIP=1 OK=1'
 echo "$out" | grep -q '^failed_units=2$'
+echo "$out" | grep -q '^== Guidance ==$'
+echo "$out" | grep -q '^== Summary ==$'
+echo "$out" | grep -q '^result=CRIT$'
+echo "$out" | grep -q 'trend crit'
 
 ajson="$(bash "$LM" trend --last 2 --json)"
 printf '%s' "$ajson" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["schema_version"]==1; assert o["trend_json_contract_version"]==1; assert len(o["runs"])==2; assert o["totals"]["WARN"]==2; assert o["totals"]["CRIT"]==1; assert o["totals"]["UNKNOWN"]==1; assert o["totals"]["SKIP"]==1; assert o["totals"]["OK"]==1; assert o["reasons"][0]=={"reason":"failed_units","count":2}; assert "anomaly" in o'
@@ -37,10 +41,12 @@ echo "$csv" | head -n 1 | grep -q '^file,CRIT,WARN,UNKNOWN,SKIP,OK$'
 since_out="$(bash "$LM" trend --last 10 --since 9999-12-31)"
 echo "$since_out" | grep -q '^trend_runs=1 '
 echo "$since_out" | grep -q 'totals: CRIT=0 WARN=1 UNKNOWN=1 SKIP=1 OK=0'
+echo "$since_out" | grep -q '^result=WARN$'
 
 until_out="$(bash "$LM" trend --last 10 --until 9999-12-30)"
 echo "$until_out" | grep -q '^trend_runs=1 '
 echo "$until_out" | grep -q 'totals: CRIT=1 WARN=1 UNKNOWN=0 SKIP=0 OK=1'
+echo "$until_out" | grep -q '^result=CRIT$'
 
 set +e
 bad="$(bash "$LM" trend --last 0 2>&1)"

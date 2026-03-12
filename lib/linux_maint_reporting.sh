@@ -165,8 +165,10 @@ linux_maint_cmd_logs() {
     if [[ ! -f "$latest_log" ]]; then
       if [[ "$MODE" == "repo" ]]; then
         echo "No repo log yet: $latest_log"
+        echo "Hint: run linux-maint run to generate a wrapper log" >&2
       else
         echo "No installed log yet: $latest_log"
+        echo "Hint: run sudo linux-maint run to generate a wrapper log" >&2
       fi
       exit 1
     fi
@@ -176,6 +178,7 @@ linux_maint_cmd_logs() {
     fi
     if [[ ! -r "$latest_log" ]]; then
       echo "Unreadable log file: $latest_log" >&2
+      echo "Hint: fix permissions or rerun with sudo if this is an installed-mode log" >&2
       exit 1
     fi
     exec tail -n "$n" "$latest_log"
@@ -227,8 +230,6 @@ linux_maint_cmd_report() {
       fi
       trap atomic_output_end EXIT
     fi
-
-    status_file="$(linux_maint_reporting_status_file)"
 
     status_file="$(linux_maint_reporting_status_file)"
 
@@ -688,6 +689,7 @@ linux_maint_cmd_metrics() {
     fi
     if [[ "$METRICS_JSON" -ne 1 ]]; then
       echo "ERROR: metrics output is JSON-only (use --json) or --prom" >&2
+      echo "Hint: use linux-maint report or linux-maint status for human-readable output" >&2
       exit 2
     fi
 
@@ -2569,6 +2571,36 @@ else:
           else:
               for s in hot:
                   print(f"{s['metric']}: current={s['current']} baseline_mean={s['baseline_mean']} zscore={s['zscore']}")
+    print('')
+    print("== Guidance ==")
+    guidance = []
+    if overall.get("CRIT", 0) or overall.get("WARN", 0) or overall.get("UNKNOWN", 0):
+        guidance.extend(["linux-maint report --short", "linux-maint status --since 1d"])
+    else:
+        guidance.append("linux-maint run")
+    if history_warnings:
+        guidance.append("linux-maint status --since 1d")
+    if anomaly_enabled:
+        guidance.append("linux-maint trend --anomaly --last 10")
+    seen = set()
+    for step in guidance:
+        if step in seen:
+            continue
+        seen.add(step)
+        print(f"next_step: {step}")
+    worst = "OK"
+    for candidate in ("CRIT", "WARN", "UNKNOWN", "SKIP", "OK"):
+        if overall.get(candidate, 0):
+            worst = candidate
+            break
+    print('')
+    print("== Summary ==")
+    print(f"trend_runs={len(runs)}")
+    print(f"history_warnings={len(history_warnings)}")
+    print(f"result={worst}")
+    suffix = {"OK":"ok","WARN":"warn","CRIT":"crit","UNKNOWN":"unknown","SKIP":"skip"}.get(worst, worst.lower())
+    color_map = {"OK":"1;32","WARN":"1;33","CRIT":"1;31","UNKNOWN":"1;33","SKIP":"1;36"}
+    print(c(f"trend {suffix}", color_map.get(worst, "1;33")))
 
 if cache_enabled and cache_file and not cache_hit:
     try:
@@ -2629,15 +2661,48 @@ linux_maint_cmd_runtimes() {
       exit 1
     fi
 
-    if [[ "$RT_JSON" -eq 1 ]]; then
-      python3 - "$RT_LAST" "${rt_files[@]}" <<'PY'
-import json, sys, re
+    CFG_DIR="$(linux_maint_effective_cfg_dir)"
+    MONITOR_RUNTIME_WARN_FILE="${MONITOR_RUNTIME_WARN_FILE:-$CFG_DIR/monitor_runtime_warn.conf}"
+    RT_COLOR="$RT_COLOR" python3 - "$RT_JSON" "$log_dir" "$MONITOR_RUNTIME_WARN_FILE" "${rt_files[@]}" <<'PY'
+import json, os, re, sys
 
-rt_last = int(sys.argv[1])
-files = sys.argv[2:]
-rows = []
+json_mode = sys.argv[1] == "1"
+log_dir = sys.argv[2]
+warn_file = sys.argv[3]
+files = sys.argv[4:]
+color = os.environ.get("RT_COLOR", "1") == "1"
 pat = re.compile(r'RUNTIME\s+monitor=([^ ]+)\s+ms=([0-9]+)')
 
+def c(s, code):
+    if not color:
+        return s
+    return f"\033[{code}m{s}\033[0m"
+
+def final_label(cmd, result):
+    mapping = {
+        "OK": ("1;32", "ok"),
+        "WARN": ("1;33", "warn"),
+        "CRIT": ("1;31", "crit"),
+        "UNKNOWN": ("1;33", "unknown"),
+        "SKIP": ("1;36", "skip"),
+    }
+    code, word = mapping.get(result, ("1;33", str(result).lower()))
+    return c(f"{cmd} {word}", code)
+
+warn_ms = {}
+if warn_file and os.path.exists(warn_file):
+    with open(warn_file, "r", encoding="utf-8", errors="ignore") as fh:
+        for raw in fh:
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            mon, secs = line.split("=", 1)
+            mon = mon.strip()
+            secs = secs.strip()
+            if mon and secs.isdigit() and int(secs) > 0:
+                warn_ms[mon] = int(secs) * 1000
+
+rows = []
 for f in files:
     try:
         with open(f, 'r', encoding='utf-8', errors='ignore') as fh:
@@ -2648,54 +2713,45 @@ for f in files:
     except FileNotFoundError:
         continue
 
-# Sort desc by ms
 rows.sort(key=lambda r: (-r["ms"], r["monitor"]))
 
-print(json.dumps({"schema_version": 1, "runtimes_json_contract_version": 1, "files": files, "unit": "ms", "rows": rows}, sort_keys=True))
+if json_mode:
+    print(json.dumps({"schema_version": 1, "runtimes_json_contract_version": 1, "files": files, "unit": "ms", "rows": rows}, sort_keys=True))
+    raise SystemExit(0)
+
+print("=== linux-maint runtimes ===")
+print(f"files={len(files)}")
+print(f"log_dir={log_dir}")
+warn_hits = 0
+for row in rows:
+    mon = row["monitor"]
+    ms = row["ms"]
+    line = f"monitor={mon} ms={ms}"
+    if mon in warn_ms and ms >= warn_ms[mon]:
+        warn_hits += 1
+        line = c(line, "1;33")
+    print(line)
+
+result = "WARN" if warn_hits else "OK"
+slowest = rows[0] if rows else {}
+print("")
+print("== Guidance ==")
+if result == "WARN":
+    print("next_step: linux-maint report --short")
+    print("next_step: linux-maint runtimes --last 5")
+else:
+    print("next_step: linux-maint report --short")
+print("")
+print("== Summary ==")
+print(f"files={len(files)}")
+print(f"rows={len(rows)}")
+print(f"warn_hits={warn_hits}")
+if slowest:
+    print(f"slowest_monitor={slowest.get('monitor','')}")
+    print(f"slowest_ms={slowest.get('ms','')}")
+print(f"result={result}")
+print(final_label("runtimes", result))
 PY
-      exit 0
-    fi
-
-    CFG_DIR="$(linux_maint_effective_cfg_dir)"
-    MONITOR_RUNTIME_WARN_FILE="${MONITOR_RUNTIME_WARN_FILE:-$CFG_DIR/monitor_runtime_warn.conf}"
-
-    echo "=== linux-maint runtimes ==="
-    echo "files=${#rt_files[@]}"
-    echo "log_dir=$log_dir"
-    awk '
-      /RUNTIME monitor=/ {
-        for (i=1; i<=NF; i++) {
-          if ($i ~ /^monitor=/) { split($i,a,"="); mon=a[2]; }
-          if ($i ~ /^ms=/) { split($i,b,"="); ms=b[2]; }
-        }
-        if (mon != "" && ms != "") {
-          print ms, mon
-        }
-        mon=""; ms=""
-      }
-    ' "${rt_files[@]}" | sort -rn | awk -v color="$RT_COLOR" -v warn_file="$MONITOR_RUNTIME_WARN_FILE" -v yel="$C_YELLOW" -v reset="$C_RESET" '
-      BEGIN {
-        if (warn_file != "" && (getline line < warn_file) > 0) {
-          do {
-            gsub(/\r/, "", line)
-            if (line ~ /^[[:space:]]*#/ || line ~ /^[[:space:]]*$/) continue
-            split(line, a, "=")
-            if (a[1] != "" && a[2] ~ /^[0-9]+$/ && a[2] > 0) {
-              warn_ms[a[1]] = a[2] * 1000
-            }
-          } while ((getline line < warn_file) > 0)
-          close(warn_file)
-        }
-      }
-      {
-        ms=$1; mon=$2
-        line="monitor="mon" ms="ms
-        if (color == 1 && (mon in warn_ms) && ms >= warn_ms[mon]) {
-          line = yel line reset
-        }
-        print line
-      }
-    '
 }
 
 linux_maint_cmd_export() {

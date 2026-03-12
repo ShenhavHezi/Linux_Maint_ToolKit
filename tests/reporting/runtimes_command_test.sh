@@ -19,6 +19,10 @@ LOG
 out="$(LOG_DIR="$logdir" bash "$ROOT_DIR/bin/linux-maint" runtimes)"
 printf '%s\n' "$out" | grep -q '^monitor=slow ms=1200$'
 printf '%s\n' "$out" | grep -q '^monitor=fast ms=10$'
+printf '%s\n' "$out" | grep -q '^== Guidance ==$'
+printf '%s\n' "$out" | grep -q '^== Summary ==$'
+printf '%s\n' "$out" | grep -q '^result=OK$'
+printf '%s\n' "$out" | grep -q 'runtimes ok'
 
 warn_file="$workdir/monitor_runtime_warn.conf"
 cat > "$warn_file" <<'WARN'
@@ -27,6 +31,11 @@ WARN
 color_out="$(NO_COLOR='' LM_FORCE_COLOR=1 MONITOR_RUNTIME_WARN_FILE="$warn_file" LOG_DIR="$logdir" bash "$ROOT_DIR/bin/linux-maint" runtimes)"
 printf '%s\n' "$color_out" | grep -q $'\033' || {
   echo "runtimes output should contain ANSI when warn threshold exceeded and color forced" >&2
+  echo "$color_out" >&2
+  exit 1
+}
+printf '%s\n' "$color_out" | grep -q '^warn_hits=1$' || {
+  echo "runtimes output missing warn summary" >&2
   echo "$color_out" >&2
   exit 1
 }

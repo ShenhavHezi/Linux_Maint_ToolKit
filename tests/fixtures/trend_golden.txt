@@ -11,3 +11,13 @@ failed_units=2
 http_down=1
 missing_targets_file=1
 ssh_unreachable=1
+
+== Guidance ==
+next_step: linux-maint report --short
+next_step: linux-maint status --since 1d
+
+== Summary ==
+trend_runs=2
+history_warnings=0
+result=CRIT
+trend crit

@@ -23,6 +23,26 @@ printf '%s\n' "$out" | grep -q 'overall=WARN' || {
   echo "$out" >&2
   exit 1
 }
+printf '%s\n' "$out" | grep -q '^== Guidance ==$' || {
+  echo "history output missing guidance block" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q '^== Summary ==$' || {
+  echo "history output missing summary block" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q '^latest_overall=WARN$' || {
+  echo "history output missing latest_overall summary" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q 'history warn' || {
+  echo "history output missing final status label" >&2
+  echo "$out" >&2
+  exit 1
+}
 
 json_out="$(LM_STATE_DIR="$tmp_dir" bash "$LM" history --last 2 --json 2>/dev/null || true)"
 printf '%s\n' "$json_out" | grep -q '"runs"' || {

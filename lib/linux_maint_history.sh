@@ -82,6 +82,17 @@ def color_status(st, text=None):
         return c(label, "1;36")
     return label
 
+def final_label(cmd, result):
+    mapping = {
+        "OK": ("1;32", "ok"),
+        "WARN": ("1;33", "warn"),
+        "CRIT": ("1;31", "crit"),
+        "UNKNOWN": ("1;33", "unknown"),
+        "SKIP": ("1;36", "skip"),
+    }
+    code, word = mapping.get(result, ("1;33", str(result).lower()))
+    return c(f"{cmd} {word}", code)
+
 if not os.path.exists(db_path):
     print(f"No sqlite history db found: {db_path}")
     raise SystemExit(1)
@@ -154,6 +165,22 @@ else:
     for r in runs:
         h=r.get("hosts",{})
         print(f"{r.get('timestamp','')} overall={color_status(r.get('overall','UNKNOWN'))} exit_code={r.get('exit_code','')} CRIT={h.get('crit',0)} WARN={h.get('warn',0)} UNKNOWN={h.get('unknown',0)} SKIP={h.get('skipped',0)} OK={h.get('ok',0)}")
+latest = runs[0]
+latest_overall = latest.get("overall", "UNKNOWN")
+print("")
+print("== Guidance ==")
+if latest_overall != "OK":
+    print("next_step: linux-maint report --short")
+    print("next_step: linux-maint status --verbose")
+else:
+    print("next_step: linux-maint run")
+print("")
+print("== Summary ==")
+print(f"history_runs={len(runs)}")
+print("source=sqlite")
+print(f"latest_overall={latest_overall}")
+print(f"result={latest_overall}")
+print(final_label("history", latest_overall))
 PY
       exit 0
     fi
@@ -229,6 +256,17 @@ def color_count(label, value):
     if label == "SKIP":
         return c(text, "1;36")
     return text
+
+def final_label(cmd, result):
+    mapping = {
+        "OK": ("1;32", "ok"),
+        "WARN": ("1;33", "warn"),
+        "CRIT": ("1;31", "crit"),
+        "UNKNOWN": ("1;33", "unknown"),
+        "SKIP": ("1;36", "skip"),
+    }
+    code, word = mapping.get(result, ("1;33", str(result).lower()))
+    return c(f"{cmd} {word}", code)
 
 if not os.path.exists(path):
     print(c(f"No run index found: {path}", "1;31"))
@@ -343,6 +381,22 @@ else:
             color_count("OK", hosts.get("ok",0)),
         ])
         print(f"{ts} overall={color_status(overall)} exit_code={exit_code} {counts}")
+latest = rows[-1]
+latest_overall = latest.get("overall", "UNKNOWN")
+print("")
+print("== Guidance ==")
+if latest_overall != "OK":
+    print("next_step: linux-maint report --short")
+    print("next_step: linux-maint status --verbose")
+else:
+    print("next_step: linux-maint run")
+print("")
+print("== Summary ==")
+print(f"history_runs={len(rows)}")
+print("source=run_index")
+print(f"latest_overall={latest_overall}")
+print(f"result={latest_overall}")
+print(final_label("history", latest_overall))
 PY
 }
 
