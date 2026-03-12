@@ -220,6 +220,21 @@ def verify_attestation(att, index_path):
         "verified": False,
         "issues": []
     }
+    def safe_join(base_dir, rel, label):
+        rel = str(rel or "").strip()
+        if not rel:
+            return "", f"{label} path missing"
+        if os.path.isabs(rel):
+            return "", f"{label} must be relative: {rel}"
+        base_abs = os.path.abspath(base_dir)
+        joined = os.path.abspath(os.path.normpath(os.path.join(base_abs, rel)))
+        try:
+            common = os.path.commonpath([base_abs, joined])
+        except Exception:
+            common = ""
+        if common != base_abs:
+            return "", f"{label} escapes index dir: {rel}"
+        return joined, ""
     if att is None:
         out["issues"].append("attestation_missing")
         return out
@@ -238,7 +253,10 @@ def verify_attestation(att, index_path):
 
     index_dir = os.path.dirname(os.path.abspath(index_path))
     target_rel = str(att.get("target", "plugins.json") or "plugins.json").strip()
-    target_path = os.path.join(index_dir, target_rel)
+    target_path, path_error = safe_join(index_dir, target_rel, "attestation target")
+    if path_error:
+        out["issues"].append(path_error)
+        return out
     if not os.path.isfile(target_path):
         out["issues"].append(f"attestation target not found: {target_rel}")
         return out
@@ -266,7 +284,10 @@ def verify_attestation(att, index_path):
 
     sig_default = f"{target_rel}.asc" if st == "gpg" else f"{target_rel}.sig"
     sig_rel = str(att.get("file", sig_default) or sig_default).strip()
-    sig_path = os.path.join(index_dir, sig_rel)
+    sig_path, path_error = safe_join(index_dir, sig_rel, "attestation signature")
+    if path_error:
+        out["issues"].append(path_error)
+        return out
     if not os.path.isfile(sig_path):
         out["issues"].append(f"attestation signature file not found: {sig_rel}")
         return out
@@ -299,7 +320,12 @@ def verify_attestation(att, index_path):
         return out
 
     key_rel = str(att.get("key", "") or "").strip()
-    key_path = os.path.join(index_dir, key_rel) if key_rel else ""
+    key_path = ""
+    if key_rel:
+        key_path, path_error = safe_join(index_dir, key_rel, "attestation key")
+        if path_error:
+            out["issues"].append(path_error)
+            return out
     if not key_path or not os.path.isfile(key_path):
         out["issues"].append("attestation key file missing for cosign (set attestation.key)")
         return out
@@ -1035,6 +1061,21 @@ sig_type = ""
 sig_digest = ""
 signer_fingerprint = ""
 cosign_key_sha256 = ""
+def safe_join_plugin(rel, label):
+    rel = str(rel or "").strip()
+    if not rel:
+        return "", f"{label} path missing"
+    if os.path.isabs(rel):
+        return "", f"{label} must be relative: {rel}"
+    base_abs = os.path.abspath(dest)
+    joined = os.path.abspath(os.path.normpath(os.path.join(base_abs, rel)))
+    try:
+        common = os.path.commonpath([base_abs, joined])
+    except Exception:
+        common = ""
+    if common != base_abs:
+        return "", f"{label} escapes plugin dir: {rel}"
+    return joined, ""
 if sig is not None:
     if not isinstance(sig, dict):
         signature_ok = False
@@ -1050,9 +1091,13 @@ if sig is not None:
             signature_ok = False
             issues.append(f"unsupported signature.type '{st}'")
         target = str(sig.get("target", "plugin.json") or "plugin.json").strip()
-        target_path = os.path.join(dest, target)
+        target_path, path_error = safe_join_plugin(target, "signature target")
+        if path_error:
+            signature_ok = False
+            issues.append(path_error)
+            target_path = ""
         if st == "sha256" and exists:
-            if not os.path.isfile(target_path):
+            if not target_path or not os.path.isfile(target_path):
                 signature_ok = False
                 issues.append(f"sha256 target not found: {target}")
             else:
@@ -1072,11 +1117,15 @@ if sig is not None:
                     issues.append(f"sha256 verification failed for {target}: {e}")
         elif st == "gpg" and exists:
             sig_file = str(sig.get("file", f"{target}.asc") or f"{target}.asc").strip()
-            sig_path = os.path.join(dest, sig_file)
-            if not os.path.isfile(target_path):
+            sig_path, path_error = safe_join_plugin(sig_file, "signature file")
+            if path_error:
+                signature_ok = False
+                issues.append(path_error)
+                sig_path = ""
+            if not target_path or not os.path.isfile(target_path):
                 signature_ok = False
                 issues.append(f"gpg target not found: {target}")
-            elif not os.path.isfile(sig_path):
+            elif not sig_path or not os.path.isfile(sig_path):
                 signature_ok = False
                 issues.append(f"gpg signature file not found: {sig_file}")
             else:
@@ -1109,13 +1158,23 @@ if sig is not None:
                         issues.append(f"gpg verification error for {target}: {e}")
         elif st == "cosign" and exists:
             sig_file = str(sig.get("file", f"{target}.sig") or f"{target}.sig").strip()
-            sig_path = os.path.join(dest, sig_file)
+            sig_path, path_error = safe_join_plugin(sig_file, "signature file")
+            if path_error:
+                signature_ok = False
+                issues.append(path_error)
+                sig_path = ""
             key_file = str(sig.get("key", "") or "").strip()
-            key_path = os.path.join(dest, key_file) if key_file else ""
-            if not os.path.isfile(target_path):
+            key_path = ""
+            if key_file:
+                key_path, path_error = safe_join_plugin(key_file, "signature key")
+                if path_error:
+                    signature_ok = False
+                    issues.append(path_error)
+                    key_path = ""
+            if not target_path or not os.path.isfile(target_path):
                 signature_ok = False
                 issues.append(f"cosign target not found: {target}")
-            elif not os.path.isfile(sig_path):
+            elif not sig_path or not os.path.isfile(sig_path):
                 signature_ok = False
                 issues.append(f"cosign signature file not found: {sig_file}")
             elif not key_path or not os.path.isfile(key_path):
