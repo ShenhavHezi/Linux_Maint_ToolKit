@@ -4036,7 +4036,6 @@ case "$subcmd" in
     linux_maint_cmd_lint_summary "$@"
     ;;
 
-
   diff)
     # Show diff of monitor= lines since last run.
     # Uses the same state file as the wrapper: last_summary_monitor_lines.log
