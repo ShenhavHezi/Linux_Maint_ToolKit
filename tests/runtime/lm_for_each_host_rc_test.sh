@@ -3,7 +3,7 @@ set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
 
 # Run from repo root.
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 export LINUX_MAINT_LIB="$REPO_ROOT/lib/linux_maint.sh"
 # shellcheck disable=SC1090
