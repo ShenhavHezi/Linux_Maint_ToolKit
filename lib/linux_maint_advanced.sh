@@ -67,6 +67,7 @@ linux_maint_cmd_plugin() {
     if [[ "$MODE" == "repo" ]]; then
       export LM_CFG_DIR="${LM_CFG_DIR:-$(linux_maint_effective_cfg_dir)}"
     fi
+    export LM_PLUGIN_TRUST_POLICY_FILE="${LM_PLUGIN_TRUST_POLICY_FILE:-$(linux_maint_effective_plugin_trust_policy_file)}"
     sub="${1:-}"
     shift || true
     case "$sub" in
@@ -147,9 +148,6 @@ errors = []
 attestation = None
 policy = None
 policy_path = os.environ.get("LM_PLUGIN_TRUST_POLICY_FILE", "").strip()
-if not policy_path:
-    cfg_dir = os.environ.get("LM_CFG_DIR", "/etc/linux_maint")
-    policy_path = os.path.join(cfg_dir, "plugin_trust_policy.json")
 allowed_trust = {"official", "verified", "community", "experimental", "untrusted"}
 if os.path.exists(idx):
     try:
@@ -612,9 +610,6 @@ list_rc = int(list_rc)
 strict_mode = strict_mode == "1"
 
 policy_file = os.environ.get("LM_PLUGIN_TRUST_POLICY_FILE", "").strip()
-if not policy_file:
-    cfg_dir = os.environ.get("LM_CFG_DIR", "/etc/linux_maint")
-    policy_file = os.path.join(cfg_dir, "plugin_trust_policy.json")
 
 policy_sha = ""
 if os.path.isfile(policy_file):
@@ -1030,9 +1025,6 @@ if os.path.exists(manifest):
 registry_has = False
 registry_entry = {}
 policy_path = os.environ.get("LM_PLUGIN_TRUST_POLICY_FILE", "").strip()
-if not policy_path:
-    cfg_dir = os.environ.get("LM_CFG_DIR", "/etc/linux_maint")
-    policy_path = os.path.join(cfg_dir, "plugin_trust_policy.json")
 require_policy = os.environ.get("LM_PLUGIN_REQUIRE_TRUST_POLICY", "0").lower() in ("1", "true", "yes")
 policy = {}
 policy_applied = False

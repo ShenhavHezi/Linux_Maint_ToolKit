@@ -59,21 +59,28 @@ check_governance(){
 
 release_refs_from_doc(){
   local doc_path="$1"
-  python3 - "$doc_path" <<'PY'
+  python3 - "$doc_path" "$ROOT_DIR" <<'PY'
 import re, sys
 from pathlib import Path
 p = Path(sys.argv[1])
+root = Path(sys.argv[2]).resolve()
 text = p.read_text(encoding="utf-8", errors="ignore")
 raw_refs = set()
-for m in re.findall(r'`((?:docs/)?release_notes/[^`]+\.md)`', text):
-    raw_refs.add(m)
+patterns = (
+    r'`((?:docs/)?release_notes/[^`]+\.md)`',
+    r'`((?:docs/release_notes/)?release_notes_v[^`]+\.md)`',
+)
+for pattern in patterns:
+    for m in re.findall(pattern, text):
+        raw_refs.add(m)
 for m in re.findall(r'\[[^\]]+\]\(((?:docs/)?release_notes/[^)]+\.md)\)', text):
+    raw_refs.add(m)
+for m in re.findall(r'\[[^\]]+\]\(((?:docs/release_notes/)?release_notes_v[^)]+\.md)\)', text):
     raw_refs.add(m)
 
 base = p.parent
 for ref in sorted(raw_refs):
-    candidate = (base / ref).resolve() if not ref.startswith("docs/") else (p.parents[1] / ref).resolve()
-    root = p.parents[1].resolve()
+    candidate = (base / ref).resolve() if not ref.startswith("docs/") else (root / ref).resolve()
     try:
         rel = candidate.relative_to(root)
     except ValueError:
@@ -96,7 +103,11 @@ check_release_refs(){
     fi
   done <<< "$refs"
   current_ref="$(current_release_note_rel)"
-  if ! grep -Fxq -- "$current_ref" <<< "$refs" && ! grep -Fxq -- "docs/release_notes/README.md" <<< "$refs"; then
+  if [[ "$doc_path" == "$ROOT_DIR/docs/release_notes/README.md" ]]; then
+    if ! grep -Fxq -- "$current_ref" <<< "$refs"; then
+      fail_msg "$label missing current release notes reference: $current_ref"
+    fi
+  elif ! grep -Fxq -- "$current_ref" <<< "$refs" && ! grep -Fxq -- "docs/release_notes/README.md" <<< "$refs"; then
     fail_msg "$label missing current release notes reference: $current_ref"
   fi
 }
@@ -116,6 +127,7 @@ check_release_notes_folder(){
 check_governance
 check_release_notes_folder
 check_release_refs "$ROOT_DIR/docs/README.md" "docs/README.md"
+check_release_refs "$ROOT_DIR/docs/release_notes/README.md" "docs/release_notes/README.md"
 
 if [[ "$fail" -ne 0 ]]; then
   echo "release_audit: FAILED" >&2

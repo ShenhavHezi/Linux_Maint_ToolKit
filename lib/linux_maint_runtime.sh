@@ -122,6 +122,10 @@ linux_maint_effective_summary_json_latest() {
   printf '%s/full_health_monitor_summary_latest.json' "$(linux_maint_effective_summary_dir)"
 }
 
+linux_maint_effective_plugin_trust_policy_file() {
+  printf '%s/plugin_trust_policy.json' "$(linux_maint_effective_cfg_dir)"
+}
+
 lm_core_library_path() {
   local installed_lib="$PREFIX/lib/linux_maint.sh"
   if [[ "$MODE" == "repo" ]]; then

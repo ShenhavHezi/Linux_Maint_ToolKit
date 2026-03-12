@@ -43,6 +43,10 @@ assert_contains "$ci" 'uses: actions/upload-artifact@v6' \
   "ci workflow did not upgrade upload-artifact to v6"
 assert_absent "$ci" 'uses: actions/upload-artifact@v4' \
   "ci workflow still references upload-artifact v4"
+assert_contains "$ci" "find tests -type f -name '*.sh'" \
+  "ci workflow no longer shellchecks grouped test scripts recursively"
+assert_absent "$ci" './tools/shellcheck_wrapper.sh -x tests/*.sh' \
+  "ci workflow still shellchecks only top-level tests"
 assert_absent "$ci" 'ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true' \
   "ci workflow still allows insecure node runtime"
 assert_absent "$ci" 'ubuntu-18.04' \

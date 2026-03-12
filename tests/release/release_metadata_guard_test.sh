@@ -23,6 +23,7 @@ for pattern in (
     f"`{current}`, ",
     f", `{current}`",
     f"`{current}`",
+    f"({Path(current).name})",
     "`docs/release_notes/README.md`, ",
     ", `docs/release_notes/README.md`",
     "`docs/release_notes/README.md`",
@@ -63,6 +64,23 @@ set -e
 }
 grep -Eq 'docs/README.md missing (current release notes reference|release notes references)' <<< "$out" || {
   echo "release_audit.sh did not flag docs/README.md release notes drift" >&2
+  echo "$out" >&2
+  exit 1
+}
+
+repo_missing_release_hub_ref="$workdir/missing_release_hub_ref"
+testlib_copy_repo_tracked "$repo_missing_release_hub_ref"
+remove_release_refs "$repo_missing_release_hub_ref/docs/release_notes/README.md"
+set +e
+out="$(bash "$repo_missing_release_hub_ref/tools/release_audit.sh" 2>&1)"
+rc=$?
+set -e
+[[ "$rc" -ne 0 ]] || {
+  echo "release_audit.sh succeeded without current release notes reference in docs/release_notes/README.md" >&2
+  exit 1
+}
+grep -Eq 'docs/release_notes/README.md missing (current release notes reference|release notes references)' <<< "$out" || {
+  echo "release_audit.sh did not flag docs/release_notes/README.md release notes drift" >&2
   echo "$out" >&2
   exit 1
 }

@@ -239,10 +239,7 @@ linux_maint_cmd_report() {
 
     REPORT_EXPECTED_SKIPS=""
     if [[ "$REPORT_JSON" -eq 0 ]]; then
-      cfg_dir="/etc/linux_maint"
-      if [[ "$MODE" == "repo" ]]; then
-        cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
-      fi
+      cfg_dir="$(linux_maint_effective_cfg_dir)"
       if banner="$(expected_skips_text "$cfg_dir")"; then
         REPORT_EXPECTED_SKIPS="$banner"
       fi
@@ -994,10 +991,7 @@ linux_maint_cmd_status() {
     fi
 
     if [[ "$EXPECTED_SKIPS" -eq 1 ]]; then
-      cfg_dir="/etc/linux_maint"
-      if [[ "$MODE" == "repo" ]]; then
-        cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
-      fi
+      cfg_dir="$(linux_maint_effective_cfg_dir)"
       expected_skips "$cfg_dir"
       echo ""
     fi
@@ -1636,10 +1630,7 @@ PY
     fi
 
     if [[ "$QUIET" -eq 0 && "$SUMMARY_ONLY" -eq 0 && "$EXPECTED_SKIPS" -eq 0 && "$SHOW_META" -eq 1 ]]; then
-      cfg_dir="/etc/linux_maint"
-      if [[ "$MODE" == "repo" ]]; then
-        cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
-      fi
+      cfg_dir="$(linux_maint_effective_cfg_dir)"
       if banner="$(expected_skips_text "$cfg_dir")"; then
         echo "$banner"
         echo ""
@@ -2547,11 +2538,7 @@ PY
       exit 0
     fi
 
-    if [[ "$MODE" == "repo" ]]; then
-      CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
-    else
-      CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
-    fi
+    CFG_DIR="$(linux_maint_effective_cfg_dir)"
     MONITOR_RUNTIME_WARN_FILE="${MONITOR_RUNTIME_WARN_FILE:-$CFG_DIR/monitor_runtime_warn.conf}"
 
     echo "=== linux-maint runtimes ==="

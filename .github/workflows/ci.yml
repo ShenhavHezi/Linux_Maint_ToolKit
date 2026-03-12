@@ -23,12 +23,14 @@ jobs:
 
       - name: ShellCheck
         run: |
+          mapfile -t test_shells < <(find tests -type f -name '*.sh' | sort)
+          mapfile -t tool_shells < <(find tools -type f -name '*.sh' | sort)
           ./tools/shellcheck_wrapper.sh -x run_full_health_monitor.sh
           ./tools/shellcheck_wrapper.sh -x lib/linux_maint.sh
           ./tools/shellcheck_wrapper.sh -x bin/linux-maint
           ./tools/shellcheck_wrapper.sh -x monitors/*.sh
-          ./tools/shellcheck_wrapper.sh -x tests/*.sh
-          ./tools/shellcheck_wrapper.sh -x tools/*.sh
+          ./tools/shellcheck_wrapper.sh -x "${test_shells[@]}"
+          ./tools/shellcheck_wrapper.sh -x "${tool_shells[@]}"
 
       - name: Docs link check
         run: |
