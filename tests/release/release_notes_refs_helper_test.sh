@@ -39,7 +39,8 @@ grep -F -q "$expected" "$readme" || {
   exit 1
 }
 
-grep -F -q '| `v9.9.9` | see release notes | [release_notes_v9.9.9.md](release_notes_v9.9.9.md) |' "$release_index" || {
+expected_row="| \`v9.9.9\` | see release notes | [release_notes_v9.9.9.md](release_notes_v9.9.9.md) |"
+grep -F -q "$expected_row" "$release_index" || {
   echo "release notes helper did not update latest releases table" >&2
   cat "$release_index" >&2
   exit 1
