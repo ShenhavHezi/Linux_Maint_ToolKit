@@ -82,5 +82,5 @@ Suggested tests:
 
 Suggested tests:
 
-- `tests/diff_color_test.sh`
+- `tests/reporting/diff_color_test.sh`
 - `tests/summary_diff_canonicalization_test.sh`

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 LM="$ROOT_DIR/bin/linux-maint"
 LOG_DIR="$ROOT_DIR/.logs"
 SUMMARY_FILE="$LOG_DIR/full_health_monitor_summary_latest.log"

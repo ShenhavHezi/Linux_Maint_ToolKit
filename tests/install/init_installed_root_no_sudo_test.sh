@@ -2,7 +2,7 @@
 set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
 
-ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 . "$ROOT_DIR/tests/testlib.sh"
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT

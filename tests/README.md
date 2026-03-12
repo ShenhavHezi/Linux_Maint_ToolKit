@@ -35,10 +35,10 @@ The suite is intentionally shell-heavy so it matches the runtime environment of 
 ## Area directories
 
 - `run/`: `linux-maint run` planning, resume, and execution regressions
-- `reporting/`: `status`, `report`, `metrics`, `trend`, `export`, `runtimes`, `diff`, `logs`, and related output fixtures
+- `reporting/`: `status`, `report`, `metrics`, `trend`, `export`, `runtimes`, `diff`, `logs`, and report/TUI output fixtures
 - `advanced/`: `gate` and adjacent advanced-command contract tests
 - `inspect/`: monitor listing and summary-lint inspection tests
-- `install/`: install, upgrade, RPM, installed-mode, and payload-parity tests
+- `install/`: install, init, preflight, upgrade, RPM, installed-mode, and payload-parity tests
 - `release/`: tarball and release-discipline verification tests
 - `menu/`: TUI, menu flow, and help/UX regression tests
 - `wrapper/`: wrapper-side artifact, fallback, and failure-path tests

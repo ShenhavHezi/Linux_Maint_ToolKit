@@ -3,7 +3,7 @@ set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
 mkdir -p "$TMPDIR"
 
-ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 MONITOR="$ROOT_DIR/monitors/preflight_check.sh"
 
 workdir="$(mktemp -d -p "$TMPDIR")"

@@ -36,7 +36,7 @@ Last updated: 2026-03-10
   - P0 operator contract hardening: `doctor`, `self-check`, and `security-profile` JSON outputs now expose explicit schema/contract versions with schema-backed tests.
     - Proof: `tests/doctor_json_schema_test.sh`, `tests/self_check_json_schema_test.sh`, `tests/security_profile_json_schema_test.sh`.
   - P0 repo/install readiness hardening: `preflight` now respects repo-local config/state/log paths, `init` no longer requires `sudo` in repo mode, and `verify-install` uses repo-mode writable defaults.
-    - Proof: `tests/preflight_repo_paths_test.sh`, `tests/init_repo_mode_no_sudo_test.sh`, `tests/install/verify_install_repo_defaults_test.sh`.
+    - Proof: `tests/install/preflight_repo_paths_test.sh`, `tests/install/init_repo_mode_no_sudo_test.sh`, `tests/install/verify_install_repo_defaults_test.sh`.
   - P0 readiness/support-bundle hardening: `check` now preserves validation severity in its exit code, and `pack-logs` no longer leaves plaintext bundles on failed `--gpg` setup or stores broken latest-log symlinks.
     - Proof: `tests/check_exit_code_test.sh`, `tests/pack_logs_gpg_prereq_test.sh`, `tests/pack_logs_symlink_test.sh`.
   - P0 reporting path hardening: repo-mode `status`/`report`/`export` now honor `LOG_DIR` instead of silently reading stale `.logs` artifacts.
