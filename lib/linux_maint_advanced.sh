@@ -56,7 +56,7 @@ plugin_validate_name_or_die() {
 
 linux_maint_cmd_plugin() {
     if [[ "$MODE" == "repo" ]]; then
-      export LM_CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+      export LM_CFG_DIR="${LM_CFG_DIR:-$(linux_maint_effective_cfg_dir)}"
     fi
     sub="${1:-}"
     shift || true
@@ -1930,11 +1930,7 @@ linux_maint_cmd_predict() {
     done
     [[ "$P_LAST" =~ ^[0-9]+$ ]] || { echo "ERROR: --last must be integer" >&2; exit 2; }
     (( P_LAST > 0 )) || { echo "ERROR: --last must be a positive integer" >&2; exit 2; }
-    if [[ "$MODE" == "repo" ]]; then
-      predict_state_dir="${LM_STATE_DIR:-$REPO_LOG_DIR}"
-    else
-      predict_state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
-    fi
+    predict_state_dir="$(linux_maint_effective_state_dir)"
     predict_history_db="${LM_HISTORY_DB:-$predict_state_dir/run_index.sqlite}"
     predict_history_index="${LM_RUN_INDEX_FILE:-$predict_state_dir/run_index.jsonl}"
     predict_has_history=0

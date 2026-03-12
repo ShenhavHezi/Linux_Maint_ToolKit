@@ -165,17 +165,10 @@ linux_maint_cmd_verify_install() {
 
   echo "== Config =="
   local CFG_DIR VERIFY_LOCKDIR VERIFY_STATE_DIR VERIFY_LOG_DIR
-  if [[ "$MODE" == "repo" ]]; then
-    CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
-    VERIFY_LOCKDIR="${LM_LOCKDIR:-/tmp}"
-    VERIFY_STATE_DIR="${LM_STATE_DIR:-/tmp}"
-    VERIFY_LOG_DIR="${LOG_DIR:-$REPO_LOG_DIR}"
-  else
-    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
-    VERIFY_LOCKDIR="${LM_LOCKDIR:-/var/lock}"
-    VERIFY_STATE_DIR="${LM_STATE_DIR:-/var/lib/linux_maint}"
-    VERIFY_LOG_DIR="${LOG_DIR:-/var/log/health}"
-  fi
+  CFG_DIR="$(linux_maint_effective_cfg_dir)"
+  VERIFY_LOCKDIR="$(linux_maint_effective_lock_dir)"
+  VERIFY_STATE_DIR="$(linux_maint_effective_state_dir /tmp /var/lib/linux_maint)"
+  VERIFY_LOG_DIR="$(linux_maint_effective_log_dir)"
   echo "cfg_dir=$CFG_DIR"
   if [[ -d "$CFG_DIR" ]]; then
     linux_maint_check_file "servers" "$CFG_DIR/servers.txt"

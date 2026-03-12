@@ -12,6 +12,8 @@ This directory contains the Bash-first regression suite for `linux-maint`.
   - `reporting/`
   - `advanced/`
   - `inspect/`
+  - `install/`
+  - `release/`
 - smoke and aggregate entrypoints:
   - `smoke.sh`
   - `summary_contract.sh`
@@ -34,3 +36,5 @@ The suite is intentionally shell-heavy so it matches the runtime environment of 
 - `reporting/`: `diff`, `logs`, and closely related output fixtures
 - `advanced/`: `gate` and adjacent advanced-command contract tests
 - `inspect/`: monitor listing and summary-lint inspection tests
+- `install/`: install, upgrade, RPM, installed-mode, and payload-parity tests
+- `release/`: tarball and release-discipline verification tests

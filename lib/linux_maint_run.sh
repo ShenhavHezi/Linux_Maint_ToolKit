@@ -87,11 +87,7 @@ resolve_resume_run_id(){
   fi
 
   local state_dir index_file
-  if [[ "$MODE" == "repo" ]]; then
-    state_dir="${LM_STATE_DIR:-$REPO_LOG_DIR}"
-  else
-    state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
-  fi
+  state_dir="$(linux_maint_effective_state_dir)"
   index_file="${LM_RUN_INDEX_FILE:-$state_dir/run_index.jsonl}"
   if [[ ! -f "$index_file" && -z "${LM_RUN_INDEX_FILE:-}" && -z "${LM_STATE_DIR:-}" ]]; then
     for alt in /var/tmp/run_index.jsonl /var/tmp/linux_maint/run_index.jsonl /tmp/linux_maint/run_index.jsonl; do
@@ -135,11 +131,7 @@ validate_resume_state_file(){
   local run_id="${1:-}"
   local state_dir resume_state_file resume_state_err resume_reason
   [[ -n "$run_id" ]] || return 1
-  if [[ "$MODE" == "repo" ]]; then
-    state_dir="${LM_STATE_DIR:-$REPO_LOG_DIR}"
-  else
-    state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
-  fi
+  state_dir="$(linux_maint_effective_state_dir)"
   resume_state_file="${state_dir}/run_state_${run_id}.log"
   if [[ ! -f "$resume_state_file" ]]; then
     echo "ERROR: run --resume requires resume state file: $resume_state_file" >&2
@@ -332,16 +324,13 @@ PY
 }
 
 resolve_run_cfg_dir(){
-  if [[ "$MODE" == "repo" ]]; then
-    printf '%s\n' "${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
-  else
-    printf '%s\n' "/etc/linux_maint"
-  fi
+  linux_maint_effective_cfg_dir
 }
 
 run_apply_mode_defaults(){
   if [[ "$MODE" == "repo" ]]; then
-    local repo_cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+    local repo_cfg_dir
+    repo_cfg_dir="$(linux_maint_effective_cfg_dir)"
     export LM_CFG_DIR="${LM_CFG_DIR:-$repo_cfg_dir}"
     export LM_SERVERLIST="${LM_SERVERLIST:-$repo_cfg_dir/servers.txt}"
     export LM_EXCLUDED="${LM_EXCLUDED:-$repo_cfg_dir/excluded.txt}"

@@ -36,7 +36,7 @@ Last updated: 2026-03-10
   - P0 operator contract hardening: `doctor`, `self-check`, and `security-profile` JSON outputs now expose explicit schema/contract versions with schema-backed tests.
     - Proof: `tests/doctor_json_schema_test.sh`, `tests/self_check_json_schema_test.sh`, `tests/security_profile_json_schema_test.sh`.
   - P0 repo/install readiness hardening: `preflight` now respects repo-local config/state/log paths, `init` no longer requires `sudo` in repo mode, and `verify-install` uses repo-mode writable defaults.
-    - Proof: `tests/preflight_repo_paths_test.sh`, `tests/init_repo_mode_no_sudo_test.sh`, `tests/verify_install_repo_defaults_test.sh`.
+    - Proof: `tests/preflight_repo_paths_test.sh`, `tests/init_repo_mode_no_sudo_test.sh`, `tests/install/verify_install_repo_defaults_test.sh`.
   - P0 readiness/support-bundle hardening: `check` now preserves validation severity in its exit code, and `pack-logs` no longer leaves plaintext bundles on failed `--gpg` setup or stores broken latest-log symlinks.
     - Proof: `tests/check_exit_code_test.sh`, `tests/pack_logs_gpg_prereq_test.sh`, `tests/pack_logs_symlink_test.sh`.
   - P0 reporting path hardening: repo-mode `status`/`report`/`export` now honor `LOG_DIR` instead of silently reading stale `.logs` artifacts.
@@ -54,11 +54,11 @@ Last updated: 2026-03-10
   - P1 TUI upgrade: `linux-maint menu` now opens with a landing overview, keeps repo/install context visible, uses task-based main sections (`Overview/Run/Investigate/Repair/Export/Docs`), and incident mode can execute a recommended triage flow from the top reason class.
     - Proof: `tests/menu_tty_flow_smoke_test.sh`, `tests/menu_shortcuts_test.sh`, `tests/menu_main_shortcut_dispatch_test.sh`, `tests/incident_recommendation_test.sh`, `tests/help_menu_structure_test.sh`.
   - P1 release/install/dark-site hardening: installed `verify-release` now dispatches to an installed helper, repo-only packaging/install commands fail clearly outside a checkout, `verify-install` validates installed helper/systemd layout more accurately, uninstall removes the installed CLI/share payloads, and dark-site/upgrade docs now match the real tarball flow.
-    - Proof: `tests/installed_verify_release_dispatch_test.sh`, `tests/installed_make_tarball_requires_checkout_test.sh`, `tests/verify_install_installed_layout_test.sh`, `tests/install_manifest_test.sh`, `tests/release_verify_test.sh`, `docs/DARK_SITE.md`, `docs/UPGRADE.md`.
+    - Proof: `tests/install/installed_verify_release_dispatch_test.sh`, `tests/install/installed_make_tarball_requires_checkout_test.sh`, `tests/install/verify_install_installed_layout_test.sh`, `tests/install/install_manifest_test.sh`, `tests/release/release_verify_test.sh`, `docs/DARK_SITE.md`, `docs/UPGRADE.md`.
   - P1 plugin/advanced surface hardening: installed-mode plugin index/version defaults now resolve to packaged share assets, corrupt plugin registries fail fast instead of silently degrading, `serve` rejects invalid delegated JSON, and `federate`/`policy lint`/`predict` now enforce stricter input contracts.
     - Proof: `tests/plugin_installed_default_index_test.sh`, `tests/plugin_verify_installed_version_test.sh`, `tests/plugin_registry_invalid_test.sh`, `tests/serve_invalid_json_upstream_test.sh`, `tests/federate_contract_validation_test.sh`, `tests/policy_lint_require_overall_test.sh`, `tests/predict_invalid_history_shape_test.sh`.
   - P1 installer rollback hardening: `install.sh` now supports testable override dirs, preserves the previous installed payload across mid-install failures, and restores systemd/logrotate artifacts if an upgrade aborts.
-    - Proof: `tests/install_override_layout_test.sh`, `tests/install_rollback_prefix_failure_test.sh`, `tests/install_rollback_systemd_logrotate_failure_test.sh`, `docs/UPGRADE.md`.
+    - Proof: `tests/install/install_override_layout_test.sh`, `tests/install/install_rollback_prefix_failure_test.sh`, `tests/install/install_rollback_systemd_logrotate_failure_test.sh`, `docs/UPGRADE.md`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 

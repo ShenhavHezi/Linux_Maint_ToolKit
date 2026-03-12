@@ -35,11 +35,10 @@ linux_maint_cmd_history() {
     fi
 
     local state_dir history_run_cmd history_db index_file alt
+    state_dir="$(linux_maint_effective_state_dir)"
     if [[ "$MODE" == "repo" ]]; then
-      state_dir="${LM_STATE_DIR:-$REPO_LOG_DIR}"
       history_run_cmd="linux-maint run"
     else
-      state_dir="${LM_STATE_DIR:-/var/lib/linux_maint}"
       history_run_cmd="sudo linux-maint run"
     fi
     history_db="${LM_HISTORY_DB:-$state_dir/run_index.sqlite}"

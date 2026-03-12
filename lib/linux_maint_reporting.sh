@@ -2,11 +2,7 @@
 # Reporting/export command helpers for linux-maint.
 
 linux_maint_reporting_log_dir() {
-    if [[ "$MODE" == "repo" ]]; then
-      printf '%s' "$REPO_LOG_DIR"
-    else
-      printf '%s' "${LOG_DIR:-/var/log/health}"
-    fi
+    linux_maint_effective_log_dir
 }
 
 linux_maint_reporting_status_file() {
@@ -30,11 +26,7 @@ linux_maint_reporting_summary_latest() {
 }
 
 linux_maint_reporting_summary_dir() {
-    if [[ "$MODE" == "repo" ]]; then
-      printf '%s' "$REPO_SUMMARY_DIR"
-    else
-      printf '%s' "${SUMMARY_DIR:-$(linux_maint_reporting_log_dir)}"
-    fi
+    linux_maint_effective_summary_dir
 }
 
 linux_maint_reporting_summary_json_latest() {
@@ -149,13 +141,8 @@ linux_maint_cmd_diff() {
     [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && DIFF_COLOR=0
     color_enabled || DIFF_COLOR=0
 
-    if [[ "$MODE" == "repo" ]]; then
-      DIFF_STATE_DIR="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-$REPO_LOG_DIR}}"
-      SUMMARY_LATEST="$REPO_SUMMARY_LATEST"
-    else
-      DIFF_STATE_DIR="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-/var/lib/linux_maint}}"
-      SUMMARY_LATEST="$(linux_maint_reporting_summary_latest)"
-    fi
+    DIFF_STATE_DIR="$(linux_maint_effective_notify_state_dir)"
+    SUMMARY_LATEST="$(linux_maint_reporting_summary_latest)"
     PREV_SUMMARY="$DIFF_STATE_DIR/last_summary_monitor_lines.log"
     CUR_SUMMARY="$SUMMARY_LATEST"
 

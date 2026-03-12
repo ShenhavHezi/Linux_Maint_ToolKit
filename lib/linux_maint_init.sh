@@ -17,11 +17,7 @@ linux_maint_cmd_init() {
     esac
   done
 
-  if [[ "$MODE" == "repo" ]]; then
-    CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
-  else
-    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
-  fi
+  CFG_DIR="$(linux_maint_effective_cfg_dir)"
 
   if [[ "$MODE" == "installed" && "$(id -u)" -ne 0 ]]; then
     if command -v sudo >/dev/null 2>&1; then

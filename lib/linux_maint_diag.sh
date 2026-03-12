@@ -18,17 +18,10 @@ linux_maint_cmd_self_check() {
     esac
   done
 
-  if [[ "$MODE" == "repo" ]]; then
-    CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
-    LOG_DIR_SC="${LOG_DIR:-$REPO_LOG_DIR}"
-    STATE_DIR_SC="${LM_STATE_DIR:-/tmp}"
-    LOCK_DIR_SC="${LM_LOCKDIR:-/tmp}"
-  else
-    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
-    LOG_DIR_SC="${LOG_DIR:-/var/log/health}"
-    STATE_DIR_SC="${LM_STATE_DIR:-/var/lib/linux_maint}"
-    LOCK_DIR_SC="${LM_LOCKDIR:-/var/lock}"
-  fi
+  CFG_DIR="$(linux_maint_effective_cfg_dir)"
+  LOG_DIR_SC="$(linux_maint_effective_log_dir)"
+  STATE_DIR_SC="$(linux_maint_effective_state_dir /tmp /var/lib/linux_maint)"
+  LOCK_DIR_SC="$(linux_maint_effective_lock_dir /tmp /var/lock)"
 
   if [[ "$SC_JSON" -eq 1 ]]; then
     MODE="$MODE" CFG_DIR="$CFG_DIR" LOG_DIR_SC="$LOG_DIR_SC" STATE_DIR_SC="$STATE_DIR_SC" LOCK_DIR_SC="$LOCK_DIR_SC" SC_STRICT="$SC_STRICT" python3 - <<'PY'
@@ -159,17 +152,10 @@ linux_maint_cmd_security_profile() {
     esac
   done
 
-  if [[ "$MODE" == "repo" ]]; then
-    CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
-    LOG_DIR_SP="${LOG_DIR:-$REPO_LOG_DIR}"
-    STATE_DIR_SP="${LM_STATE_DIR:-/tmp}"
-    LOCK_DIR_SP="${LM_LOCKDIR:-/tmp}"
-  else
-    CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
-    LOG_DIR_SP="${LOG_DIR:-/var/log/health}"
-    STATE_DIR_SP="${LM_STATE_DIR:-/var/lib/linux_maint}"
-    LOCK_DIR_SP="${LM_LOCKDIR:-/var/lock}"
-  fi
+  CFG_DIR="$(linux_maint_effective_cfg_dir)"
+  LOG_DIR_SP="$(linux_maint_effective_log_dir)"
+  STATE_DIR_SP="$(linux_maint_effective_state_dir /tmp /var/lib/linux_maint)"
+  LOCK_DIR_SP="$(linux_maint_effective_lock_dir /tmp /var/lock)"
 
   MODE="$MODE" CFG_DIR="$CFG_DIR" LOG_DIR_SP="$LOG_DIR_SP" STATE_DIR_SP="$STATE_DIR_SP" LOCK_DIR_SP="$LOCK_DIR_SP" SP_JSON="$SP_JSON" SP_STRICT="$SP_STRICT" python3 - <<'PY'
 import json, os, pathlib, shutil, stat, sys

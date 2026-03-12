@@ -35,9 +35,9 @@
 - `tests/menu_run_wizard_test.sh`
 - `tests/menu_settings_validation_test.sh`
 - `tests/help_menu_command_test.sh`
-- `tests/release_audit_test.sh`
-- `tests/release_audit_make_target_test.sh`
-- `tests/release_sh_checks_test.sh`
+- `tests/release/release_audit_test.sh`
+- `tests/release/release_audit_make_target_test.sh`
+- `tests/release/release_sh_checks_test.sh`
 - `tests/status_prom_parse_safety_test.sh`
 - `tests/menu_run_loop_continuation_test.sh`
 

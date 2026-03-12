@@ -93,13 +93,8 @@ linux_maint_cmd_tune() {
   shift || true
   case "$sub" in
     dark-site)
-      if [[ "$MODE" == "repo" ]]; then
-        CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
-        TUNE_LAST_RUN_LOG_DIR="${LOG_DIR:-$REPO_LOG_DIR}"
-      else
-        CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
-        TUNE_LAST_RUN_LOG_DIR="${LOG_DIR:-/var/log/health}"
-      fi
+      CFG_DIR="$(linux_maint_effective_cfg_dir)"
+      TUNE_LAST_RUN_LOG_DIR="$(linux_maint_effective_log_dir)"
       CONF="$CFG_DIR/linux-maint.conf"
 
       if [[ "$MODE" == "installed" ]]; then
@@ -540,16 +535,16 @@ linux_maint_cmd_pack_logs() {
   fi
 
   if [[ "$MODE" == "repo" ]]; then
-    _logdir="${LOG_DIR:-$REPO_LOG_DIR}"
-    _summarydir="${SUMMARY_DIR:-$REPO_SUMMARY_DIR}"
-    _state_dir="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-$REPO_LOG_DIR}}"
-    _cfgdir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+    _logdir="$(linux_maint_effective_log_dir)"
+    _summarydir="$(linux_maint_effective_summary_dir)"
+    _state_dir="$(linux_maint_effective_notify_state_dir)"
+    _cfgdir="$(linux_maint_effective_cfg_dir)"
     _repo_root="$REPO_ROOT"
   else
-    _logdir="${LOG_DIR:-/var/log/health}"
-    _summarydir="${SUMMARY_DIR:-$_logdir}"
-    _state_dir="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-/var/lib/linux_maint}}"
-    _cfgdir="${LM_CFG_DIR:-/etc/linux_maint}"
+    _logdir="$(linux_maint_effective_log_dir)"
+    _summarydir="$(linux_maint_effective_summary_dir)"
+    _state_dir="$(linux_maint_effective_notify_state_dir)"
+    _cfgdir="$(linux_maint_effective_cfg_dir)"
     _repo_root=""
   fi
 

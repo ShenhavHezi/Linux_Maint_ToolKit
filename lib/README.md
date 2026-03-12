@@ -5,7 +5,7 @@ This directory holds the reusable shell libraries loaded by `bin/linux-maint` an
 ## Files
 
 - `linux_maint.sh` — core shared shell helpers used across monitors and commands.
-- `linux_maint_runtime.sh` — runtime/mode/path initialization.
+- `linux_maint_runtime.sh` — runtime/mode/path initialization and shared repo-vs-installed default path helpers.
 - `linux_maint_admin.sh` — install, upgrade, and verification command helpers.
 - `linux_maint_help.sh` — CLI help rendering.
 - `linux_maint_tui.sh` — menu/TUI helpers and workflow rendering.
@@ -25,3 +25,7 @@ This directory holds the reusable shell libraries loaded by `bin/linux-maint` an
 ## Design intent
 
 The split keeps `bin/linux-maint` from becoming a monolith while preserving a Bash-only runtime.
+
+`linux_maint_runtime.sh` is the canonical place for mode-sensitive path defaults. When a support lib
+needs repo-vs-installed config, log, summary, state, or lock paths, prefer the runtime helpers there
+instead of open-coding new `if [[ "$MODE" == "repo" ]]` blocks.

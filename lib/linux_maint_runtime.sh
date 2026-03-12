@@ -47,6 +47,65 @@ lm_init_runtime_context() {
   INST_SUMMARY_LATEST="${SUMMARY_DIR:-${LOG_DIR:-/var/log/health}}/full_health_monitor_summary_latest.log"
 }
 
+linux_maint_mode_default() {
+  local repo_default="$1"
+  local installed_default="$2"
+  if [[ "$MODE" == "repo" ]]; then
+    printf '%s' "$repo_default"
+  else
+    printf '%s' "$installed_default"
+  fi
+}
+
+linux_maint_env_or_mode_default() {
+  local env_name="$1"
+  local repo_default="$2"
+  local installed_default="$3"
+  if [[ -n "${!env_name:-}" ]]; then
+    printf '%s' "${!env_name}"
+  else
+    linux_maint_mode_default "$repo_default" "$installed_default"
+  fi
+}
+
+linux_maint_effective_cfg_dir() {
+  linux_maint_env_or_mode_default LM_CFG_DIR "$REPO_ROOT/.etc_linux_maint" "/etc/linux_maint"
+}
+
+linux_maint_effective_log_dir() {
+  linux_maint_env_or_mode_default LOG_DIR "$REPO_LOG_DIR" "/var/log/health"
+}
+
+linux_maint_effective_summary_dir() {
+  if [[ -n "${SUMMARY_DIR:-}" ]]; then
+    printf '%s' "$SUMMARY_DIR"
+  else
+    linux_maint_mode_default "$REPO_SUMMARY_DIR" "$(linux_maint_effective_log_dir)"
+  fi
+}
+
+linux_maint_effective_state_dir() {
+  local repo_default="${1:-$REPO_LOG_DIR}"
+  local installed_default="${2:-/var/lib/linux_maint}"
+  linux_maint_env_or_mode_default LM_STATE_DIR "$repo_default" "$installed_default"
+}
+
+linux_maint_effective_lock_dir() {
+  local repo_default="${1:-/tmp}"
+  local installed_default="${2:-/var/lock}"
+  linux_maint_env_or_mode_default LM_LOCKDIR "$repo_default" "$installed_default"
+}
+
+linux_maint_effective_notify_state_dir() {
+  local repo_default="${1:-$REPO_LOG_DIR}"
+  local installed_default="${2:-/var/lib/linux_maint}"
+  if [[ -n "${LM_NOTIFY_STATE_DIR:-}" ]]; then
+    printf '%s' "$LM_NOTIFY_STATE_DIR"
+  else
+    linux_maint_effective_state_dir "$repo_default" "$installed_default"
+  fi
+}
+
 lm_core_library_path() {
   local installed_lib="$PREFIX/lib/linux_maint.sh"
   if [[ "$MODE" == "repo" ]]; then

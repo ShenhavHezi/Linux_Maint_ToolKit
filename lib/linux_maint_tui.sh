@@ -144,35 +144,19 @@ tui_bool_enabled() {
 }
 
 tui_effective_cfg_dir() {
-  if [[ "$MODE" == "repo" ]]; then
-    printf '%s' "${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
-  else
-    printf '%s' "${LM_CFG_DIR:-/etc/linux_maint}"
-  fi
+  linux_maint_effective_cfg_dir
 }
 
 tui_effective_log_dir() {
-  if [[ "$MODE" == "repo" ]]; then
-    printf '%s' "${LOG_DIR:-$REPO_LOG_DIR}"
-  else
-    printf '%s' "${LOG_DIR:-/var/log/health}"
-  fi
+  linux_maint_effective_log_dir
 }
 
 tui_effective_summary_dir() {
-  if [[ "$MODE" == "repo" ]]; then
-    printf '%s' "${SUMMARY_DIR:-$REPO_SUMMARY_DIR}"
-  else
-    printf '%s' "${SUMMARY_DIR:-$(tui_effective_log_dir)}"
-  fi
+  linux_maint_effective_summary_dir
 }
 
 tui_effective_state_dir() {
-  if [[ "$MODE" == "repo" ]]; then
-    printf '%s' "${LM_STATE_DIR:-$REPO_LOG_DIR}"
-  else
-    printf '%s' "${LM_STATE_DIR:-/var/lib/linux_maint}"
-  fi
+  linux_maint_effective_state_dir
 }
 
 tui_effective_serverlist_path() {

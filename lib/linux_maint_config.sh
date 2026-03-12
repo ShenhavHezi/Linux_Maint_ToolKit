@@ -23,18 +23,14 @@ linux_maint_cmd_config() {
     local conf_files unreadable_conf_files f msg
     conf_files=()
     unreadable_conf_files=()
+    CFG_DIR="$(linux_maint_effective_cfg_dir)"
+    LOG_DIR_LOCAL="$(linux_maint_effective_log_dir)"
+    SUMMARY_DIR_LOCAL="$(linux_maint_effective_summary_dir)"
+    STATE_DIR_LOCAL="$(linux_maint_effective_state_dir)"
     if [[ "$MODE" == "repo" ]]; then
-      CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
       CFG_INIT_CMD="linux-maint init"
-      LOG_DIR_LOCAL="${LOG_DIR:-$REPO_LOG_DIR}"
-      SUMMARY_DIR_LOCAL="${SUMMARY_DIR:-$REPO_LOG_DIR}"
-      STATE_DIR_LOCAL="${LM_STATE_DIR:-$REPO_LOG_DIR}"
     else
-      CFG_DIR="${LM_CFG_DIR:-/etc/linux_maint}"
       CFG_INIT_CMD="sudo linux-maint init"
-      LOG_DIR_LOCAL="${LOG_DIR:-/var/log/health}"
-      SUMMARY_DIR_LOCAL="${SUMMARY_DIR:-$LOG_DIR_LOCAL}"
-      STATE_DIR_LOCAL="${LM_STATE_DIR:-/var/lib/linux_maint}"
     fi
     DOCTOR_STRICT=0
     if [[ "${LM_STRICT:-0}" == "1" || "${LM_STRICT:-}" == "true" ]]; then
@@ -491,7 +487,7 @@ linux_maint_cmd_check() {
 
     cfg_dir="/etc/linux_maint"
     if [[ "$MODE" == "repo" ]]; then
-      cfg_dir="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
+      cfg_dir="$(linux_maint_effective_cfg_dir)"
     fi
     if [[ "$CHECK_JSON" -eq 1 ]]; then
       ok="false"
