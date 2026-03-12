@@ -10,6 +10,13 @@ trap 'rm -rf "$workdir"' EXIT
 bad_json="$workdir/bad-status.json"
 cat > "$bad_json" <<'JSON'
 {
+  "totals": {
+    "CRIT": 0,
+    "WARN": 1,
+    "UNKNOWN": 0,
+    "SKIP": 0,
+    "OK": 0
+  },
   "last_status": {
     "overall": "WARN"
   }
@@ -27,7 +34,7 @@ if [[ "$rc" -ne 2 ]]; then
   exit 1
 fi
 
-printf '%s\n' "$out" | grep -q 'missing status/totals contract fields' || {
+printf '%s\n' "$out" | grep -q 'missing status contract version' || {
   echo "unexpected federate contract validation output" >&2
   echo "$out" >&2
   exit 1

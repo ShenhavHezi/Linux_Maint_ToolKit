@@ -11,12 +11,14 @@ s1="$workdir/status1.json"
 s2="$workdir/status2.json"
 cat > "$s1" <<'JSON'
 {
+  "status_json_contract_version": 1,
   "last_status": { "overall": "WARN" },
   "totals": { "CRIT": 1, "WARN": 2, "UNKNOWN": 0, "SKIP": 1, "OK": 5 }
 }
 JSON
 cat > "$s2" <<'JSON'
 {
+  "status_json_contract_version": 1,
   "last_status": { "overall": "OK" },
   "totals": { "CRIT": 0, "WARN": 3, "UNKNOWN": 1, "SKIP": 0, "OK": 9 }
 }

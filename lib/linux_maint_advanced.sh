@@ -54,6 +54,15 @@ plugin_validate_name_or_die() {
   fi
 }
 
+linux_maint_require_option_value() {
+  local option="${1:-}"
+  local value="${2-}"
+  if [[ -z "$value" ]]; then
+    echo "ERROR: $option requires a value" >&2
+    exit 2
+  fi
+}
+
 linux_maint_cmd_plugin() {
     if [[ "$MODE" == "repo" ]]; then
       export LM_CFG_DIR="${LM_CFG_DIR:-$(linux_maint_effective_cfg_dir)}"
@@ -121,7 +130,9 @@ PY
           case "$1" in
             --json) PLUG_JSON=1; shift 1;;
             --strict) PLUG_STRICT=1; shift 1;;
-            --index) idx_file="$2"; shift 2;;
+            --index)
+              linux_maint_require_option_value "$1" "${2-}"
+              idx_file="$2"; shift 2;;
             -h|--help) command_usage plugin; exit 0;;
             *) echo "Unknown plugin search flag: $1" >&2; exit 2;;
           esac
@@ -453,7 +464,9 @@ PY
           case "$1" in
             --json) PLUG_JSON=1; shift 1;;
             --strict) PLUG_STRICT=1; shift 1;;
-            --index) idx_file="$2"; shift 2;;
+            --index)
+              linux_maint_require_option_value "$1" "${2-}"
+              idx_file="$2"; shift 2;;
             -h|--help) command_usage plugin; exit 0;;
             *) echo "Unknown plugin lint-index flag: $1" >&2; exit 2;;
           esac
@@ -472,7 +485,9 @@ PY
           case "$1" in
             --json) PLUG_JSON=1; shift 1;;
             --strict) PLUG_STRICT=1; shift 1;;
-            --index) idx_file="$2"; shift 2;;
+            --index)
+              linux_maint_require_option_value "$1" "${2-}"
+              idx_file="$2"; shift 2;;
             -h|--help) command_usage plugin; exit 0;;
             *) echo "Unknown plugin verify-index flag: $1" >&2; exit 2;;
           esac
@@ -540,8 +555,12 @@ PY
           case "$1" in
             --json) PLUG_JSON=1; shift 1;;
             --strict) PLUG_STRICT=1; shift 1;;
-            --index) idx_file="$2"; shift 2;;
-            --out) out_file="$2"; shift 2;;
+            --index)
+              linux_maint_require_option_value "$1" "${2-}"
+              idx_file="$2"; shift 2;;
+            --out)
+              linux_maint_require_option_value "$1" "${2-}"
+              out_file="$2"; shift 2;;
             -h|--help) command_usage plugin; exit 0;;
             *) echo "Unknown plugin provenance-report flag: $1" >&2; exit 2;;
           esac
@@ -731,7 +750,9 @@ PY
         out_dir="${PWD}"
         while [[ $# -gt 0 ]]; do
           case "$1" in
-            --out) out_dir="$2"; shift 2;;
+            --out)
+              linux_maint_require_option_value "$1" "${2-}"
+              out_dir="$2"; shift 2;;
             -h|--help) command_usage plugin; exit 0;;
             *) echo "Unknown plugin init flag: $1" >&2; exit 2;;
           esac
@@ -780,7 +801,9 @@ EOF
         force=0
         while [[ $# -gt 0 ]]; do
           case "$1" in
-            --name) pname="$2"; shift 2;;
+            --name)
+              linux_maint_require_option_value "$1" "${2-}"
+              pname="$2"; shift 2;;
             --force) force=1; shift 1;;
             -h|--help) command_usage plugin; exit 0;;
             *) echo "Unknown plugin install flag: $1" >&2; exit 2;;
@@ -907,8 +930,12 @@ PY
         force=1
         while [[ $# -gt 0 ]]; do
           case "$1" in
-            --source) src="$2"; shift 2;;
-            --index) idx_file="$2"; shift 2;;
+            --source)
+              linux_maint_require_option_value "$1" "${2-}"
+              src="$2"; shift 2;;
+            --index)
+              linux_maint_require_option_value "$1" "${2-}"
+              idx_file="$2"; shift 2;;
             --force) force=1; shift 1;;
             -h|--help) command_usage plugin; exit 0;;
             *) echo "Unknown plugin update flag: $1" >&2; exit 2;;
@@ -1362,8 +1389,12 @@ linux_maint_cmd_serve() {
     S_CMD_TIMEOUT="${LM_SERVE_CMD_TIMEOUT:-15}"
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        --host) S_HOST="$2"; shift 2;;
-        --port) S_PORT="$2"; shift 2;;
+        --host)
+          linux_maint_require_option_value "$1" "${2-}"
+          S_HOST="$2"; shift 2;;
+        --port)
+          linux_maint_require_option_value "$1" "${2-}"
+          S_PORT="$2"; shift 2;;
         -h|--help) command_usage serve; exit 0;;
         *) echo "Unknown serve flag: $1" >&2; exit 2;;
       esac
@@ -1524,8 +1555,12 @@ linux_maint_cmd_agent() {
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --once) A_ONCE=1; shift 1;;
-        --interval) A_INTERVAL="$2"; shift 2;;
-        --max-runs) A_MAX_RUNS="$2"; shift 2;;
+        --interval)
+          linux_maint_require_option_value "$1" "${2-}"
+          A_INTERVAL="$2"; shift 2;;
+        --max-runs)
+          linux_maint_require_option_value "$1" "${2-}"
+          A_MAX_RUNS="$2"; shift 2;;
         --dry-run) A_DRY_RUN=1; shift 1;;
         -h|--help) command_usage agent; exit 0;;
         *) echo "Unknown agent flag: $1" >&2; exit 2;;
@@ -1571,7 +1606,9 @@ linux_maint_cmd_gate() {
 
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        --policy) GATE_POLICY="$2"; shift 2;;
+        --policy)
+          linux_maint_require_option_value "$1" "${2-}"
+          GATE_POLICY="$2"; shift 2;;
         --json) GATE_JSON=1; shift 1;;
         -h|--help)
           command_usage gate
@@ -1665,7 +1702,7 @@ try:
 except Exception:
     print("ERROR: gate requires valid JSON from status --json", file=sys.stderr)
     raise SystemExit(2)
-if not isinstance(status, dict) or "last_status" not in status or "totals" not in status:
+if not isinstance(status, dict) or "status_json_contract_version" not in status or "last_status" not in status or "totals" not in status:
     print("ERROR: gate requires status --json contract fields", file=sys.stderr)
     raise SystemExit(2)
 totals = status.get("totals") or {}
@@ -1768,10 +1805,11 @@ print("policy lint ok")
 PY
         ;;
       eval)
-        if [[ "${1:-}" != "--policy" || -z "${2:-}" ]]; then
+        if [[ "${1:-}" != "--policy" ]]; then
           echo "Usage: linux-maint policy e""val --policy <file> [--json]" >&2
           exit 2
         fi
+        linux_maint_require_option_value "$1" "${2-}"
         pfile="$2"; shift 2
         exec "$0" gate --policy "$pfile" "$@"
         ;;
@@ -1790,7 +1828,9 @@ linux_maint_cmd_federate() {
     FED_JSON=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        --input) FED_INPUT="$2"; shift 2;;
+        --input)
+          linux_maint_require_option_value "$1" "${2-}"
+          FED_INPUT="$2"; shift 2;;
         --json) FED_JSON=1; shift 1;;
         -h|--help) command_usage federate; exit 0;;
         *) echo "Unknown federate flag: $1" >&2; exit 2;;
@@ -1813,6 +1853,9 @@ for p in paths:
         continue
     if not isinstance(o, dict):
         errors.append(f"{p}: top-level JSON must be object")
+        continue
+    if "status_json_contract_version" not in o:
+        errors.append(f"{p}: missing status contract version")
         continue
     last_status = o.get("last_status")
     totals = o.get("totals")
@@ -1877,7 +1920,7 @@ try:
 except Exception:
     print("ERROR: ai-assist requires valid JSON from status --json", file=sys.stderr)
     raise SystemExit(2)
-if not isinstance(obj, dict) or "last_status" not in obj:
+if not isinstance(obj, dict) or "status_json_contract_version" not in obj or "last_status" not in obj:
     print("ERROR: ai-assist requires status --json contract fields", file=sys.stderr)
     raise SystemExit(2)
 overall=str((obj.get("last_status") or {}).get("overall","UNKNOWN"))
@@ -1919,7 +1962,9 @@ linux_maint_cmd_predict() {
     P_JSON=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        --last) P_LAST="$2"; shift 2;;
+        --last)
+          linux_maint_require_option_value "$1" "${2-}"
+          P_LAST="$2"; shift 2;;
         --json) P_JSON=1; shift 1;;
         -h|--help) command_usage predict; exit 0;;
         *) echo "Unknown predict flag: $1" >&2; exit 2;;
@@ -1962,7 +2007,7 @@ try:
 except Exception:
     print("ERROR: predict requires valid JSON from history --json", file=sys.stderr)
     raise SystemExit(2)
-if not isinstance(obj, dict) or "runs" not in obj:
+if not isinstance(obj, dict) or "history_json_contract_version" not in obj or "runs" not in obj:
     print("ERROR: predict requires history --json contract fields", file=sys.stderr)
     raise SystemExit(2)
 runs=obj.get("runs") or []
