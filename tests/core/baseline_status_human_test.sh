@@ -35,6 +35,16 @@ printf '%s\n' "$out" | grep -q '^== Summary ==$' || {
   echo "$out" >&2
   exit 1
 }
+printf '%s\n' "$out" | grep -q '^attention:$' || {
+  echo "baseline status attention section missing" >&2
+  echo "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out" | grep -q '^fresh_items=' || {
+  echo "baseline status fresh_items summary missing" >&2
+  echo "$out" >&2
+  exit 1
+}
 printf '%s\n' "$out" | grep -q '^baseline status warn$' || {
   echo "baseline status final label missing" >&2
   echo "$out" >&2

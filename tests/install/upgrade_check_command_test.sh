@@ -53,9 +53,17 @@ assert payload["upgrade_check_json_contract_version"] == 1, payload
 assert payload["current_version"] == os.environ["CURRENT_VERSION"], payload
 assert payload["target_version"] == os.environ["CURRENT_VERSION"], payload
 assert payload["relation"] == "same", payload
+assert payload["target_date_utc"], payload
 assert payload["release_notes_rel"] == f"docs/release_notes/release_notes_v{os.environ['CURRENT_VERSION']}.md", payload
+assert payload["checks"]["release_notes_found"] is True, payload
+assert payload["checks"]["upgrade_guide_found"] is True, payload
+assert payload["checks"]["sums_supplied"] is True, payload
+assert payload["checks"]["sig_supplied"] is False, payload
 assert payload["highlights"], payload
+assert payload["compatibility_notes"], payload
 assert "target release matches the installed version" in payload["warnings"], payload
+assert payload["next_steps"], payload
+assert payload["result"] == "WARN", payload
 PY
 
 echo "upgrade check command ok"
@@ -73,6 +81,16 @@ printf '%s\n' "$human_out" | grep -q '^== Guidance ==$' || {
 }
 printf '%s\n' "$human_out" | grep -q '^== Summary ==$' || {
   echo "upgrade check summary header missing" >&2
+  echo "$human_out" >&2
+  exit 1
+}
+printf '%s\n' "$human_out" | grep -q '^checks: release_notes=ok upgrade_guide=ok sums=yes sig=no$' || {
+  echo "upgrade check checks line missing" >&2
+  echo "$human_out" >&2
+  exit 1
+}
+printf '%s\n' "$human_out" | grep -q '^Compatibility notes:$' || {
+  echo "upgrade check compatibility notes missing" >&2
   echo "$human_out" >&2
   exit 1
 }

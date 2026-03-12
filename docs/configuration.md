@@ -87,6 +87,14 @@ linux-maint run --tag web --env prod --plan --json
 linux-maint run --role db --plan --json
 ```
 
+`run --plan --json` now also reports:
+
+- whether `inventory_meta.csv` was present
+- inventory host count vs matched host count
+- discovered roles, environments, and tags
+
+If a filter matches zero hosts, `linux-maint run --plan` fails cleanly with the requested filters and the available metadata values.
+
 ### 2. Conservative or broad coverage
 
 If you are in a dark-site or tightly controlled environment:

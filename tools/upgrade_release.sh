@@ -85,20 +85,22 @@ else:
 PY
 }
 
-extract_release_notes_highlights() {
-  local notes_path="$1"
+extract_release_notes_section() {
+  local notes_path="$1" section_name="$2" limit="${3:-3}"
   [[ -f "$notes_path" ]] || return 0
-  python3 - "$notes_path" <<'PY'
+  python3 - "$notes_path" "$section_name" "$limit" <<'PY'
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
+section_name = sys.argv[2]
+limit = int(sys.argv[3])
 lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
 in_highlights = False
 count = 0
 for line in lines:
     stripped = line.strip()
-    if stripped == "## Highlights":
+    if stripped == f"## {section_name}":
         in_highlights = True
         continue
     if in_highlights and stripped.startswith("## "):
@@ -106,20 +108,60 @@ for line in lines:
     if in_highlights and stripped.startswith("- "):
         print(stripped[2:])
         count += 1
-        if count >= 3:
+        if count >= limit:
             break
+PY
+}
+
+extract_release_notes_metadata() {
+  local notes_path="$1"
+  [[ -f "$notes_path" ]] || return 0
+  python3 - "$notes_path" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+meta = {"date_utc": None, "version": None, "git_tag": None}
+for raw in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+    line = raw.strip()
+    m = re.match(r"^- Version:\s*(.+)$", line)
+    if m:
+        meta["version"] = m.group(1).strip()
+        continue
+    m = re.match(r"^- Date \(UTC\):\s*(.+)$", line)
+    if m:
+        meta["date_utc"] = m.group(1).strip()
+        continue
+    m = re.match(r"^- Git tag:\s*(.+)$", line)
+    if m:
+        meta["git_tag"] = m.group(1).strip()
+print(json.dumps(meta, sort_keys=True))
 PY
 }
 
 emit_upgrade_check() {
   local tarball="$1" current_version="$2" target_version="$3" notes_path="$4" json_out="$5"
-  local relation upgrade_guide note_rel
-  local -a warnings=() highlights=()
+  local relation upgrade_guide note_rel result checks_json release_meta_json
+  local target_date_utc="" release_notes_found=0 upgrade_guide_found=0
+  local -a warnings=() highlights=() compatibility_notes=() next_steps=()
   relation="$(version_relation "$current_version" "$target_version")"
   upgrade_guide="$EXTRACTED_TREE_PATH/docs/UPGRADE.md"
   if [[ -f "$notes_path" ]]; then
-    mapfile -t highlights < <(extract_release_notes_highlights "$notes_path")
+    release_notes_found=1
+    mapfile -t highlights < <(extract_release_notes_section "$notes_path" "Highlights" 4)
+    mapfile -t compatibility_notes < <(extract_release_notes_section "$notes_path" "Compatibility notes" 4)
+    release_meta_json="$(extract_release_notes_metadata "$notes_path")"
+    target_date_utc="$(
+      RELEASE_META_JSON="$release_meta_json" python3 - <<'PY'
+import json, os
+payload = json.loads(os.environ.get("RELEASE_META_JSON", "{}"))
+print(payload.get("date_utc") or "")
+PY
+    )"
   fi
+  [[ -f "$upgrade_guide" ]] && upgrade_guide_found=1
   if [[ "$relation" == "downgrade" ]]; then
     warnings+=("target release is older than the installed version")
   elif [[ "$relation" == "same" ]]; then
@@ -133,6 +175,37 @@ emit_upgrade_check() {
   if [[ -f "$notes_path" ]]; then
     note_rel="${notes_path#"$EXTRACTED_TREE_PATH"/}"
   fi
+  if [[ "${#warnings[@]}" -gt 0 ]]; then
+    result="WARN"
+  else
+    result="OK"
+  fi
+  if [[ "$result" == "OK" ]]; then
+    next_steps+=("sudo linux-maint upgrade $tarball${SUMS_FILE:+ --sums $SUMS_FILE}")
+  else
+    if [[ "$relation" == "same" ]]; then
+      next_steps+=("choose a newer release tarball before upgrading")
+    elif [[ "$relation" == "downgrade" ]]; then
+      next_steps+=("confirm you intend a rollback before proceeding")
+    fi
+    next_steps+=("review the target release notes and upgrade guide")
+    next_steps+=("sudo linux-maint upgrade $tarball${SUMS_FILE:+ --sums $SUMS_FILE}")
+  fi
+  checks_json="$(
+    RELEASE_NOTES_FOUND="$release_notes_found" \
+    UPGRADE_GUIDE_FOUND="$upgrade_guide_found" \
+    SUMS_FILE_PATH="$SUMS_FILE" \
+    SIG_FILE_PATH="$SIG_FILE" \
+    python3 - <<'PY'
+import json, os
+print(json.dumps({
+    "release_notes_found": os.environ.get("RELEASE_NOTES_FOUND") == "1",
+    "upgrade_guide_found": os.environ.get("UPGRADE_GUIDE_FOUND") == "1",
+    "sums_supplied": bool(os.environ.get("SUMS_FILE_PATH")),
+    "sig_supplied": bool(os.environ.get("SIG_FILE_PATH")),
+}, sort_keys=True))
+PY
+  )"
   if [[ "$json_out" -eq 1 ]]; then
     CURRENT_VERSION="$current_version" \
     TARGET_VERSION="$target_version" \
@@ -141,8 +214,13 @@ emit_upgrade_check() {
     NOTES_PATH="$notes_path" \
     NOTE_REL="$note_rel" \
     UPGRADE_GUIDE="$upgrade_guide" \
+    TARGET_DATE_UTC="$target_date_utc" \
+    CHECKS_JSON="$checks_json" \
+    RESULT="$result" \
     WARNINGS_JOINED="$(printf '%s\n' "${warnings[@]}")" \
     HIGHLIGHTS_JOINED="$(printf '%s\n' "${highlights[@]}")" \
+    COMPAT_JOINED="$(printf '%s\n' "${compatibility_notes[@]}")" \
+    NEXT_STEPS_JOINED="$(printf '%s\n' "${next_steps[@]}")" \
     python3 - <<'PY'
 import json
 import os
@@ -154,34 +232,42 @@ payload = {
     "current_version": os.environ.get("CURRENT_VERSION") or None,
     "target_version": os.environ.get("TARGET_VERSION") or None,
     "relation": os.environ.get("RELATION", "unknown"),
+    "target_date_utc": os.environ.get("TARGET_DATE_UTC") or None,
     "release_notes": os.environ.get("NOTES_PATH") or None,
     "release_notes_rel": os.environ.get("NOTE_REL") or None,
     "upgrade_guide": os.environ.get("UPGRADE_GUIDE") or None,
+    "checks": json.loads(os.environ.get("CHECKS_JSON", "{}")),
     "highlights": [x for x in os.environ.get("HIGHLIGHTS_JOINED", "").splitlines() if x],
+    "compatibility_notes": [x for x in os.environ.get("COMPAT_JOINED", "").splitlines() if x],
     "warnings": [x for x in os.environ.get("WARNINGS_JOINED", "").splitlines() if x],
+    "next_steps": [x for x in os.environ.get("NEXT_STEPS_JOINED", "").splitlines() if x],
+    "result": os.environ.get("RESULT", "WARN"),
 }
 print(json.dumps(payload, indent=2, sort_keys=True))
 PY
   else
-    local result="OK"
-    if [[ "${#warnings[@]}" -gt 0 ]]; then
-      result="WARN"
-    fi
     echo "linux-maint upgrade --check"
     echo "tarball=$tarball"
     echo "current_version=${current_version:-unknown}"
     echo "target_version=${target_version:-unknown}"
     echo "relation=$relation"
+    [[ -n "$target_date_utc" ]] && echo "target_date_utc=$target_date_utc"
     if [[ -f "$notes_path" ]]; then
       echo "release_notes=$notes_path"
     fi
     if [[ -f "$upgrade_guide" ]]; then
       echo "upgrade_guide=$upgrade_guide"
     fi
+    echo "checks: release_notes=$([[ "$release_notes_found" -eq 1 ]] && echo ok || echo missing) upgrade_guide=$([[ "$upgrade_guide_found" -eq 1 ]] && echo ok || echo missing) sums=$([[ -n "$SUMS_FILE" ]] && echo yes || echo no) sig=$([[ -n "$SIG_FILE" ]] && echo yes || echo no)"
     if [[ "${#highlights[@]}" -gt 0 ]]; then
       echo ""
       echo "Highlights:"
       printf -- "- %s\n" "${highlights[@]}"
+    fi
+    if [[ "${#compatibility_notes[@]}" -gt 0 ]]; then
+      echo ""
+      echo "Compatibility notes:"
+      printf -- "- %s\n" "${compatibility_notes[@]}"
     fi
     if [[ "${#warnings[@]}" -gt 0 ]]; then
       echo ""
@@ -190,22 +276,14 @@ PY
     fi
     echo ""
     echo "== Guidance =="
-    if [[ "$result" == "OK" ]]; then
-      echo "next_step: sudo linux-maint upgrade $tarball${SUMS_FILE:+ --sums $SUMS_FILE}"
-    else
-      if [[ "$relation" == "same" ]]; then
-        echo "next_step: choose a newer release tarball before upgrading"
-      elif [[ "$relation" == "downgrade" ]]; then
-        echo "next_step: confirm you intend a rollback before proceeding"
-      fi
-      echo "next_step: review the target release notes and upgrade guide"
-      echo "next_step: sudo linux-maint upgrade $tarball${SUMS_FILE:+ --sums $SUMS_FILE}"
-    fi
+    printf 'next_step: %s\n' "${next_steps[@]}"
     echo ""
     echo "== Summary =="
     echo "current_version=${current_version:-unknown}"
     echo "target_version=${target_version:-unknown}"
     echo "relation=$relation"
+    echo "target_date_utc=${target_date_utc:-unknown}"
+    echo "highlights=${#highlights[@]}"
     echo "warnings=${#warnings[@]}"
     echo "result=$result"
     echo "upgrade check ${result,,}"

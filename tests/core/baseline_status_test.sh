@@ -47,6 +47,12 @@ cfg = Path(sys.argv[2])
 
 assert payload["baseline_status_json_contract_version"] == 1, payload
 assert payload["stale_days"] == 1, payload
+assert payload["summary"]["stale_items"] == 4, payload
+assert payload["summary"]["fresh_items"] == 0, payload
+assert payload["summary"]["drift_items"] == 2, payload
+assert payload["summary"]["changed_hosts_total"] == 1, payload
+assert payload["result"] == "WARN", payload
+assert payload["next_steps"], payload
 items = {item["kind"]: item for item in payload["items"]}
 
 assert items["ports"]["file_count"] == 1, items["ports"]
@@ -60,6 +66,7 @@ assert items["configs"]["latest_reason"] == "baseline_missing", items["configs"]
 
 assert items["users"]["latest_status"] == "OK", items["users"]
 assert items["sudoers"]["latest_status"] == "OK", items["sudoers"]
+assert any(item["kind"] == "ports" for item in payload["attention_items"]), payload
 PY
 
 echo "baseline status ok"

@@ -393,6 +393,133 @@ run_validate_execution_args(){
   fi
 }
 
+run_prepare_host_selection(){
+  local meta_file host_count host
+  declare -ga RUN_RESOLVED_HOSTS_ARRAY=()
+
+  meta_file="${LM_INVENTORY_META:-$(linux_maint_effective_inventory_meta_file)}"
+  if [[ -n "${RUN_TAGS:-}${RUN_ROLE:-}${RUN_ENV:-}" ]]; then
+    if [[ ! -f "$meta_file" ]]; then
+      echo "ERROR: inventory filters require inventory metadata: $meta_file" >&2
+      echo "Hint: create inventory_meta.csv with host,tags,role,env or run without --tag/--role/--env" >&2
+      exit 2
+    fi
+    if [[ ! -r "$meta_file" ]]; then
+      echo "ERROR: inventory metadata is unreadable: $meta_file" >&2
+      echo "Hint: fix permissions on inventory_meta.csv or run without --tag/--role/--env" >&2
+      exit 2
+    fi
+  fi
+
+  mapfile -t RUN_RESOLVED_HOSTS_ARRAY < <(resolve_run_hosts)
+  if [[ "${#RUN_RESOLVED_HOSTS_ARRAY[@]}" -gt 0 ]]; then
+    local -a _filtered_hosts=()
+    for host in "${RUN_RESOLVED_HOSTS_ARRAY[@]}"; do
+      [[ -n "$host" ]] && _filtered_hosts+=("$host")
+    done
+    RUN_RESOLVED_HOSTS_ARRAY=("${_filtered_hosts[@]}")
+  fi
+  host_count="${#RUN_RESOLVED_HOSTS_ARRAY[@]}"
+  RUN_HOST_COUNT="$host_count"
+  export RUN_HOST_COUNT
+
+  RUN_INVENTORY_CONTEXT_JSON="$(
+    python3 - "$meta_file" "${RUN_TAGS:-}" "${RUN_ROLE:-}" "${RUN_ENV:-}" "${RUN_RESOLVED_HOSTS_ARRAY[@]}" <<'PY'
+import json, os, sys
+from collections import Counter
+
+meta_file, tag_filter, role_filter, env_filter, *hosts = sys.argv[1:]
+ctx = {
+    "meta_file": meta_file,
+    "meta_present": os.path.isfile(meta_file),
+    "meta_readable": os.access(meta_file, os.R_OK) if os.path.exists(meta_file) else False,
+    "filters": {
+        "tag": tag_filter or None,
+        "role": role_filter or None,
+        "env": env_filter or None,
+    },
+    "resolved_hosts": hosts,
+    "resolved_host_count": len(hosts),
+    "inventory_host_count": 0,
+    "inventory_match_count": 0,
+    "available_roles": [],
+    "available_envs": [],
+    "available_tags": [],
+}
+if ctx["meta_present"] and ctx["meta_readable"]:
+    role_counts = Counter()
+    env_counts = Counter()
+    tag_counts = Counter()
+    meta_hosts = set()
+    matched = set()
+    with open(meta_file, "r", encoding="utf-8", errors="ignore") as fh:
+        for raw in fh:
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = [p.strip() for p in line.split(",")]
+            if not parts:
+                continue
+            host = parts[0]
+            if not host or host == "host":
+                continue
+            tags = (parts[1] if len(parts) > 1 else "").replace("|", ";")
+            role = (parts[2] if len(parts) > 2 else "").lower()
+            env = (parts[3] if len(parts) > 3 else "").lower()
+            meta_hosts.add(host)
+            if role:
+                role_counts[role] += 1
+            if env:
+                env_counts[env] += 1
+            for tag in [t.strip().lower() for t in tags.replace(" ", ";").split(";") if t.strip()]:
+                tag_counts[tag] += 1
+            if host in hosts:
+                matched.add(host)
+    ctx["inventory_host_count"] = len(meta_hosts)
+    ctx["inventory_match_count"] = len(matched)
+    ctx["available_roles"] = sorted(role_counts)
+    ctx["available_envs"] = sorted(env_counts)
+    ctx["available_tags"] = sorted(tag_counts)
+print(json.dumps(ctx, sort_keys=True))
+PY
+  )"
+  export RUN_INVENTORY_CONTEXT_JSON
+
+  if (( host_count == 0 )); then
+    if [[ -n "${RUN_TAGS:-}${RUN_ROLE:-}${RUN_ENV:-}" ]]; then
+      local empty_hint
+      empty_hint="$(python3 - <<'PY'
+import json, os
+ctx = json.loads(os.environ.get("RUN_INVENTORY_CONTEXT_JSON", "{}"))
+filters = ctx.get("filters", {})
+parts = []
+for key in ("tag", "role", "env"):
+    value = filters.get(key)
+    if value:
+        parts.append(f"{key}={value}")
+available = []
+for label, key in (("roles", "available_roles"), ("envs", "available_envs"), ("tags", "available_tags")):
+    values = ctx.get(key) or []
+    if values:
+        available.append(f"{label}={','.join(values[:8])}")
+out = []
+if parts:
+    out.append("requested: " + " ".join(parts))
+if available:
+    out.append("available: " + " ".join(available))
+print("\n".join(out))
+PY
+)"
+      echo "ERROR: inventory filters matched 0 hosts using $meta_file" >&2
+      [[ -n "$empty_hint" ]] && printf '%s\n' "$empty_hint" >&2
+      echo "Hint: run linux-maint run --plan without filters to inspect the base inventory" >&2
+      exit 2
+    fi
+    echo "ERROR: no hosts resolved for run" >&2
+    exit 2
+  fi
+}
+
 run_prepare_resume_state(){
   local resume_id resume_rc
   if [[ -n "${RUN_RESUME:-}" ]]; then
@@ -490,14 +617,47 @@ run_debug_dump(){
 
 emit_run_plan(){
   local local_monitors="$1"
-  local gf first h m
+  local gf first h m inventory_meta_present inventory_host_count inventory_match_count
+  local available_roles available_envs available_tags
+  local -a _hosts=() _inventory_lines=() _roles=() _envs=() _tags=()
 
   if [[ -n "${LM_GROUP:-}" ]]; then
     gf="${LM_HOSTS_DIR:-/etc/linux_maint/hosts.d}/${LM_GROUP}.txt"
     [[ -f "$gf" ]] || echo "NOTE: LM_GROUP=$LM_GROUP but group file not found: $gf (will fall back)" >&2
   fi
 
-  mapfile -t _hosts < <(resolve_run_hosts)
+  if [[ "${#RUN_RESOLVED_HOSTS_ARRAY[@]}" -gt 0 ]]; then
+    _hosts=("${RUN_RESOLVED_HOSTS_ARRAY[@]}")
+  else
+    mapfile -t _hosts < <(resolve_run_hosts)
+  fi
+  if [[ -n "${RUN_INVENTORY_CONTEXT_JSON:-}" ]]; then
+    mapfile -t _inventory_lines < <(
+      RUN_INVENTORY_CONTEXT_JSON="$RUN_INVENTORY_CONTEXT_JSON" python3 - <<'PY'
+import json, os
+ctx = json.loads(os.environ.get("RUN_INVENTORY_CONTEXT_JSON", "{}"))
+print(f"meta_present={1 if ctx.get('meta_present') else 0}")
+print(f"inventory_host_count={ctx.get('inventory_host_count', 0)}")
+print(f"inventory_match_count={ctx.get('inventory_match_count', 0)}")
+print(f"available_roles={','.join(ctx.get('available_roles') or [])}")
+print(f"available_envs={','.join(ctx.get('available_envs') or [])}")
+print(f"available_tags={','.join((ctx.get('available_tags') or [])[:8])}")
+PY
+    )
+    local item key value
+    for item in "${_inventory_lines[@]}"; do
+      key="${item%%=*}"
+      value="${item#*=}"
+      case "$key" in
+        meta_present) inventory_meta_present="$value" ;;
+        inventory_host_count) inventory_host_count="$value" ;;
+        inventory_match_count) inventory_match_count="$value" ;;
+        available_roles) available_roles="$value" ;;
+        available_envs) available_envs="$value" ;;
+        available_tags) available_tags="$value" ;;
+      esac
+    done
+  fi
 
   if [[ "${RUN_JSON:-0}" -eq 1 ]]; then
     printf '{'
@@ -532,8 +692,43 @@ emit_run_plan(){
     else
       printf '"env_filter":null,'
     fi
+    printf '"inventory_meta":"%s",' "$(json_escape "${LM_INVENTORY_META:-$(linux_maint_effective_inventory_meta_file)}")"
+    printf '"inventory_meta_present":%s,' "$([[ "${inventory_meta_present:-0}" == "1" ]] && echo true || echo false)"
+    printf '"inventory_host_count":%s,' "${inventory_host_count:-0}"
+    printf '"inventory_match_count":%s,' "${inventory_match_count:-0}"
+    printf '"resolved_host_count":%s,' "${#_hosts[@]}"
     printf '"limit":%s,' "${LIMIT:-0}"
     printf '"shuffle":%s,' "$([[ "${SHUFFLE:-0}" -eq 1 ]] && echo true || echo false)"
+    printf '"available_roles":['
+    first=1
+    IFS=',' read -r -a _roles <<< "${available_roles:-}"
+    for h in "${_roles[@]}"; do
+      [[ -z "$h" ]] && continue
+      [[ "$first" -eq 0 ]] && printf ','
+      first=0
+      printf '"%s"' "$(json_escape "$h")"
+    done
+    printf '],'
+    printf '"available_envs":['
+    first=1
+    IFS=',' read -r -a _envs <<< "${available_envs:-}"
+    for h in "${_envs[@]}"; do
+      [[ -z "$h" ]] && continue
+      [[ "$first" -eq 0 ]] && printf ','
+      first=0
+      printf '"%s"' "$(json_escape "$h")"
+    done
+    printf '],'
+    printf '"available_tags":['
+    first=1
+    IFS=',' read -r -a _tags <<< "${available_tags:-}"
+    for h in "${_tags[@]}"; do
+      [[ -z "$h" ]] && continue
+      [[ "$first" -eq 0 ]] && printf ','
+      first=0
+      printf '"%s"' "$(json_escape "$h")"
+    done
+    printf '],'
     printf '"hosts":['
     first=1
     for h in "${_hosts[@]}"; do
@@ -560,6 +755,13 @@ emit_run_plan(){
     [[ -n "${RUN_TAGS:-}" ]] && echo "tag_filter=${RUN_TAGS}"
     [[ -n "${RUN_ROLE:-}" ]] && echo "role_filter=${RUN_ROLE}"
     [[ -n "${RUN_ENV:-}" ]] && echo "env_filter=${RUN_ENV}"
+    if [[ -n "${RUN_TAGS:-}${RUN_ROLE:-}${RUN_ENV:-}" || "${inventory_meta_present:-0}" == "1" ]]; then
+      echo "inventory_meta=${LM_INVENTORY_META:-$(linux_maint_effective_inventory_meta_file)}"
+      echo "inventory_hosts=${inventory_host_count:-0} matched_hosts=${inventory_match_count:-0} resolved_hosts=${#_hosts[@]}"
+      [[ -n "${available_roles:-}" ]] && echo "available_roles=${available_roles}"
+      [[ -n "${available_envs:-}" ]] && echo "available_envs=${available_envs}"
+      [[ -n "${available_tags:-}" ]] && echo "available_tags=${available_tags}"
+    fi
     echo ""
   fi
   echo "Resolved hosts (${#_hosts[@]}):"

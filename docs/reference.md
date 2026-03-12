@@ -521,6 +521,8 @@ Prerequisites (any one):
   - `--lock-timeout N`: wait up to `N` seconds for the run lock (default 60).
   - in repo mode, host resolution defaults to `$REPO_ROOT/.etc_linux_maint/{servers.txt,excluded.txt,hosts.d}` when `LM_SERVERLIST`, `LM_EXCLUDED`, and `LM_HOSTS_DIR` are unset.
   - optional inventory metadata file: `${LM_INVENTORY_META:-<cfg_dir>/inventory_meta.csv}` with `host,tags,role,env`.
+  - `run --plan --json` also reports inventory metadata presence, host counts, and discovered role/env/tag values.
+  - If `--tag`, `--role`, or `--env` match zero hosts, `run` exits `2` with the requested filters and available metadata values.
   - Optional monitor privilege policy file: `${LM_MONITOR_PRIV_POLICY_FILE:-<cfg_dir>/monitor_privilege_policy.conf}`.
     - Format: `monitor=requires_root|allow_sudo|no_sudo`.
 
@@ -1117,6 +1119,7 @@ Example (`export --json`):
 - `linux-maint upgrade <tarball>`: verify a release tarball, inspect it with `--check`, or perform a rollback-aware installed-mode upgrade.
   - `--check`: inspect the tarball only; does not require root or write upgrade state.
   - `--json`: with `--check`, emit machine-readable upgrade assessment.
+  - `--check` also shows the target release date, compatibility notes, and artifact-presence checks when available.
   - real upgrades still require root in installed mode.
   - Schema:
     - `docs/schemas/upgrade_check.json` — JSON schema for `linux-maint upgrade --check --json`.
@@ -1778,6 +1781,7 @@ CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).
 - `linux-maint baseline status`: report baseline freshness, latest drift signal, and stale baseline risk.
   - `--json`: emit machine-readable lifecycle status.
   - `--stale-days N`: mark baselines stale when their newest file is older than `N` days.
+  - Human output also lists attention items, changed-host totals, and the most useful refresh/report next steps.
   - Schema:
     - `docs/schemas/baseline_status.json` — JSON schema for `linux-maint baseline status --json`.
 

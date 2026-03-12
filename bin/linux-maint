@@ -3521,14 +3521,16 @@ tui_run_wizard(){
 
 resolve_run_hosts(){
   local -a _hosts=()
+  local used_lm_hosts=0
   if [[ -f "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" ]]; then
     # shellcheck disable=SC1090
     . "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" >/dev/null 2>&1 || true
     if command -v lm_hosts >/dev/null 2>&1; then
+      used_lm_hosts=1
       mapfile -t _hosts < <(lm_hosts)
     fi
   fi
-  if [[ "${#_hosts[@]}" -eq 0 ]]; then
+  if [[ "$used_lm_hosts" -eq 0 && "${#_hosts[@]}" -eq 0 ]]; then
     _hosts=("localhost")
   fi
   if [[ "${SHUFFLE:-0}" -eq 1 ]]; then
@@ -3948,6 +3950,7 @@ case "$subcmd" in
     run_apply_mode_defaults
     run_validate_execution_args
     run_prepare_resume_state
+    run_prepare_host_selection
     cfg_dir="$(resolve_run_cfg_dir)"
     prepare_run_monitor_selection "$cfg_dir"
     local_monitors="${RUN_LOCAL_MONITORS:-}"

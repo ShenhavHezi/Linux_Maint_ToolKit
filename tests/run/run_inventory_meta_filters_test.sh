@@ -50,8 +50,14 @@ role_plan = json.loads(sys.argv[2])
 assert tag_plan["hosts"] == ["web-01", "web-02"], tag_plan
 assert tag_plan["tag_filter"] == "web", tag_plan
 assert tag_plan["env_filter"] == "prod", tag_plan
+assert tag_plan["inventory_meta_present"] is True, tag_plan
+assert tag_plan["inventory_host_count"] == 4, tag_plan
+assert tag_plan["inventory_match_count"] == 2, tag_plan
+assert "web" in tag_plan["available_roles"], tag_plan
+assert "prod" in tag_plan["available_envs"], tag_plan
 assert role_plan["hosts"] == ["db-01"], role_plan
 assert role_plan["role_filter"] == "db", role_plan
+assert role_plan["inventory_match_count"] == 1, role_plan
 PY
 
 echo "run inventory meta filters ok"

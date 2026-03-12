@@ -127,14 +127,17 @@ linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --check --sums ./SHA2
 linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --check --json --sums ./SHA256SUMS
 sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --sums ./SHA256SUMS
 sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate
+# --check also shows target release date, compatibility notes, and artifact checks
 
 # Inventory-aware run planning
 linux-maint run --tag web --env prod --plan --json
 linux-maint run --role db --plan --json
+# plan JSON includes inventory_meta presence, available roles/envs/tags, and matched-host counts
 
 # Baseline lifecycle and drift freshness
 linux-maint baseline status
 linux-maint baseline status --json --stale-days 30
+# status output also shows attention items and refresh guidance
 
 # Run history (fast; uses run_index.jsonl)
 linux-maint history --last 10

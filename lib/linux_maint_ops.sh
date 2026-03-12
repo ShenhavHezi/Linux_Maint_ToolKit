@@ -319,6 +319,48 @@ for spec in entries:
         }
     )
 
+stale_count = sum(1 for row in rows if row["stale"])
+fresh_count = len(rows) - stale_count
+drift_count = sum(1 for row in rows if (row["latest_status"] or "OK") not in ("OK", None))
+missing_inputs = sum(1 for row in rows if row["support_file"] and not row["support_exists"])
+changed_hosts_total = sum(int(row["changed_hosts"] or 0) for row in rows)
+oldest_age_seconds = max((row["age_seconds"] or 0) for row in rows) if rows else 0
+attention_items = []
+for row in rows:
+    reasons = []
+    if row["stale"]:
+        reasons.append("stale")
+    if row["support_file"] and not row["support_exists"]:
+        reasons.append("missing_input")
+    if (row["latest_status"] or "OK") not in ("OK", None):
+        reasons.append((row["latest_reason"] or row["latest_status"] or "drift").lower())
+    if reasons:
+        attention_items.append({"kind": row["kind"], "reasons": reasons})
+
+summary = {
+    "stale_items": stale_count,
+    "fresh_items": fresh_count,
+    "drift_items": drift_count,
+    "missing_inputs": missing_inputs,
+    "changed_hosts_total": changed_hosts_total,
+    "oldest_age_seconds": oldest_age_seconds,
+}
+
+result = "WARN" if stale_count or drift_count or missing_inputs else "OK"
+next_steps = []
+if result == "OK":
+    next_steps.append("linux-maint run")
+else:
+    if any(row["kind"] == "ports" and row["stale"] for row in rows):
+        next_steps.append("linux-maint baseline ports --update")
+    if any(row["kind"] == "configs" and row["stale"] for row in rows):
+        next_steps.append("linux-maint baseline configs --update")
+    if any(row["kind"] == "users" and row["stale"] for row in rows):
+        next_steps.append("linux-maint baseline users --update")
+    if any(row["kind"] == "sudoers" and row["stale"] for row in rows):
+        next_steps.append("linux-maint baseline sudoers --update")
+    next_steps.append("linux-maint report")
+
 if want_json:
     print(
         json.dumps(
@@ -329,6 +371,10 @@ if want_json:
                 "summary_file": str(summary_path),
                 "stale_days": stale_days,
                 "items": rows,
+                "summary": summary,
+                "attention_items": attention_items,
+                "next_steps": next_steps,
+                "result": result,
             },
             indent=2,
             sort_keys=True,
@@ -363,23 +409,22 @@ else:
             f"{row['kind']:<9} {row['file_count']:>5} {age_label:>8} {str(row['stale']).lower():<6} "
             f"{(row['latest_status'] or '-'): <8} {' '.join(details)}"
         )
-    stale_count = sum(1 for row in rows if row["stale"])
-    drift_count = sum(1 for row in rows if (row["latest_status"] or "OK") not in ("OK", None))
-    missing_inputs = sum(1 for row in rows if row["support_file"] and not row["support_exists"])
-    result = "WARN" if stale_count or drift_count or missing_inputs else "OK"
+    if attention_items:
+        print("")
+        print("attention:")
+        for item in attention_items:
+            print(f"- {item['kind']}: {','.join(item['reasons'])}")
     print("")
     print("== Guidance ==")
-    if result == "OK":
-        print("next_step: linux-maint run")
-    else:
-        print("next_step: linux-maint baseline ports --update")
-        print("next_step: linux-maint baseline configs --update")
-        print("next_step: linux-maint report")
+    for step in next_steps:
+        print(f"next_step: {step}")
     print("")
     print("== Summary ==")
     print(f"stale_items={stale_count}")
+    print(f"fresh_items={fresh_count}")
     print(f"drift_items={drift_count}")
     print(f"missing_inputs={missing_inputs}")
+    print(f"changed_hosts_total={changed_hosts_total}")
     print(f"result={result}")
     print(f"baseline status {'ok' if result == 'OK' else 'warn'}")
 PY

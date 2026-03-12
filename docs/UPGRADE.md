@@ -43,8 +43,11 @@ Use `--check` when you want to inspect the target release before changing the no
 
 - verifies the tarball and checksums
 - compares installed vs target version
+- reports the target release date when it is present in bundled release notes
 - points at the target release notes and upgrade guide inside the tarball
 - highlights the top release-note bullets
+- surfaces compatibility notes when the release notes include them
+- shows whether release notes, the upgrade guide, checksums, and signatures were present in the assessment
 - warns when the target matches or predates the installed version
 
 `linux-maint upgrade --check --json` emits a machine-readable assessment.

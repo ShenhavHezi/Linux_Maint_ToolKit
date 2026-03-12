@@ -8,7 +8,11 @@
     "cfg_dir",
     "summary_file",
     "stale_days",
-    "items"
+    "items",
+    "summary",
+    "attention_items",
+    "next_steps",
+    "result"
   ],
   "properties": {
     "schema_version": { "type": "integer", "minimum": 1 },
@@ -55,6 +59,49 @@
         },
         "additionalProperties": false
       }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "stale_items",
+        "fresh_items",
+        "drift_items",
+        "missing_inputs",
+        "changed_hosts_total",
+        "oldest_age_seconds"
+      ],
+      "properties": {
+        "stale_items": { "type": "integer", "minimum": 0 },
+        "fresh_items": { "type": "integer", "minimum": 0 },
+        "drift_items": { "type": "integer", "minimum": 0 },
+        "missing_inputs": { "type": "integer", "minimum": 0 },
+        "changed_hosts_total": { "type": "integer", "minimum": 0 },
+        "oldest_age_seconds": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "attention_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "reasons"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["ports", "configs", "users", "sudoers"] },
+          "reasons": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "next_steps": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "result": {
+      "type": "string",
+      "enum": ["OK", "WARN"]
     }
   },
   "additionalProperties": false
