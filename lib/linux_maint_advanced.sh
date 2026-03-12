@@ -1564,6 +1564,159 @@ linux_maint_cmd_agent() {
     exit "$agent_rc"
 }
 
+linux_maint_cmd_gate() {
+    local GATE_JSON=0
+    local GATE_POLICY=""
+    local status_json gate_status_rc
+    if [[ "$MODE" == "installed" ]]; then
+      need_root_for gate
+    fi
+
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --policy) GATE_POLICY="$2"; shift 2;;
+        --json) GATE_JSON=1; shift 1;;
+        -h|--help)
+          command_usage gate
+          exit 0;;
+        *) echo "Unknown gate flag: $1" >&2; exit 2;;
+      esac
+    done
+    if [[ -z "$GATE_POLICY" ]]; then
+      echo "ERROR: --policy is required" >&2
+      exit 2
+    fi
+    if [[ ! -f "$GATE_POLICY" ]]; then
+      echo "ERROR: policy file not found: $GATE_POLICY" >&2
+      exit 2
+    fi
+    if [[ ! -r "$GATE_POLICY" ]]; then
+      echo "ERROR: policy file not readable: $GATE_POLICY" >&2
+      exit 2
+    fi
+
+    set +e
+    status_json="$(NO_COLOR=1 "$0" status --json 2>/dev/null)"
+    gate_status_rc=$?
+    set -e
+    GATE_POLICY_FILE="$GATE_POLICY" GATE_STATUS_JSON="$status_json" GATE_STATUS_RC="$gate_status_rc" GATE_JSON="$GATE_JSON" python3 - <<'PY'
+import json, os, sys
+policy_file = os.environ.get("GATE_POLICY_FILE","")
+status_raw = os.environ.get("GATE_STATUS_JSON","{}")
+status_rc = int(os.environ.get("GATE_STATUS_RC", "0"))
+json_mode = os.environ.get("GATE_JSON","0") == "1"
+
+def parse_policy(path):
+    p = {
+        "max_crit": 0,
+        "max_warn": 999999,
+        "max_unknown": 999999,
+        "max_skip": 999999,
+        "require_overall": "",
+    }
+    allowed = {"max_crit", "max_warn", "max_unknown", "max_skip", "require_overall"}
+    allowed_overall = {"", "OK", "WARN", "CRIT", "UNKNOWN", "SKIP"}
+    seen = set()
+    errors = []
+    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+        for line_no, raw in enumerate(f, start=1):
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                errors.append(f"line {line_no}: missing '='")
+                continue
+            k, v = line.split("=", 1)
+            k = k.strip()
+            v = v.strip()
+            if k not in allowed:
+                errors.append(f"line {line_no}: unknown key {k}")
+                continue
+            if k in seen:
+                errors.append(f"line {line_no}: duplicate key {k}")
+                continue
+            seen.add(k)
+            if k in ("max_crit","max_warn","max_unknown","max_skip"):
+                try:
+                    p[k] = int(v)
+                except Exception:
+                    errors.append(f"line {line_no}: {k} must be integer")
+            elif k == "require_overall":
+                upper = v.upper()
+                if upper not in allowed_overall:
+                    errors.append(
+                        "line {}: require_overall must be one of {} or empty".format(
+                            line_no,
+                            ",".join(sorted(x for x in allowed_overall if x)),
+                        )
+                    )
+                else:
+                    p[k] = upper
+    return p, errors
+
+policy, policy_errors = parse_policy(policy_file)
+if policy_errors:
+    print("ERROR: gate requires a valid policy file", file=sys.stderr)
+    for err in policy_errors:
+        print(f"- {err}", file=sys.stderr)
+    raise SystemExit(2)
+if status_rc != 0:
+    print("ERROR: gate requires a successful status --json snapshot", file=sys.stderr)
+    raise SystemExit(2)
+try:
+    status = json.loads(status_raw or "{}")
+except Exception:
+    print("ERROR: gate requires valid JSON from status --json", file=sys.stderr)
+    raise SystemExit(2)
+if not isinstance(status, dict) or "last_status" not in status or "totals" not in status:
+    print("ERROR: gate requires status --json contract fields", file=sys.stderr)
+    raise SystemExit(2)
+totals = status.get("totals") or {}
+overall = str((status.get("last_status") or {}).get("overall") or "UNKNOWN").upper()
+
+crit = int(totals.get("CRIT", 0) or 0)
+warn = int(totals.get("WARN", 0) or 0)
+unknown = int(totals.get("UNKNOWN", 0) or 0)
+skip = int(totals.get("SKIP", 0) or 0)
+
+violations = []
+if crit > policy["max_crit"]:
+    violations.append(f"CRIT {crit} > max_crit {policy['max_crit']}")
+if warn > policy["max_warn"]:
+    violations.append(f"WARN {warn} > max_warn {policy['max_warn']}")
+if unknown > policy["max_unknown"]:
+    violations.append(f"UNKNOWN {unknown} > max_unknown {policy['max_unknown']}")
+if skip > policy["max_skip"]:
+    violations.append(f"SKIP {skip} > max_skip {policy['max_skip']}")
+req_overall = policy.get("require_overall","")
+if req_overall and overall != req_overall:
+    violations.append(f"overall {overall} != require_overall {req_overall}")
+
+ok = len(violations) == 0
+out = {
+    "gate_contract_version": 1,
+    "ok": ok,
+    "policy_file": policy_file,
+    "policy": policy,
+    "observed": {"overall": overall, "CRIT": crit, "WARN": warn, "UNKNOWN": unknown, "SKIP": skip},
+    "violations": violations,
+}
+if json_mode:
+    print(json.dumps(out, indent=2, sort_keys=True))
+else:
+    print("=== linux-maint gate ===")
+    print(f"policy={policy_file}")
+    print(f"observed overall={overall} CRIT={crit} WARN={warn} UNKNOWN={unknown} SKIP={skip}")
+    if ok:
+        print("result=PASS")
+    else:
+        print("result=FAIL")
+        for v in violations:
+            print(f"- {v}")
+raise SystemExit(0 if ok else 2)
+PY
+}
+
 linux_maint_cmd_policy() {
     psub="${1:-}"
     shift || true

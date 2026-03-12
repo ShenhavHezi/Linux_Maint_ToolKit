@@ -138,6 +138,86 @@ PY
     printf 'malformed:%s\n' "$detail"
 }
 
+linux_maint_cmd_diff() {
+    local JSON=0
+    local DIFF_COLOR=1
+    local DIFF_STATE_DIR SUMMARY_LATEST PREV_SUMMARY CUR_SUMMARY diff_tool
+    if [[ "${1:-}" == "--json" ]]; then
+      JSON=1
+      shift
+    fi
+    [[ -n "${NO_COLOR:-}" || -n "${LM_NO_COLOR:-}" ]] && DIFF_COLOR=0
+    color_enabled || DIFF_COLOR=0
+
+    if [[ "$MODE" == "repo" ]]; then
+      DIFF_STATE_DIR="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-$REPO_LOG_DIR}}"
+      SUMMARY_LATEST="$REPO_SUMMARY_LATEST"
+    else
+      DIFF_STATE_DIR="${LM_NOTIFY_STATE_DIR:-${LM_STATE_DIR:-/var/lib/linux_maint}}"
+      SUMMARY_LATEST="$(linux_maint_reporting_summary_latest)"
+    fi
+    PREV_SUMMARY="$DIFF_STATE_DIR/last_summary_monitor_lines.log"
+    CUR_SUMMARY="$SUMMARY_LATEST"
+
+    if [[ "$JSON" -eq 0 ]]; then
+      if [[ -t 1 ]]; then
+        section "linux-maint diff"
+      fi
+      echo "diff_state_dir=$DIFF_STATE_DIR"
+    fi
+
+    if [[ ! -f "$CUR_SUMMARY" ]]; then
+      echo "No current summary file: $CUR_SUMMARY" >&2
+      echo "Run linux-maint run first." >&2
+      exit 1
+    fi
+    if [[ ! -f "$PREV_SUMMARY" ]]; then
+      echo "No previous diff state file: $PREV_SUMMARY" >&2
+      echo "The wrapper writes this after each run (best-effort). Typically you need to run linux-maint run twice to get a useful diff." >&2
+      exit 1
+    fi
+
+    if [[ "$MODE" == "repo" ]]; then
+      diff_tool="$REPO_ROOT/tools/summary_diff.py"
+    else
+      diff_tool="$LIBEXEC/summary_diff.py"
+    fi
+    if [[ ! -x "$diff_tool" ]]; then
+      echo "Diff tool not found/executable: $diff_tool" >&2
+      hint_line "reinstall linux-maint to include summary_diff.py" >&2
+      exit 1
+    fi
+
+    if [[ "$JSON" -eq 1 ]]; then
+      exec python3 "$diff_tool" "$PREV_SUMMARY" "$CUR_SUMMARY" --json
+    else
+      LM_COLOR="$DIFF_COLOR" exec python3 "$diff_tool" "$PREV_SUMMARY" "$CUR_SUMMARY"
+    fi
+}
+
+linux_maint_cmd_logs() {
+    local n="${1:-200}"
+    local latest_log
+    latest_log="$(linux_maint_reporting_latest_log)"
+    if [[ ! -f "$latest_log" ]]; then
+      if [[ "$MODE" == "repo" ]]; then
+        echo "No repo log yet: $latest_log"
+      else
+        echo "No installed log yet: $latest_log"
+      fi
+      exit 1
+    fi
+    if [[ -t 1 ]]; then
+      section "logs (last $n)"
+      echo "file=$latest_log"
+    fi
+    if [[ ! -r "$latest_log" ]]; then
+      echo "Unreadable log file: $latest_log" >&2
+      exit 1
+    fi
+    exec tail -n "$n" "$latest_log"
+}
+
 linux_maint_cmd_report() {
     REPORT_JSON=0
     REPORT_COLOR=1
