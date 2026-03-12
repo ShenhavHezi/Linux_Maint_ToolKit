@@ -100,6 +100,7 @@ install_payload_paths(){
   cat <<'EOF'
 bin/linux-maint
 sbin/run_full_health_monitor.sh
+lib/RELEASE_LIBS.txt
 libexec/linux_maint
 share/linux_maint
 share/Linux_Maint_ToolKit
@@ -252,6 +253,7 @@ install_files(){
   while IFS= read -r lib_name; do
     install -D -m 0755 "lib/$lib_name" "$lib/$lib_name"
   done < <(read_release_libs)
+  install -D -m 0644 "$RELEASE_LIBS_FILE" "$lib/RELEASE_LIBS.txt"
   install -D -m 0755 run_full_health_monitor.sh "$sbin/run_full_health_monitor.sh"
   install -D -m 0755 bin/linux-maint "$prefix/bin/linux-maint"
   install -d "$libexec"

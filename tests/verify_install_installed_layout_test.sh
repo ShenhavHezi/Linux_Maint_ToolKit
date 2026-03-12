@@ -55,77 +55,19 @@ grep -q "^OK: verify-release helper: $prefix/libexec/linux_maint/verify_release.
   exit 1
 }
 
-grep -q "^OK: runtime support lib: $prefix/lib/linux_maint_runtime.sh$" <<< "$clean_out" || {
-  echo "verify-install did not validate installed runtime support lib" >&2
+grep -q "^OK: support lib manifest: $prefix/lib/RELEASE_LIBS.txt$" <<< "$clean_out" || {
+  echo "verify-install did not validate installed support lib manifest" >&2
   echo "$out" >&2
   exit 1
 }
 
-grep -q "^OK: admin support lib: $prefix/lib/linux_maint_admin.sh$" <<< "$clean_out" || {
-  echo "verify-install did not validate installed admin support lib" >&2
-  echo "$out" >&2
-  exit 1
-}
-
-grep -q "^OK: tui support lib: $prefix/lib/linux_maint_tui.sh$" <<< "$clean_out" || {
-  echo "verify-install did not validate installed tui support lib" >&2
-  echo "$out" >&2
-  exit 1
-}
-
-grep -q "^OK: config support lib: $prefix/lib/linux_maint_config.sh$" <<< "$clean_out" || {
-  echo "verify-install did not validate installed config support lib" >&2
-  echo "$out" >&2
-  exit 1
-}
-
-grep -q "^OK: init support lib: $prefix/lib/linux_maint_init.sh$" <<< "$clean_out" || {
-  echo "verify-install did not validate installed init support lib" >&2
-  echo "$out" >&2
-  exit 1
-}
-
-grep -q "^OK: diag support lib: $prefix/lib/linux_maint_diag.sh$" <<< "$clean_out" || {
-  echo "verify-install did not validate installed diag support lib" >&2
-  echo "$out" >&2
-  exit 1
-}
-
-grep -q "^OK: doctor support lib: $prefix/lib/linux_maint_doctor.sh$" <<< "$clean_out" || {
-  echo "verify-install did not validate installed doctor support lib" >&2
-  echo "$out" >&2
-  exit 1
-}
-
-grep -q "^OK: reporting support lib: $prefix/lib/linux_maint_reporting.sh$" <<< "$clean_out" || {
-  echo "verify-install did not validate installed reporting support lib" >&2
-  echo "$out" >&2
-  exit 1
-}
-
-grep -q "^OK: advanced support lib: $prefix/lib/linux_maint_advanced.sh$" <<< "$clean_out" || {
-  echo "verify-install did not validate installed advanced support lib" >&2
-  echo "$out" >&2
-  exit 1
-}
-
-grep -q "^OK: admin-ops support lib: $prefix/lib/linux_maint_adminops.sh$" <<< "$clean_out" || {
-  echo "verify-install did not validate installed admin-ops support lib" >&2
-  echo "$out" >&2
-  exit 1
-}
-
-grep -q "^OK: history support lib: $prefix/lib/linux_maint_history.sh$" <<< "$clean_out" || {
-  echo "verify-install did not validate installed history support lib" >&2
-  echo "$out" >&2
-  exit 1
-}
-
-grep -q "^OK: ops support lib: $prefix/lib/linux_maint_ops.sh$" <<< "$clean_out" || {
-  echo "verify-install did not validate installed ops support lib" >&2
-  echo "$out" >&2
-  exit 1
-}
+while IFS= read -r lib_name; do
+  grep -q "^OK: support lib: $prefix/lib/$lib_name$" <<< "$clean_out" || {
+    echo "verify-install did not validate installed support lib $lib_name" >&2
+    echo "$out" >&2
+    exit 1
+  }
+done < <(testlib_release_libs)
 
 grep -q "^OK: upgrade helper: $prefix/libexec/linux_maint/upgrade_release.sh$" <<< "$clean_out" || {
   echo "verify-install did not validate installed upgrade helper" >&2

@@ -34,6 +34,9 @@ assert_contains 'tools/upgrade_release.sh "$libexec/upgrade_release.sh"' \
 assert_contains 'install -m 0644 VERSION "$prefix/share/linux_maint/VERSION"' \
   "install.sh no longer installs VERSION into share/linux_maint"
 # shellcheck disable=SC2016
+assert_contains 'install -D -m 0644 "$RELEASE_LIBS_FILE" "$lib/RELEASE_LIBS.txt"' \
+  "install.sh no longer installs RELEASE_LIBS.txt into the installed lib dir"
+# shellcheck disable=SC2016
 assert_contains 'install -m 0644 plugins/index.json "$prefix/share/linux_maint/plugins/index.json"' \
   "install.sh no longer installs the packaged plugin index into share/linux_maint/plugins"
 # shellcheck disable=SC2016

@@ -18,6 +18,8 @@ assert_contains ': > packaging/rpm/support_lib_files.list' \
   "rpm spec no longer prepares a generated support lib file list"
 assert_contains 'done < lib/RELEASE_LIBS.txt' \
   "rpm spec no longer consumes lib/RELEASE_LIBS.txt"
+assert_contains 'install -m 0644 lib/RELEASE_LIBS.txt %{buildroot}/usr/lib/RELEASE_LIBS.txt' \
+  "rpm spec no longer installs the release lib manifest into /usr/lib"
 assert_contains 'install -m 0755 tools/pack_logs.sh %{buildroot}/usr/libexec/linux_maint/pack_logs.sh' \
   "rpm spec no longer installs pack_logs.sh"
 assert_contains 'install -m 0755 tools/verify_release.sh %{buildroot}/usr/libexec/linux_maint/verify_release.sh' \
@@ -36,6 +38,8 @@ assert_contains 'if [ -f BUILD_INFO ]; then' \
   "rpm spec no longer conditionally installs BUILD_INFO"
 assert_contains '%files -f packaging/rpm/support_lib_files.list' \
   "rpm spec no longer ships generated support lib file entries"
+assert_contains '/usr/lib/RELEASE_LIBS.txt' \
+  "rpm spec no longer ships /usr/lib/RELEASE_LIBS.txt"
 assert_contains '%dir /usr/libexec/linux_maint' \
   "rpm spec no longer owns /usr/libexec/linux_maint"
 assert_contains '%dir /etc/linux_maint/conf.d' \

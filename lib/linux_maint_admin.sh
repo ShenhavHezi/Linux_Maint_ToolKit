@@ -127,6 +127,20 @@ linux_maint_cmd_verify_install() {
     fi
   }
 
+  linux_maint_check_release_support_libs() {
+    local manifest="$1" lib_name=""
+    if [[ ! -f "$manifest" ]]; then
+      echo "${C_RED}MISSING${C_RESET}: support lib manifest: $manifest" >&2
+      fail=1
+      return
+    fi
+    linux_maint_check_file "support lib manifest" "$manifest"
+    while IFS= read -r lib_name; do
+      [[ -n "$lib_name" ]] || continue
+      linux_maint_check_file "support lib" "$PREFIX/lib/$lib_name"
+    done < "$manifest"
+  }
+
   if [[ "$MODE" == "installed" ]]; then
     linux_maint_check_exec "binary" "$PREFIX/bin/linux-maint"
   fi
@@ -134,19 +148,7 @@ linux_maint_cmd_verify_install() {
   linux_maint_check_file "library" "${LINUX_MAINT_LIB:-$PREFIX/lib/linux_maint.sh}"
   if [[ "$MODE" == "installed" ]]; then
     linux_maint_check_file "library config helper" "$PREFIX/lib/linux_maint_conf.sh"
-    linux_maint_check_file "runtime support lib" "$PREFIX/lib/linux_maint_runtime.sh"
-    linux_maint_check_file "admin support lib" "$PREFIX/lib/linux_maint_admin.sh"
-    linux_maint_check_file "help support lib" "$PREFIX/lib/linux_maint_help.sh"
-    linux_maint_check_file "tui support lib" "$PREFIX/lib/linux_maint_tui.sh"
-    linux_maint_check_file "config support lib" "$PREFIX/lib/linux_maint_config.sh"
-    linux_maint_check_file "init support lib" "$PREFIX/lib/linux_maint_init.sh"
-    linux_maint_check_file "diag support lib" "$PREFIX/lib/linux_maint_diag.sh"
-    linux_maint_check_file "doctor support lib" "$PREFIX/lib/linux_maint_doctor.sh"
-    linux_maint_check_file "reporting support lib" "$PREFIX/lib/linux_maint_reporting.sh"
-    linux_maint_check_file "advanced support lib" "$PREFIX/lib/linux_maint_advanced.sh"
-    linux_maint_check_file "admin-ops support lib" "$PREFIX/lib/linux_maint_adminops.sh"
-    linux_maint_check_file "history support lib" "$PREFIX/lib/linux_maint_history.sh"
-    linux_maint_check_file "ops support lib" "$PREFIX/lib/linux_maint_ops.sh"
+    linux_maint_check_release_support_libs "$PREFIX/lib/RELEASE_LIBS.txt"
   fi
 
   if [[ "$MODE" == "repo" ]]; then

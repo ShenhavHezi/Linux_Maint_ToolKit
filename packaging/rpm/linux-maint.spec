@@ -55,6 +55,7 @@ while IFS= read -r lib_name; do
   install -m 0755 "lib/${lib_name}" "%{buildroot}/usr/lib/${lib_name}"
   printf '/usr/lib/%s\n' "$lib_name" >> packaging/rpm/support_lib_files.list
 done < lib/RELEASE_LIBS.txt
+install -m 0644 lib/RELEASE_LIBS.txt %{buildroot}/usr/lib/RELEASE_LIBS.txt
 
 # monitors + tools
 install -m 0755 monitors/*.sh %{buildroot}/usr/libexec/linux_maint/
@@ -98,6 +99,7 @@ fi
 %files -f packaging/rpm/support_lib_files.list
 /usr/bin/linux-maint
 /usr/sbin/run_full_health_monitor.sh
+/usr/lib/RELEASE_LIBS.txt
 %dir /usr/libexec/linux_maint
 /usr/libexec/linux_maint/*
 /usr/share/linux_maint/

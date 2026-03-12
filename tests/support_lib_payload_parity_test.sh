@@ -32,10 +32,13 @@ while IFS= read -r lib_name; do
     echo "rpm spec no longer generates support lib file entries from the manifest" >&2
     exit 1
   }
-  grep -Fq "$lib_name" "$admin_lib" || {
-    echo "verify-install helper missing check for $lib_name" >&2
-    exit 1
-  }
+  :
 done < <(testlib_release_libs)
+
+# shellcheck disable=SC2016
+grep -Fq 'linux_maint_check_release_support_libs "$PREFIX/lib/RELEASE_LIBS.txt"' "$admin_lib" || {
+  echo "verify-install helper no longer consumes the installed release lib manifest" >&2
+  exit 1
+}
 
 echo "support lib payload parity ok"

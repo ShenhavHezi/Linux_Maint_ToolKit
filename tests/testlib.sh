@@ -77,6 +77,7 @@ testlib_copy_release_libs() {
   while IFS= read -r base; do
     cp "$root_dir/lib/$base" "$dest/$base"
   done < <(testlib_release_libs_except "$@")
+  cp "$root_dir/lib/RELEASE_LIBS.txt" "$dest/RELEASE_LIBS.txt"
 }
 
 testlib_copy_support_libs() {
@@ -87,6 +88,7 @@ testlib_copy_support_libs() {
   while IFS= read -r base; do
     cp "$root_dir/lib/$base" "$dest/$base"
   done < <(testlib_support_libs "$@")
+  cp "$root_dir/lib/RELEASE_LIBS.txt" "$dest/RELEASE_LIBS.txt"
 }
 
 testlib_link_release_libs() {
@@ -97,6 +99,7 @@ testlib_link_release_libs() {
   while IFS= read -r base; do
     ln -s "$root_dir/lib/$base" "$dest/$base"
   done < <(testlib_release_libs_except "$@")
+  ln -s "$root_dir/lib/RELEASE_LIBS.txt" "$dest/RELEASE_LIBS.txt"
 }
 
 testlib_link_support_libs() {
@@ -107,6 +110,7 @@ testlib_link_support_libs() {
   while IFS= read -r base; do
     ln -s "$root_dir/lib/$base" "$dest/$base"
   done < <(testlib_support_libs "$@")
+  ln -s "$root_dir/lib/RELEASE_LIBS.txt" "$dest/RELEASE_LIBS.txt"
 }
 
 testlib_write_release_lib_stubs() {
