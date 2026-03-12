@@ -2,12 +2,70 @@
 # Install/release/admin command helpers for linux-maint.
 
 linux_maint_cmd_version() {
-  if [[ -f "$SHARE/BUILD_INFO" ]]; then
-    cat "$SHARE/BUILD_INFO"
-  else
-    echo "BUILD_INFO not found at $SHARE/BUILD_INFO"
+  local mode="raw" build_info="$SHARE/BUILD_INFO"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --short) mode="short"; shift ;;
+      --json) mode="json"; shift ;;
+      -h|--help)
+        command_usage version
+        exit 0
+        ;;
+      *)
+        echo "ERROR: unknown version flag: $1" >&2
+        exit 2
+        ;;
+    esac
+  done
+  if [[ ! -f "$build_info" ]]; then
+    echo "BUILD_INFO not found at $build_info" >&2
     exit 1
   fi
+  case "$mode" in
+    raw)
+      cat "$build_info"
+      ;;
+    short)
+      python3 - "$build_info" <<'PY'
+import sys
+from pathlib import Path
+
+fields = {}
+for line in Path(sys.argv[1]).read_text(encoding="utf-8", errors="ignore").splitlines():
+    if "=" not in line:
+        continue
+    key, value = line.split("=", 1)
+    fields[key] = value
+
+version = fields.get("version", "unknown")
+commit = fields.get("commit", "unknown")
+built = fields.get("build_time_utc", "unknown")
+print(f"linux-maint {version} (commit {commit}, built {built})")
+PY
+      ;;
+    json)
+      python3 - "$build_info" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+fields = {}
+for line in Path(sys.argv[1]).read_text(encoding="utf-8", errors="ignore").splitlines():
+    if "=" not in line:
+        continue
+    key, value = line.split("=", 1)
+    fields[key] = value
+
+payload = {
+    "schema_version": 1,
+    "version_json_contract_version": 1,
+    "build_info_file": sys.argv[1],
+}
+payload.update(fields)
+print(json.dumps(payload, indent=2, sort_keys=True))
+PY
+      ;;
+  esac
 }
 
 linux_maint_exec_repo_installer() {
@@ -27,7 +85,7 @@ linux_maint_exec_repo_installer() {
 linux_maint_cmd_install_passthrough() {
   local subcmd="$1"
   shift || true
-  if [[ "$MODE" != "repo" ]]; then
+  if [[ "${MODE:-}" != "repo" ]]; then
     require_repo_tree_command "$subcmd"
   fi
   case "$subcmd" in
@@ -89,7 +147,17 @@ linux_maint_cmd_verify_install() {
   echo "wrapper=$wrapper"
   echo "lib=${LINUX_MAINT_LIB:-$PREFIX/lib/linux_maint.sh}"
 
-  local fail=0
+  local fail=0 warn_count=0
+  local -a next_steps=()
+
+  linux_maint_add_next_step() {
+    local msg="$1"
+    local existing=""
+    for existing in "${next_steps[@]}"; do
+      [[ "$existing" == "$msg" ]] && return 0
+    done
+    next_steps+=("$msg")
+  }
 
   linux_maint_check_file() {
     local label="$1" path="$2"
@@ -121,9 +189,17 @@ linux_maint_cmd_verify_install() {
         echo "${C_GREEN}OK${C_RESET}: writable $label: $path"
       else
         echo "${C_YELLOW}WARN${C_RESET}: not writable $label: $path" >&2
+        warn_count=$((warn_count + 1))
+        case "$label" in
+          lockdir|state|logs)
+            linux_maint_add_next_step "rerun with sudo if you want installed-mode writable path checks to pass"
+            ;;
+        esac
       fi
     else
       echo "${C_YELLOW}WARN${C_RESET}: missing dir $label: $path" >&2
+      warn_count=$((warn_count + 1))
+      linux_maint_add_next_step "create or configure $label path: $path"
     fi
   }
 
@@ -176,6 +252,8 @@ linux_maint_cmd_verify_install() {
     linux_maint_check_file "services" "$CFG_DIR/services.txt"
   else
     echo "WARN: config dir missing: $CFG_DIR" >&2
+    warn_count=$((warn_count + 1))
+    linux_maint_add_next_step "run linux-maint init to create starter config files"
   fi
 
   echo "== Writable locations =="
@@ -184,7 +262,8 @@ linux_maint_cmd_verify_install() {
   linux_maint_check_writable_dir "logs" "$VERIFY_LOG_DIR"
 
   echo "== Version =="
-  "$0" version || true
+  "$0" version --short || true
+  echo "build_info_file=$SHARE/BUILD_INFO"
 
   echo "== systemd (best-effort) =="
   if command -v systemctl >/dev/null 2>&1; then
@@ -211,6 +290,14 @@ linux_maint_cmd_verify_install() {
     fi
   else
     echo "INFO: systemctl not found"
+  fi
+
+  if [[ "$warn_count" -gt 0 ]]; then
+    echo "== Guidance =="
+    echo "warnings=$warn_count"
+    if [[ "${#next_steps[@]}" -gt 0 ]]; then
+      printf 'next_step: %s\n' "${next_steps[@]}"
+    fi
   fi
 
   if [[ "$fail" -ne 0 ]]; then

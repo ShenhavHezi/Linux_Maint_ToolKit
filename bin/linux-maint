@@ -3996,7 +3996,7 @@ case "$subcmd" in
     ;;
 
   version)
-    linux_maint_cmd_version
+    linux_maint_cmd_version "$@"
     ;;
 
   # Thin passthroughs to monitor-side helper scripts.

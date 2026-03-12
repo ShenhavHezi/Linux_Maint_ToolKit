@@ -59,16 +59,16 @@ ${C_CYAN}Setup / maintenance${C_RESET}:
   validate               Validate config file formats (best-effort)
   check                  Run config_validate + preflight + show expected skips
   deps                   Print required/optional dependency manifest by monitor
-  verify-install         Verify installation layout and systemd wiring (best-effort)
+  verify-install         Verify install layout, writable paths, and service wiring
   pack-logs [flags]      Create a support bundle tar.gz (logs, config redacted, meta)
 
 ${C_CYAN}Release / packaging${C_RESET}:
-  version                Print installed BUILD_INFO (if present)
+  version [flags]        Print installed version/build metadata
   make-tarball           Build offline release tarball (repo / release tree only)
   verify-release         Verify release tarball integrity
   upgrade <tarball>      Verify, install, and record rollback metadata
-  install [args]         Run install.sh from a checkout or extracted release tree
-  uninstall [args]       Run install.sh --uninstall from a checkout or extracted release tree
+  install [args]         Install from a checkout or extracted release tree
+  uninstall [args]       Uninstall files installed by install.sh
 
 ${C_CYAN}Help / reference${C_RESET}:
   help [command]          Show help for a command (shortcut for usage)
@@ -395,12 +395,12 @@ EOF
     verify-install)
       run_help_block \
         "linux-maint verify-install" \
-        "Verify the expected install or repo layout without mutating state." \
-        "  - confirm the binary, wrapper, and paths are wired correctly\n  - inspect mode-specific readiness after install or checkout" \
+        "Verify the expected layout, writable paths, and best-effort service wiring without mutating state." \
+        "  - confirm the binary, wrapper, helpers, and support libs are present\n  - inspect writable runtime paths after install or upgrade\n  - review best-effort systemd/timer visibility" \
         "" \
-        "  linux-maint verify-install" \
+        "  linux-maint verify-install\n  sudo linux-maint verify-install" \
         "  - non-zero when required layout checks fail" \
-        "  - repo mode verifies repo-local defaults and writable paths\n  - installed mode verifies installed layout and service wiring" ;;
+        "  - repo mode verifies repo-local defaults and writable paths\n  - installed mode verifies installed layout, writable runtime dirs, and service wiring\n  - run with sudo in installed mode if you want writable path checks to pass cleanly" ;;
     pack-logs)
       run_help_block \
         "linux-maint pack-logs [flags]" \
@@ -411,7 +411,14 @@ EOF
         "  - non-zero if packaging, hashing, or encryption prerequisites fail\n  - preflight validation prevents leaving unintended plaintext output behind"
       ;;
     version)
-      echo "Usage: linux-maint version";;
+      run_help_block \
+        "linux-maint version [--short|--json]" \
+        "Print installed version/build metadata from BUILD_INFO." \
+        "  - confirm the installed release after upgrade or reinstall\n  - capture build metadata in tickets or support bundles\n  - feed automation with machine-readable metadata when needed" \
+        "  --short   compact one-line version summary\n  --json    machine-readable version/build metadata" \
+        "  linux-maint version\n  linux-maint version --short\n  linux-maint version --json" \
+        "  - non-zero if BUILD_INFO is missing" \
+        "  - installed mode reads <prefix>/share/linux_maint/BUILD_INFO\n  - repo mode still reports from the active share path when present" ;;
     make-tarball)
       echo "Usage: linux-maint make-tarball";;
     verify-release)
@@ -425,9 +432,23 @@ EOF
         "  linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --check --sums ./SHA256SUMS\n  linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --check --json --sums ./SHA256SUMS\n  sudo linux-maint upgrade /tmp/Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --sums /tmp/SHA256SUMS --rollback-tarball /srv/releases/Linux_Maint_ToolKit-v0.3.5-<sha>.tgz\n  sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate" \
         "  - --check highlights current vs target version, release notes, and operator warnings\n  - non-zero if verify-release, install.sh, or post-upgrade verify-install fails\n  - installed mode only; repo checkouts should run install.sh directly from the extracted tree" ;;
     install)
-      echo "Usage: linux-maint install [args]";;
+      run_help_block \
+        "linux-maint install [args]" \
+        "Run install.sh from a checkout or extracted release tree." \
+        "  - install or refresh an existing node from local sources\n  - forward install.sh flags without retyping the script path" \
+        "  any extra args are passed through to install.sh" \
+        "  sudo linux-maint install\n  sudo linux-maint install --with-user --with-timer --with-logrotate" \
+        "  - non-zero if install.sh fails" \
+        "  - repo mode and extracted release trees are supported\n  - installed mode cannot reinstall itself without local source tree access" ;;
     uninstall)
-      echo "Usage: linux-maint uninstall [args]";;
+      run_help_block \
+        "linux-maint uninstall [args]" \
+        "Run install.sh --uninstall from a checkout or extracted release tree." \
+        "  - remove files previously installed by install.sh\n  - forward uninstall-related flags without retyping the script path" \
+        "  any extra args are passed through to install.sh --uninstall" \
+        "  sudo linux-maint uninstall" \
+        "  - non-zero if uninstall fails" \
+        "  - repo mode and extracted release trees are supported\n  - installed mode cannot uninstall itself without local source tree access" ;;
     diff)
       run_help_block \
         "linux-maint diff [--json]" \
