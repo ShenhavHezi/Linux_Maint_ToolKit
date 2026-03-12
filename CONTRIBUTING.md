@@ -69,7 +69,8 @@ make dev-check
 - `tests/reporting/`: status/report/metrics/trend/export/diff/logs
 - `tests/run/`: `linux-maint run`
 - `tests/install/`: install/init/preflight/upgrade/RPM lifecycle
-- `tests/advanced/`: gate and advanced-command contract tests
+- `tests/advanced/`: plugin, serve, agent, policy, predict, ai-assist, federate, gate
+- `tests/adminops/`: notify, ticket, audit-log, cm-hook
 
 ## Monitor output contract (summary lines)
 

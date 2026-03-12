@@ -39,15 +39,15 @@ These features are optional and operator-invoked; they do not alter default run/
 ## Tests added/expanded
 - `tests/core/security_profile_command_test.sh`
 - `tests/advanced/gate_command_test.sh`
-- `tests/plugin_command_test.sh`
+- `tests/advanced/plugin_command_test.sh`
 - `tests/plugin_init_test.sh`
-- `tests/notify_command_test.sh`
-- `tests/serve_command_test.sh`
-- `tests/agent_command_test.sh`
-- `tests/policy_command_test.sh`
+- `tests/adminops/notify_command_test.sh`
+- `tests/advanced/serve_command_test.sh`
+- `tests/advanced/agent_command_test.sh`
+- `tests/advanced/policy_command_test.sh`
 - `tests/federate_command_test.sh`
-- `tests/ai_assist_command_test.sh`
-- `tests/predict_command_test.sh`
+- `tests/advanced/ai_assist_command_test.sh`
+- `tests/advanced/predict_command_test.sh`
 - Additional run reliability tests (`run_resume_state`, `run_lock_stale_meta`, maintenance/drain/strategy plan checks)
 
 ## Documentation

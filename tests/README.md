@@ -11,6 +11,7 @@ This directory contains the Bash-first regression suite for `linux-maint`.
   - `run/`
   - `reporting/`
   - `advanced/`
+  - `adminops/`
   - `core/`
   - `inspect/`
   - `install/`
@@ -38,7 +39,8 @@ The suite is intentionally shell-heavy so it matches the runtime environment of 
 
 - `run/`: `linux-maint run` planning, resume, and execution regressions
 - `reporting/`: `status`, `report`, `metrics`, `trend`, `export`, `runtimes`, `diff`, `logs`, and report/TUI output fixtures
-- `advanced/`: `gate` and adjacent advanced-command contract tests
+- `advanced/`: plugin, serve, agent, policy, predict, ai-assist, federate, gate, and related advanced-command tests
+- `adminops/`: notify, ticket, audit-log, and cm-hook regressions
 - `core/`: config, check, doctor, history, pack-logs, explain, and related core command regressions
 - `inspect/`: monitor listing and summary-lint inspection tests
 - `install/`: install, init, preflight, upgrade, RPM, installed-mode, and payload-parity tests

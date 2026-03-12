@@ -156,27 +156,27 @@ Last updated: 2026-03-10
 - `DONE` CI quality gate command.
   - Proof: `linux-maint gate --policy`, `tests/advanced/gate_command_test.sh`.
 - `DONE` REST API service mode baseline.
-  - Proof: `linux-maint serve`, `tests/serve_command_test.sh`.
+  - Proof: `linux-maint serve`, `tests/advanced/serve_command_test.sh`.
   - Hardening: concurrent request handling plus bounded delegated command runtime via `LM_SERVE_CMD_TIMEOUT`.
 - `DONE` Pipeline deployment-block acceptance flow documented end-to-end.
   - Proof: `docs/OPERATIONS.md` section "CI deploy gate (block on health regression)".
 
 ## P4 - Advanced capabilities
 - `DONE` Optional lightweight agent baseline.
-  - Proof: `linux-maint agent`, `tests/agent_command_test.sh`.
+  - Proof: `linux-maint agent`, `tests/advanced/agent_command_test.sh`.
   - Hardening: reject `--interval 0` so agent mode cannot spin in a tight loop.
   - Hardening: finite agent runs now preserve delegated `run` failures in their exit code.
 - `DONE` Policy-as-code baseline (`policy init/lint/eval`).
-  - Proof: `tests/policy_command_test.sh`.
+  - Proof: `tests/advanced/policy_command_test.sh`.
   - Hardening: `gate`/`policy eval` now fail fast if delegated `status --json` data is unavailable or invalid.
 - `DONE` AI-assist baseline (local heuristic hints).
-  - Proof: `linux-maint ai-assist`, `tests/ai_assist_command_test.sh`.
+  - Proof: `linux-maint ai-assist`, `tests/advanced/ai_assist_command_test.sh`.
   - Hardening: fail fast if delegated `status --json` data is unavailable or invalid.
 - `DONE` Federation baseline (`federate`).
   - Proof: `tests/federate_command_test.sh`.
   - Hardening: unreadable or invalid input snapshots now fail fast with rc=2 instead of being silently skipped.
 - `DONE` Predictive score baseline (`predict`).
-  - Proof: `tests/predict_command_test.sh`.
+  - Proof: `tests/advanced/predict_command_test.sh`.
   - Hardening: reject `--last 0` instead of silently degrading to an empty-history result.
   - Hardening: no-history environments now return a valid empty-history prediction instead of failing the command.
   - Hardening: fail fast if delegated `history --json` data is unavailable or invalid.
