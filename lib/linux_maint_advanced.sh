@@ -1568,9 +1568,6 @@ linux_maint_cmd_gate() {
     local GATE_JSON=0
     local GATE_POLICY=""
     local status_json gate_status_rc
-    if [[ "$MODE" == "installed" ]]; then
-      need_root_for gate
-    fi
 
     while [[ $# -gt 0 ]]; do
       case "$1" in

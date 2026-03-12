@@ -39,6 +39,29 @@ printf '%s\n' "$agent_out" | grep -q '^agent dry-run iteration=1$' || {
   exit 1
 }
 
+gate_policy="$workdir/policy.conf"
+cat > "$gate_policy" <<'P'
+max_crit=999999
+max_warn=999999
+max_unknown=999999
+max_skip=999999
+require_overall=
+P
+
+gate_out="$(env "${common_env[@]}" "$lm" gate --policy "$gate_policy" 2>&1)"
+printf '%s\n' "$gate_out" | grep -q '^=== linux-maint gate ===$' || {
+  echo "installed gate should run without root" >&2
+  echo "$gate_out" >&2
+  exit 1
+}
+
+policy_eval_out="$(env "${common_env[@]}" "$lm" policy eval --policy "$gate_policy" 2>&1)"
+printf '%s\n' "$policy_eval_out" | grep -q '^=== linux-maint gate ===$' || {
+  echo "installed policy eval should run without root" >&2
+  echo "$policy_eval_out" >&2
+  exit 1
+}
+
 fake_cli="$workdir/fake-linux-maint"
 cat > "$fake_cli" <<'SH'
 #!/usr/bin/env bash
