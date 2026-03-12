@@ -1566,6 +1566,7 @@ EOF
       lint)
         pfile="${1:-}"
         [[ -n "$pfile" && -f "$pfile" ]] || { echo "ERROR: policy file required" >&2; exit 2; }
+        [[ -r "$pfile" ]] || { echo "ERROR: policy file not readable: $pfile" >&2; exit 2; }
         python3 - "$pfile" <<'PY'
 import sys
 p=sys.argv[1]
