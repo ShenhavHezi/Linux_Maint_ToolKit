@@ -85,6 +85,12 @@ printf '%s\n' "$clean_out" | grep -q "^OK: diag support lib: $prefix/lib/linux_m
   exit 1
 }
 
+printf '%s\n' "$clean_out" | grep -q "^OK: doctor support lib: $prefix/lib/linux_maint_doctor.sh$" || {
+  echo "verify-install did not validate installed doctor support lib" >&2
+  echo "$out" >&2
+  exit 1
+}
+
 printf '%s\n' "$clean_out" | grep -q "^OK: reporting support lib: $prefix/lib/linux_maint_reporting.sh$" || {
   echo "verify-install did not validate installed reporting support lib" >&2
   echo "$out" >&2

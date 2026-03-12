@@ -140,6 +140,7 @@ linux_maint_cmd_verify_install() {
     linux_maint_check_file "tui support lib" "$PREFIX/lib/linux_maint_tui.sh"
     linux_maint_check_file "config support lib" "$PREFIX/lib/linux_maint_config.sh"
     linux_maint_check_file "diag support lib" "$PREFIX/lib/linux_maint_diag.sh"
+    linux_maint_check_file "doctor support lib" "$PREFIX/lib/linux_maint_doctor.sh"
     linux_maint_check_file "reporting support lib" "$PREFIX/lib/linux_maint_reporting.sh"
     linux_maint_check_file "advanced support lib" "$PREFIX/lib/linux_maint_advanced.sh"
     linux_maint_check_file "history support lib" "$PREFIX/lib/linux_maint_history.sh"
