@@ -3054,12 +3054,9 @@ tui_pack_logs_wizard(){
 
 tui_recent_artifacts_block(){
   local summary log statusf
-  local log_dir summary_dir
-  log_dir="$(tui_effective_log_dir)"
-  summary_dir="$(tui_effective_summary_dir)"
-  summary="$summary_dir/full_health_monitor_summary_latest.log"
-  log="$log_dir/full_health_monitor_latest.log"
-  statusf="$log_dir/last_status_full"
+  summary="$(linux_maint_effective_summary_latest)"
+  log="$(linux_maint_effective_latest_log)"
+  statusf="$(linux_maint_effective_status_file)"
   local tmp
   tmp="$(mktemp -p "$TMPDIR" linux_maint_artifacts.XXXXXX)"
   {
@@ -3116,11 +3113,9 @@ tui_menu_quick_actions(){
 
 tui_run_next_steps(){
   local rc="$1"
-  local summary log log_dir summary_dir
-  log_dir="$(tui_effective_log_dir)"
-  summary_dir="$(tui_effective_summary_dir)"
-  summary="$summary_dir/full_health_monitor_summary_latest.log"
-  log="$log_dir/full_health_monitor_latest.log"
+  local summary log
+  summary="$(linux_maint_effective_summary_latest)"
+  log="$(linux_maint_effective_latest_log)"
   local status_json overall
   status_json="$(NO_COLOR=1 "$0" status --json 2>/dev/null || true)"
   overall="$(STATUS_JSON="$status_json" python3 - <<'PY'

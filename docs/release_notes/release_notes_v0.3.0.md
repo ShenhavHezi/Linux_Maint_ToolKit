@@ -30,16 +30,16 @@
 - `LM_TUI_SHORTCUTS=1|0`
 
 ## Tests added
-- `tests/menu_shortcuts_test.sh`
-- `tests/menu_settings_roundtrip_test.sh`
-- `tests/menu_run_wizard_test.sh`
-- `tests/menu_settings_validation_test.sh`
-- `tests/help_menu_command_test.sh`
+- `tests/menu/menu_shortcuts_test.sh`
+- `tests/menu/menu_settings_roundtrip_test.sh`
+- `tests/menu/menu_run_wizard_test.sh`
+- `tests/menu/menu_settings_validation_test.sh`
+- `tests/menu/help_menu_command_test.sh`
 - `tests/release/release_audit_test.sh`
 - `tests/release/release_audit_make_target_test.sh`
 - `tests/release/release_sh_checks_test.sh`
 - `tests/status_prom_parse_safety_test.sh`
-- `tests/menu_run_loop_continuation_test.sh`
+- `tests/menu/menu_run_loop_continuation_test.sh`
 
 ## Release tooling
 - New `tools/release_audit.sh` validates governance templates and release-notes references.

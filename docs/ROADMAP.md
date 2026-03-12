@@ -16,7 +16,7 @@ Last updated: 2026-03-10
   - P3 trust lifecycle baseline: trust policy enforcement (`LM_PLUGIN_TRUST_POLICY_FILE`, `LM_PLUGIN_REQUIRE_TRUST_POLICY`) for index and plugin verification.
   - P3 provenance reporting: `plugin provenance-report` with strict gating and artifact output.
   - P0 repo/runtime hardening: non-root wrapper logfile fallback, `LM_CFG_DIR` propagation, summary host-count fix, and monitor regression tests.
-    - Proof: `tests/wrapper_repo_logfile_default_test.sh`, `tests/wrapper_cfg_dir_fallback_cert_monitor_test.sh`, `tests/wrapper_summary_hosts_line_test.sh`, `tests/config_validate_unreadable_conf_test.sh`, `tests/config_drift_allowlist_test.sh`.
+    - Proof: `tests/wrapper/wrapper_repo_logfile_default_test.sh`, `tests/wrapper/wrapper_cfg_dir_fallback_cert_monitor_test.sh`, `tests/wrapper/wrapper_summary_hosts_line_test.sh`, `tests/config_validate_unreadable_conf_test.sh`, `tests/config_drift_allowlist_test.sh`.
   - P0 plugin lifecycle hardening: forced plugin installs now preserve the previous plugin on source-copy failure.
     - Proof: `tests/plugin_force_install_rollback_test.sh`.
   - P0 integration hardening: `notify`/`ticket` curl calls now use bounded connect/total timeouts with regression tests.
@@ -48,11 +48,11 @@ Last updated: 2026-03-10
   - P0 repo-mode operator guidance hardening: `run --plan`, `status`, `history`, and `explain` now use repo-local host/config defaults and repo-appropriate hints instead of leaking installed-mode `/etc` and `sudo` guidance.
     - Proof: `tests/run/run_plan_repo_cfg_defaults_test.sh`, `tests/status_repo_missing_summary_hints_test.sh`, `tests/history_repo_hint_test.sh`, `tests/explain_config_missing_repo_test.sh`.
   - P1 operator UX/help hardening: top-level help, run help, config source-failure hints, and monitor explanations now use repo/install-neutral wording instead of installed-only paths.
-    - Proof: `tests/help_repo_usage_test.sh`, `tests/config_source_failure_human_hint_test.sh`, `tests/explain_monitor_repo_text_test.sh`.
+    - Proof: `tests/menu/help_repo_usage_test.sh`, `tests/config_source_failure_human_hint_test.sh`, `tests/explain_monitor_repo_text_test.sh`.
   - P1 operator UX/docs polish: menu labels and `help menu` now explain the main operator flows clearly, and the quick reference, troubleshooting guide, and FAQ are repo/install-aware instead of reading as installed-mode-only docs.
-    - Proof: `tests/help_menu_structure_test.sh`, `tests/operator_docs_mode_aware_test.sh`, `tests/menu_tty_flow_smoke_test.sh`.
+    - Proof: `tests/menu/help_menu_structure_test.sh`, `tests/menu/operator_docs_mode_aware_test.sh`, `tests/menu/menu_tty_flow_smoke_test.sh`.
   - P1 TUI upgrade: `linux-maint menu` now opens with a landing overview, keeps repo/install context visible, uses task-based main sections (`Overview/Run/Investigate/Repair/Export/Docs`), and incident mode can execute a recommended triage flow from the top reason class.
-    - Proof: `tests/menu_tty_flow_smoke_test.sh`, `tests/menu_shortcuts_test.sh`, `tests/menu_main_shortcut_dispatch_test.sh`, `tests/incident_recommendation_test.sh`, `tests/help_menu_structure_test.sh`.
+    - Proof: `tests/menu/menu_tty_flow_smoke_test.sh`, `tests/menu/menu_shortcuts_test.sh`, `tests/menu/menu_main_shortcut_dispatch_test.sh`, `tests/menu/incident_recommendation_test.sh`, `tests/menu/help_menu_structure_test.sh`.
   - P1 release/install/dark-site hardening: installed `verify-release` now dispatches to an installed helper, repo-only packaging/install commands fail clearly outside a checkout, `verify-install` validates installed helper/systemd layout more accurately, uninstall removes the installed CLI/share payloads, and dark-site/upgrade docs now match the real tarball flow.
     - Proof: `tests/install/installed_verify_release_dispatch_test.sh`, `tests/install/installed_make_tarball_requires_checkout_test.sh`, `tests/install/verify_install_installed_layout_test.sh`, `tests/install/install_manifest_test.sh`, `tests/release/release_verify_test.sh`, `docs/DARK_SITE.md`, `docs/UPGRADE.md`.
   - P1 plugin/advanced surface hardening: installed-mode plugin index/version defaults now resolve to packaged share assets, corrupt plugin registries fail fast instead of silently degrading, `serve` rejects invalid delegated JSON, and `federate`/`policy lint`/`predict` now enforce stricter input contracts.
@@ -190,28 +190,28 @@ Last updated: 2026-03-10
 - `DONE` Operator TUI polish:
   - `linux-maint menu` now has a richer gum landing layout, section-level recommended-start panels, `?` help overlay text, `/` command-palette wiring, and a guided support-bundle wizard.
   - Added golden coverage for compact/main and full section menu rendering plus overlay/wizard regressions.
-  - Proof: `tests/menu_compact_frame_fixture_test.sh`, `tests/menu_section_frame_fixture_test.sh`, `tests/menu_help_overlay_text_test.sh`, `tests/menu_pack_logs_wizard_test.sh`, `tests/menu_tty_flow_smoke_test.sh`.
+  - Proof: `tests/menu/menu_compact_frame_fixture_test.sh`, `tests/menu/menu_section_frame_fixture_test.sh`, `tests/menu/menu_help_overlay_text_test.sh`, `tests/menu/menu_pack_logs_wizard_test.sh`, `tests/menu/menu_tty_flow_smoke_test.sh`.
 - `DONE` CLI/operator copy polish:
   - top-level `linux-maint help` is now workflow-first, grouped by operator task, includes menu-section orientation, and uses clearer examples-by-task instead of a flat command dump.
   - main menu and submenu labels now use shorter, more professional operator wording aligned with the help text.
-  - Proof: `tests/help_top_level_structure_test.sh`, `tests/help_repo_usage_test.sh`, `tests/help_menu_structure_test.sh`, `tests/menu_compact_frame_fixture_test.sh`, `tests/menu_section_frame_fixture_test.sh`.
+  - Proof: `tests/menu/help_top_level_structure_test.sh`, `tests/menu/help_repo_usage_test.sh`, `tests/menu/help_menu_structure_test.sh`, `tests/menu/menu_compact_frame_fixture_test.sh`, `tests/menu/menu_section_frame_fixture_test.sh`.
 - `DONE` Help + quickstart hardening:
   - normalized key operator `help <command>` pages around consistent sections (`Purpose`, `When to use`, `Key flags`, `Examples`, and mode/exit notes where relevant).
   - added a dedicated `Quickstart` menu path for first setup, current incident triage, and escalation/export workflow.
   - expanded golden coverage for top-level help, `help menu`, and all main menu sub-sections.
-  - Proof: `tests/help_command_consistency_test.sh`, `tests/help_top_level_golden_test.sh`, `tests/help_menu_golden_test.sh`, `tests/menu_all_sections_fixture_test.sh`.
+  - Proof: `tests/menu/help_command_consistency_test.sh`, `tests/menu/help_top_level_golden_test.sh`, `tests/menu/help_menu_golden_test.sh`, `tests/menu/menu_all_sections_fixture_test.sh`.
 - `DONE` Menu onboarding + palette depth:
   - `linux-maint menu` now has a smarter `/` palette with task-word aliases and context-aware ranking, section-specific empty states for missing summary/log/history/config, and a guided first-setup bootstrap wizard with optional baseline capture.
   - updated help/docs so the new bootstrap and smart palette behavior is discoverable from `help menu` and the quick reference.
-  - Proof: `tests/menu_palette_rank_test.sh`, `tests/menu_empty_state_preview_test.sh`, `tests/menu_first_setup_wizard_test.sh`, `tests/menu_help_overlay_text_test.sh`, `tests/help_menu_golden_test.sh`.
+  - Proof: `tests/menu/menu_palette_rank_test.sh`, `tests/menu/menu_empty_state_preview_test.sh`, `tests/menu/menu_first_setup_wizard_test.sh`, `tests/menu/menu_help_overlay_text_test.sh`, `tests/menu/help_menu_golden_test.sh`.
 - `DONE` Fallback menu + command preview polish:
   - `dialog`/`whiptail` menus now render the same context/readiness/recommended-start summary as the richer gum flow instead of a bare prompt.
   - command execution previews now summarize reads, writes, risk, and likely next step before running.
-  - Proof: `tests/menu_fallback_prompt_test.sh`, `tests/menu_command_preview_test.sh`, `tests/menu_return_to_main_after_failure_test.sh`.
+  - Proof: `tests/menu/menu_fallback_prompt_test.sh`, `tests/menu/menu_command_preview_test.sh`, `tests/menu/menu_return_to_main_after_failure_test.sh`.
 - `DONE` In-menu action preview + Quickstart shortcuts:
   - gum menus now support visible action previews from inside the menu before selection, and the full section layout shows a recommended action preview card.
   - Quickstart now has direct shortcuts for editing `servers.txt`, opening `hosts.d`, and opening key setup docs.
-  - Proof: `tests/menu_action_preview_text_test.sh`, `tests/menu_quickstart_shortcuts_test.sh`, `tests/menu_help_overlay_text_test.sh`, `tests/menu_all_sections_fixture_test.sh`.
+  - Proof: `tests/menu/menu_action_preview_text_test.sh`, `tests/menu/menu_quickstart_shortcuts_test.sh`, `tests/menu/menu_help_overlay_text_test.sh`, `tests/menu/menu_all_sections_fixture_test.sh`.
 - `PARTIAL` JSON schema coverage is incomplete for some newly added commands.
   - Hardening: `report` and `summary` now fail fast instead of silently degrading when `status --json` is broken.
   - Added schema coverage for `export --jsonl` rows and `ticket/cm-hook/audit-log` JSON contracts.

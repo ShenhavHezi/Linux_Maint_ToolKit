@@ -14,6 +14,8 @@ This directory contains the Bash-first regression suite for `linux-maint`.
   - `inspect/`
   - `install/`
   - `release/`
+  - `menu/`
+  - `wrapper/`
 - smoke and aggregate entrypoints:
   - `smoke.sh`
   - `summary_contract.sh`
@@ -38,3 +40,5 @@ The suite is intentionally shell-heavy so it matches the runtime environment of 
 - `inspect/`: monitor listing and summary-lint inspection tests
 - `install/`: install, upgrade, RPM, installed-mode, and payload-parity tests
 - `release/`: tarball and release-discipline verification tests
+- `menu/`: TUI, menu flow, and help/UX regression tests
+- `wrapper/`: wrapper-side artifact, fallback, and failure-path tests

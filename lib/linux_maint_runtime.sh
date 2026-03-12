@@ -106,6 +106,22 @@ linux_maint_effective_notify_state_dir() {
   fi
 }
 
+linux_maint_effective_status_file() {
+  printf '%s/last_status_full' "$(linux_maint_effective_log_dir)"
+}
+
+linux_maint_effective_latest_log() {
+  printf '%s/full_health_monitor_latest.log' "$(linux_maint_effective_log_dir)"
+}
+
+linux_maint_effective_summary_latest() {
+  printf '%s/full_health_monitor_summary_latest.log' "$(linux_maint_effective_summary_dir)"
+}
+
+linux_maint_effective_summary_json_latest() {
+  printf '%s/full_health_monitor_summary_latest.json' "$(linux_maint_effective_summary_dir)"
+}
+
 lm_core_library_path() {
   local installed_lib="$PREFIX/lib/linux_maint.sh"
   if [[ "$MODE" == "repo" ]]; then

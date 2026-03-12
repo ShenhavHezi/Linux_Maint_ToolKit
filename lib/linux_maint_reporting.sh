@@ -6,23 +6,11 @@ linux_maint_reporting_log_dir() {
 }
 
 linux_maint_reporting_status_file() {
-    local log_dir
-    if [[ "$MODE" == "repo" ]]; then
-      printf '%s' "$REPO_STATUS_FILE"
-    else
-      log_dir="$(linux_maint_reporting_log_dir)"
-      printf '%s/last_status_full' "$log_dir"
-    fi
+    linux_maint_effective_status_file
 }
 
 linux_maint_reporting_summary_latest() {
-    local summary_dir
-    if [[ "$MODE" == "repo" ]]; then
-      printf '%s' "$REPO_SUMMARY_LATEST"
-    else
-      summary_dir="$(linux_maint_reporting_summary_dir)"
-      printf '%s/full_health_monitor_summary_latest.log' "$summary_dir"
-    fi
+    linux_maint_effective_summary_latest
 }
 
 linux_maint_reporting_summary_dir() {
@@ -30,23 +18,11 @@ linux_maint_reporting_summary_dir() {
 }
 
 linux_maint_reporting_summary_json_latest() {
-    local summary_dir
-    if [[ "$MODE" == "repo" ]]; then
-      printf '%s' "$REPO_SUMMARY_JSON_LATEST"
-    else
-      summary_dir="$(linux_maint_reporting_summary_dir)"
-      printf '%s/full_health_monitor_summary_latest.json' "$summary_dir"
-    fi
+    linux_maint_effective_summary_json_latest
 }
 
 linux_maint_reporting_latest_log() {
-    local log_dir
-    if [[ "$MODE" == "repo" ]]; then
-      printf '%s' "$REPO_LATEST_LOG"
-    else
-      log_dir="$(linux_maint_reporting_log_dir)"
-      printf '%s/full_health_monitor_latest.log' "$log_dir"
-    fi
+    linux_maint_effective_latest_log
 }
 
 linux_maint_reporting_status_file_state() {

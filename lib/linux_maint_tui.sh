@@ -193,15 +193,11 @@ tui_effective_run_index_path() {
 }
 
 tui_latest_log_path() {
-  local log_dir
-  log_dir="$(tui_effective_log_dir)"
-  echo "$log_dir/full_health_monitor_latest.log"
+  linux_maint_effective_latest_log
 }
 
 tui_latest_summary_json_path() {
-  local summary_dir
-  summary_dir="$(tui_effective_summary_dir)"
-  echo "$summary_dir/full_health_monitor_summary_latest.json"
+  linux_maint_effective_summary_json_latest
 }
 
 tui_status_snapshot_json() {
