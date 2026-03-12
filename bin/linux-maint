@@ -3545,150 +3545,92 @@ resolve_run_hosts(){
   printf '%s\n' "${_hosts[@]}"
 }
 
-RUNTIME_LIB="$(resolve_support_lib "linux_maint_runtime.sh" || true)"
-if [[ -z "$RUNTIME_LIB" ]]; then
-  echo "ERROR: missing runtime library; expected linux_maint_runtime.sh near the repo or installed prefix" >&2
-  exit 1
-fi
-# shellcheck disable=SC1090
-. "$RUNTIME_LIB"
-lm_init_runtime_context
-
-ADMIN_LIB="$(resolve_support_lib "linux_maint_admin.sh" || true)"
-if [[ -z "$ADMIN_LIB" ]]; then
-  echo "ERROR: missing admin library; expected linux_maint_admin.sh near the repo or installed prefix" >&2
-  exit 1
-fi
-# shellcheck disable=SC1090
-. "$ADMIN_LIB"
-
-TUI_LIB="$(resolve_support_lib "linux_maint_tui.sh" || true)"
-if [[ -z "$TUI_LIB" ]]; then
-  echo "ERROR: missing TUI library; expected linux_maint_tui.sh near the repo or installed prefix" >&2
-  exit 1
-fi
-# shellcheck disable=SC1090
-. "$TUI_LIB"
-
-MENU_LIB="$(resolve_support_lib "linux_maint_menu.sh" || true)"
-if [[ -z "$MENU_LIB" ]]; then
-  echo "ERROR: missing menu library; expected linux_maint_menu.sh near the repo or installed prefix" >&2
-  exit 1
-fi
-# shellcheck disable=SC1090
-. "$MENU_LIB"
-
-RUN_LIB="$(resolve_support_lib "linux_maint_run.sh" || true)"
-if [[ -z "$RUN_LIB" ]]; then
-  echo "ERROR: missing run library; expected linux_maint_run.sh near the repo or installed prefix" >&2
-  exit 1
-fi
-# shellcheck disable=SC1090
-. "$RUN_LIB"
-
-REPORTING_LIB="$(resolve_support_lib "linux_maint_reporting.sh" || true)"
-if [[ -z "$REPORTING_LIB" ]]; then
-  echo "ERROR: missing reporting library; expected linux_maint_reporting.sh near the repo or installed prefix" >&2
-  exit 1
-fi
-# shellcheck disable=SC1090
-. "$REPORTING_LIB"
-
-ADVANCED_LIB="$(resolve_support_lib "linux_maint_advanced.sh" || true)"
-if [[ -z "$ADVANCED_LIB" ]]; then
-  echo "ERROR: missing advanced library; expected linux_maint_advanced.sh near the repo or installed prefix" >&2
-  exit 1
-fi
-# shellcheck disable=SC1090
-. "$ADVANCED_LIB"
-
-HISTORY_LIB="$(resolve_support_lib "linux_maint_history.sh" || true)"
-if [[ -z "$HISTORY_LIB" ]]; then
-  echo "ERROR: missing history library; expected linux_maint_history.sh near the repo or installed prefix" >&2
-  exit 1
-fi
-# shellcheck disable=SC1090
-. "$HISTORY_LIB"
-
-OPS_LIB="$(resolve_support_lib "linux_maint_ops.sh" || true)"
-if [[ -z "$OPS_LIB" ]]; then
-  echo "ERROR: missing ops library; expected linux_maint_ops.sh near the repo or installed prefix" >&2
-  exit 1
-fi
-# shellcheck disable=SC1090
-. "$OPS_LIB"
-
-INSPECT_LIB="$(resolve_support_lib "linux_maint_inspect.sh" || true)"
-if [[ -z "$INSPECT_LIB" ]]; then
-  echo "ERROR: missing inspect library; expected linux_maint_inspect.sh near the repo or installed prefix" >&2
-  exit 1
-fi
-# shellcheck disable=SC1090
-. "$INSPECT_LIB"
-
-CONFIG_LIB_LOADED=0
-ensure_config_lib() {
-  [[ "${CONFIG_LIB_LOADED:-0}" -eq 1 ]] && return 0
-  CONFIG_LIB="$(resolve_support_lib "linux_maint_config.sh" || true)"
-  if [[ -z "$CONFIG_LIB" ]]; then
-    echo "ERROR: missing config library; expected linux_maint_config.sh near the repo or installed prefix" >&2
+load_required_support_lib() {
+  local __var="$1"
+  local filename="$2"
+  local label="$3"
+  local resolved
+  resolved="$(resolve_support_lib "$filename" || true)"
+  if [[ -z "$resolved" ]]; then
+    echo "ERROR: missing $label library; expected $filename near the repo or installed prefix" >&2
     exit 1
   fi
   # shellcheck disable=SC1090
-  . "$CONFIG_LIB"
-  CONFIG_LIB_LOADED=1
+  . "$resolved"
+  printf -v "$__var" '%s' "$resolved"
+}
+
+ensure_support_lib_loaded() {
+  local flag_var="$1"
+  local path_var="$2"
+  local filename="$3"
+  local label="$4"
+  local fail_mode="${5:-exit}"
+  local resolved
+
+  if [[ "${!flag_var:-0}" -eq 1 ]]; then
+    return 0
+  fi
+
+  resolved="$(resolve_support_lib "$filename" || true)"
+  if [[ -z "$resolved" ]]; then
+    echo "ERROR: missing $label library; expected $filename near the repo or installed prefix" >&2
+    if [[ "$fail_mode" == "return" ]]; then
+      return 1
+    fi
+    exit 1
+  fi
+
+  # shellcheck disable=SC1090
+  . "$resolved"
+  printf -v "$path_var" '%s' "$resolved"
+  printf -v "$flag_var" '%s' 1
+}
+
+load_required_support_lib RUNTIME_LIB "linux_maint_runtime.sh" "runtime"
+lm_init_runtime_context
+
+load_required_support_lib ADMIN_LIB "linux_maint_admin.sh" "admin"
+
+load_required_support_lib TUI_LIB "linux_maint_tui.sh" "TUI"
+
+load_required_support_lib MENU_LIB "linux_maint_menu.sh" "menu"
+
+load_required_support_lib RUN_LIB "linux_maint_run.sh" "run"
+
+load_required_support_lib REPORTING_LIB "linux_maint_reporting.sh" "reporting"
+
+load_required_support_lib ADVANCED_LIB "linux_maint_advanced.sh" "advanced"
+
+load_required_support_lib HISTORY_LIB "linux_maint_history.sh" "history"
+
+load_required_support_lib OPS_LIB "linux_maint_ops.sh" "ops"
+
+load_required_support_lib INSPECT_LIB "linux_maint_inspect.sh" "inspect"
+
+CONFIG_LIB_LOADED=0
+ensure_config_lib() {
+  ensure_support_lib_loaded CONFIG_LIB_LOADED CONFIG_LIB "linux_maint_config.sh" "config"
 }
 
 INIT_LIB_LOADED=0
 ensure_init_lib() {
-  [[ "${INIT_LIB_LOADED:-0}" -eq 1 ]] && return 0
-  INIT_LIB="$(resolve_support_lib "linux_maint_init.sh" || true)"
-  if [[ -z "$INIT_LIB" ]]; then
-    echo "ERROR: missing init library; expected linux_maint_init.sh near the repo or installed prefix" >&2
-    exit 1
-  fi
-  # shellcheck disable=SC1090
-  . "$INIT_LIB"
-  INIT_LIB_LOADED=1
+  ensure_support_lib_loaded INIT_LIB_LOADED INIT_LIB "linux_maint_init.sh" "init"
 }
 
 DIAG_LIB_LOADED=0
 ensure_diag_lib() {
-  [[ "${DIAG_LIB_LOADED:-0}" -eq 1 ]] && return 0
-  DIAG_LIB="$(resolve_support_lib "linux_maint_diag.sh" || true)"
-  if [[ -z "$DIAG_LIB" ]]; then
-    echo "ERROR: missing diagnostics library; expected linux_maint_diag.sh near the repo or installed prefix" >&2
-    exit 1
-  fi
-  # shellcheck disable=SC1090
-  . "$DIAG_LIB"
-  DIAG_LIB_LOADED=1
+  ensure_support_lib_loaded DIAG_LIB_LOADED DIAG_LIB "linux_maint_diag.sh" "diagnostics"
 }
 
 DOCTOR_LIB_LOADED=0
 ensure_doctor_lib() {
-  [[ "${DOCTOR_LIB_LOADED:-0}" -eq 1 ]] && return 0
-  DOCTOR_LIB="$(resolve_support_lib "linux_maint_doctor.sh" || true)"
-  if [[ -z "$DOCTOR_LIB" ]]; then
-    echo "ERROR: missing doctor support library; expected linux_maint_doctor.sh near the repo or installed prefix" >&2
-    return 1
-  fi
-  # shellcheck disable=SC1090
-  . "$DOCTOR_LIB"
-  DOCTOR_LIB_LOADED=1
+  ensure_support_lib_loaded DOCTOR_LIB_LOADED DOCTOR_LIB "linux_maint_doctor.sh" "doctor support" return
 }
 
 ADMINOPS_LIB_LOADED=0
 ensure_adminops_lib() {
-  [[ "${ADMINOPS_LIB_LOADED:-0}" -eq 1 ]] && return 0
-  ADMINOPS_LIB="$(resolve_support_lib "linux_maint_adminops.sh" || true)"
-  if [[ -z "$ADMINOPS_LIB" ]]; then
-    echo "ERROR: missing admin-ops support library; expected linux_maint_adminops.sh near the repo or installed prefix" >&2
-    return 1
-  fi
-  # shellcheck disable=SC1090
-  . "$ADMINOPS_LIB"
-  ADMINOPS_LIB_LOADED=1
+  ensure_support_lib_loaded ADMINOPS_LIB_LOADED ADMINOPS_LIB "linux_maint_adminops.sh" "admin-ops support" return
 }
 
 
@@ -3987,6 +3929,7 @@ command_usage(){
 subcmd="${1:-help}"; shift || true
 
 case "$subcmd" in
+  # Help and interactive UX.
   help|-h|--help)
     if [[ -n "${1:-}" ]]; then
       command_usage "$1"
@@ -3999,6 +3942,7 @@ case "$subcmd" in
     run_menu
     ;;
 
+  # Core execution.
   run)
     parse_run_args "$@"
     if [[ "$MODE" == "installed" && "${PLAN_ONLY:-0}" -ne 1 ]]; then
@@ -4060,6 +4004,7 @@ case "$subcmd" in
     linux_maint_cmd_version
     ;;
 
+  # Thin passthroughs to monitor-side helper scripts.
   preflight)
     # shellcheck disable=SC2154  # Populated by lm_init_runtime_context.
     exec bash "$preflight"
@@ -4070,6 +4015,7 @@ case "$subcmd" in
     exec bash "$validate"
     ;;
 
+  # Config, policy, and advanced command surfaces.
   check)
     ensure_config_lib
     linux_maint_cmd_check "$@"
@@ -4127,6 +4073,7 @@ case "$subcmd" in
     linux_maint_cmd_predict "$@"
     ;;
 
+  # Historical and reporting surfaces.
   history)
     linux_maint_cmd_history "$@"
     ;;
@@ -4155,6 +4102,7 @@ case "$subcmd" in
     linux_maint_cmd_export "$@"
     ;;
 
+  # Install, upgrade, and release lifecycle.
   install)
     linux_maint_cmd_install_passthrough install "$@"
     ;;
@@ -4175,6 +4123,7 @@ case "$subcmd" in
     linux_maint_cmd_upgrade "$@"
     ;;
 
+  # Operational helpers and diagnostics.
   init)
     ensure_init_lib
     linux_maint_cmd_init "$@"
@@ -4192,13 +4141,13 @@ case "$subcmd" in
     linux_maint_cmd_explain "$@"
     ;;
 
-
   pack-logs)
     linux_maint_cmd_pack_logs "$@"
     ;;
   verify-install)
     linux_maint_cmd_verify_install
     ;;
+
   doctor)
     ensure_doctor_lib
     linux_maint_cmd_doctor "$@"
@@ -4218,7 +4167,6 @@ case "$subcmd" in
     ensure_diag_lib
     linux_maint_cmd_deps "$@"
     ;;
-
 
   *)
     echo "Unknown command: $subcmd" >&2

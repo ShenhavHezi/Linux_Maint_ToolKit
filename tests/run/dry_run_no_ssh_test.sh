@@ -1,23 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 LM="$ROOT_DIR/bin/linux-maint"
 
 # Create a fake ssh that fails if called
-TMPDIR="$(mktemp -d -p "$TMPDIR")"
-mkdir -p "$TMPDIR"
-trap 'rm -rf "$TMPDIR"' EXIT
+tmp_base="${TMPDIR:-/tmp}"
+workdir="$(mktemp -d -p "$tmp_base")"
+mkdir -p "$workdir"
+trap 'rm -rf "$workdir"' EXIT
 
-cat > "$TMPDIR/ssh" <<'SH'
+cat > "$workdir/ssh" <<'SH'
 #!/usr/bin/env bash
 echo "ERROR: ssh was invoked during --dry-run" >&2
 exit 99
 SH
-chmod +x "$TMPDIR/ssh"
+chmod +x "$workdir/ssh"
 
 # Prepend to PATH
-export PATH="$TMPDIR:$PATH"
+export PATH="$workdir:$PATH"
 
 # Ensure we use repo libs
 export LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh"

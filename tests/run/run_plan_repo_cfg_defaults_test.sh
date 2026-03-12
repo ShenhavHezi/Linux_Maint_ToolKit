@@ -3,7 +3,7 @@ set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
 mkdir -p "$TMPDIR"
 
-ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 LM="$ROOT_DIR/bin/linux-maint"
 
 repo_cfg="$ROOT_DIR/.etc_linux_maint"

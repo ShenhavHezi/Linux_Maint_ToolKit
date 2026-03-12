@@ -2,7 +2,7 @@
 set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
 
-ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 LM="$ROOT_DIR/bin/linux-maint"
 
 safe_opts='-o BatchMode=yes -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new'

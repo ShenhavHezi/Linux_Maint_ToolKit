@@ -2,7 +2,7 @@
 set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
 
-ROOT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WRAP="$ROOT_DIR/run_full_health_monitor.sh"
 
 workdir="$(mktemp -d -p "$TMPDIR")"

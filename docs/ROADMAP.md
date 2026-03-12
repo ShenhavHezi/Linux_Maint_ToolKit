@@ -42,11 +42,11 @@ Last updated: 2026-03-10
   - P0 reporting path hardening: repo-mode `status`/`report`/`export` now honor `LOG_DIR` instead of silently reading stale `.logs` artifacts.
     - Proof: `tests/reporting_repo_log_dir_override_test.sh`.
   - P0 read-only command hardening: `logs`, `status --expected-skips`, and `check` no longer create missing repo-local directories as side effects.
-    - Proof: `tests/logs_no_side_effects_test.sh`, `tests/status_expected_skips_no_side_effects_test.sh`, `tests/check_no_side_effects_test.sh`.
+    - Proof: `tests/reporting/logs_no_side_effects_test.sh`, `tests/status_expected_skips_no_side_effects_test.sh`, `tests/check_no_side_effects_test.sh`.
   - P0 operator path hardening: `doctor`, `verify-install`, `config`, `self-check`, `security-profile`, `runtimes`, and repo-mode `pack-logs` now honor repo-local defaults/overrides consistently, and read-only writable checks no longer mutate directories.
     - Proof: `tests/doctor_repo_paths_test.sh`, `tests/doctor_verify_install_no_side_effects_test.sh`, `tests/repo_cfg_default_operator_test.sh`, `tests/pack_logs_repo_override_test.sh`.
   - P0 repo-mode operator guidance hardening: `run --plan`, `status`, `history`, and `explain` now use repo-local host/config defaults and repo-appropriate hints instead of leaking installed-mode `/etc` and `sudo` guidance.
-    - Proof: `tests/run_plan_repo_cfg_defaults_test.sh`, `tests/status_repo_missing_summary_hints_test.sh`, `tests/history_repo_hint_test.sh`, `tests/explain_config_missing_repo_test.sh`.
+    - Proof: `tests/run/run_plan_repo_cfg_defaults_test.sh`, `tests/status_repo_missing_summary_hints_test.sh`, `tests/history_repo_hint_test.sh`, `tests/explain_config_missing_repo_test.sh`.
   - P1 operator UX/help hardening: top-level help, run help, config source-failure hints, and monitor explanations now use repo/install-neutral wording instead of installed-only paths.
     - Proof: `tests/help_repo_usage_test.sh`, `tests/config_source_failure_human_hint_test.sh`, `tests/explain_monitor_repo_text_test.sh`.
   - P1 operator UX/docs polish: menu labels and `help menu` now explain the main operator flows clearly, and the quick reference, troubleshooting guide, and FAQ are repo/install-aware instead of reading as installed-mode-only docs.
@@ -77,13 +77,13 @@ Last updated: 2026-03-10
 ## P1 - Fleet-grade execution engine
 - `DONE` Parallel/timeout/retry controls (`--parallel`, `--host-timeout`, `--retry`).
 - `DONE` Execution strategy fields (`fail-soft`, `fail-fast`, `quorum`) in run planning.
-  - Proof: `tests/run_plan_strategy_fields_test.sh`.
+  - Proof: `tests/run/run_plan_strategy_fields_test.sh`.
 - `DONE` Resumable runs (`run --resume`).
-  - Proof: `tests/run_resume_state_test.sh`.
+  - Proof: `tests/run/run_resume_state_test.sh`.
 - `PARTIAL` Inventory backends.
   - Static file path is present; dynamic/cloud adapters (AWS/GCP/Azure) not implemented.
 - `DONE` Maintenance windows + drain file gating.
-  - Proof: `tests/run_maintenance_window_gate_test.sh`, `tests/run_drain_file_plan_test.sh`.
+  - Proof: `tests/run/run_maintenance_window_gate_test.sh`, `tests/run_drain_file_plan_test.sh`.
 - `NEXT` 1k-host simulation fixture with deterministic bounded runtime.
 
 ## P1 - Security hardening
@@ -154,7 +154,7 @@ Last updated: 2026-03-10
   - Baseline command added: `linux-maint cm-hook --provider ansible|puppet|salt` (with `--dry-run`).
   - Missing: authenticated remote execution profiles, result ingestion, and policy-driven retries.
 - `DONE` CI quality gate command.
-  - Proof: `linux-maint gate --policy`, `tests/gate_command_test.sh`.
+  - Proof: `linux-maint gate --policy`, `tests/advanced/gate_command_test.sh`.
 - `DONE` REST API service mode baseline.
   - Proof: `linux-maint serve`, `tests/serve_command_test.sh`.
   - Hardening: concurrent request handling plus bounded delegated command runtime via `LM_SERVE_CMD_TIMEOUT`.

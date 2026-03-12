@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
-ROOT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REAL_LM="$ROOT_DIR/bin/linux-maint"
 . "$ROOT_DIR/tests/testlib.sh"
 
