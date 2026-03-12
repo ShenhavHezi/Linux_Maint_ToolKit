@@ -200,6 +200,7 @@ run_required "doctor_repo_paths_test" bash "$ROOT_DIR/tests/doctor_repo_paths_te
 run_required "doctor_repo_inventory_optional_test" bash "$ROOT_DIR/tests/doctor_repo_inventory_optional_test.sh"
 run_required "plugin_command_test" bash "$ROOT_DIR/tests/plugin_command_test.sh"
 run_required "plugin_init_test" bash "$ROOT_DIR/tests/plugin_init_test.sh"
+run_required "new_monitor_template_lib_fallback_test" bash "$ROOT_DIR/tests/new_monitor_template_lib_fallback_test.sh"
 run_required "plugin_update_test" bash "$ROOT_DIR/tests/plugin_update_test.sh"
 run_required "plugin_registry_invalid_test" bash "$ROOT_DIR/tests/plugin_registry_invalid_test.sh"
 run_required "plugin_write_invalid_registry_test" bash "$ROOT_DIR/tests/plugin_write_invalid_registry_test.sh"

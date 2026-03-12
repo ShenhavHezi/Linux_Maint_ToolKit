@@ -53,7 +53,17 @@ cat > "$path" <<EOF
 
 set -euo pipefail
 
-. "\${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" || { echo "Missing \${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" >&2; exit 1; }
+for _lm_lib in "\${LINUX_MAINT_LIB:-}" /usr/local/lib/linux_maint.sh /usr/lib/linux_maint.sh; do
+  if [[ -n "\$_lm_lib" && -f "\$_lm_lib" ]]; then
+    # shellcheck disable=SC1090
+    . "\$_lm_lib"
+    break
+  fi
+done
+if ! command -v lm_summary >/dev/null 2>&1; then
+  echo "Missing linux_maint library (set LINUX_MAINT_LIB or install linux_maint.sh)" >&2
+  exit 1
+fi
 LM_PREFIX="[${monitor_name}] "
 LM_LOGFILE="\${LM_LOGFILE:-/var/log/${monitor_name}.log}"
 
