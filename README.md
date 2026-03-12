@@ -19,8 +19,8 @@
 </p>
 
 <p align="center">
-  <strong>Offline-first Linux health, triage, and maintenance for real operators.</strong><br>
-  Run from a repo checkout or install system-wide. Built for RHEL 9, SSH-based fleet checks, and air-gapped environments.
+  <strong>Fleet health and incident triage for RHEL 9, without a web stack.</strong><br>
+  Offline-first, operator-friendly, and built for SSH-based checks, installed hosts, and air-gapped environments.
 </p>
 
 <p align="center">
@@ -46,6 +46,18 @@
 | Install | [installation.md](docs/installation.md) | Best path for installed mode, repo mode, RPM, and dark-site setups |
 | Try | [FIRST_5_MINUTES.md](docs/FIRST_5_MINUTES.md) | Fastest route to a useful first run without reading everything |
 | Operate | `linux-maint menu` | Best daily surface for overview, triage, repair, and sharing |
+
+## Best For
+
+| Best for | Works especially well in | Not trying to be |
+| --- | --- | --- |
+| RHEL 9 and Rocky Linux fleets | SSH monitoring nodes, scheduled checks, dark-site operations | a heavy agent platform or web-console replacement |
+
+## Workflow At A Glance
+
+<p align="center">
+  <img src="docs/assets/root_workflow.svg" alt="linux-maint workflow overview" width="100%">
+</p>
 
 ## See The Menu
 
