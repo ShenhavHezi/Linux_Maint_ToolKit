@@ -2,11 +2,17 @@
 set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-LM="$ROOT_DIR/bin/linux-maint"
+. "$ROOT_DIR/tests/testlib.sh"
 
 workdir="$(mktemp -d -p "$TMPDIR")"
+repo_copy="$workdir/repo"
 policy_file="$workdir/policy.conf"
+tmp_run_dir="$workdir/tmp"
 trap 'chmod 644 "$policy_file" 2>/dev/null || true; rm -rf "$workdir"' EXIT
+testlib_copy_repo_tracked "$repo_copy"
+LM="$repo_copy/bin/linux-maint"
+mkdir -p "$tmp_run_dir"
+chmod 1777 "$tmp_run_dir"
 
 cat > "$policy_file" <<'EOF'
 max_crit=0
@@ -15,10 +21,26 @@ require_overall=OK
 EOF
 chmod 000 "$policy_file"
 
-set +e
-out="$(bash "$LM" policy lint "$policy_file" 2>&1)"
-rc=$?
-set -e
+if [[ "$(id -u)" -eq 0 ]]; then
+  if command -v su >/dev/null 2>&1 && id nobody >/dev/null 2>&1; then
+    chmod 0755 "$workdir" "$repo_copy"
+    chmod 1777 "$tmp_run_dir"
+    chmod -R a+rX "$repo_copy"
+    chmod 0600 "$policy_file"
+    set +e
+    out="$(su -s /bin/bash nobody -c "HOME='$workdir' TMPDIR='$tmp_run_dir' bash '$LM' policy lint '$policy_file'" 2>&1)"
+    rc=$?
+    set -e
+  else
+    echo "policy lint unreadable skipped under root: no su/nobody"
+    exit 0
+  fi
+else
+  set +e
+  out="$(bash "$LM" policy lint "$policy_file" 2>&1)"
+  rc=$?
+  set -e
+fi
 
 [[ "$rc" -eq 2 ]] || {
   echo "expected policy lint unreadable failure rc=2, got rc=$rc" >&2
