@@ -181,6 +181,11 @@ Example:
 OUTDIR=/tmp/out ./packaging/rpm/build_rpm.sh
 ```
 
+Notes:
+
+- checkout-based RPM builds require a clean git worktree
+- extracted release trees and other non-git source trees still build normally
+
 ## Retention
 
 If installed with logrotate support, runtime log retention is handled automatically.

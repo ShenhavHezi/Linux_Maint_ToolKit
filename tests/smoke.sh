@@ -351,6 +351,7 @@ run_required "pack_logs_repo_override_test" bash "$ROOT_DIR/tests/pack_logs_repo
 run_required "release_verify_test" bash "$ROOT_DIR/tests/release_verify_test.sh"
 run_required "release_verify_manifest_test" bash "$ROOT_DIR/tests/release_verify_manifest_test.sh"
 run_required "release_verify_members_test" bash "$ROOT_DIR/tests/release_verify_members_test.sh"
+run_required "rpm_build_requires_clean_tree_test" bash "$ROOT_DIR/tests/rpm_build_requires_clean_tree_test.sh"
 run_required "release_provenance_manifest_test" bash "$ROOT_DIR/tests/release_provenance_manifest_test.sh"
 run_required "release_metadata_guard_test" bash "$ROOT_DIR/tests/release_metadata_guard_test.sh"
 run_required "release_contract_guard_test" bash "$ROOT_DIR/tests/release_contract_guard_test.sh"

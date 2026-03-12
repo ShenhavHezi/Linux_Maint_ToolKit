@@ -1579,6 +1579,8 @@ cd Linux_Maint_ToolKit
 # or: ./packaging/rpm/build_rpm.sh 0.1.0
 ```
 
+When building from a git checkout, `build_rpm.sh` requires a clean working tree and packages tracked files only. This matches the tarball release flow and avoids leaking local worktree state into RPM source builds.
+
 Output location is printed by the script; RPMs are placed under a temp rpmbuild tree, for example:
 
 ```text

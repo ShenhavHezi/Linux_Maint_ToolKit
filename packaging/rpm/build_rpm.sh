@@ -29,10 +29,34 @@ TARBALL="$WORK/SOURCES/linux-maint-${VERSION}.tar.gz"
 
 tmpdir="$WORK/src/linux-maint-${VERSION}"
 mkdir -p "$tmpdir"
-# Copy repo content into tarball source dir (exclude .git and local logs)
-rsync -a --delete \
-  --exclude '.git' --exclude '.logs*' --exclude 'dist' --exclude '__pycache__' \
-  "$ROOT/" "$tmpdir/" >/dev/null
+
+copy_source_tree() {
+  if command -v git >/dev/null 2>&1 && [[ -d "$ROOT/.git" ]]; then
+    if [[ -n "$(git -C "$ROOT" status --porcelain)" ]]; then
+      echo "ERROR: working tree not clean. Commit/stash changes before building an RPM." >&2
+      git -C "$ROOT" status --short >&2 || true
+      exit 1
+    fi
+    (
+      cd "$ROOT" || exit
+      git -c "safe.directory=$ROOT" ls-files -z | while IFS= read -r -d '' path; do
+        [[ -e "$path" ]] && printf '%s\0' "$path"
+      done | tar --null -T - -cf - | tar -xf - -C "$tmpdir"
+    )
+  else
+    rsync -a --delete \
+      --exclude '.git' \
+      --exclude '.logs*' \
+      --exclude 'dist' \
+      --exclude '.tmp_test' \
+      --exclude '.etc_linux_maint' \
+      --exclude '__pycache__' \
+      --exclude 'tools/__pycache__' \
+      "$ROOT/" "$tmpdir/" >/dev/null
+  fi
+}
+
+copy_source_tree
 
 tar -C "$WORK/src" -czf "$TARBALL" "linux-maint-${VERSION}"
 
