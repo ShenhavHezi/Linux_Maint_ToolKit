@@ -835,12 +835,15 @@ if os.path.exists(manifest_path):
     try:
         with open(manifest_path, "r", encoding="utf-8") as f:
             m = json.load(f)
-        if isinstance(m, dict):
-            meta["name"] = str(m.get("name") or meta["name"])
-            meta["version"] = str(m.get("version") or meta["version"])
-            meta["description"] = str(m.get("description") or "")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"ERROR: invalid plugin manifest: {manifest_path}: {e}", file=sys.stderr)
+        raise SystemExit(2)
+    if not isinstance(m, dict):
+        print(f"ERROR: invalid plugin manifest shape: {manifest_path}", file=sys.stderr)
+        raise SystemExit(2)
+    meta["name"] = str(m.get("name") or meta["name"])
+    meta["version"] = str(m.get("version") or meta["version"])
+    meta["description"] = str(m.get("description") or "")
 if pname:
     meta["name"] = pname
 name = meta["name"]
@@ -1441,6 +1444,12 @@ def validate_payload(endpoint, payload):
             return "report payload missing contract fields"
         if not isinstance(payload.get("status"), dict) or not isinstance(payload.get("trend"), dict) or not isinstance(payload.get("runtimes"), dict):
             return "report payload has invalid field types"
+        if "status_json_contract_version" not in payload.get("status", {}):
+            return "report payload missing nested status contract version"
+        if "trend_json_contract_version" not in payload.get("trend", {}):
+            return "report payload missing nested trend contract version"
+        if "runtimes_json_contract_version" not in payload.get("runtimes", {}):
+            return "report payload missing nested runtimes contract version"
     elif endpoint == "metrics":
         if "metrics_json_contract_version" not in payload:
             return "metrics payload missing contract version"
@@ -1448,6 +1457,8 @@ def validate_payload(endpoint, payload):
             return "metrics payload missing contract fields"
         if not isinstance(payload.get("status"), dict) or not isinstance(payload.get("severity_totals"), dict):
             return "metrics payload has invalid field types"
+        if "status_json_contract_version" not in payload.get("status", {}):
+            return "metrics payload missing nested status contract version"
     elif endpoint == "history":
         if "history_json_contract_version" not in payload:
             return "history payload missing contract version"
