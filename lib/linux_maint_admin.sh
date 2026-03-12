@@ -87,7 +87,7 @@ linux_maint_cmd_verify_install() {
   echo "prefix=$PREFIX"
   # shellcheck disable=SC2154  # Populated by lm_init_runtime_context.
   echo "wrapper=$wrapper"
-  echo "lib=${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
+  echo "lib=${LINUX_MAINT_LIB:-$PREFIX/lib/linux_maint.sh}"
 
   local fail=0
 
@@ -131,7 +131,7 @@ linux_maint_cmd_verify_install() {
     linux_maint_check_exec "binary" "$PREFIX/bin/linux-maint"
   fi
   linux_maint_check_exec "wrapper" "$wrapper"
-  linux_maint_check_file "library" "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
+  linux_maint_check_file "library" "${LINUX_MAINT_LIB:-$PREFIX/lib/linux_maint.sh}"
   if [[ "$MODE" == "installed" ]]; then
     linux_maint_check_file "library config helper" "$PREFIX/lib/linux_maint_conf.sh"
     linux_maint_check_file "runtime support lib" "$PREFIX/lib/linux_maint_runtime.sh"

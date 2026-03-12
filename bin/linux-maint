@@ -6755,6 +6755,7 @@ PY
     linux_maint_cmd_verify_install
     ;;
   doctor)
+    DOCTOR_LIB_PATH="${LINUX_MAINT_LIB:-$PREFIX/lib/linux_maint.sh}"
     if [[ "$MODE" == "repo" ]]; then
       CFG_DIR="${LM_CFG_DIR:-$REPO_ROOT/.etc_linux_maint}"
       LOG_DIR_LOCAL="${LOG_DIR:-$REPO_LOG_DIR}"
@@ -6968,7 +6969,7 @@ PY
 
     if [[ "$DOCTOR_JSON" -eq 1 ]]; then
       set +e
-      MODE="$MODE" PREFIX="$PREFIX" WRAPPER="$wrapper" LIBEXEC="$LIBEXEC" LINUX_MAINT_LIB="${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}" CFG_DIR="$CFG_DIR" LOG_DIR="$LOG_DIR_LOCAL" SUMMARY_DIR="$SUMMARY_DIR_LOCAL" STATE_DIR="$STATE_DIR_LOCAL" LOCK_DIR="$LOCK_DIR_LOCAL" INVENTORY_DIR="$INVENTORY_DIR_LOCAL" DOCTOR_STRICT="$DOCTOR_STRICT" DOCTOR_INIT_CMD="$DOCTOR_INIT_CMD" DOCTOR_PREFLIGHT_CMD="$DOCTOR_PREFLIGHT_CMD" DOCTOR_RUN_CMD="$DOCTOR_RUN_CMD" DOCTOR_WRITE_PREFIX="$DOCTOR_WRITE_PREFIX" FIX_ACTIONS_FILE="$fix_actions_file" python3 - <<'PYJSON'
+      MODE="$MODE" PREFIX="$PREFIX" WRAPPER="$wrapper" LIBEXEC="$LIBEXEC" LINUX_MAINT_LIB="$DOCTOR_LIB_PATH" CFG_DIR="$CFG_DIR" LOG_DIR="$LOG_DIR_LOCAL" SUMMARY_DIR="$SUMMARY_DIR_LOCAL" STATE_DIR="$STATE_DIR_LOCAL" LOCK_DIR="$LOCK_DIR_LOCAL" INVENTORY_DIR="$INVENTORY_DIR_LOCAL" DOCTOR_STRICT="$DOCTOR_STRICT" DOCTOR_INIT_CMD="$DOCTOR_INIT_CMD" DOCTOR_PREFLIGHT_CMD="$DOCTOR_PREFLIGHT_CMD" DOCTOR_RUN_CMD="$DOCTOR_RUN_CMD" DOCTOR_WRITE_PREFIX="$DOCTOR_WRITE_PREFIX" FIX_ACTIONS_FILE="$fix_actions_file" python3 - <<'PYJSON'
 import json
 import os
 import pathlib
@@ -7226,7 +7227,7 @@ PYJSON
     fi
     echo "wrapper=$wrapper"
     echo "libexec=$LIBEXEC"
-    echo "lib=${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"
+    echo "lib=$DOCTOR_LIB_PATH"
     echo "cfg_dir=$CFG_DIR"
     echo "strict=$DOCTOR_STRICT"
 
@@ -7244,7 +7245,7 @@ PYJSON
 
     if [[ "$DOCTOR_COMPACT" -eq 0 ]]; then
       echo "== Files =="
-      for path in "$wrapper" "${LINUX_MAINT_LIB:-/usr/local/lib/linux_maint.sh}"; do
+      for path in "$wrapper" "$DOCTOR_LIB_PATH"; do
         if [[ -e "$path" ]]; then ls -la "$path"; else echo "MISSING: $path"; fi
       done
       if [[ "$MODE" == "installed" ]]; then

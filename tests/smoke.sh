@@ -375,6 +375,7 @@ run_required "upgrade_command_test" bash "$ROOT_DIR/tests/upgrade_command_test.s
 run_required "upgrade_command_failure_manifest_test" bash "$ROOT_DIR/tests/upgrade_command_failure_manifest_test.sh"
 run_required "doctor_offline_hints_test" bash "$ROOT_DIR/tests/doctor_offline_hints_test.sh"
 run_required "doctor_json_test" bash "$ROOT_DIR/tests/doctor_json_test.sh"
+run_required "doctor_installed_lib_autodetect_test" bash "$ROOT_DIR/tests/doctor_installed_lib_autodetect_test.sh"
 run_required "doctor_json_schema_test" bash "$ROOT_DIR/tests/doctor_json_schema_test.sh"
 run_required "doctor_json_unreadable_servers_test" bash "$ROOT_DIR/tests/doctor_json_unreadable_servers_test.sh"
 run_required "doctor_json_strict_exit_test" bash "$ROOT_DIR/tests/doctor_json_strict_exit_test.sh"
