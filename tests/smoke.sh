@@ -229,6 +229,7 @@ run_required "audit_log_concurrency_test" bash "$ROOT_DIR/tests/audit_log_concur
 run_required "audit_log_json_schema_test" bash "$ROOT_DIR/tests/audit_log_json_schema_test.sh"
 run_required "serve_command_test" bash "$ROOT_DIR/tests/serve_command_test.sh"
 run_required "serve_command_timeout_test" bash "$ROOT_DIR/tests/serve_command_timeout_test.sh"
+run_required "serve_port_validation_test" bash "$ROOT_DIR/tests/serve_port_validation_test.sh"
 run_required "serve_invalid_json_upstream_test" bash "$ROOT_DIR/tests/serve_invalid_json_upstream_test.sh"
 run_required "serve_invalid_contract_upstream_test" bash "$ROOT_DIR/tests/serve_invalid_contract_upstream_test.sh"
 run_required "agent_command_test" bash "$ROOT_DIR/tests/agent_command_test.sh"

@@ -1372,6 +1372,10 @@ linux_maint_cmd_serve() {
       echo "ERROR: --port must be numeric" >&2
       exit 2
     fi
+    if (( S_PORT <= 0 || S_PORT > 65535 )); then
+      echo "ERROR: --port must be between 1 and 65535" >&2
+      exit 2
+    fi
     if [[ ! "$S_CMD_TIMEOUT" =~ ^[0-9]+$ ]] || (( S_CMD_TIMEOUT <= 0 )); then
       echo "ERROR: LM_SERVE_CMD_TIMEOUT must be a positive integer" >&2
       exit 2
