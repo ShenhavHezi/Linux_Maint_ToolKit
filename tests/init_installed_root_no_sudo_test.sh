@@ -3,6 +3,7 @@ set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$ROOT_DIR/tests/testlib.sh"
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
@@ -15,9 +16,7 @@ mkdir -p "$prefix/bin" "$prefix/lib" "$prefix/share/linux_maint/templates" "$cfg
 
 cp "$ROOT_DIR/bin/linux-maint" "$fake_lm"
 chmod +x "$fake_lm"
-for support_lib in linux_maint.sh linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh linux_maint_tui.sh linux_maint_reporting.sh linux_maint_advanced.sh linux_maint_history.sh linux_maint_ops.sh; do
-  cp "$ROOT_DIR/lib/$support_lib" "$prefix/lib/$support_lib"
-done
+testlib_copy_release_libs "$ROOT_DIR" "$prefix/lib" linux_maint_conf.sh
 cp -a "$ROOT_DIR/etc/linux_maint" "$prefix/share/linux_maint/templates/"
 
 perl -0pi -e 's/if \[\[ "\$MODE" == "installed" \]\]; then\n      need_root_for init\n    fi/if [[ "$MODE" == "installed" ]]; then\n      :\n    fi/' "$fake_lm"

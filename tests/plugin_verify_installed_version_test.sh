@@ -3,6 +3,7 @@ set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
 ROOT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REAL_LM="$ROOT_DIR/bin/linux-maint"
+. "$ROOT_DIR/tests/testlib.sh"
 
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
@@ -12,9 +13,7 @@ plug_dir="$workdir/plugins"
 mkdir -p "$prefix/bin" "$prefix/lib" "$prefix/share/linux_maint" "$plug_dir/version_locked"
 cp "$REAL_LM" "$prefix/bin/linux-maint"
 chmod +x "$prefix/bin/linux-maint"
-for support_lib in linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh linux_maint_tui.sh linux_maint_reporting.sh linux_maint_advanced.sh linux_maint_history.sh linux_maint_ops.sh; do
-  cp "$ROOT_DIR/lib/$support_lib" "$prefix/lib/$support_lib"
-done
+testlib_copy_support_libs "$ROOT_DIR" "$prefix/lib"
 
 printf '%s\n' '0.3.3' > "$prefix/share/linux_maint/VERSION"
 

@@ -3,15 +3,14 @@ set -euo pipefail
 TMPDIR="${TMPDIR:-/tmp}"
 ROOT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REAL_LM="$ROOT_DIR/bin/linux-maint"
+. "$ROOT_DIR/tests/testlib.sh"
 
 workdir="$(mktemp -d -p "$TMPDIR")"
 trap 'rm -rf "$workdir"' EXIT
 
 fake_lm="$workdir/linux-maint"
 mkdir -p "$workdir/lib"
-for support_lib in linux_maint_runtime.sh linux_maint_admin.sh linux_maint_help.sh linux_maint_tui.sh linux_maint_reporting.sh linux_maint_history.sh linux_maint_ops.sh; do
-  ln -s "$ROOT_DIR/lib/$support_lib" "$workdir/lib/$support_lib"
-done
+testlib_link_support_libs "$ROOT_DIR" "$workdir/lib" linux_maint_advanced.sh
 cp "$ROOT_DIR/lib/linux_maint_advanced.sh" "$workdir/lib/linux_maint_advanced.sh"
 cp "$REAL_LM" "$fake_lm"
 python3 - "$workdir/lib/linux_maint_advanced.sh" <<'PY'

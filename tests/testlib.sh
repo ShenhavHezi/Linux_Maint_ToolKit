@@ -45,6 +45,65 @@ testlib_release_libs() {
   find "$TESTLIB_ROOT_DIR/lib" -maxdepth 1 -type f -name 'linux_maint*.sh' -printf '%f\n' | LC_ALL=C sort
 }
 
+testlib_release_libs_except() {
+  local base
+  local skip
+  while IFS= read -r base; do
+    skip=0
+    for skip_base in "$@"; do
+      if [[ "$base" == "$skip_base" ]]; then
+        skip=1
+        break
+      fi
+    done
+    [[ "$skip" -eq 0 ]] && printf '%s\n' "$base"
+  done < <(testlib_release_libs)
+}
+
+testlib_support_libs() {
+  testlib_release_libs_except linux_maint.sh linux_maint_conf.sh "$@"
+}
+
+testlib_copy_release_libs() {
+  local root_dir="$1"
+  local dest="$2"
+  shift 2
+  mkdir -p "$dest"
+  while IFS= read -r base; do
+    cp "$root_dir/lib/$base" "$dest/$base"
+  done < <(testlib_release_libs_except "$@")
+}
+
+testlib_copy_support_libs() {
+  local root_dir="$1"
+  local dest="$2"
+  shift 2
+  mkdir -p "$dest"
+  while IFS= read -r base; do
+    cp "$root_dir/lib/$base" "$dest/$base"
+  done < <(testlib_support_libs "$@")
+}
+
+testlib_link_release_libs() {
+  local root_dir="$1"
+  local dest="$2"
+  shift 2
+  mkdir -p "$dest"
+  while IFS= read -r base; do
+    ln -s "$root_dir/lib/$base" "$dest/$base"
+  done < <(testlib_release_libs_except "$@")
+}
+
+testlib_link_support_libs() {
+  local root_dir="$1"
+  local dest="$2"
+  shift 2
+  mkdir -p "$dest"
+  while IFS= read -r base; do
+    ln -s "$root_dir/lib/$base" "$dest/$base"
+  done < <(testlib_support_libs "$@")
+}
+
 testlib_write_release_lib_stubs() {
   local dest="$1"
   mkdir -p "$dest"
