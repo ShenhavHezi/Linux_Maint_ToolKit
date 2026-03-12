@@ -8,6 +8,7 @@ This directory contains **example** configuration files. When installed, templat
 
 - `servers.txt` — target hosts for SSH/distributed mode
 - `services.txt` — services to verify (service monitor)
+- `inventory_meta.csv` — optional host tags/role/env metadata for `linux-maint run --tag/--role/--env`
 - `network_targets.txt` — optional reachability targets
 - `linux-maint.conf` — wrapper/CLI configuration (optional; enables/overrides defaults)
 - `monitor_timeouts.conf` — optional per-monitor timeout overrides

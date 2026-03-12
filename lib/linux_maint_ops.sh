@@ -196,10 +196,13 @@ PY
 linux_maint_cmd_baseline() {
   local target="${1:-}" script scripts_dir
   shift || true
-  local BASELINE_UPDATE=0 BASELINE_LOCAL=0 BASELINE_DIFF=0 BASELINE_SHOW=0
+  local BASELINE_UPDATE=0 BASELINE_LOCAL=0 BASELINE_DIFF=0 BASELINE_SHOW=0 BASELINE_JSON=0
+  local BASELINE_STALE_DAYS="${LM_BASELINE_STALE_DAYS:-30}"
   local BASELINE_PROGRESS_SET=0 BASELINE_PROGRESS=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --json) BASELINE_JSON=1; shift 1;;
+      --stale-days) BASELINE_STALE_DAYS="$2"; shift 2;;
       --update) BASELINE_UPDATE=1; shift 1;;
       --local-only) BASELINE_LOCAL=1; shift 1;;
       --diff) BASELINE_DIFF=1; shift 1;;
@@ -218,8 +221,162 @@ linux_maint_cmd_baseline() {
     exit 2
   fi
 
+  if [[ "$target" == "status" ]]; then
+    if [[ "$BASELINE_UPDATE" -eq 1 || "$BASELINE_LOCAL" -eq 1 || "$BASELINE_DIFF" -eq 1 || "$BASELINE_SHOW" -eq 1 || "$BASELINE_PROGRESS_SET" -eq 1 ]]; then
+      echo "ERROR: baseline status only supports --json and --stale-days" >&2
+      exit 2
+    fi
+    if [[ ! "$BASELINE_STALE_DAYS" =~ ^[0-9]+$ ]] || [[ "$BASELINE_STALE_DAYS" -lt 1 ]]; then
+      echo "ERROR: --stale-days must be an integer >= 1" >&2
+      exit 2
+    fi
+    BASELINE_STATUS_JSON="$BASELINE_JSON" \
+    BASELINE_STATUS_STALE_DAYS="$BASELINE_STALE_DAYS" \
+    BASELINE_STATUS_CFG_DIR="$(linux_maint_effective_cfg_dir)" \
+    BASELINE_STATUS_SUMMARY_FILE="$(linux_maint_effective_summary_latest)" \
+    python3 - <<'PY'
+import json
+import os
+import pathlib
+import time
+
+cfg_dir = pathlib.Path(os.environ["BASELINE_STATUS_CFG_DIR"])
+summary_path = pathlib.Path(os.environ["BASELINE_STATUS_SUMMARY_FILE"])
+stale_days = int(os.environ["BASELINE_STATUS_STALE_DAYS"])
+want_json = os.environ.get("BASELINE_STATUS_JSON", "0") == "1"
+now = int(time.time())
+stale_secs = stale_days * 86400
+
+entries = [
+    {"kind": "ports", "path": cfg_dir / "baselines" / "ports", "support_file": None, "monitor": "ports_baseline_monitor"},
+    {"kind": "configs", "path": cfg_dir / "baselines" / "configs", "support_file": cfg_dir / "config_paths.txt", "monitor": "config_drift_monitor"},
+    {"kind": "users", "path": cfg_dir / "baselines" / "users", "support_file": None, "monitor": "user_monitor"},
+    {"kind": "sudoers", "path": cfg_dir / "baselines" / "sudoers", "support_file": None, "monitor": "user_monitor"},
+]
+
+severity_rank = {"CRIT": 4, "WARN": 3, "UNKNOWN": 2, "SKIP": 1, "OK": 0}
+monitor_state = {}
+
+if summary_path.is_file():
+    try:
+        for raw in summary_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            line = raw.strip()
+            if not line.startswith("monitor="):
+                continue
+            fields = {}
+            for token in line.split():
+                if "=" not in token:
+                    continue
+                key, value = token.split("=", 1)
+                fields[key] = value
+            monitor = fields.get("monitor")
+            if not monitor:
+                continue
+            status = fields.get("status", "UNKNOWN")
+            reason = fields.get("reason")
+            state = monitor_state.setdefault(monitor, {"status": "OK", "reason": None, "changed_hosts": 0})
+            if severity_rank.get(status, -1) > severity_rank.get(state["status"], -1):
+                state["status"] = status
+                state["reason"] = reason
+            elif state["reason"] is None and reason:
+                state["reason"] = reason
+            if reason in {"ports_baseline_changed", "config_drift_changed", "user_anomalies"}:
+                state["changed_hosts"] += 1
+    except OSError:
+        pass
+
+rows = []
+for spec in entries:
+    path = spec["path"]
+    support = spec["support_file"]
+    file_count = 0
+    newest_mtime = None
+    if path.is_dir():
+        for child in sorted(path.iterdir()):
+            if child.is_file():
+                file_count += 1
+                child_mtime = int(child.stat().st_mtime)
+                newest_mtime = child_mtime if newest_mtime is None else max(newest_mtime, child_mtime)
+    exists = path.exists()
+    readable = os.access(path, os.R_OK) if exists else False
+    age_seconds = None if newest_mtime is None else max(0, now - newest_mtime)
+    latest = monitor_state.get(spec["monitor"], {"status": None, "reason": None, "changed_hosts": 0})
+    rows.append(
+        {
+            "kind": spec["kind"],
+            "path": str(path),
+            "exists": exists,
+            "readable": readable,
+            "file_count": file_count,
+            "latest_mtime_epoch": newest_mtime,
+            "age_seconds": age_seconds,
+            "stale": True if newest_mtime is None else age_seconds > stale_secs,
+            "support_file": str(support) if support else None,
+            "support_exists": support.exists() if support else None,
+            "latest_status": latest["status"],
+            "latest_reason": latest["reason"],
+            "changed_hosts": latest["changed_hosts"],
+        }
+    )
+
+if want_json:
+    print(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "baseline_status_json_contract_version": 1,
+                "cfg_dir": str(cfg_dir),
+                "summary_file": str(summary_path),
+                "stale_days": stale_days,
+                "items": rows,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+else:
+    print("linux-maint baseline status")
+    print(f"cfg_dir={cfg_dir}")
+    print(f"summary_file={summary_path}")
+    print(f"stale_days={stale_days}")
+    print("")
+    print(f"{'kind':<9} {'files':>5} {'age':>8} {'stale':<6} {'latest':<8} details")
+    for row in rows:
+        if row["age_seconds"] is None:
+            age_label = "-"
+        elif row["age_seconds"] >= 86400:
+            age_label = f"{row['age_seconds'] // 86400}d"
+        elif row["age_seconds"] >= 3600:
+            age_label = f"{row['age_seconds'] // 3600}h"
+        elif row["age_seconds"] >= 60:
+            age_label = f"{row['age_seconds'] // 60}m"
+        else:
+            age_label = f"{row['age_seconds']}s"
+        details = [row["path"]]
+        if row["support_file"]:
+            details.append(f"input={'ok' if row['support_exists'] else 'missing'}")
+        if row["latest_reason"]:
+            details.append(f"reason={row['latest_reason']}")
+        if row["changed_hosts"]:
+            details.append(f"changed_hosts={row['changed_hosts']}")
+        print(
+            f"{row['kind']:<9} {row['file_count']:>5} {age_label:>8} {str(row['stale']).lower():<6} "
+            f"{(row['latest_status'] or '-'): <8} {' '.join(details)}"
+        )
+PY
+    exit 0
+  fi
+
   if [[ "$BASELINE_DIFF" -eq 1 && "$BASELINE_SHOW" -eq 1 ]]; then
     echo "ERROR: use only one of --diff or --show" >&2
+    exit 2
+  fi
+  if [[ "$BASELINE_JSON" -eq 1 ]]; then
+    echo "ERROR: --json is only supported with baseline status" >&2
+    exit 2
+  fi
+  if [[ "$BASELINE_STALE_DAYS" != "${LM_BASELINE_STALE_DAYS:-30}" ]]; then
+    echo "ERROR: --stale-days is only supported with baseline status" >&2
     exit 2
   fi
   if [[ "$BASELINE_UPDATE" -eq 1 && ( "$BASELINE_DIFF" -eq 1 || "$BASELINE_SHOW" -eq 1 ) ]]; then

@@ -186,14 +186,15 @@ Poor fit:
 | Command | Why you use it |
 | --- | --- |
 | `linux-maint check` | Validate config, paths, and prerequisites before a real run |
-| `linux-maint run` | Execute the main health and maintenance collection flow |
+| `linux-maint run` | Execute the main health and maintenance collection flow, with optional `--tag`, `--role`, and `--env` inventory targeting |
 | `linux-maint status --verbose` | See the latest state quickly with reasons and counters |
 | `linux-maint report` | Produce a fuller operator-facing summary |
 | `linux-maint diff` | Compare current and previous summaries |
 | `linux-maint doctor` | Investigate setup drift and environment issues |
+| `linux-maint baseline status` | See baseline freshness, latest drift signal, and stale baseline risk before refreshing |
 | `linux-maint pack-logs` | Create a support-ready bundle with metadata and handoff notes |
 | `linux-maint verify-release <tarball>` | Validate a release artifact before install or upgrade |
-| `linux-maint upgrade <tarball>` | Perform a verified, rollback-aware tarball upgrade |
+| `linux-maint upgrade <tarball>` | Perform a verified, rollback-aware tarball upgrade or inspect it first with `--check` |
 
 ## Designed For Real Constraints
 

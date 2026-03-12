@@ -84,17 +84,23 @@ printf 'localhost\n' > "$LM_SERVERLIST"
 fail=0
 for m in "${monitors[@]}"; do
   path="$SUMMARY_CONTRACT_MONITORS_DIR/$m"
+  forced_missing_deps=""
   if [[ ! -f "$path" ]]; then
     echo "MISSING monitor file: $m" >&2
     fail=1
     continue
+  fi
+  if [[ "$m" == "patch_monitor.sh" ]]; then
+    forced_missing_deps="apt-get,dnf,yum,zypper"
   fi
 
   out="$(mktemp)"
   # run best-effort; monitor may exit nonzero due to real system state
   set +e
   if command -v timeout >/dev/null 2>&1; then
-    LM_LOGFILE="${TMPDIR}/${m%.sh}.log" timeout "${SUMMARY_CONTRACT_MONITOR_TIMEOUT_SECS}s" bash "$path" >"$out" 2>&1
+    LM_LOGFILE="${TMPDIR}/${m%.sh}.log" \
+    LM_FORCE_MISSING_DEPS="$forced_missing_deps" \
+    timeout "${SUMMARY_CONTRACT_MONITOR_TIMEOUT_SECS}s" bash "$path" >"$out" 2>&1
     rc=$?
     if [[ "$rc" -eq 124 ]]; then
       echo "TIMEOUT: $m exceeded ${SUMMARY_CONTRACT_MONITOR_TIMEOUT_SECS}s" >&2
@@ -107,7 +113,9 @@ for m in "${monitors[@]}"; do
       continue
     fi
   else
-    LM_LOGFILE="${TMPDIR}/${m%.sh}.log" bash "$path" >"$out" 2>&1
+    LM_LOGFILE="${TMPDIR}/${m%.sh}.log" \
+    LM_FORCE_MISSING_DEPS="$forced_missing_deps" \
+    bash "$path" >"$out" 2>&1
     rc=$?
   fi
 

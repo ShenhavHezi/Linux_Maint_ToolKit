@@ -1,0 +1,5 @@
+# host,tags,role,env
+web-01,web;frontend,web,prod
+web-02,web;frontend,web,prod
+db-01,db;stateful,db,prod
+lab-01,lab;canary,web,dev

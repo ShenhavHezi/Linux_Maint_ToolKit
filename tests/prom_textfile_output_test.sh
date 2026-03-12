@@ -2,6 +2,21 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+TMPDIR="${TMPDIR:-/tmp}"
+workdir="$(mktemp -d -p "$TMPDIR")"
+trap 'rm -rf "$workdir"' EXIT
+cfg_dir="$workdir/etc_linux_maint"
+monitor_dir="$workdir/monitors"
+mkdir -p "$cfg_dir" "$monitor_dir" "$workdir/logs"
+printf '%s\n' localhost > "$cfg_dir/servers.txt"
+: > "$cfg_dir/excluded.txt"
+
+cat > "$monitor_dir/prom_fixture.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "monitor=prom_fixture host=localhost status=WARN reason=fixture_warn"
+EOF
+chmod +x "$monitor_dir/prom_fixture.sh"
 
 # Default to the node_exporter textfile path, but fall back to a repo-local file
 # for unprivileged CI environments.
@@ -20,7 +35,14 @@ mkdir -p "$(dirname "$PROM_FILE")" 2>/dev/null || true
 # We only validate the Prometheus exposition format is sane.
 (
   cd "$ROOT_DIR"
-  PROM_FILE="$PROM_FILE" bash ./run_full_health_monitor.sh >/dev/null 2>&1 || true
+  LM_CFG_DIR="$cfg_dir" \
+  LOG_DIR="$workdir/logs" \
+  SUMMARY_DIR="$workdir/logs" \
+  SCRIPTS_DIR="$monitor_dir" \
+  LM_MONITORS="prom_fixture.sh" \
+  LM_LOCAL_ONLY=true \
+  PROM_FILE="$PROM_FILE" \
+  bash ./run_full_health_monitor.sh >/dev/null 2>&1 || true
 )
 
 if [ ! -s "$PROM_FILE" ]; then
@@ -90,10 +112,18 @@ print('prom textfile ok')
 PY
 
 # OpenMetrics format check (optional)
-OM_FILE="$ROOT_DIR/.logs/linux_maint_openmetrics.prom"
+OM_FILE="$workdir/linux_maint_openmetrics.prom"
 (
   cd "$ROOT_DIR"
-  PROM_FILE="$OM_FILE" LM_PROM_FORMAT="openmetrics" bash ./run_full_health_monitor.sh >/dev/null 2>&1 || true
+  LM_CFG_DIR="$cfg_dir" \
+  LOG_DIR="$workdir/logs" \
+  SUMMARY_DIR="$workdir/logs" \
+  SCRIPTS_DIR="$monitor_dir" \
+  LM_MONITORS="prom_fixture.sh" \
+  LM_LOCAL_ONLY=true \
+  PROM_FILE="$OM_FILE" \
+  LM_PROM_FORMAT="openmetrics" \
+  bash ./run_full_health_monitor.sh >/dev/null 2>&1 || true
 )
 if [ -s "$OM_FILE" ]; then
   tail -n 1 "$OM_FILE" | grep -q '^# EOF$'

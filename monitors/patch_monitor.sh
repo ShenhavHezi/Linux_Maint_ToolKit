@@ -36,10 +36,10 @@ mail_if_enabled(){ [ "$EMAIL_ON_ACTION" = "true" ] || return 0; lm_mail "$1" "$2
 
 remote_pkg_mgr() {
   local host="$1"
-  if lm_ssh "$host" "command -v apt-get >/dev/null"; then echo "apt"; return; fi
-  if lm_ssh "$host" "command -v dnf >/dev/null";     then echo "dnf"; return; fi
-  if lm_ssh "$host" "command -v yum >/dev/null";     then echo "yum"; return; fi
-  if lm_ssh "$host" "command -v zypper >/dev/null";  then echo "zypper"; return; fi
+  if lm_has_cmd_remote "$host" "apt-get"; then echo "apt"; return; fi
+  if lm_has_cmd_remote "$host" "dnf";     then echo "dnf"; return; fi
+  if lm_has_cmd_remote "$host" "yum";     then echo "yum"; return; fi
+  if lm_has_cmd_remote "$host" "zypper";  then echo "zypper"; return; fi
   echo "unknown"
 }
 

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint upgrade --check --json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "upgrade_check_json_contract_version",
+    "tarball",
+    "current_version",
+    "target_version",
+    "relation",
+    "release_notes",
+    "release_notes_rel",
+    "upgrade_guide",
+    "highlights",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "upgrade_check_json_contract_version": { "type": "integer", "minimum": 1 },
+    "tarball": { "type": "string" },
+    "current_version": { "type": ["string", "null"] },
+    "target_version": { "type": ["string", "null"] },
+    "relation": {
+      "type": "string",
+      "enum": ["upgrade", "downgrade", "same", "unknown"]
+    },
+    "release_notes": { "type": ["string", "null"] },
+    "release_notes_rel": { "type": ["string", "null"] },
+    "upgrade_guide": { "type": ["string", "null"] },
+    "highlights": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

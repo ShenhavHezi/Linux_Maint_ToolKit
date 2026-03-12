@@ -64,6 +64,28 @@ For fleet mode, populate:
 - `servers.txt`
 - optional `excluded.txt`
 - optional `hosts.d/`
+- optional `inventory_meta.csv` if you want run-time filters by tag, role, or environment
+
+`inventory_meta.csv` uses:
+
+- `host,tags,role,env`
+- tags separated by `;` or `|`
+
+Example:
+
+```csv
+host,tags,role,env
+web-01,web;frontend,web,prod
+db-01,db;stateful,db,prod
+lab-01,lab;canary,web,dev
+```
+
+You can then scope plans and runs with:
+
+```bash
+linux-maint run --tag web --env prod --plan --json
+linux-maint run --role db --plan --json
+```
 
 ### 2. Conservative or broad coverage
 
@@ -130,6 +152,7 @@ linux-maint check
 linux-maint run --plan
 linux-maint run
 linux-maint status --expected-skips
+linux-maint baseline status
 ```
 
 Then add optional files one by one instead of trying to configure every monitor at once.

@@ -25,12 +25,17 @@ fail=0
 for m in "$ROOT_DIR"/monitors/*.sh; do
   name="$(basename "$m" .sh)"
   out_file="${workdir}/${name}_summary_test.out"
+  forced_missing_deps=""
+  if [[ "$name" == "patch_monitor" ]]; then
+    forced_missing_deps="apt-get,dnf,yum,zypper"
+  fi
 
   # Ensure each monitor uses a writable logfile (avoid /var/log permission issues in CI)
   LM_LOGFILE="${workdir}/${name}_summary_test.log" \
   LM_LOG_DIR="${workdir}" \
   LM_STATE_DIR="$LM_STATE_DIR" \
   LM_CFG_DIR="$LM_CFG_DIR" \
+  LM_FORCE_MISSING_DEPS="$forced_missing_deps" \
   bash "$m" >"$out_file" 2>/dev/null || true
 
   summary_count="$(grep -c '^monitor=' "$out_file" || true)"

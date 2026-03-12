@@ -6,6 +6,8 @@ usage() {
 Usage: linux-maint upgrade <tarball> [flags]
 
 Flags:
+  --check                  inspect the tarball only; no install
+  --json                   with --check, emit machine-readable assessment
   --sums FILE              checksum file for verify-release
   --sig FILE               detached signature for verify-release
   --rollback-tarball FILE  known-good rollback artifact to record in the manifest
@@ -53,6 +55,138 @@ sha256_file() {
   local path="$1"
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum "$path" | awk '{print $1}'
+  fi
+}
+
+version_relation() {
+  python3 - "$1" "$2" <<'PY'
+import sys
+
+def parse(v):
+    try:
+        return tuple(int(x) for x in v.split("."))
+    except Exception:
+        return None
+
+current, target = sys.argv[1:3]
+if not current or not target:
+    print("unknown")
+    raise SystemExit(0)
+cv = parse(current)
+tv = parse(target)
+if cv is None or tv is None:
+    print("unknown")
+elif tv > cv:
+    print("upgrade")
+elif tv < cv:
+    print("downgrade")
+else:
+    print("same")
+PY
+}
+
+extract_release_notes_highlights() {
+  local notes_path="$1"
+  [[ -f "$notes_path" ]] || return 0
+  python3 - "$notes_path" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+in_highlights = False
+count = 0
+for line in lines:
+    stripped = line.strip()
+    if stripped == "## Highlights":
+        in_highlights = True
+        continue
+    if in_highlights and stripped.startswith("## "):
+        break
+    if in_highlights and stripped.startswith("- "):
+        print(stripped[2:])
+        count += 1
+        if count >= 3:
+            break
+PY
+}
+
+emit_upgrade_check() {
+  local tarball="$1" current_version="$2" target_version="$3" notes_path="$4" json_out="$5"
+  local relation upgrade_guide note_rel
+  local -a warnings=() highlights=()
+  relation="$(version_relation "$current_version" "$target_version")"
+  upgrade_guide="$EXTRACTED_TREE_PATH/docs/UPGRADE.md"
+  if [[ -f "$notes_path" ]]; then
+    mapfile -t highlights < <(extract_release_notes_highlights "$notes_path")
+  fi
+  if [[ "$relation" == "downgrade" ]]; then
+    warnings+=("target release is older than the installed version")
+  elif [[ "$relation" == "same" ]]; then
+    warnings+=("target release matches the installed version")
+  elif [[ "$relation" == "unknown" ]]; then
+    warnings+=("unable to compare installed and target versions")
+  fi
+  [[ -f "$notes_path" ]] || warnings+=("release notes for the target version were not found in the tarball")
+  [[ -f "$upgrade_guide" ]] || warnings+=("upgrade guide missing from the tarball")
+  note_rel=""
+  if [[ -f "$notes_path" ]]; then
+    note_rel="${notes_path#"$EXTRACTED_TREE_PATH"/}"
+  fi
+  if [[ "$json_out" -eq 1 ]]; then
+    CURRENT_VERSION="$current_version" \
+    TARGET_VERSION="$target_version" \
+    RELATION="$relation" \
+    TARBALL_PATH="$tarball" \
+    NOTES_PATH="$notes_path" \
+    NOTE_REL="$note_rel" \
+    UPGRADE_GUIDE="$upgrade_guide" \
+    WARNINGS_JOINED="$(printf '%s\n' "${warnings[@]}")" \
+    HIGHLIGHTS_JOINED="$(printf '%s\n' "${highlights[@]}")" \
+    python3 - <<'PY'
+import json
+import os
+
+payload = {
+    "schema_version": 1,
+    "upgrade_check_json_contract_version": 1,
+    "tarball": os.environ.get("TARBALL_PATH", ""),
+    "current_version": os.environ.get("CURRENT_VERSION") or None,
+    "target_version": os.environ.get("TARGET_VERSION") or None,
+    "relation": os.environ.get("RELATION", "unknown"),
+    "release_notes": os.environ.get("NOTES_PATH") or None,
+    "release_notes_rel": os.environ.get("NOTE_REL") or None,
+    "upgrade_guide": os.environ.get("UPGRADE_GUIDE") or None,
+    "highlights": [x for x in os.environ.get("HIGHLIGHTS_JOINED", "").splitlines() if x],
+    "warnings": [x for x in os.environ.get("WARNINGS_JOINED", "").splitlines() if x],
+}
+print(json.dumps(payload, indent=2, sort_keys=True))
+PY
+  else
+    echo "linux-maint upgrade --check"
+    echo "tarball=$tarball"
+    echo "current_version=${current_version:-unknown}"
+    echo "target_version=${target_version:-unknown}"
+    echo "relation=$relation"
+    if [[ -f "$notes_path" ]]; then
+      echo "release_notes=$notes_path"
+    fi
+    if [[ -f "$upgrade_guide" ]]; then
+      echo "upgrade_guide=$upgrade_guide"
+    fi
+    if [[ "${#highlights[@]}" -gt 0 ]]; then
+      echo ""
+      echo "Highlights:"
+      printf -- "- %s\n" "${highlights[@]}"
+    fi
+    if [[ "${#warnings[@]}" -gt 0 ]]; then
+      echo ""
+      echo "Warnings:"
+      printf -- "- %s\n" "${warnings[@]}"
+    fi
+    echo ""
+    echo "Suggested next step:"
+    echo "  sudo linux-maint upgrade $tarball${SUMS_FILE:+ --sums $SUMS_FILE}"
   fi
 }
 
@@ -220,10 +354,14 @@ WITH_TIMER=0
 WITH_LOGROTATE=0
 DRY_RUN=0
 KEEP_WORKDIR=0
+CHECK_ONLY=0
+JSON_OUT=0
 VERIFY_TOOL="${LINUX_MAINT_UPGRADE_VERIFY_TOOL:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/verify_release.sh}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --check) CHECK_ONLY=1; shift ;;
+    --json) JSON_OUT=1; shift ;;
     --sums) SUMS_FILE="$2"; shift 2 ;;
     --sig) SIG_FILE="$2"; shift 2 ;;
     --rollback-tarball) ROLLBACK_TARBALL="$2"; shift 2 ;;
@@ -248,13 +386,25 @@ if [[ -n "$ROLLBACK_TARBALL" && ! -f "$ROLLBACK_TARBALL" ]]; then
   exit 1
 fi
 
-need_root
+if [[ "$JSON_OUT" -eq 1 && "$CHECK_ONLY" -ne 1 ]]; then
+  echo "ERROR: --json is only supported with --check" >&2
+  exit 2
+fi
+if [[ "$CHECK_ONLY" -eq 1 && "$DRY_RUN" -eq 1 ]]; then
+  echo "ERROR: use either --check or --dry-run, not both" >&2
+  exit 2
+fi
 
-mkdir -p "$STATE_DIR/upgrades"
-run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
-MANIFEST_DIR="$STATE_DIR/upgrades/$run_id"
-mkdir -p "$MANIFEST_DIR"
-ln -sfn "$MANIFEST_DIR" "$STATE_DIR/upgrades/latest" 2>/dev/null || true
+if [[ "$CHECK_ONLY" -ne 1 ]]; then
+  need_root
+  mkdir -p "$STATE_DIR/upgrades"
+  run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  MANIFEST_DIR="$STATE_DIR/upgrades/$run_id"
+  mkdir -p "$MANIFEST_DIR"
+  ln -sfn "$MANIFEST_DIR" "$STATE_DIR/upgrades/latest" 2>/dev/null || true
+else
+  MANIFEST_DIR=""
+fi
 
 MANIFEST_FILE="$MANIFEST_DIR/upgrade_manifest.json"
 CONFIG_SNAPSHOT="$MANIFEST_DIR/config_snapshot.tgz"
@@ -306,6 +456,12 @@ cleanup_upgrade() {
   local rc=$?
   UPGRADE_RC_VALUE="$rc"
   FINISHED_AT="$(iso_now)"
+  if [[ "$CHECK_ONLY" -eq 1 ]]; then
+    if [[ -n "$WORKDIR_PATH" && -d "$WORKDIR_PATH" && "$KEEP_WORKDIR" -eq 0 ]]; then
+      rm -rf "$WORKDIR_PATH" 2>/dev/null || true
+    fi
+    exit "$rc"
+  fi
   if [[ "$rc" -ne 0 && "$MANIFEST_STATUS" == "starting" ]]; then
     MANIFEST_STATUS="failed"
   fi
@@ -317,13 +473,15 @@ cleanup_upgrade() {
 }
 trap cleanup_upgrade EXIT
 
-snapshot_config_dir "$CFG_DIR" "$CONFIG_SNAPSHOT"
-if [[ ! -f "$CONFIG_SNAPSHOT" && -f "$CONFIG_SNAPSHOT.absent" ]]; then
-  CONFIG_SNAPSHOT_PATH="$CONFIG_SNAPSHOT.absent"
+if [[ "$CHECK_ONLY" -ne 1 ]]; then
+  snapshot_config_dir "$CFG_DIR" "$CONFIG_SNAPSHOT"
+  if [[ ! -f "$CONFIG_SNAPSHOT" && -f "$CONFIG_SNAPSHOT.absent" ]]; then
+    CONFIG_SNAPSHOT_PATH="$CONFIG_SNAPSHOT.absent"
+  fi
+  write_payload_inventory "$PREFIX" "$PAYLOAD_INVENTORY"
+  write_rollback_instructions "$ROLLBACK_INSTRUCTIONS" "$ROLLBACK_TARBALL" "$PREFIX"
+  write_manifest
 fi
-write_payload_inventory "$PREFIX" "$PAYLOAD_INVENTORY"
-write_rollback_instructions "$ROLLBACK_INSTRUCTIONS" "$ROLLBACK_TARBALL" "$PREFIX"
-write_manifest
 
 verify_args=("$TARBALL")
 if [[ -n "$SUMS_FILE" ]]; then
@@ -350,6 +508,11 @@ tar -xzf "$TARBALL" -C "$EXTRACTED_TREE_PATH"
 
 TARGET_VERSION_VALUE="$(head -n 1 "$EXTRACTED_TREE_PATH/VERSION" 2>/dev/null | tr -d '[:space:]' || true)"
 TARGET_COMMIT_VALUE="$(read_build_kv "$EXTRACTED_TREE_PATH/BUILD_INFO" commit)"
+NOTES_PATH="$EXTRACTED_TREE_PATH/docs/release_notes/release_notes_v${TARGET_VERSION_VALUE}.md"
+if [[ "$CHECK_ONLY" -eq 1 ]]; then
+  emit_upgrade_check "$TARBALL_PATH" "$CURRENT_VERSION_VALUE" "$TARGET_VERSION_VALUE" "$NOTES_PATH" "$JSON_OUT"
+  exit 0
+fi
 MANIFEST_STATUS="verified"
 write_manifest
 

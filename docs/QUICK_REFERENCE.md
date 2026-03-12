@@ -123,8 +123,18 @@ linux-maint init --minimal
 linux-maint init --force
 
 # Upgrade from a verified release tarball (installed mode)
-sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.5-<sha>.tgz --sums ./SHA256SUMS
-sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.5-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate
+linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --check --sums ./SHA256SUMS
+linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --check --json --sums ./SHA256SUMS
+sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --sums ./SHA256SUMS
+sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate
+
+# Inventory-aware run planning
+linux-maint run --tag web --env prod --plan --json
+linux-maint run --role db --plan --json
+
+# Baseline lifecycle and drift freshness
+linux-maint baseline status
+linux-maint baseline status --json --stale-days 30
 
 # Run history (fast; uses run_index.jsonl)
 linux-maint history --last 10
@@ -223,6 +233,8 @@ linux-maint predict --last 30 --json
 docs/schemas/report.json
 docs/schemas/history.json
 docs/schemas/run_index.json
+docs/schemas/baseline_status.json
+docs/schemas/upgrade_check.json
 
 # Filter by host/monitor/status
 linux-maint status --host web --monitor service --only WARN

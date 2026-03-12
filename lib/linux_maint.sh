@@ -26,6 +26,7 @@ fi
 : "${LM_EXCLUDED:=${LM_CFG_DIR}/excluded.txt}"
 : "${LM_SERVERLIST:=${LM_CFG_DIR}/servers.txt}"
 : "${LM_HOSTS_DIR:=${LM_CFG_DIR}/hosts.d}"   # optional host groups directory
+: "${LM_INVENTORY_META:=${LM_CFG_DIR}/inventory_meta.csv}"
 : "${LM_GROUP:=}"                          # optional group name (maps to $LM_HOSTS_DIR/<group>.txt)
 : "${LM_LOCKDIR:=/var/lock}"
 if [[ -z "${LM_STATE_DIR:-}" ]]; then
@@ -589,8 +590,25 @@ lm_hosts() {
     return 0
   fi
 
-  awk -v excluded="${LM_EXCLUDED:-}" -v drained="${LM_DRAIN_FILE:-}" -v drain_en="${LM_DRAIN_MODE:-0}" '
+  awk -v excluded="${LM_EXCLUDED:-}" \
+      -v drained="${LM_DRAIN_FILE:-}" \
+      -v drain_en="${LM_DRAIN_MODE:-0}" \
+      -v meta="${LM_INVENTORY_META:-}" \
+      -v tag_filter="${LM_FILTER_TAGS:-}" \
+      -v role_filter="${LM_FILTER_ROLE:-}" \
+      -v env_filter="${LM_FILTER_ENV:-}" '
     function trim(s){gsub(/^[ \t]+|[ \t]+$/, "", s); return s}
+    function normalize_csv_field(s){gsub(/^[ \t]+|[ \t]+$/, "", s); return tolower(s)}
+    function csv_has_any(list, filter,  n, i, part, haystack){
+      if(filter=="") return 1
+      haystack=";" tolower(list) ";"
+      n=split(filter, part, /[|,;[:space:]]+/)
+      for(i=1;i<=n;i++){
+        if(part[i]=="") continue
+        if(index(haystack, ";" tolower(part[i]) ";")>0) return 1
+      }
+      return 0
+    }
     function load_excluded(path,  line){
       if(path=="" || system("test -f " path " >/dev/null 2>&1")!=0) return
       while((getline line < path) > 0){
@@ -600,9 +618,46 @@ lm_hosts() {
       }
       close(path)
     }
+    function load_meta(path,  line, n, fields, host, tags, role, envv){
+      if(path=="" || system("test -f " path " >/dev/null 2>&1")!=0) return
+      while((getline line < path) > 0){
+        sub(/#.*/, "", line)
+        line=trim(line)
+        if(line=="") continue
+        n=split(line, fields, ",")
+        host=trim(fields[1]); tags=normalize_csv_field(fields[2]); role=normalize_csv_field(fields[3]); envv=normalize_csv_field(fields[4])
+        if(host=="" || host=="host") continue
+        gsub(/[|[:space:]]+/, ";", tags)
+        gsub(/;+/, ";", tags)
+        sub(/^;/, "", tags); sub(/;$/, "", tags)
+        meta_tags[host]=tags
+        meta_role[host]=role
+        meta_env[host]=envv
+      }
+      close(path)
+    }
+    function host_allowed(host,  role_ok, env_ok){
+      if(role_filter_l!=""){
+        role_ok=(host in meta_role && meta_role[host]==role_filter_l)
+        if(!role_ok) return 0
+      }
+      if(env_filter_l!=""){
+        env_ok=(host in meta_env && meta_env[host]==env_filter_l)
+        if(!env_ok) return 0
+      }
+      if(tag_filter_l!=""){
+        if(!(host in meta_tags)) return 0
+        if(!csv_has_any(meta_tags[host], tag_filter_l)) return 0
+      }
+      return 1
+    }
     BEGIN {
+      role_filter_l=tolower(role_filter)
+      env_filter_l=tolower(env_filter)
+      tag_filter_l=tolower(tag_filter)
       load_excluded(excluded)
       if(drain_en=="1" || drain_en=="true") load_excluded(drained)
+      if(role_filter_l!="" || env_filter_l!="" || tag_filter_l!="") load_meta(meta)
     }
     {
       line=$0
@@ -613,6 +668,7 @@ lm_hosts() {
         h=a[i]
         if(h=="") continue
         if(h in ex) continue
+        if(!host_allowed(h)) continue
         if(!(h in seen)){ print h; seen[h]=1 }
       }
     }

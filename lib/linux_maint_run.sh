@@ -13,11 +13,20 @@ parse_run_args(){
   RUN_RESUME=""
   RUN_RESPECT_MAINT=0
   RUN_DRAIN_FILE=""
+  RUN_TAGS=""
+  RUN_ROLE=""
+  RUN_ENV=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --group)
         LM_GROUP="$2"; export LM_GROUP; shift 2;;
+      --tag)
+        RUN_TAGS="${RUN_TAGS:+$RUN_TAGS,}$2"; shift 2;;
+      --role)
+        RUN_ROLE="$2"; shift 2;;
+      --env)
+        RUN_ENV="$2"; shift 2;;
       --hosts)
         tmpf="$(make_list_tmpfile "$2" hosts)"; LM_SERVERLIST="$tmpf"; export LM_SERVERLIST; shift 2;;
       --exclude)
@@ -336,6 +345,16 @@ run_apply_mode_defaults(){
     export LM_EXCLUDED="${LM_EXCLUDED:-$repo_cfg_dir/excluded.txt}"
     export LM_HOSTS_DIR="${LM_HOSTS_DIR:-$repo_cfg_dir/hosts.d}"
   fi
+  export LM_INVENTORY_META="${LM_INVENTORY_META:-$(linux_maint_effective_inventory_meta_file)}"
+  if [[ -n "${RUN_TAGS:-}" ]]; then
+    export LM_FILTER_TAGS="$RUN_TAGS"
+  fi
+  if [[ -n "${RUN_ROLE:-}" ]]; then
+    export LM_FILTER_ROLE="$RUN_ROLE"
+  fi
+  if [[ -n "${RUN_ENV:-}" ]]; then
+    export LM_FILTER_ENV="$RUN_ENV"
+  fi
 }
 
 run_validate_execution_args(){
@@ -345,6 +364,18 @@ run_validate_execution_args(){
   fi
   if [[ -n "${LM_SSH_TIMEOUT:-}" ]] && [[ ! "${LM_SSH_TIMEOUT}" =~ ^[0-9]+$ ]]; then
     echo "ERROR: --host-timeout must be a non-negative integer" >&2
+    exit 2
+  fi
+  if [[ -n "${RUN_TAGS:-}" && ! "${RUN_TAGS}" =~ [A-Za-z0-9._-] ]]; then
+    echo "ERROR: --tag requires at least one non-empty tag token" >&2
+    exit 2
+  fi
+  if [[ -n "${RUN_ROLE:-}" && ! "${RUN_ROLE}" =~ [A-Za-z0-9._-] ]]; then
+    echo "ERROR: --role requires a non-empty value" >&2
+    exit 2
+  fi
+  if [[ -n "${RUN_ENV:-}" && ! "${RUN_ENV}" =~ [A-Za-z0-9._-] ]]; then
+    echo "ERROR: --env requires a non-empty value" >&2
     exit 2
   fi
   case "${LM_EXEC_STRATEGY:-fail-soft}" in
@@ -434,6 +465,10 @@ run_debug_dump(){
   echo "LM_SERVERLIST=${LM_SERVERLIST:-}"
   echo "LM_EXCLUDED=${LM_EXCLUDED:-}"
   echo "LM_MAX_PARALLEL=${LM_MAX_PARALLEL:-}"
+  echo "LM_INVENTORY_META=${LM_INVENTORY_META:-}"
+  echo "RUN_TAGS=${RUN_TAGS:-}"
+  echo "RUN_ROLE=${RUN_ROLE:-}"
+  echo "RUN_ENV=${RUN_ENV:-}"
   echo "LM_LOCAL_ONLY=${LM_LOCAL_ONLY:-}"
   echo "LM_MONITORS=${LM_MONITORS:-}"
   echo "LM_SSH_OPTS=${LM_SSH_OPTS:-}"
@@ -482,6 +517,21 @@ emit_run_plan(){
     else
       printf '"group":null,'
     fi
+    if [[ -n "${RUN_TAGS:-}" ]]; then
+      printf '"tag_filter":"%s",' "$(json_escape "$RUN_TAGS")"
+    else
+      printf '"tag_filter":null,'
+    fi
+    if [[ -n "${RUN_ROLE:-}" ]]; then
+      printf '"role_filter":"%s",' "$(json_escape "$RUN_ROLE")"
+    else
+      printf '"role_filter":null,'
+    fi
+    if [[ -n "${RUN_ENV:-}" ]]; then
+      printf '"env_filter":"%s",' "$(json_escape "$RUN_ENV")"
+    else
+      printf '"env_filter":null,'
+    fi
     printf '"limit":%s,' "${LIMIT:-0}"
     printf '"shuffle":%s,' "$([[ "${SHUFFLE:-0}" -eq 1 ]] && echo true || echo false)"
     printf '"hosts":['
@@ -507,6 +557,9 @@ emit_run_plan(){
     section "run plan"
     echo "mode=${MODE} local_only=${LM_LOCAL_ONLY:-false} parallel=${LM_MAX_PARALLEL:-0}"
     [[ -n "${LM_GROUP:-}" ]] && echo "group=${LM_GROUP}"
+    [[ -n "${RUN_TAGS:-}" ]] && echo "tag_filter=${RUN_TAGS}"
+    [[ -n "${RUN_ROLE:-}" ]] && echo "role_filter=${RUN_ROLE}"
+    [[ -n "${RUN_ENV:-}" ]] && echo "env_filter=${RUN_ENV}"
     echo ""
   fi
   echo "Resolved hosts (${#_hosts[@]}):"

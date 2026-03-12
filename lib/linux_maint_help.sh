@@ -123,8 +123,8 @@ command_usage(){
         "linux-maint run [flags]" \
         "Execute checks across the resolved scope, or preview the exact plan without running it." \
         "  - full fleet or group runs\n  - focused monitor reruns\n  - safe plan previews before execution\n  - resume an interrupted run from history" \
-        "  --group G              use <cfg_dir>/hosts.d/G.txt\n  --hosts a,b            ad-hoc host list\n  --exclude a,b          exclude hosts\n  --parallel N           max parallel SSH\n  --local-only           run checks locally only\n  --ssh-opts \"...\"       override SSH options\n  --retry N              SSH retries per host (maps to LM_SSH_RETRY)\n  --host-timeout N       SSH timeout seconds (maps to LM_SSH_TIMEOUT)\n  --only a,b             run only selected monitors (names with/without _monitor)\n  --skip a,b             skip selected monitors\n  --strategy S           execution strategy: fail-soft|fail-fast|quorum\n  --quorum-percent N     quorum success percent for --strategy quorum\n  --respect-maintenance  skip execution outside configured maintenance window\n  --drain-file PATH      hosts drain file to exclude from runs\n  --plan                 show resolved hosts/monitors without executing\n  --json                 with --plan, emit JSON\n  --dry-run              alias for --plan\n  --strict               fail if any monitor emits malformed summary lines\n  --resume RUN_ID        resume an interrupted run_id (or use 'latest')\n                         requires a matching valid run_state_<run_id>.log\n  --allow-concurrent     allow overlapping runs (skip lock)\n  --lock-timeout N       wait up to N seconds for run lock (default: 60)\n  --progress|--no-progress  progress bar control\n  Optional privilege policy file:\n    ${LM_MONITOR_PRIV_POLICY_FILE:-<cfg_dir>/monitor_privilege_policy.conf}\n    lines: monitor=requires_root|allow_sudo|no_sudo" \
-        "  linux-maint run --group prod --parallel 10 --progress\n  linux-maint run --only service_monitor,ntp_drift_monitor\n  linux-maint run --skip inventory_export,backup_check\n  linux-maint run --strategy quorum --quorum-percent 80\n  linux-maint run --retry 2 --host-timeout 10\n  linux-maint run --resume latest\n  linux-maint run --lock-timeout 120\n  NO_COLOR=1 linux-maint run --local-only --plan\n  NO_COLOR=1 linux-maint run --local-only --plan --json" \
+        "  --group G              use <cfg_dir>/hosts.d/G.txt\n  --hosts a,b            ad-hoc host list\n  --exclude a,b          exclude hosts\n  --tag TAG[,TAG]        filter hosts by inventory_meta.csv tags\n  --role ROLE            filter hosts by inventory_meta.csv role\n  --env ENV              filter hosts by inventory_meta.csv environment\n  --parallel N           max parallel SSH\n  --local-only           run checks locally only\n  --ssh-opts \"...\"       override SSH options\n  --retry N              SSH retries per host (maps to LM_SSH_RETRY)\n  --host-timeout N       SSH timeout seconds (maps to LM_SSH_TIMEOUT)\n  --only a,b             run only selected monitors (names with/without _monitor)\n  --skip a,b             skip selected monitors\n  --strategy S           execution strategy: fail-soft|fail-fast|quorum\n  --quorum-percent N     quorum success percent for --strategy quorum\n  --respect-maintenance  skip execution outside configured maintenance window\n  --drain-file PATH      hosts drain file to exclude from runs\n  --plan                 show resolved hosts/monitors without executing\n  --json                 with --plan, emit JSON\n  --dry-run              alias for --plan\n  --strict               fail if any monitor emits malformed summary lines\n  --resume RUN_ID        resume an interrupted run_id (or use 'latest')\n                         requires a matching valid run_state_<run_id>.log\n  --allow-concurrent     allow overlapping runs (skip lock)\n  --lock-timeout N       wait up to N seconds for run lock (default: 60)\n  --progress|--no-progress  progress bar control\n  Inventory metadata file:\n    ${LM_INVENTORY_META:-<cfg_dir>/inventory_meta.csv}\n    columns: host,tags,role,env    tags may use ; or | separators\n  Optional privilege policy file:\n    ${LM_MONITOR_PRIV_POLICY_FILE:-<cfg_dir>/monitor_privilege_policy.conf}\n    lines: monitor=requires_root|allow_sudo|no_sudo" \
+        "  linux-maint run --group prod --parallel 10 --progress\n  linux-maint run --tag web --env prod --plan --json\n  linux-maint run --role db --only service_monitor,ntp_drift_monitor\n  linux-maint run --skip inventory_export,backup_check\n  linux-maint run --strategy quorum --quorum-percent 80\n  linux-maint run --retry 2 --host-timeout 10\n  linux-maint run --resume latest\n  linux-maint run --lock-timeout 120\n  NO_COLOR=1 linux-maint run --local-only --plan\n  NO_COLOR=1 linux-maint run --local-only --plan --json" \
         "  - rc=0 when execution or plan completes without non-OK wrapper failure\n  - rc reflects the wrapper result for real runs\n  - rc=2 for flag or plan contract errors" \
         "  - repo mode reads repo-local defaults unless overridden\n  - installed mode typically targets /etc/linux_maint and system-owned paths"
       ;;
@@ -376,8 +376,11 @@ EOF
       echo "Usage: linux-maint tune dark-site";;
     baseline)
       cat <<'EOF'
-Usage: linux-maint baseline <ports|configs|users|sudoers> [flags]
+Usage: linux-maint baseline <status|ports|configs|users|sudoers> [flags]
 
+  status        show baseline freshness and latest drift state
+  --json        with status, emit machine-readable output
+  --stale-days N  mark baselines stale after N days (default 30)
   --update      write baseline
   --diff        show changes vs baseline
   --show        print baseline contents
@@ -385,6 +388,7 @@ Usage: linux-maint baseline <ports|configs|users|sudoers> [flags]
   --progress|--no-progress
 
 Notes:
+  - status is read-only in repo mode and installed mode.
   - In installed mode, --show and --diff are read-only.
   - Capture/update paths still require write access to the active config root.
 EOF
@@ -423,10 +427,10 @@ EOF
       run_help_block \
         "linux-maint upgrade <tarball> [flags]" \
         "Upgrade an installed node from a verified release tarball and record rollback metadata." \
-        "  - perform a tarball-based upgrade from an installed node\n  - snapshot config and installed payload inventory before changing files\n  - leave a manifest with rollback guidance under the active state dir" \
-        "  --sums FILE              checksum file for verify-release\n  --sig FILE               detached signature for verify-release\n  --rollback-tarball FILE  known-good rollback artifact to record\n  --with-user              pass through to install.sh\n  --with-timer             pass through to install.sh\n  --with-logrotate         pass through to install.sh\n  --dry-run                verify and snapshot only\n  --keep-workdir           keep the extracted workdir for inspection" \
-        "  sudo linux-maint upgrade dist/Linux_Maint_ToolKit-v0.3.4-<sha>.tgz --sums dist/SHA256SUMS\n  sudo linux-maint upgrade /tmp/Linux_Maint_ToolKit-v0.3.4-<sha>.tgz --sums /tmp/SHA256SUMS --rollback-tarball /srv/releases/Linux_Maint_ToolKit-v0.3.3-<sha>.tgz\n  sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.4-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate" \
-        "  - non-zero if verify-release, install.sh, or post-upgrade verify-install fails\n  - installed mode only; repo checkouts should run install.sh directly from the extracted tree" ;;
+        "  - inspect a release before touching the node\n  - snapshot config and installed payload inventory before changing files\n  - leave a manifest with rollback guidance under the active state dir" \
+        "  --check                  inspect the tarball only; no install, no root required\n  --json                   with --check, emit machine-readable assessment\n  --sums FILE              checksum file for verify-release\n  --sig FILE               detached signature for verify-release\n  --rollback-tarball FILE  known-good rollback artifact to record\n  --with-user              pass through to install.sh\n  --with-timer             pass through to install.sh\n  --with-logrotate         pass through to install.sh\n  --dry-run                verify and snapshot only\n  --keep-workdir           keep the extracted workdir for inspection" \
+        "  linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --check --sums ./SHA256SUMS\n  linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --check --json --sums ./SHA256SUMS\n  sudo linux-maint upgrade /tmp/Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --sums /tmp/SHA256SUMS --rollback-tarball /srv/releases/Linux_Maint_ToolKit-v0.3.5-<sha>.tgz\n  sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate" \
+        "  - --check highlights current vs target version, release notes, and operator warnings\n  - non-zero if verify-release, install.sh, or post-upgrade verify-install fails\n  - installed mode only; repo checkouts should run install.sh directly from the extracted tree" ;;
     install)
       echo "Usage: linux-maint install [args]";;
     uninstall)

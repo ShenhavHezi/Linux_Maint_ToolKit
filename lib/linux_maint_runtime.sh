@@ -72,6 +72,10 @@ linux_maint_effective_cfg_dir() {
   linux_maint_env_or_mode_default LM_CFG_DIR "$REPO_ROOT/.etc_linux_maint" "/etc/linux_maint"
 }
 
+linux_maint_effective_inventory_meta_file() {
+  printf '%s/inventory_meta.csv' "$(linux_maint_effective_cfg_dir)"
+}
+
 linux_maint_effective_log_dir() {
   linux_maint_env_or_mode_default LOG_DIR "$REPO_LOG_DIR" "/var/log/health"
 }

@@ -10,7 +10,8 @@ out="$(
   LM_CFG_DIR="$cfg_dir" \
   bash -c '
     . "$1/lib/linux_maint.sh"
-    printf "%s\n%s\n%s\n%s\n%s\n%s\n" \
+    printf "%s\n%s\n%s\n%s\n%s\n%s\n%s\n" \
+      "$LM_INVENTORY_META" \
       "$LM_EMAILS" \
       "$LM_EXCLUDED" \
       "$LM_SERVERLIST" \
@@ -20,7 +21,8 @@ out="$(
   ' _ "$ROOT_DIR"
 )"
 
-expected="$cfg_dir/emails.txt
+expected="$cfg_dir/inventory_meta.csv
+$cfg_dir/emails.txt
 $cfg_dir/excluded.txt
 $cfg_dir/servers.txt
 $cfg_dir/hosts.d

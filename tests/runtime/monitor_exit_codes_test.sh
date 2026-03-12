@@ -16,9 +16,15 @@ fail=0
 
 for m in "$ROOT_DIR"/monitors/*.sh; do
   name="$(basename "$m")"
+  forced_missing_deps=""
+  if [[ "$name" == "patch_monitor.sh" ]]; then
+    forced_missing_deps="apt-get,dnf,yum,zypper"
+  fi
   # Each monitor should be runnable in isolation with safe env.
   # If it cannot determine status due to perms/deps, it should return 3.
-  LM_LOGFILE="${TMPDIR}/${name%.sh}.log" bash "$m" >/dev/null 2>&1 || rc=$?
+  LM_LOGFILE="${TMPDIR}/${name%.sh}.log" \
+  LM_FORCE_MISSING_DEPS="$forced_missing_deps" \
+  bash "$m" >/dev/null 2>&1 || rc=$?
   rc=${rc:-0}
 
   if ! [[ "$rc" =~ $allowed_re ]]; then

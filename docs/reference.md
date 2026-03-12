@@ -503,6 +503,9 @@ Prerequisites (any one):
 
 - `linux-maint run` *(root required)*: run the full wrapper (`run_full_health_monitor.sh`).
   - `--progress|--no-progress`: enable/disable the run progress bar (overrides `LM_PROGRESS`).
+  - `--tag TAG[,TAG]`: filter resolved hosts using `<cfg_dir>/inventory_meta.csv` tags.
+  - `--role ROLE`: filter resolved hosts using `<cfg_dir>/inventory_meta.csv` role.
+  - `--env ENV`: filter resolved hosts using `<cfg_dir>/inventory_meta.csv` environment.
   - `--only a,b`: run only selected monitors (names with or without `_monitor`).
   - `--skip a,b`: skip selected monitors.
   - `--strict`: fail the run if any monitor emits malformed summary lines (adds `reason=summary_invalid`).
@@ -517,6 +520,7 @@ Prerequisites (any one):
   - `--allow-concurrent`: allow overlapping runs (skip lock).
   - `--lock-timeout N`: wait up to `N` seconds for the run lock (default 60).
   - in repo mode, host resolution defaults to `$REPO_ROOT/.etc_linux_maint/{servers.txt,excluded.txt,hosts.d}` when `LM_SERVERLIST`, `LM_EXCLUDED`, and `LM_HOSTS_DIR` are unset.
+  - optional inventory metadata file: `${LM_INVENTORY_META:-<cfg_dir>/inventory_meta.csv}` with `host,tags,role,env`.
   - Optional monitor privilege policy file: `${LM_MONITOR_PRIV_POLICY_FILE:-<cfg_dir>/monitor_privilege_policy.conf}`.
     - Format: `monitor=requires_root|allow_sudo|no_sudo`.
 
@@ -1110,7 +1114,12 @@ Example (`export --json`):
 
 - `linux-maint make-tarball`: build an offline tarball (see below).
 
-- `linux-maint upgrade <tarball>` *(root required)*: verify a release tarball, snapshot config/install state, run the extracted installer, and record rollback metadata under the active state dir.
+- `linux-maint upgrade <tarball>`: verify a release tarball, inspect it with `--check`, or perform a rollback-aware installed-mode upgrade.
+  - `--check`: inspect the tarball only; does not require root or write upgrade state.
+  - `--json`: with `--check`, emit machine-readable upgrade assessment.
+  - real upgrades still require root in installed mode.
+  - Schema:
+    - `docs/schemas/upgrade_check.json` — JSON schema for `linux-maint upgrade --check --json`.
 
 - `linux-maint deps`: print an offline dependency manifest by monitor (required vs optional commands + local availability counters).
 - `linux-maint list-monitors`: list monitors with config requirements and short descriptions.
@@ -1740,6 +1749,8 @@ sudo install -D -m 0755 monitors/*.sh /usr/local/libexec/linux_maint/
 To upgrade from a verified release tarball without switching into an extracted tree:
 
 ```bash
+linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --check --sums ./SHA256SUMS
+linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --check --json --sums ./SHA256SUMS
 sudo linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --sums ./SHA256SUMS
 sudo linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate
 ```
@@ -1763,6 +1774,12 @@ CERTS_SCAN_DIR (optional): if set, cert_monitor scans this directory for cert fi
 CERTS_SCAN_IGNORE_FILE: file with ignore patterns (substring match) to skip paths (default /etc/linux_maint/certs_scan_ignore.txt).
 CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).
 - `linux-maint config --lint`: validate config file syntax and detect duplicate keys.
+
+- `linux-maint baseline status`: report baseline freshness, latest drift signal, and stale baseline risk.
+  - `--json`: emit machine-readable lifecycle status.
+  - `--stale-days N`: mark baselines stale when their newest file is older than `N` days.
+  - Schema:
+    - `docs/schemas/baseline_status.json` — JSON schema for `linux-maint baseline status --json`.
 
 - `linux-maint baseline <ports|configs|users|sudoers> --update` *(root required in installed mode)*: capture/update baselines (per-host).
   - `--progress|--no-progress`: enable/disable per-host progress (overrides `LM_PROGRESS`).

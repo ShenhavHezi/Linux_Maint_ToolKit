@@ -2,13 +2,36 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-prom_file="$(mktemp)"
-cleanup() { rm -f "$prom_file"; }
+TMPDIR="${TMPDIR:-/tmp}"
+workdir="$(mktemp -d -p "$TMPDIR")"
+prom_file="$workdir/openmetrics.prom"
+cleanup() { rm -rf "$workdir"; }
 trap cleanup EXIT
+
+cfg_dir="$workdir/etc_linux_maint"
+monitor_dir="$workdir/monitors"
+mkdir -p "$cfg_dir" "$monitor_dir" "$workdir/logs"
+printf '%s\n' localhost > "$cfg_dir/servers.txt"
+: > "$cfg_dir/excluded.txt"
+
+cat > "$monitor_dir/openmetrics_fixture.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "monitor=openmetrics_fixture host=localhost status=OK reason=fixture"
+EOF
+chmod +x "$monitor_dir/openmetrics_fixture.sh"
 
 (
   cd "$ROOT_DIR"
-  PROM_FILE="$prom_file" LM_PROM_FORMAT="openmetrics" bash ./run_full_health_monitor.sh >/dev/null 2>&1 || true
+  LM_CFG_DIR="$cfg_dir" \
+  LOG_DIR="$workdir/logs" \
+  SUMMARY_DIR="$workdir/logs" \
+  SCRIPTS_DIR="$monitor_dir" \
+  LM_MONITORS="openmetrics_fixture.sh" \
+  LM_LOCAL_ONLY=true \
+  PROM_FILE="$prom_file" \
+  LM_PROM_FORMAT="openmetrics" \
+  bash ./run_full_health_monitor.sh >/dev/null 2>&1 || true
 )
 
 if [[ ! -s "$prom_file" ]]; then

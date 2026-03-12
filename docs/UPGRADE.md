@@ -31,11 +31,25 @@ Notes:
 If you are using a release tarball:
 
 ```bash
+linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --check --sums ./SHA256SUMS
+linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --check --json --sums ./SHA256SUMS
 sudo linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --sums ./SHA256SUMS
 sudo linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --sums ./SHA256SUMS --with-user --with-timer --with-logrotate
 ```
 
 `linux-maint upgrade` verifies the tarball first, snapshots the current config dir, records rollback metadata under the active state dir, runs the extracted installer, and finishes with `verify-install`.
+
+Use `--check` when you want to inspect the target release before changing the node. The check path:
+
+- verifies the tarball and checksums
+- compares installed vs target version
+- points at the target release notes and upgrade guide inside the tarball
+- highlights the top release-note bullets
+- warns when the target matches or predates the installed version
+
+`linux-maint upgrade --check --json` emits a machine-readable assessment.
+Schema:
+- `docs/schemas/upgrade_check.json` — JSON schema for `linux-maint upgrade --check --json`.
 
 Upgrade artifacts:
 - `/var/lib/linux_maint/upgrades/<run-id>/upgrade_manifest.json`
