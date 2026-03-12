@@ -1499,7 +1499,12 @@ class S(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
-S((host, port), H).serve_forever()
+try:
+    server = S((host, port), H)
+except OSError as e:
+    print(f"ERROR: serve failed to bind {host}:{port}: {e}", file=sys.stderr)
+    raise SystemExit(1)
+server.serve_forever()
 PY
 }
 
