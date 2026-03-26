@@ -404,6 +404,7 @@ run_required "monitor_cfg_path_helper_test" bash "$RUNTIME_TEST_DIR/monitor_cfg_
 run_required "make_tarball_roundtrip_test" bash "$RELEASE_TEST_DIR/make_tarball_roundtrip_test.sh"
 run_required "upgrade_command_test" bash "$INSTALL_TEST_DIR/upgrade_command_test.sh"
 run_required "upgrade_check_command_test" bash "$INSTALL_TEST_DIR/upgrade_check_command_test.sh"
+run_required "upgrade_plan_command_test" bash "$INSTALL_TEST_DIR/upgrade_plan_command_test.sh"
 run_required "upgrade_command_override_layout_test" bash "$INSTALL_TEST_DIR/upgrade_command_override_layout_test.sh"
 run_required "upgrade_command_failure_manifest_test" bash "$INSTALL_TEST_DIR/upgrade_command_failure_manifest_test.sh"
 run_required "doctor_offline_hints_test" bash "$CORE_TEST_DIR/doctor_offline_hints_test.sh"

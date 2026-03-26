@@ -33,6 +33,8 @@ If you are using a release tarball:
 ```bash
 linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --check --sums ./SHA256SUMS
 linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --check --json --sums ./SHA256SUMS
+linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --plan --sums ./SHA256SUMS --rollback-tarball ./Linux_Maint_ToolKit-v<previous>-<sha>.tgz
+linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --plan --json --sums ./SHA256SUMS
 sudo linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --sums ./SHA256SUMS
 sudo linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --sums ./SHA256SUMS --with-user --with-timer --with-logrotate
 ```
@@ -53,6 +55,18 @@ Use `--check` when you want to inspect the target release before changing the no
 `linux-maint upgrade --check --json` emits a machine-readable assessment.
 Schema:
 - `docs/schemas/upgrade_check.json` — JSON schema for `linux-maint upgrade --check --json`.
+
+Use `--plan` when you want a node-local impact preview before the live upgrade. The plan path:
+
+- includes the same tarball/release assessment as `--check`
+- previews config preservation and counts current config files and `conf.d` overrides
+- shows current and planned systemd/logrotate effects for the active install paths
+- scores rollback readiness from checksums, rollback artifact presence, and config readability
+- keeps the node unchanged while pointing at the next safest operator step
+
+`linux-maint upgrade --plan --json` emits a machine-readable plan.
+Schema:
+- `docs/schemas/upgrade_plan.json` — JSON schema for `linux-maint upgrade --plan --json`.
 
 Upgrade artifacts:
 - `/var/lib/linux_maint/upgrades/<run-id>/upgrade_manifest.json`

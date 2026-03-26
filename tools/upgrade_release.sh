@@ -7,7 +7,8 @@ Usage: linux-maint upgrade <tarball> [flags]
 
 Flags:
   --check                  inspect the tarball only; no install
-  --json                   with --check, emit machine-readable assessment
+  --plan                   inspect upgrade impact; no install
+  --json                   with --check/--plan, emit machine-readable assessment
   --sums FILE              checksum file for verify-release
   --sig FILE               detached signature for verify-release
   --rollback-tarball FILE  known-good rollback artifact to record in the manifest
@@ -290,6 +291,294 @@ PY
   fi
 }
 
+count_files_under() {
+  local path="$1"
+  if [[ -d "$path" && -r "$path" ]]; then
+    find "$path" -type f 2>/dev/null | wc -l | awk '{print $1}'
+  else
+    echo 0
+  fi
+}
+
+emit_upgrade_plan() {
+  local tarball="$1" current_version="$2" target_version="$3" notes_path="$4" json_out="$5"
+  local relation upgrade_guide note_rel result checks_json release_meta_json
+  local target_date_utc="" release_notes_found=0 upgrade_guide_found=0 install_sh_found=0 rollback_tarball_supplied=0
+  local cfg_exists=0 cfg_readable=0 inventory_meta_present=0 systemctl_present=0 current_service_file=0 current_timer_file=0 current_logrotate_file=0
+  local config_file_count=0 conf_d_file_count=0 rollback_score=0 rollback_max_score=3
+  local rollback_state="" service_effect="" logrotate_effect=""
+  local service_path="$INSTALL_SYSTEMD_DIR/linux-maint.service"
+  local timer_path="$INSTALL_SYSTEMD_DIR/linux-maint.timer"
+  local logrotate_path="$INSTALL_LOGROTATE_FILE"
+  local -a warnings=() highlights=() compatibility_notes=() next_steps=()
+
+  relation="$(version_relation "$current_version" "$target_version")"
+  upgrade_guide="$EXTRACTED_TREE_PATH/docs/UPGRADE.md"
+  [[ -x "$EXTRACTED_TREE_PATH/install.sh" ]] && install_sh_found=1
+  if [[ -f "$notes_path" ]]; then
+    release_notes_found=1
+    mapfile -t highlights < <(extract_release_notes_section "$notes_path" "Highlights" 4)
+    mapfile -t compatibility_notes < <(extract_release_notes_section "$notes_path" "Compatibility notes" 4)
+    release_meta_json="$(extract_release_notes_metadata "$notes_path")"
+    target_date_utc="$(
+      RELEASE_META_JSON="$release_meta_json" python3 - <<'PY'
+import json, os
+payload = json.loads(os.environ.get("RELEASE_META_JSON", "{}"))
+print(payload.get("date_utc") or "")
+PY
+    )"
+  fi
+  [[ -f "$upgrade_guide" ]] && upgrade_guide_found=1
+  [[ -n "$ROLLBACK_TARBALL" ]] && rollback_tarball_supplied=1
+
+  if [[ -d "$CFG_DIR" ]]; then
+    cfg_exists=1
+    [[ -r "$CFG_DIR" ]] && cfg_readable=1
+  fi
+  if [[ -f "$CFG_DIR/inventory_meta.csv" ]]; then
+    inventory_meta_present=1
+  fi
+  config_file_count="$(count_files_under "$CFG_DIR")"
+  conf_d_file_count="$(count_files_under "$CFG_DIR/conf.d")"
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl_present=1
+  fi
+  [[ -f "$service_path" ]] && current_service_file=1
+  [[ -f "$timer_path" ]] && current_timer_file=1
+  [[ -f "$logrotate_path" ]] && current_logrotate_file=1
+
+  if [[ "$WITH_TIMER" -eq 1 ]]; then
+    service_effect="install_or_refresh_timer"
+  elif [[ "$current_service_file" -eq 1 || "$current_timer_file" -eq 1 ]]; then
+    service_effect="keep_existing_units"
+  else
+    service_effect="no_systemd_changes"
+  fi
+  if [[ "$WITH_LOGROTATE" -eq 1 ]]; then
+    logrotate_effect="install_or_refresh_logrotate"
+  elif [[ "$current_logrotate_file" -eq 1 ]]; then
+    logrotate_effect="keep_existing_logrotate"
+  else
+    logrotate_effect="no_logrotate_changes"
+  fi
+
+  if [[ "$relation" == "downgrade" ]]; then
+    warnings+=("target release is older than the installed version")
+  elif [[ "$relation" == "same" ]]; then
+    warnings+=("target release matches the installed version")
+  elif [[ "$relation" == "unknown" ]]; then
+    warnings+=("unable to compare installed and target versions")
+  fi
+  [[ -f "$notes_path" ]] || warnings+=("release notes for the target version were not found in the tarball")
+  [[ -f "$upgrade_guide" ]] || warnings+=("upgrade guide missing from the tarball")
+  [[ -x "$EXTRACTED_TREE_PATH/install.sh" ]] || warnings+=("install.sh missing from the tarball")
+  if [[ "$cfg_exists" -eq 0 ]]; then
+    warnings+=("config dir is missing; upgrade will not add local inventory or overrides")
+  elif [[ "$cfg_readable" -eq 0 ]]; then
+    warnings+=("config dir is not readable; config snapshot inputs are incomplete")
+  fi
+  if [[ "$rollback_tarball_supplied" -eq 0 ]]; then
+    warnings+=("no rollback tarball supplied; rollback will rely on a separately managed trusted artifact")
+  fi
+  if [[ "$WITH_TIMER" -eq 1 && "$systemctl_present" -eq 0 ]]; then
+    warnings+=("systemctl not found; unit files can be written but the timer will not be enabled automatically")
+  fi
+
+  [[ -n "$SUMS_FILE" ]] && rollback_score=$((rollback_score + 1))
+  [[ "$rollback_tarball_supplied" -eq 1 ]] && rollback_score=$((rollback_score + 1))
+  [[ "$cfg_readable" -eq 1 ]] && rollback_score=$((rollback_score + 1))
+  case "$rollback_score" in
+    3) rollback_state="ready" ;;
+    2) rollback_state="partial" ;;
+    *) rollback_state="minimal" ;;
+  esac
+
+  note_rel=""
+  if [[ -f "$notes_path" ]]; then
+    note_rel="${notes_path#"$EXTRACTED_TREE_PATH"/}"
+  fi
+  if [[ "${#warnings[@]}" -gt 0 ]]; then
+    result="WARN"
+  else
+    result="OK"
+  fi
+
+  next_steps+=("review config impact and service/logrotate changes before running the upgrade")
+  if [[ "$rollback_tarball_supplied" -eq 0 ]]; then
+    next_steps+=("rerun with --rollback-tarball <trusted-previous-release> for stronger rollback readiness")
+  fi
+  next_steps+=("sudo linux-maint upgrade $tarball${SUMS_FILE:+ --sums $SUMS_FILE}")
+
+  checks_json="$(
+    RELEASE_NOTES_FOUND="$release_notes_found" \
+    UPGRADE_GUIDE_FOUND="$upgrade_guide_found" \
+    INSTALL_SH_FOUND="$install_sh_found" \
+    SUMS_FILE_PATH="$SUMS_FILE" \
+    SIG_FILE_PATH="$SIG_FILE" \
+    ROLLBACK_TARBALL_PATH="$ROLLBACK_TARBALL" \
+    python3 - <<'PY'
+import json, os
+print(json.dumps({
+    "release_notes_found": os.environ.get("RELEASE_NOTES_FOUND") == "1",
+    "upgrade_guide_found": os.environ.get("UPGRADE_GUIDE_FOUND") == "1",
+    "install_sh_found": os.environ.get("INSTALL_SH_FOUND") == "1",
+    "sums_supplied": bool(os.environ.get("SUMS_FILE_PATH")),
+    "sig_supplied": bool(os.environ.get("SIG_FILE_PATH")),
+    "rollback_tarball_supplied": bool(os.environ.get("ROLLBACK_TARBALL_PATH")),
+}, sort_keys=True))
+PY
+  )"
+
+  if [[ "$json_out" -eq 1 ]]; then
+    CURRENT_VERSION="$current_version" \
+    TARGET_VERSION="$target_version" \
+    RELATION="$relation" \
+    TARBALL_PATH="$tarball" \
+    NOTES_PATH="$notes_path" \
+    NOTE_REL="$note_rel" \
+    UPGRADE_GUIDE="$upgrade_guide" \
+    TARGET_DATE_UTC="$target_date_utc" \
+    CHECKS_JSON="$checks_json" \
+    RESULT="$result" \
+    WARNINGS_JOINED="$(printf '%s\n' "${warnings[@]}")" \
+    HIGHLIGHTS_JOINED="$(printf '%s\n' "${highlights[@]}")" \
+    COMPAT_JOINED="$(printf '%s\n' "${compatibility_notes[@]}")" \
+    NEXT_STEPS_JOINED="$(printf '%s\n' "${next_steps[@]}")" \
+    CFG_DIR_PATH="$CFG_DIR" \
+    CFG_EXISTS="$cfg_exists" \
+    CFG_READABLE="$cfg_readable" \
+    CONFIG_FILE_COUNT="$config_file_count" \
+    CONF_D_FILE_COUNT="$conf_d_file_count" \
+    INVENTORY_META_PRESENT="$inventory_meta_present" \
+    SYSTEMD_UNIT_DIR="$INSTALL_SYSTEMD_DIR" \
+    SYSTEMCTL_PRESENT="$systemctl_present" \
+    CURRENT_SERVICE_FILE="$current_service_file" \
+    CURRENT_TIMER_FILE="$current_timer_file" \
+    WITH_TIMER_REQUESTED="$WITH_TIMER" \
+    SERVICE_EFFECT="$service_effect" \
+    LOGROTATE_PATH="$logrotate_path" \
+    CURRENT_LOGROTATE_FILE="$current_logrotate_file" \
+    WITH_LOGROTATE_REQUESTED="$WITH_LOGROTATE" \
+    LOGROTATE_EFFECT="$logrotate_effect" \
+    ROLLBACK_STATE="$rollback_state" \
+    ROLLBACK_SCORE="$rollback_score" \
+    ROLLBACK_MAX="$rollback_max_score" \
+    python3 - <<'PY'
+import json
+import os
+
+payload = {
+    "schema_version": 1,
+    "upgrade_plan_json_contract_version": 1,
+    "tarball": os.environ.get("TARBALL_PATH", ""),
+    "current_version": os.environ.get("CURRENT_VERSION") or None,
+    "target_version": os.environ.get("TARGET_VERSION") or None,
+    "relation": os.environ.get("RELATION", "unknown"),
+    "target_date_utc": os.environ.get("TARGET_DATE_UTC") or None,
+    "release_notes": os.environ.get("NOTES_PATH") or None,
+    "release_notes_rel": os.environ.get("NOTE_REL") or None,
+    "upgrade_guide": os.environ.get("UPGRADE_GUIDE") or None,
+    "checks": json.loads(os.environ.get("CHECKS_JSON", "{}")),
+    "highlights": [x for x in os.environ.get("HIGHLIGHTS_JOINED", "").splitlines() if x],
+    "compatibility_notes": [x for x in os.environ.get("COMPAT_JOINED", "").splitlines() if x],
+    "warnings": [x for x in os.environ.get("WARNINGS_JOINED", "").splitlines() if x],
+    "next_steps": [x for x in os.environ.get("NEXT_STEPS_JOINED", "").splitlines() if x],
+    "config": {
+        "cfg_dir": os.environ.get("CFG_DIR_PATH", ""),
+        "exists": os.environ.get("CFG_EXISTS") == "1",
+        "readable": os.environ.get("CFG_READABLE") == "1",
+        "file_count": int(os.environ.get("CONFIG_FILE_COUNT", "0") or 0),
+        "conf_d_files": int(os.environ.get("CONF_D_FILE_COUNT", "0") or 0),
+        "inventory_meta_present": os.environ.get("INVENTORY_META_PRESENT") == "1",
+    },
+    "service": {
+        "systemd_unit_dir": os.environ.get("SYSTEMD_UNIT_DIR", ""),
+        "systemctl_present": os.environ.get("SYSTEMCTL_PRESENT") == "1",
+        "current_service_file": os.environ.get("CURRENT_SERVICE_FILE") == "1",
+        "current_timer_file": os.environ.get("CURRENT_TIMER_FILE") == "1",
+        "with_timer_requested": os.environ.get("WITH_TIMER_REQUESTED") == "1",
+        "planned_effect": os.environ.get("SERVICE_EFFECT", ""),
+    },
+    "logrotate": {
+        "path": os.environ.get("LOGROTATE_PATH", ""),
+        "current_file": os.environ.get("CURRENT_LOGROTATE_FILE") == "1",
+        "with_logrotate_requested": os.environ.get("WITH_LOGROTATE_REQUESTED") == "1",
+        "planned_effect": os.environ.get("LOGROTATE_EFFECT", ""),
+    },
+    "rollback_readiness": {
+        "state": os.environ.get("ROLLBACK_STATE", "minimal"),
+        "score": int(os.environ.get("ROLLBACK_SCORE", "0") or 0),
+        "max_score": int(os.environ.get("ROLLBACK_MAX", "0") or 0),
+        "checksums_supplied": json.loads(os.environ.get("CHECKS_JSON", "{}")).get("sums_supplied", False),
+        "rollback_artifact_supplied": json.loads(os.environ.get("CHECKS_JSON", "{}")).get("rollback_tarball_supplied", False),
+        "config_readable": os.environ.get("CFG_READABLE") == "1",
+    },
+    "result": os.environ.get("RESULT", "WARN"),
+}
+print(json.dumps(payload, indent=2, sort_keys=True))
+PY
+  else
+    echo "linux-maint upgrade --plan"
+    echo "tarball=$tarball"
+    echo "current_version=${current_version:-unknown}"
+    echo "target_version=${target_version:-unknown}"
+    echo "relation=$relation"
+    [[ -n "$target_date_utc" ]] && echo "target_date_utc=$target_date_utc"
+    if [[ -f "$notes_path" ]]; then
+      echo "release_notes=$notes_path"
+    fi
+    if [[ -f "$upgrade_guide" ]]; then
+      echo "upgrade_guide=$upgrade_guide"
+    fi
+    echo "checks: release_notes=$([[ "$release_notes_found" -eq 1 ]] && echo ok || echo missing) upgrade_guide=$([[ "$upgrade_guide_found" -eq 1 ]] && echo ok || echo missing) install_sh=$([[ "$install_sh_found" -eq 1 ]] && echo ok || echo missing) sums=$([[ -n "$SUMS_FILE" ]] && echo yes || echo no) sig=$([[ -n "$SIG_FILE" ]] && echo yes || echo no) rollback_artifact=$([[ "$rollback_tarball_supplied" -eq 1 ]] && echo yes || echo no)"
+    if [[ "${#highlights[@]}" -gt 0 ]]; then
+      echo ""
+      echo "Highlights:"
+      printf -- "- %s\n" "${highlights[@]}"
+    fi
+    if [[ "${#compatibility_notes[@]}" -gt 0 ]]; then
+      echo ""
+      echo "Compatibility notes:"
+      printf -- "- %s\n" "${compatibility_notes[@]}"
+    fi
+    echo ""
+    echo "Config impact:"
+    echo "- cfg_dir=$CFG_DIR"
+    echo "- readable=$([[ "$cfg_readable" -eq 1 ]] && echo yes || echo no) files=$config_file_count conf_d_files=$conf_d_file_count inventory_meta=$([[ "$inventory_meta_present" -eq 1 ]] && echo yes || echo no)"
+    echo "- upgrade preserves existing config files; snapshot source is assessed before the live upgrade"
+    echo ""
+    echo "Service impact:"
+    echo "- systemd_unit_dir=$INSTALL_SYSTEMD_DIR"
+    echo "- current_service_file=$([[ "$current_service_file" -eq 1 ]] && echo yes || echo no) current_timer_file=$([[ "$current_timer_file" -eq 1 ]] && echo yes || echo no) systemctl=$([[ "$systemctl_present" -eq 1 ]] && echo yes || echo no)"
+    echo "- planned_effect=$service_effect"
+    echo ""
+    echo "Logrotate impact:"
+    echo "- path=$logrotate_path"
+    echo "- current_file=$([[ "$current_logrotate_file" -eq 1 ]] && echo yes || echo no) planned_effect=$logrotate_effect"
+    echo ""
+    echo "Rollback readiness:"
+    echo "- state=$rollback_state score=$rollback_score/$rollback_max_score"
+    echo "- checksums=$([[ -n "$SUMS_FILE" ]] && echo yes || echo no) rollback_artifact=$([[ "$rollback_tarball_supplied" -eq 1 ]] && echo yes || echo no) config_readable=$([[ "$cfg_readable" -eq 1 ]] && echo yes || echo no)"
+    if [[ "${#warnings[@]}" -gt 0 ]]; then
+      echo ""
+      echo "Warnings:"
+      printf -- "- %s\n" "${warnings[@]}"
+    fi
+    echo ""
+    echo "== Guidance =="
+    printf 'next_step: %s\n' "${next_steps[@]}"
+    echo ""
+    echo "== Summary =="
+    echo "current_version=${current_version:-unknown}"
+    echo "target_version=${target_version:-unknown}"
+    echo "relation=$relation"
+    echo "rollback_readiness=$rollback_state"
+    echo "warnings=${#warnings[@]}"
+    echo "result=$result"
+    echo "upgrade plan ${result,,}"
+  fi
+}
+
 write_text_file() {
   local path="$1" content="$2"
   printf '%s\n' "$content" > "$path"
@@ -455,12 +744,14 @@ WITH_LOGROTATE=0
 DRY_RUN=0
 KEEP_WORKDIR=0
 CHECK_ONLY=0
+PLAN_ONLY=0
 JSON_OUT=0
 VERIFY_TOOL="${LINUX_MAINT_UPGRADE_VERIFY_TOOL:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/verify_release.sh}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --check) CHECK_ONLY=1; shift ;;
+    --plan) PLAN_ONLY=1; shift ;;
     --json) JSON_OUT=1; shift ;;
     --sums) SUMS_FILE="$2"; shift 2 ;;
     --sig) SIG_FILE="$2"; shift 2 ;;
@@ -486,16 +777,24 @@ if [[ -n "$ROLLBACK_TARBALL" && ! -f "$ROLLBACK_TARBALL" ]]; then
   exit 1
 fi
 
-if [[ "$JSON_OUT" -eq 1 && "$CHECK_ONLY" -ne 1 ]]; then
-  echo "ERROR: --json is only supported with --check" >&2
+if [[ "$CHECK_ONLY" -eq 1 && "$PLAN_ONLY" -eq 1 ]]; then
+  echo "ERROR: use either --check or --plan, not both" >&2
+  exit 2
+fi
+if [[ "$JSON_OUT" -eq 1 && "$CHECK_ONLY" -ne 1 && "$PLAN_ONLY" -ne 1 ]]; then
+  echo "ERROR: --json is only supported with --check/--plan" >&2
   exit 2
 fi
 if [[ "$CHECK_ONLY" -eq 1 && "$DRY_RUN" -eq 1 ]]; then
   echo "ERROR: use either --check or --dry-run, not both" >&2
   exit 2
 fi
+if [[ "$PLAN_ONLY" -eq 1 && "$DRY_RUN" -eq 1 ]]; then
+  echo "ERROR: use either --plan or --dry-run, not both" >&2
+  exit 2
+fi
 
-if [[ "$CHECK_ONLY" -ne 1 ]]; then
+if [[ "$CHECK_ONLY" -ne 1 && "$PLAN_ONLY" -ne 1 ]]; then
   need_root
   mkdir -p "$STATE_DIR/upgrades"
   run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
@@ -556,7 +855,7 @@ cleanup_upgrade() {
   local rc=$?
   UPGRADE_RC_VALUE="$rc"
   FINISHED_AT="$(iso_now)"
-  if [[ "$CHECK_ONLY" -eq 1 ]]; then
+  if [[ "$CHECK_ONLY" -eq 1 || "$PLAN_ONLY" -eq 1 ]]; then
     if [[ -n "$WORKDIR_PATH" && -d "$WORKDIR_PATH" && "$KEEP_WORKDIR" -eq 0 ]]; then
       rm -rf "$WORKDIR_PATH" 2>/dev/null || true
     fi
@@ -573,7 +872,7 @@ cleanup_upgrade() {
 }
 trap cleanup_upgrade EXIT
 
-if [[ "$CHECK_ONLY" -ne 1 ]]; then
+if [[ "$CHECK_ONLY" -ne 1 && "$PLAN_ONLY" -ne 1 ]]; then
   snapshot_config_dir "$CFG_DIR" "$CONFIG_SNAPSHOT"
   if [[ ! -f "$CONFIG_SNAPSHOT" && -f "$CONFIG_SNAPSHOT.absent" ]]; then
     CONFIG_SNAPSHOT_PATH="$CONFIG_SNAPSHOT.absent"
@@ -611,6 +910,10 @@ TARGET_COMMIT_VALUE="$(read_build_kv "$EXTRACTED_TREE_PATH/BUILD_INFO" commit)"
 NOTES_PATH="$EXTRACTED_TREE_PATH/docs/release_notes/release_notes_v${TARGET_VERSION_VALUE}.md"
 if [[ "$CHECK_ONLY" -eq 1 ]]; then
   emit_upgrade_check "$TARBALL_PATH" "$CURRENT_VERSION_VALUE" "$TARGET_VERSION_VALUE" "$NOTES_PATH" "$JSON_OUT"
+  exit 0
+fi
+if [[ "$PLAN_ONLY" -eq 1 ]]; then
+  emit_upgrade_plan "$TARBALL_PATH" "$CURRENT_VERSION_VALUE" "$TARGET_VERSION_VALUE" "$NOTES_PATH" "$JSON_OUT"
   exit 0
 fi
 MANIFEST_STATUS="verified"

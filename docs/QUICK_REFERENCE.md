@@ -125,6 +125,8 @@ linux-maint init --force
 # Upgrade from a verified release tarball (installed mode)
 linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.7-<sha>.tgz --check --sums ./SHA256SUMS
 linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.7-<sha>.tgz --check --json --sums ./SHA256SUMS
+linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.7-<sha>.tgz --plan --sums ./SHA256SUMS --rollback-tarball ./Linux_Maint_ToolKit-v0.3.6-<sha>.tgz
+linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.7-<sha>.tgz --plan --json --sums ./SHA256SUMS
 sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.7-<sha>.tgz --sums ./SHA256SUMS
 sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.7-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate
 # --check also shows target release date, compatibility notes, and artifact checks
@@ -238,6 +240,7 @@ docs/schemas/history.json
 docs/schemas/run_index.json
 docs/schemas/baseline_status.json
 docs/schemas/upgrade_check.json
+docs/schemas/upgrade_plan.json
 
 # Filter by host/monitor/status
 linux-maint status --host web --monitor service --only WARN

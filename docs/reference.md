@@ -1118,11 +1118,14 @@ Example (`export --json`):
 
 - `linux-maint upgrade <tarball>`: verify a release tarball, inspect it with `--check`, or perform a rollback-aware installed-mode upgrade.
   - `--check`: inspect the tarball only; does not require root or write upgrade state.
-  - `--json`: with `--check`, emit machine-readable upgrade assessment.
+  - `--plan`: preview config preservation, systemd/logrotate impact, and rollback readiness without changing the node.
+  - `--json`: with `--check` or `--plan`, emit machine-readable upgrade assessment.
   - `--check` also shows the target release date, compatibility notes, and artifact-presence checks when available.
+  - `--plan` also shows current config-file counts, current/planned service/logrotate effects, and rollback readiness scoring.
   - real upgrades still require root in installed mode.
   - Schema:
     - `docs/schemas/upgrade_check.json` — JSON schema for `linux-maint upgrade --check --json`.
+    - `docs/schemas/upgrade_plan.json` — JSON schema for `linux-maint upgrade --plan --json`.
 
 - `linux-maint deps`: print an offline dependency manifest by monitor (required vs optional commands + local availability counters).
 - `linux-maint list-monitors`: list monitors with config requirements and short descriptions.
@@ -1754,6 +1757,8 @@ To upgrade from a verified release tarball without switching into an extracted t
 ```bash
 linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --check --sums ./SHA256SUMS
 linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --check --json --sums ./SHA256SUMS
+linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --plan --sums ./SHA256SUMS --rollback-tarball ./Linux_Maint_ToolKit-v<previous>-<sha>.tgz
+linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --plan --json --sums ./SHA256SUMS
 sudo linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --sums ./SHA256SUMS
 sudo linux-maint upgrade ./Linux_Maint_ToolKit-v<version>-<sha>.tgz --sums ./SHA256SUMS --with-timer --with-logrotate
 ```

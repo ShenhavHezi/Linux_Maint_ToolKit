@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint upgrade --plan --json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "upgrade_plan_json_contract_version",
+    "tarball",
+    "current_version",
+    "target_version",
+    "relation",
+    "target_date_utc",
+    "release_notes",
+    "release_notes_rel",
+    "upgrade_guide",
+    "checks",
+    "highlights",
+    "compatibility_notes",
+    "warnings",
+    "next_steps",
+    "config",
+    "service",
+    "logrotate",
+    "rollback_readiness",
+    "result"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "upgrade_plan_json_contract_version": { "type": "integer", "minimum": 1 },
+    "tarball": { "type": "string" },
+    "current_version": { "type": ["string", "null"] },
+    "target_version": { "type": ["string", "null"] },
+    "relation": {
+      "type": "string",
+      "enum": ["upgrade", "downgrade", "same", "unknown"]
+    },
+    "target_date_utc": { "type": ["string", "null"] },
+    "release_notes": { "type": ["string", "null"] },
+    "release_notes_rel": { "type": ["string", "null"] },
+    "upgrade_guide": { "type": ["string", "null"] },
+    "checks": {
+      "type": "object",
+      "required": [
+        "release_notes_found",
+        "upgrade_guide_found",
+        "install_sh_found",
+        "sums_supplied",
+        "sig_supplied",
+        "rollback_tarball_supplied"
+      ],
+      "properties": {
+        "release_notes_found": { "type": "boolean" },
+        "upgrade_guide_found": { "type": "boolean" },
+        "install_sh_found": { "type": "boolean" },
+        "sums_supplied": { "type": "boolean" },
+        "sig_supplied": { "type": "boolean" },
+        "rollback_tarball_supplied": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "highlights": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "compatibility_notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "next_steps": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "config": {
+      "type": "object",
+      "required": [
+        "cfg_dir",
+        "exists",
+        "readable",
+        "file_count",
+        "conf_d_files",
+        "inventory_meta_present"
+      ],
+      "properties": {
+        "cfg_dir": { "type": "string" },
+        "exists": { "type": "boolean" },
+        "readable": { "type": "boolean" },
+        "file_count": { "type": "integer", "minimum": 0 },
+        "conf_d_files": { "type": "integer", "minimum": 0 },
+        "inventory_meta_present": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "service": {
+      "type": "object",
+      "required": [
+        "systemd_unit_dir",
+        "systemctl_present",
+        "current_service_file",
+        "current_timer_file",
+        "with_timer_requested",
+        "planned_effect"
+      ],
+      "properties": {
+        "systemd_unit_dir": { "type": "string" },
+        "systemctl_present": { "type": "boolean" },
+        "current_service_file": { "type": "boolean" },
+        "current_timer_file": { "type": "boolean" },
+        "with_timer_requested": { "type": "boolean" },
+        "planned_effect": {
+          "type": "string",
+          "enum": [
+            "install_or_refresh_timer",
+            "keep_existing_units",
+            "no_systemd_changes"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "logrotate": {
+      "type": "object",
+      "required": [
+        "path",
+        "current_file",
+        "with_logrotate_requested",
+        "planned_effect"
+      ],
+      "properties": {
+        "path": { "type": "string" },
+        "current_file": { "type": "boolean" },
+        "with_logrotate_requested": { "type": "boolean" },
+        "planned_effect": {
+          "type": "string",
+          "enum": [
+            "install_or_refresh_logrotate",
+            "keep_existing_logrotate",
+            "no_logrotate_changes"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "rollback_readiness": {
+      "type": "object",
+      "required": [
+        "state",
+        "score",
+        "max_score",
+        "checksums_supplied",
+        "rollback_artifact_supplied",
+        "config_readable"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": ["ready", "partial", "minimal"]
+        },
+        "score": { "type": "integer", "minimum": 0 },
+        "max_score": { "type": "integer", "minimum": 0 },
+        "checksums_supplied": { "type": "boolean" },
+        "rollback_artifact_supplied": { "type": "boolean" },
+        "config_readable": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "string",
+      "enum": ["OK", "WARN"]
+    }
+  },
+  "additionalProperties": false
+}
