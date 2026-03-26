@@ -3970,6 +3970,10 @@ case "$subcmd" in
     exit "${RUN_EXEC_RC:-1}"
     ;;
 
+  inventory)
+    linux_maint_cmd_inventory "$@"
+    ;;
+
   list-monitors)
     linux_maint_cmd_list_monitors "$@"
     ;;

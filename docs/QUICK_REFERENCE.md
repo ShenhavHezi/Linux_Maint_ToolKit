@@ -132,6 +132,8 @@ sudo linux-maint upgrade ./Linux_Maint_ToolKit-v0.3.7-<sha>.tgz --sums ./SHA256S
 # --check also shows target release date, compatibility notes, and artifact checks
 
 # Inventory-aware run planning
+linux-maint inventory lint
+linux-maint inventory lint --json
 linux-maint run --tag web --env prod --plan --json
 linux-maint run --role db --plan --json
 # plan JSON includes inventory_meta presence, available roles/envs/tags, and matched-host counts
@@ -241,6 +243,7 @@ docs/schemas/run_index.json
 docs/schemas/baseline_status.json
 docs/schemas/upgrade_check.json
 docs/schemas/upgrade_plan.json
+docs/schemas/inventory_lint.json
 
 # Filter by host/monitor/status
 linux-maint status --host web --monitor service --only WARN

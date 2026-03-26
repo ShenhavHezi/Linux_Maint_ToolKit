@@ -83,6 +83,7 @@ lab-01,lab;canary,web,dev
 You can then scope plans and runs with:
 
 ```bash
+linux-maint inventory lint
 linux-maint run --tag web --env prod --plan --json
 linux-maint run --role db --plan --json
 ```
@@ -94,6 +95,14 @@ linux-maint run --role db --plan --json
 - discovered roles, environments, and tags
 
 If a filter matches zero hosts, `linux-maint run --plan` fails cleanly with the requested filters and the available metadata values.
+
+`linux-maint inventory lint` adds an operator-focused metadata audit:
+
+- duplicate hosts in `inventory_meta.csv`
+- missing metadata for hosts present in `servers.txt` or `hosts.d`
+- extra metadata rows for hosts no longer present in inventory
+- invalid or incomplete rows
+- role/env/tag coverage summary
 
 ### 2. Conservative or broad coverage
 

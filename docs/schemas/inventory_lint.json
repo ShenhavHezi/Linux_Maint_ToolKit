@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint inventory lint --json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "inventory_lint_json_contract_version",
+    "meta_file",
+    "cfg_dir",
+    "servers_file",
+    "hosts_dir",
+    "summary",
+    "coverage",
+    "warnings",
+    "next_steps",
+    "result"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "inventory_lint_json_contract_version": { "type": "integer", "minimum": 1 },
+    "meta_file": { "type": "string" },
+    "cfg_dir": { "type": "string" },
+    "servers_file": { "type": "string" },
+    "hosts_dir": { "type": "string" },
+    "header_ok": { "type": "boolean" },
+    "unknown_columns": { "type": "array", "items": { "type": "string" } },
+    "duplicate_hosts": { "type": "array", "items": { "type": "string" } },
+    "invalid_rows": { "type": "array", "items": { "type": "string" } },
+    "missing_metadata_hosts": { "type": "array", "items": { "type": "string" } },
+    "extra_metadata_hosts": { "type": "array", "items": { "type": "string" } },
+    "summary": {
+      "type": "object",
+      "required": [
+        "inventory_hosts",
+        "metadata_hosts",
+        "duplicate_hosts",
+        "missing_metadata_hosts",
+        "extra_metadata_hosts",
+        "invalid_rows",
+        "groups",
+        "roles",
+        "envs",
+        "tags"
+      ],
+      "properties": {
+        "inventory_hosts": { "type": "integer", "minimum": 0 },
+        "metadata_hosts": { "type": "integer", "minimum": 0 },
+        "duplicate_hosts": { "type": "integer", "minimum": 0 },
+        "missing_metadata_hosts": { "type": "integer", "minimum": 0 },
+        "extra_metadata_hosts": { "type": "integer", "minimum": 0 },
+        "invalid_rows": { "type": "integer", "minimum": 0 },
+        "groups": { "type": "integer", "minimum": 0 },
+        "roles": { "type": "integer", "minimum": 0 },
+        "envs": { "type": "integer", "minimum": 0 },
+        "tags": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["roles", "envs", "tags"],
+      "properties": {
+        "roles": { "type": "array", "items": { "type": "string" } },
+        "envs": { "type": "array", "items": { "type": "string" } },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "next_steps": { "type": "array", "items": { "type": "string" } },
+    "error": { "type": "string" },
+    "result": {
+      "type": "string",
+      "enum": ["OK", "WARN", "ERROR"]
+    }
+  },
+  "additionalProperties": false
+}

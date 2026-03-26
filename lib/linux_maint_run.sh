@@ -87,6 +87,360 @@ parse_run_args(){
   done
 }
 
+linux_maint_cmd_inventory() {
+  local subcmd="${1:-}"
+  shift || true
+  case "$subcmd" in
+    lint)
+      linux_maint_cmd_inventory_lint "$@"
+      ;;
+    ""|-h|--help|help)
+      command_usage inventory
+      exit 0
+      ;;
+    *)
+      echo "ERROR: unknown inventory subcommand: $subcmd" >&2
+      command_usage inventory >&2
+      exit 2
+      ;;
+  esac
+}
+
+linux_maint_cmd_inventory_lint() {
+  local json_out=0 meta_file="" cfg_dir="" servers_file="" hosts_dir=""
+  local cfg_dir_explicit=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json_out=1; shift ;;
+      --meta-file) meta_file="$2"; shift 2 ;;
+      --cfg-dir) cfg_dir="$2"; cfg_dir_explicit=1; shift 2 ;;
+      -h|--help)
+        command_usage inventory
+        exit 0
+        ;;
+      *)
+        echo "ERROR: unknown inventory lint flag: $1" >&2
+        exit 2
+        ;;
+    esac
+  done
+
+  cfg_dir="${cfg_dir:-$(linux_maint_effective_cfg_dir)}"
+  servers_file="${LM_SERVERLIST:-$cfg_dir/servers.txt}"
+  hosts_dir="${LM_HOSTS_DIR:-$cfg_dir/hosts.d}"
+  if [[ -z "$meta_file" ]]; then
+    if [[ "$cfg_dir_explicit" -eq 1 ]]; then
+      meta_file="$cfg_dir/inventory_meta.csv"
+    else
+      meta_file="${LM_INVENTORY_META:-$(linux_maint_effective_inventory_meta_file)}"
+    fi
+  fi
+
+  if [[ -e "$meta_file" && ! -r "$meta_file" ]]; then
+    if [[ "$json_out" -eq 1 ]]; then
+      META_FILE="$meta_file" CFG_DIR="$cfg_dir" SERVERS_FILE="$servers_file" HOSTS_DIR="$hosts_dir" python3 - <<'PY'
+import json, os
+payload = {
+    "schema_version": 1,
+    "inventory_lint_json_contract_version": 1,
+    "meta_file": os.environ["META_FILE"],
+    "cfg_dir": os.environ["CFG_DIR"],
+    "servers_file": os.environ["SERVERS_FILE"],
+    "hosts_dir": os.environ["HOSTS_DIR"],
+    "summary": {
+        "inventory_hosts": 0,
+        "metadata_hosts": 0,
+        "duplicate_hosts": 0,
+        "missing_metadata_hosts": 0,
+        "extra_metadata_hosts": 0,
+        "invalid_rows": 0,
+        "groups": 0,
+        "roles": 0,
+        "envs": 0,
+        "tags": 0,
+    },
+    "coverage": {"roles": [], "envs": [], "tags": []},
+    "warnings": [],
+    "next_steps": ["fix permissions on inventory_meta.csv and rerun inventory lint"],
+    "error": "inventory metadata is unreadable",
+    "result": "ERROR",
+}
+print(json.dumps(payload, indent=2, sort_keys=True))
+PY
+    else
+      echo "ERROR: inventory metadata is unreadable: $meta_file" >&2
+      echo "Hint: fix permissions on inventory_meta.csv and rerun inventory lint" >&2
+    fi
+    exit 2
+  fi
+
+  local payload
+  payload="$(
+    META_FILE="$meta_file" CFG_DIR="$cfg_dir" SERVERS_FILE="$servers_file" HOSTS_DIR="$hosts_dir" python3 - <<'PY'
+import csv
+import json
+import os
+import re
+from collections import Counter
+from pathlib import Path
+
+meta_file = Path(os.environ["META_FILE"])
+cfg_dir = os.environ["CFG_DIR"]
+servers_file = Path(os.environ["SERVERS_FILE"])
+hosts_dir = Path(os.environ["HOSTS_DIR"])
+
+expected_columns = ["host", "tags", "role", "env"]
+warnings = []
+next_steps = []
+invalid_rows = []
+duplicate_hosts = []
+missing_metadata_hosts = []
+extra_metadata_hosts = []
+roles = Counter()
+envs = Counter()
+tags = Counter()
+inventory_hosts = set()
+metadata_hosts = []
+metadata_hosts_set = set()
+groups = set()
+
+def add_warning(msg):
+    if msg not in warnings:
+        warnings.append(msg)
+
+def add_next(msg):
+    if msg not in next_steps:
+        next_steps.append(msg)
+
+def load_hosts_file(path):
+    hosts = set()
+    if not path.is_file():
+        return hosts
+    for raw in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = raw.split("#", 1)[0].replace(",", " ").strip()
+        if not line:
+            continue
+        for token in line.split():
+            if token:
+                hosts.add(token)
+    return hosts
+
+inventory_hosts.update(load_hosts_file(servers_file))
+if hosts_dir.is_dir():
+    for group_file in sorted(hosts_dir.glob("*.txt")):
+        groups.add(group_file.stem)
+        inventory_hosts.update(load_hosts_file(group_file))
+
+header_ok = False
+unknown_columns = []
+if meta_file.is_file():
+    rows = meta_file.read_text(encoding="utf-8", errors="ignore").splitlines()
+    active_rows = []
+    for raw in rows:
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        active_rows.append(raw)
+    if active_rows:
+        try:
+            reader = csv.reader(active_rows)
+            header = [cell.strip().lower() for cell in next(reader, [])]
+        except Exception as exc:
+            add_warning(f"inventory_meta.csv is not valid CSV: {exc}")
+            add_next("fix CSV syntax in inventory_meta.csv")
+            header = []
+            reader = []
+        if header:
+            header_ok = header[:4] == expected_columns and len(header) == 4
+            unknown_columns = [col for col in header if col not in expected_columns]
+            if not header_ok:
+                add_warning("inventory_meta.csv header should be exactly: host,tags,role,env")
+                add_next("rewrite the header to host,tags,role,env")
+            if unknown_columns:
+                add_warning("inventory_meta.csv contains unknown columns: " + ",".join(unknown_columns))
+                add_next("remove unknown columns from inventory_meta.csv")
+            row_num = 1
+            host_counts = Counter()
+            for raw_row in reader:
+                row_num += 1
+                row = [cell.strip() for cell in raw_row]
+                if not row or not any(row):
+                    continue
+                while len(row) < 4:
+                    row.append("")
+                host, tag_field, role, env = row[:4]
+                if not host:
+                    invalid_rows.append(f"line {row_num}: empty host")
+                    continue
+                if host.lower() == "host":
+                    invalid_rows.append(f"line {row_num}: duplicate header row")
+                    continue
+                host_counts[host] += 1
+                metadata_hosts.append(host)
+                metadata_hosts_set.add(host)
+                role_l = role.lower()
+                env_l = env.lower()
+                if role_l:
+                    roles[role_l] += 1
+                if env_l:
+                    envs[env_l] += 1
+                bad_tag_format = False
+                normalized = tag_field.replace("|", ";")
+                if " " in normalized:
+                    bad_tag_format = True
+                parts = [part.strip().lower() for part in normalized.split(";")]
+                if any(part == "" for part in parts if normalized != ""):
+                    bad_tag_format = True
+                for part in parts:
+                    if not part:
+                        continue
+                    if not re.match(r"^[A-Za-z0-9._-]+$", part):
+                        bad_tag_format = True
+                    tags[part] += 1
+                if bad_tag_format:
+                    invalid_rows.append(f"line {row_num}: invalid tag formatting for host {host}")
+                if not role_l:
+                    invalid_rows.append(f"line {row_num}: missing role for host {host}")
+                if not env_l:
+                    invalid_rows.append(f"line {row_num}: missing env for host {host}")
+            duplicate_hosts = sorted(host for host, count in host_counts.items() if count > 1)
+            if duplicate_hosts:
+                add_warning("inventory_meta.csv contains duplicate hosts: " + ",".join(duplicate_hosts))
+                add_next("deduplicate hosts in inventory_meta.csv")
+    else:
+        add_warning("inventory_meta.csv is empty")
+        add_next("populate inventory_meta.csv with host,tags,role,env rows or remove it")
+else:
+    add_warning("inventory_meta.csv is missing")
+    add_next("create inventory_meta.csv if you want role/env/tag targeting and coverage reporting")
+
+if invalid_rows:
+    add_warning(f"inventory_meta.csv has {len(invalid_rows)} invalid or incomplete rows")
+    add_next("fix invalid rows in inventory_meta.csv")
+
+if inventory_hosts:
+    missing_metadata_hosts = sorted(inventory_hosts - metadata_hosts_set)
+    extra_metadata_hosts = sorted(metadata_hosts_set - inventory_hosts)
+    if missing_metadata_hosts:
+        add_warning(f"{len(missing_metadata_hosts)} inventory hosts are missing metadata")
+        add_next("add metadata rows for missing inventory hosts")
+    if extra_metadata_hosts:
+        add_warning(f"{len(extra_metadata_hosts)} metadata hosts are not present in servers.txt or hosts.d")
+        add_next("remove stale metadata rows or add those hosts back to inventory")
+else:
+    add_warning("no inventory hosts were found in servers.txt or hosts.d")
+    add_next("add hosts to servers.txt or hosts.d before relying on inventory targeting")
+
+result = "OK" if not warnings else "WARN"
+payload = {
+    "schema_version": 1,
+    "inventory_lint_json_contract_version": 1,
+    "meta_file": str(meta_file),
+    "cfg_dir": cfg_dir,
+    "servers_file": str(servers_file),
+    "hosts_dir": str(hosts_dir),
+    "header_ok": header_ok,
+    "unknown_columns": unknown_columns,
+    "duplicate_hosts": duplicate_hosts,
+    "invalid_rows": invalid_rows,
+    "missing_metadata_hosts": missing_metadata_hosts,
+    "extra_metadata_hosts": extra_metadata_hosts,
+    "summary": {
+        "inventory_hosts": len(inventory_hosts),
+        "metadata_hosts": len(metadata_hosts_set),
+        "duplicate_hosts": len(duplicate_hosts),
+        "missing_metadata_hosts": len(missing_metadata_hosts),
+        "extra_metadata_hosts": len(extra_metadata_hosts),
+        "invalid_rows": len(invalid_rows),
+        "groups": len(groups),
+        "roles": len(roles),
+        "envs": len(envs),
+        "tags": len(tags),
+    },
+    "coverage": {
+        "roles": sorted(roles),
+        "envs": sorted(envs),
+        "tags": sorted(tags),
+    },
+    "warnings": warnings,
+    "next_steps": next_steps,
+    "result": result,
+}
+print(json.dumps(payload, indent=2, sort_keys=True))
+PY
+  )"
+
+  if [[ "$json_out" -eq 1 ]]; then
+    printf '%s\n' "$payload"
+  else
+    PAYLOAD="$payload" python3 - <<'PY'
+import json
+import os
+
+payload = json.loads(os.environ["PAYLOAD"])
+print("linux-maint inventory lint")
+print(f"cfg_dir={payload['cfg_dir']}")
+print(f"meta_file={payload['meta_file']}")
+print(f"servers_file={payload['servers_file']}")
+print(f"hosts_dir={payload['hosts_dir']}")
+print("")
+print("Coverage:")
+summary = payload["summary"]
+print(f"- inventory_hosts={summary['inventory_hosts']} metadata_hosts={summary['metadata_hosts']} groups={summary['groups']}")
+print(f"- roles={summary['roles']} envs={summary['envs']} tags={summary['tags']}")
+if payload["coverage"]["roles"]:
+    print(f"- available_roles={','.join(payload['coverage']['roles'])}")
+if payload["coverage"]["envs"]:
+    print(f"- available_envs={','.join(payload['coverage']['envs'])}")
+if payload["coverage"]["tags"]:
+    print(f"- available_tags={','.join(payload['coverage']['tags'][:12])}")
+if payload["duplicate_hosts"]:
+    print("")
+    print("Duplicate hosts:")
+    for host in payload["duplicate_hosts"]:
+        print(f"- {host}")
+if payload["missing_metadata_hosts"]:
+    print("")
+    print("Missing metadata hosts:")
+    for host in payload["missing_metadata_hosts"][:12]:
+        print(f"- {host}")
+if payload["extra_metadata_hosts"]:
+    print("")
+    print("Extra metadata hosts:")
+    for host in payload["extra_metadata_hosts"][:12]:
+        print(f"- {host}")
+if payload["invalid_rows"]:
+    print("")
+    print("Row issues:")
+    for row in payload["invalid_rows"][:12]:
+        print(f"- {row}")
+if payload["warnings"]:
+    print("")
+    print("== Guidance ==")
+    for step in payload["next_steps"]:
+        print(f"next_step: {step}")
+print("")
+print("== Summary ==")
+print(f"warnings={len(payload['warnings'])}")
+print(f"invalid_rows={summary['invalid_rows']}")
+print(f"missing_metadata_hosts={summary['missing_metadata_hosts']}")
+print(f"duplicate_hosts={summary['duplicate_hosts']}")
+print(f"inventory lint {payload['result'].lower()}")
+PY
+  fi
+
+  case "$(
+    PAYLOAD="$payload" python3 - <<'PY'
+import json, os
+print(json.loads(os.environ["PAYLOAD"]).get("result", "WARN"))
+PY
+  )" in
+    OK) exit 0 ;;
+    WARN) exit 1 ;;
+    *) exit 2 ;;
+  esac
+}
+
 resolve_resume_run_id(){
   local target="${1:-}"
   [[ -n "$target" ]] || return 1

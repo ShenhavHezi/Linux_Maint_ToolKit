@@ -47,6 +47,7 @@ Automation / integrations:
 Setup / maintenance:
   init [flags]           Install config templates into <cfg_dir>
   config [flags]         Show effective config (merged from <cfg_dir>)
+  inventory lint [flags] Validate inventory_meta.csv coverage and targeting metadata
   tune dark-site         Apply recommended dark-site defaults to linux-maint.conf
   baseline <...> [flags] Capture or preview baselines
   preflight              Run preflight checks

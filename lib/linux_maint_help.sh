@@ -53,6 +53,7 @@ ${C_CYAN}Automation / integrations${C_RESET}:
 ${C_CYAN}Setup / maintenance${C_RESET}:
   init [flags]           Install config templates into <cfg_dir>
   config [flags]         Show effective config (merged from <cfg_dir>)
+  inventory lint [flags] Validate inventory_meta.csv coverage and targeting metadata
   tune dark-site         Apply recommended dark-site defaults to linux-maint.conf
   baseline <...> [flags] Capture or preview baselines
   preflight              Run preflight checks
@@ -120,6 +121,16 @@ command_usage(){
         "  linux-maint run --group prod --parallel 10 --progress\n  linux-maint run --tag web --env prod --plan --json\n  linux-maint run --role db --only service_monitor,ntp_drift_monitor\n  linux-maint run --skip inventory_export,backup_check\n  linux-maint run --strategy quorum --quorum-percent 80\n  linux-maint run --retry 2 --host-timeout 10\n  linux-maint run --resume latest\n  linux-maint run --lock-timeout 120\n  NO_COLOR=1 linux-maint run --local-only --plan\n  NO_COLOR=1 linux-maint run --local-only --plan --json" \
         "  - rc=0 when execution or plan completes without non-OK wrapper failure\n  - rc reflects the wrapper result for real runs\n  - rc=2 for flag or plan contract errors" \
         "  - repo mode reads repo-local defaults unless overridden\n  - installed mode typically targets /etc/linux_maint and system-owned paths"
+      ;;
+    inventory)
+      run_help_block \
+        "linux-maint inventory lint [--json] [--meta-file PATH] [--cfg-dir PATH]" \
+        "Validate inventory_meta.csv coverage and targeting metadata for run filters." \
+        "  - review tag/role/env coverage before filtered runs\n  - catch duplicate or incomplete metadata rows\n  - confirm inventory hosts are represented in inventory_meta.csv" \
+        "  lint                  validate inventory metadata and coverage\n  --json                machine-readable lint output\n  --meta-file PATH      override inventory metadata file\n  --cfg-dir PATH        override config dir used for servers.txt and hosts.d\n  Contract:\n    inventory_meta.csv columns must be: host,tags,role,env\n    tags may use ; or | separators" \
+        "  linux-maint inventory lint\n  linux-maint inventory lint --json\n  linux-maint inventory lint --cfg-dir ./etc/linux_maint\n  linux-maint inventory lint --meta-file /tmp/inventory_meta.csv" \
+        "  - exits 0 when inventory metadata is clean\n  - exits 1 when lint findings need operator attention\n  - exits 2 on invalid flags or unreadable metadata input" \
+        "  - uses <cfg_dir>/servers.txt and <cfg_dir>/hosts.d/*.txt for coverage checks\n  - does not mutate inventory or config files"
       ;;
     menu)
       run_help_block \

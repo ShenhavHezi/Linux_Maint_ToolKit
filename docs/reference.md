@@ -526,6 +526,14 @@ Prerequisites (any one):
   - Optional monitor privilege policy file: `${LM_MONITOR_PRIV_POLICY_FILE:-<cfg_dir>/monitor_privilege_policy.conf}`.
     - Format: `monitor=requires_root|allow_sudo|no_sudo`.
 
+- `linux-maint inventory lint`: validate inventory metadata coverage before filtered runs.
+  - `--json`: machine-readable lint output.
+  - `--meta-file PATH`: override the inventory metadata file.
+  - `--cfg-dir PATH`: override the config root used for `servers.txt` and `hosts.d`.
+  - finds duplicate hosts, missing metadata coverage, stale metadata rows, and incomplete rows.
+  - Schema:
+    - `docs/schemas/inventory_lint.json` — JSON schema for `linux-maint inventory lint --json`.
+
 - `linux-maint menu`: interactive TUI menu for common actions (requires gum/dialog/whiptail).
 
 - `linux-maint init [--minimal] [--force]`: install config templates from the repo checkout or installed template set.
