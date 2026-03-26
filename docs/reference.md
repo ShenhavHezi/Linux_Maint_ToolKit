@@ -1800,11 +1800,17 @@ CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).
 
 - `linux-maint baseline refresh --plan`: preview which baseline kinds should be refreshed before writing.
   - `--json`: emit machine-readable refresh preview.
+  - `--apply`: print the same plan first, then execute the recommended baseline updates.
   - `--stale-days N`: mark baselines stale when their newest file is older than `N` days.
   - `--kinds ports,configs,users,sudoers`: limit the preview to selected baseline kinds.
   - `--local-only`: append `--local-only` to the suggested refresh commands.
+  - `--apply --json` adds an `apply` result block with `applied`, `blocked`, `failed`, and `result`.
   - Schema:
     - `docs/schemas/baseline_refresh_plan.json` — JSON schema for `linux-maint baseline refresh --plan --json`.
+
+- `linux-maint status` / `linux-maint report`: when baseline data exists, both commands surface a compact baseline lifecycle summary.
+  - shows stale baseline counts, drift signals, missing inputs, and changed-host totals.
+  - guidance points operators to `linux-maint baseline refresh --plan` when lifecycle attention is needed.
 
 - `linux-maint baseline <ports|configs|users|sudoers> --update` *(root required in installed mode)*: capture/update baselines (per-host).
   - `--progress|--no-progress`: enable/disable per-host progress (overrides `LM_PROGRESS`).

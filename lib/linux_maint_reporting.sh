@@ -397,6 +397,10 @@ overall = last.get("overall", "UNKNOWN")
 exit_code = last.get("exit_code", "3")
 logfile = last.get("logfile", "")
 summary = status.get("summary_file", "")
+baseline = status.get("baseline", {}) if isinstance(status, dict) else {}
+baseline_summary = baseline.get("summary", {}) if isinstance(baseline, dict) else {}
+baseline_result = baseline.get("result") if isinstance(baseline, dict) else None
+baseline_attention = len((baseline.get("attention_items") or [])) if isinstance(baseline, dict) else 0
 ov = color_status(overall)
 if short:
     print(header("=== linux-maint report (short) ==="))
@@ -430,11 +434,23 @@ if short:
             print(line)
     else:
         print("\nproblems: none (all OK)")
+    if isinstance(baseline, dict) and baseline_summary:
+        print(
+            "\nbaseline: result={} stale_items={} drift_items={} missing_inputs={} changed_hosts_total={}".format(
+                baseline_result or "WARN",
+                int(baseline_summary.get("stale_items", 0) or 0),
+                int(baseline_summary.get("drift_items", 0) or 0),
+                int(baseline_summary.get("missing_inputs", 0) or 0),
+                int(baseline_summary.get("changed_hosts_total", 0) or 0),
+            )
+        )
     guidance = []
     if overall != "OK":
         guidance.extend(["linux-maint doctor", "linux-maint status --verbose"])
     else:
         guidance.append("linux-maint run")
+    if baseline_result and baseline_result != "OK":
+        guidance.append("linux-maint baseline refresh --plan")
     print("\n== Guidance ==")
     seen = set()
     for step in guidance:
@@ -447,6 +463,9 @@ if short:
     print(f"exit_code={exit_code}")
     print(f"problems={len(problems)}")
     print("history_warnings=0")
+    if baseline_result:
+        print(f"baseline_result={baseline_result}")
+        print(f"baseline_attention={baseline_attention}")
     print(f"result={overall}")
     print(final_label("report", overall))
     raise SystemExit(0)
@@ -589,6 +608,24 @@ if reason_rollup and not no_reasons:
         for h in hint_lines[:5]:
             print(f"- {h}")
 
+if isinstance(baseline, dict) and baseline_summary:
+    section("baseline lifecycle")
+    print(
+        "result={} stale_items={} fresh_items={} drift_items={} missing_inputs={} changed_hosts_total={}".format(
+            baseline_result or "WARN",
+            int(baseline_summary.get("stale_items", 0) or 0),
+            int(baseline_summary.get("fresh_items", 0) or 0),
+            int(baseline_summary.get("drift_items", 0) or 0),
+            int(baseline_summary.get("missing_inputs", 0) or 0),
+            int(baseline_summary.get("changed_hosts_total", 0) or 0),
+        )
+    )
+    if baseline_attention:
+        print(f"attention_items={baseline_attention}")
+    baseline_next_steps = baseline.get("next_steps") or []
+    if baseline_next_steps:
+        print(f"next_step_hint={baseline_next_steps[0]}")
+
 if trend and not no_trend:
     t_totals = trend.get("totals", {})
     if t_totals:
@@ -640,6 +677,8 @@ if history_warning_count:
     guidance.append("linux-maint status --since 1d")
 if rows and overall != "OK":
     guidance.append("linux-maint runtimes --last 5")
+if baseline_result and baseline_result != "OK":
+    guidance.append("linux-maint baseline refresh --plan")
 print("\n== Guidance ==")
 seen = set()
 for step in guidance:
@@ -652,6 +691,9 @@ print(f"overall={overall}")
 print(f"exit_code={exit_code}")
 print(f"problems={len(problems)}")
 print(f"history_warnings={history_warning_count}")
+if baseline_result:
+    print(f"baseline_result={baseline_result}")
+    print(f"baseline_attention={baseline_attention}")
 print(f"result={overall}")
 print(final_label("report", overall))
 PY
@@ -1018,6 +1060,10 @@ linux_maint_cmd_status() {
     local inventory_missing_hosts=0 inventory_extra_hosts=0 inventory_invalid_rows=0 inventory_coverage_percent=0
     local inventory_roles="" inventory_envs="" inventory_tags="" inventory_meta_present=0 inventory_meta_readable=0
     local inventory_meta_path="" inventory_show=0
+    local baseline_json="" baseline_result="" baseline_stale_days="${LM_BASELINE_STALE_DAYS:-30}"
+    local baseline_show=0 baseline_stale_items=0 baseline_fresh_items=0 baseline_drift_items=0
+    local baseline_missing_inputs=0 baseline_changed_hosts_total=0 baseline_attention_count=0
+    local baseline_next_step_primary=""
 
 
     while [[ $# -gt 0 ]]; do
@@ -1231,6 +1277,54 @@ print(f"meta_file={payload.get('meta_file', '')}")
 print(f"show={show}")
 PY
     )
+
+    set +e
+    baseline_json="$("$0" baseline status --json --stale-days "$baseline_stale_days" 2>/dev/null)"
+    baseline_rc=$?
+    set -e
+    if [[ "$baseline_rc" -le 1 && -n "$baseline_json" ]]; then
+      while IFS='=' read -r k v; do
+        case "$k" in
+          result) baseline_result="$v" ;;
+          stale_days) baseline_stale_days="$v" ;;
+          stale_items) baseline_stale_items="$v" ;;
+          fresh_items) baseline_fresh_items="$v" ;;
+          drift_items) baseline_drift_items="$v" ;;
+          missing_inputs) baseline_missing_inputs="$v" ;;
+          changed_hosts_total) baseline_changed_hosts_total="$v" ;;
+          attention_count) baseline_attention_count="$v" ;;
+          next_step_primary) baseline_next_step_primary="$v" ;;
+          next_step_secondary) baseline_next_step_secondary="$v" ;;
+          show) baseline_show="$v" ;;
+        esac
+      done < <(
+        BASELINE_JSON_PAYLOAD="$baseline_json" python3 - <<'PY'
+import json
+import os
+
+try:
+    payload = json.loads(os.environ.get("BASELINE_JSON_PAYLOAD", "") or "{}")
+except Exception:
+    payload = {}
+summary = payload.get("summary") or {}
+items = payload.get("items") or []
+next_steps = payload.get("next_steps") or []
+show = 1 if any(int((row or {}).get("file_count", 0) or 0) > 0 for row in items) or int(summary.get("changed_hosts_total", 0) or 0) > 0 else 0
+print(f"result={payload.get('result', 'WARN')}")
+print(f"stale_days={int(payload.get('stale_days', 0) or 0)}")
+print(f"stale_items={int(summary.get('stale_items', 0) or 0)}")
+print(f"fresh_items={int(summary.get('fresh_items', 0) or 0)}")
+print(f"drift_items={int(summary.get('drift_items', 0) or 0)}")
+print(f"missing_inputs={int(summary.get('missing_inputs', 0) or 0)}")
+print(f"changed_hosts_total={int(summary.get('changed_hosts_total', 0) or 0)}")
+print(f"attention_count={len(payload.get('attention_items') or [])}")
+print(f"next_step_primary={next_steps[0] if len(next_steps) > 0 else ''}")
+print(f"show={show}")
+PY
+      )
+    else
+      baseline_json=""
+    fi
 
     # Optional strict validation of summary lines (ensure monitor/host/status are valid).
     if [[ "$STRICT" -eq 1 ]]; then
@@ -1515,7 +1609,7 @@ PY
         fi
       fi
 
-      STATUS_HISTORY_WARNINGS="$history_warnings_json" STATUS_INVENTORY_JSON="$inventory_json" python3 - "$MODE" "$status_file" "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" <<'PY'
+      STATUS_HISTORY_WARNINGS="$history_warnings_json" STATUS_INVENTORY_JSON="$inventory_json" STATUS_BASELINE_JSON="$baseline_json" python3 - "$MODE" "$status_file" "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" <<'PY'
 import json, os, re, sys
 
 mode, status_path, summary_path, only, limit, host_filter, monitor_filter, match_mode, reasons_limit = sys.argv[1:10]
@@ -1525,6 +1619,7 @@ redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","
 redact_json_strict = os.environ.get("LM_REDACT_JSON_STRICT","0") in ("1","true","TRUE","yes","YES")
 history_warnings_raw = os.environ.get("STATUS_HISTORY_WARNINGS", "")
 inventory_raw = os.environ.get("STATUS_INVENTORY_JSON", "")
+baseline_raw = os.environ.get("STATUS_BASELINE_JSON", "")
 
 def read_kv(path):
     d={}
@@ -1598,6 +1693,18 @@ except Exception:
     inventory = {}
 if not isinstance(inventory, dict):
     inventory = {}
+try:
+    baseline = json.loads(baseline_raw) if baseline_raw else {}
+except Exception:
+    baseline = {}
+if not isinstance(baseline, dict):
+    baseline = {}
+if baseline:
+    baseline_items = baseline.get("items") or []
+    baseline_summary = baseline.get("summary") or {}
+    baseline_show = any(int((row or {}).get("file_count", 0) or 0) > 0 for row in baseline_items) or int(baseline_summary.get("changed_hosts_total", 0) or 0) > 0
+    if not baseline_show:
+        baseline = {}
 run_id = ""
 if isinstance(status, dict):
     run_id = status.get("run_id", "")
@@ -1681,6 +1788,8 @@ if inventory:
         'coverage': inventory.get('coverage') or {},
         'warnings': inventory.get('warnings') or [],
     }
+if baseline:
+    out['baseline'] = baseline
 if history_warnings_raw:
     warnings = []
     for raw in history_warnings_raw.splitlines():
@@ -1779,6 +1888,15 @@ PY
       [[ -n "${inventory_roles:-}" ]] && echo "available_roles=${inventory_roles}"
       [[ -n "${inventory_envs:-}" ]] && echo "available_envs=${inventory_envs}"
       [[ -n "${inventory_tags:-}" ]] && echo "available_tags=${inventory_tags}"
+    fi
+
+    if [[ "$baseline_show" -eq 1 ]]; then
+      echo ""; section "Baseline lifecycle"
+      echo "result=${baseline_result:-WARN}"
+      echo "stale_days=${baseline_stale_days:-30}"
+      echo "stale_items=${baseline_stale_items:-0} fresh_items=${baseline_fresh_items:-0} drift_items=${baseline_drift_items:-0} missing_inputs=${baseline_missing_inputs:-0} changed_hosts_total=${baseline_changed_hosts_total:-0}"
+      echo "attention_items=${baseline_attention_count:-0}"
+      [[ -n "$baseline_next_step_primary" ]] && echo "next_step_hint=${baseline_next_step_primary}"
     fi
 
     fi
@@ -2267,6 +2385,9 @@ PY
       if [[ "${inventory_show:-0}" -eq 1 && "${inventory_result:-OK}" != "OK" ]]; then
         echo "next_step: linux-maint inventory lint"
       fi
+      if [[ "${baseline_show:-0}" -eq 1 && "${baseline_result:-OK}" != "OK" ]]; then
+        echo "next_step: linux-maint baseline refresh --plan"
+      fi
       if [[ "$history_warning_count" -gt 0 ]]; then
         echo "next_step: linux-maint status --since 1d"
       fi
@@ -2279,6 +2400,10 @@ PY
         echo "inventory_result=${inventory_result:-WARN}"
         echo "inventory_warnings=${inventory_warning_count:-0}"
         echo "inventory_coverage=${inventory_metadata_hosts:-0}/${inventory_hosts:-0}"
+      fi
+      if [[ "${baseline_show:-0}" -eq 1 ]]; then
+        echo "baseline_result=${baseline_result:-WARN}"
+        echo "baseline_attention=${baseline_attention_count:-0}"
       fi
       echo "result=$status_overall"
       case "$status_overall" in

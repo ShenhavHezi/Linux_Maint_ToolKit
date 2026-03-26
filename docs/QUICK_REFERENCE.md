@@ -143,7 +143,9 @@ linux-maint baseline status
 linux-maint baseline status --json --stale-days 30
 linux-maint baseline refresh --plan
 linux-maint baseline refresh --plan --json --stale-days 30 --kinds ports,configs
+linux-maint baseline refresh --apply --stale-days 30 --local-only --kinds ports
 # status output also shows attention items and refresh guidance
+# status/report also surface baseline lifecycle when baseline data exists
 
 # Run history (fast; uses run_index.jsonl)
 linux-maint history --last 10

@@ -383,10 +383,11 @@ EOF
 Usage: linux-maint baseline <status|ports|configs|users|sudoers> [flags]
 
   status        show baseline freshness and latest drift state
-  refresh       preview which baseline kinds should be refreshed
+  refresh       preview or apply which baseline kinds should be refreshed
   --json        with status, emit machine-readable output
   --stale-days N  mark baselines stale after N days (default 30)
   --plan        with refresh, preview recommended refresh actions
+  --apply       with refresh, apply recommended refresh actions
   --kinds LIST  with refresh, limit preview to ports,configs,users,sudoers
   --update      write baseline
   --diff        show changes vs baseline
@@ -397,6 +398,7 @@ Usage: linux-maint baseline <status|ports|configs|users|sudoers> [flags]
 Notes:
   - status is read-only in repo mode and installed mode.
   - refresh --plan is read-only in repo mode and installed mode.
+  - refresh --apply prints the plan first, then runs the recommended baseline updates.
   - In installed mode, --show and --diff are read-only.
   - Capture/update paths still require write access to the active config root.
 EOF

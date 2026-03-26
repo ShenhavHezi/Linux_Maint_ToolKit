@@ -196,7 +196,7 @@ PY
 linux_maint_cmd_baseline() {
   local target="${1:-}" script scripts_dir
   shift || true
-  local BASELINE_UPDATE=0 BASELINE_LOCAL=0 BASELINE_DIFF=0 BASELINE_SHOW=0 BASELINE_JSON=0 BASELINE_PLAN=0
+  local BASELINE_UPDATE=0 BASELINE_LOCAL=0 BASELINE_DIFF=0 BASELINE_SHOW=0 BASELINE_JSON=0 BASELINE_PLAN=0 BASELINE_APPLY=0
   local BASELINE_STALE_DAYS="${LM_BASELINE_STALE_DAYS:-30}"
   local BASELINE_PROGRESS_SET=0 BASELINE_PROGRESS=0
   local BASELINE_KINDS=""
@@ -205,6 +205,7 @@ linux_maint_cmd_baseline() {
       --json) BASELINE_JSON=1; shift 1;;
       --stale-days) BASELINE_STALE_DAYS="$2"; shift 2;;
       --plan) BASELINE_PLAN=1; shift 1;;
+      --apply) BASELINE_APPLY=1; shift 1;;
       --kinds) BASELINE_KINDS="$2"; shift 2;;
       --update) BASELINE_UPDATE=1; shift 1;;
       --local-only) BASELINE_LOCAL=1; shift 1;;
@@ -437,11 +438,11 @@ PY
 
   if [[ "$target" == "refresh" ]]; then
     if [[ "$BASELINE_UPDATE" -eq 1 || "$BASELINE_DIFF" -eq 1 || "$BASELINE_SHOW" -eq 1 || "$BASELINE_PROGRESS_SET" -eq 1 ]]; then
-      echo "ERROR: baseline refresh only supports --plan, --json, --stale-days, --local-only, and --kinds" >&2
+      echo "ERROR: baseline refresh only supports --plan, --apply, --json, --stale-days, --local-only, and --kinds" >&2
       exit 2
     fi
-    if [[ "$BASELINE_PLAN" -ne 1 ]]; then
-      echo "ERROR: baseline refresh currently requires --plan" >&2
+    if [[ "$BASELINE_PLAN" -eq 0 && "$BASELINE_APPLY" -eq 0 ]]; then
+      echo "ERROR: baseline refresh requires --plan or --apply" >&2
       echo "Hint: use linux-maint baseline refresh --plan" >&2
       exit 2
     fi
@@ -449,13 +450,16 @@ PY
       echo "ERROR: --stale-days must be an integer >= 1" >&2
       exit 2
     fi
-    BASELINE_REFRESH_JSON="$BASELINE_JSON" \
-    BASELINE_REFRESH_STALE_DAYS="$BASELINE_STALE_DAYS" \
-    BASELINE_REFRESH_CFG_DIR="$(linux_maint_effective_cfg_dir)" \
-    BASELINE_REFRESH_SUMMARY_FILE="$(linux_maint_effective_summary_latest)" \
-    BASELINE_REFRESH_LOCAL_ONLY="$BASELINE_LOCAL" \
-    BASELINE_REFRESH_KINDS="$BASELINE_KINDS" \
-    python3 - <<'PY'
+    local refresh_payload
+    set +e
+    refresh_payload="$(
+      BASELINE_REFRESH_JSON=1 \
+      BASELINE_REFRESH_STALE_DAYS="$BASELINE_STALE_DAYS" \
+      BASELINE_REFRESH_CFG_DIR="$(linux_maint_effective_cfg_dir)" \
+      BASELINE_REFRESH_SUMMARY_FILE="$(linux_maint_effective_summary_latest)" \
+      BASELINE_REFRESH_LOCAL_ONLY="$BASELINE_LOCAL" \
+      BASELINE_REFRESH_KINDS="$BASELINE_KINDS" \
+      python3 - <<'PY'
 import json
 import os
 import pathlib
@@ -651,6 +655,187 @@ else:
     print(f"baseline refresh plan {'ok' if result == 'OK' else 'warn'}")
 raise SystemExit(0 if result == "OK" else 1)
 PY
+    )"
+    local refresh_rc=$?
+    set -e
+    if [[ "$BASELINE_APPLY" -eq 0 ]]; then
+      if [[ "$BASELINE_JSON" -eq 1 ]]; then
+        printf '%s\n' "$refresh_payload"
+      else
+        REFRESH_PAYLOAD="$refresh_payload" python3 - <<'PY'
+import json
+import os
+
+payload = json.loads(os.environ["REFRESH_PAYLOAD"])
+print("linux-maint baseline refresh --plan")
+print(f"cfg_dir={payload['cfg_dir']}")
+print(f"summary_file={payload['summary_file']}")
+print(f"stale_days={payload['stale_days']}")
+print(f"local_only={'true' if payload['local_only'] else 'false'}")
+print("")
+print(f"{'kind':<9} {'files':>5} {'stale':<6} {'refresh':<7} details")
+for row in payload["items"]:
+    details = [row["path"]]
+    if row["refresh_reasons"]:
+        details.append("reasons=" + ",".join(row["refresh_reasons"]))
+    if row["changed_hosts"]:
+        details.append(f"changed_hosts={row['changed_hosts']}")
+    print(
+        f"{row['kind']:<9} {row['file_count']:>5} {str(row['stale']).lower():<6} "
+        f"{('yes' if row['recommended_refresh'] else 'no'):<7} {' '.join(details)}"
+    )
+if payload["summary"]["refresh_candidates"]:
+    print("")
+    print("Refresh candidates:")
+    for row in payload["items"]:
+        if row["recommended_refresh"]:
+            print(f"- {row['kind']}: {row['command']}")
+if payload["summary"]["blocked"]:
+    print("")
+    print("Blocked:")
+    for row in payload["items"]:
+        if "missing_input" in row["refresh_reasons"]:
+            print(f"- {row['kind']}: support input missing")
+if payload["warnings"]:
+    print("")
+    print("== Guidance ==")
+    for step in payload["next_steps"]:
+        print(f"next_step: {step}")
+print("")
+print("== Summary ==")
+print(f"selected_kinds={payload['summary']['selected_kinds']}")
+print(f"refresh_candidates={payload['summary']['refresh_candidates']}")
+print(f"blocked={payload['summary']['blocked']}")
+print(f"clean={payload['summary']['clean']}")
+print(f"warnings={len(payload['warnings'])}")
+print(f"baseline refresh plan {'ok' if payload['result'] == 'OK' else 'warn'}")
+PY
+      fi
+      exit "$refresh_rc"
+    fi
+
+    local -a apply_kinds=() applied_kinds=() failed_kinds=() blocked_kinds=()
+    mapfile -t apply_kinds < <(
+      REFRESH_PAYLOAD="$refresh_payload" python3 - <<'PY'
+import json
+import os
+payload = json.loads(os.environ["REFRESH_PAYLOAD"])
+for row in payload.get("items") or []:
+    if row.get("recommended_refresh"):
+        print(row.get("kind", ""))
+PY
+    )
+    mapfile -t blocked_kinds < <(
+      REFRESH_PAYLOAD="$refresh_payload" python3 - <<'PY'
+import json
+import os
+payload = json.loads(os.environ["REFRESH_PAYLOAD"])
+for row in payload.get("items") or []:
+    if "missing_input" in (row.get("refresh_reasons") or []):
+        print(row.get("kind", ""))
+PY
+    )
+
+    if [[ "$BASELINE_JSON" -eq 0 ]]; then
+      REFRESH_PAYLOAD="$refresh_payload" python3 - <<'PY'
+import json
+import os
+payload = json.loads(os.environ["REFRESH_PAYLOAD"])
+print("linux-maint baseline refresh --apply")
+print(f"cfg_dir={payload['cfg_dir']}")
+print(f"summary_file={payload['summary_file']}")
+print(f"stale_days={payload['stale_days']}")
+print(f"local_only={'true' if payload['local_only'] else 'false'}")
+print("")
+print("Planned refresh:")
+for row in payload.get("items") or []:
+    state = "apply" if row.get("recommended_refresh") else "skip"
+    print(f"- {row.get('kind')}: {state} reasons={','.join(row.get('refresh_reasons') or []) or 'none'}")
+print("")
+print("== Apply ==")
+PY
+    fi
+
+    local kind rc
+    for kind in "${apply_kinds[@]}"; do
+      [[ -n "$kind" ]] || continue
+      if [[ "$BASELINE_JSON" -eq 0 ]]; then
+        echo "apply: linux-maint baseline $kind --update$([[ "$BASELINE_LOCAL" -eq 1 ]] && printf ' --local-only')"
+      fi
+      if [[ "$BASELINE_LOCAL" -eq 1 ]]; then
+        if "$0" baseline "$kind" --update --local-only >/dev/null 2>&1; then
+          applied_kinds+=("$kind")
+        else
+          rc=$?
+          failed_kinds+=("${kind}:${rc}")
+        fi
+      else
+        if "$0" baseline "$kind" --update >/dev/null 2>&1; then
+          applied_kinds+=("$kind")
+        else
+          rc=$?
+          failed_kinds+=("${kind}:${rc}")
+        fi
+      fi
+    done
+
+    local apply_result="OK"
+    local apply_exit=0
+    if [[ "${#failed_kinds[@]}" -gt 0 ]]; then
+      apply_result="ERROR"
+      apply_exit=2
+    elif [[ "${#blocked_kinds[@]}" -gt 0 ]]; then
+      apply_result="WARN"
+      apply_exit=1
+    fi
+
+    if [[ "$BASELINE_JSON" -eq 1 ]]; then
+      REFRESH_PAYLOAD="$refresh_payload" APPLIED_KINDS="$(printf '%s\n' "${applied_kinds[@]}")" FAILED_KINDS="$(printf '%s\n' "${failed_kinds[@]}")" BLOCKED_KINDS="$(printf '%s\n' "${blocked_kinds[@]}")" APPLY_RESULT="$apply_result" python3 - <<'PY'
+import json
+import os
+
+payload = json.loads(os.environ["REFRESH_PAYLOAD"])
+applied = [x for x in os.environ.get("APPLIED_KINDS", "").splitlines() if x]
+blocked = [x for x in os.environ.get("BLOCKED_KINDS", "").splitlines() if x]
+failed = []
+for raw in os.environ.get("FAILED_KINDS", "").splitlines():
+    if not raw:
+        continue
+    kind, _, rc = raw.partition(":")
+    failed.append({"kind": kind, "rc": int(rc or 1)})
+payload["apply"] = {
+    "applied": applied,
+    "blocked": blocked,
+    "failed": failed,
+    "result": os.environ.get("APPLY_RESULT", "OK"),
+}
+print(json.dumps(payload, indent=2, sort_keys=True))
+PY
+    else
+      echo ""
+      echo "== Guidance =="
+      if [[ "${#failed_kinds[@]}" -gt 0 ]]; then
+        echo "next_step: linux-maint doctor"
+        echo "next_step: linux-maint baseline refresh --plan"
+      elif [[ "${#blocked_kinds[@]}" -gt 0 ]]; then
+        echo "next_step: fix missing baseline inputs and rerun linux-maint baseline refresh --plan"
+        echo "next_step: linux-maint report"
+      else
+        echo "next_step: linux-maint baseline status"
+        echo "next_step: linux-maint report"
+      fi
+      echo ""
+      echo "== Summary =="
+      echo "applied=${#applied_kinds[@]}"
+      echo "blocked=${#blocked_kinds[@]}"
+      echo "failed=${#failed_kinds[@]}"
+      case "$apply_result" in
+        OK) echo "baseline refresh apply ok" ;;
+        WARN) echo "baseline refresh apply warn" ;;
+        *) echo "baseline refresh apply error" ;;
+      esac
+    fi
+    exit "$apply_exit"
   fi
 
   if [[ "$BASELINE_DIFF" -eq 1 && "$BASELINE_SHOW" -eq 1 ]]; then

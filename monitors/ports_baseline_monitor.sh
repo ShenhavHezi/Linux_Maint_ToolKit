@@ -48,7 +48,7 @@ ALLOWLIST_FILE="${LM_CFG_DIR:-/etc/linux_maint}/ports_allowlist.txt"  # Optional
 
 # Behavior flags
 AUTO_BASELINE_INIT="true"       # If no baseline for a host, create it from current snapshot
-BASELINE_UPDATE="false"         # If true, replace baseline with current snapshot after reporting
+BASELINE_UPDATE="${BASELINE_UPDATE:-false}"  # If true, replace baseline with current snapshot after reporting
 INCLUDE_PROCESS="true"          # Include process names in baseline when available
 BASELINE_ONLY="${LM_BASELINE_ONLY:-0}"
 BASELINE_DIFF="${LM_BASELINE_DIFF:-0}"

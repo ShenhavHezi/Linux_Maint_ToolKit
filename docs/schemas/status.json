@@ -92,6 +92,33 @@
       },
       "additionalProperties": true
     },
+    "baseline": {
+      "type": "object",
+      "required": ["baseline_status_json_contract_version", "summary", "attention_items", "next_steps", "result"],
+      "properties": {
+        "baseline_status_json_contract_version": { "type": "integer", "minimum": 1 },
+        "summary": {
+          "type": "object",
+          "required": ["stale_items", "fresh_items", "drift_items", "missing_inputs", "changed_hosts_total", "oldest_age_seconds"],
+          "properties": {
+            "stale_items": { "type": "integer", "minimum": 0 },
+            "fresh_items": { "type": "integer", "minimum": 0 },
+            "drift_items": { "type": "integer", "minimum": 0 },
+            "missing_inputs": { "type": "integer", "minimum": 0 },
+            "changed_hosts_total": { "type": "integer", "minimum": 0 },
+            "oldest_age_seconds": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": true
+        },
+        "attention_items": { "type": "array" },
+        "next_steps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "result": { "type": "string", "enum": ["OK", "WARN"] }
+      },
+      "additionalProperties": true
+    },
     "reason_rollup": {
       "type": "array",
       "items": {

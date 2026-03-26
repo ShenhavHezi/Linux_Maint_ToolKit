@@ -48,7 +48,7 @@ BASELINE_DIR="${LM_CFG_DIR:-/etc/linux_maint}/baselines/configs"       # Per-hos
 
 # Behavior
 AUTO_BASELINE_INIT="true"   # If baseline missing for a host, create it from current snapshot
-BASELINE_UPDATE="false"     # After reporting, accept current as new baseline
+BASELINE_UPDATE="${BASELINE_UPDATE:-false}"  # After reporting, accept current as new baseline
 EMAIL_ON_DRIFT="true"       # Send email when drift detected
 BASELINE_ONLY="${LM_BASELINE_ONLY:-0}"
 BASELINE_DIFF="${LM_BASELINE_DIFF:-0}"

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "linux-maint baseline refresh --plan --json",
+  "title": "linux-maint baseline refresh --plan|--apply --json",
   "type": "object",
   "required": [
     "schema_version",
@@ -78,7 +78,35 @@
     },
     "warnings": { "type": "array", "items": { "type": "string" } },
     "next_steps": { "type": "array", "items": { "type": "string" } },
-    "result": { "type": "string", "enum": ["OK", "WARN"] }
+    "result": { "type": "string", "enum": ["OK", "WARN"] },
+    "apply": {
+      "type": "object",
+      "required": ["applied", "blocked", "failed", "result"],
+      "properties": {
+        "applied": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["ports", "configs", "users", "sudoers"] }
+        },
+        "blocked": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["ports", "configs", "users", "sudoers"] }
+        },
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["kind", "rc"],
+            "properties": {
+              "kind": { "type": "string", "enum": ["ports", "configs", "users", "sudoers"] },
+              "rc": { "type": "integer", "minimum": 1 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "result": { "type": "string", "enum": ["OK", "WARN", "ERROR"] }
+      },
+      "additionalProperties": false
+    }
   },
   "additionalProperties": false
 }
