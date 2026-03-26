@@ -141,6 +141,8 @@ linux-maint run --role db --plan --json
 # Baseline lifecycle and drift freshness
 linux-maint baseline status
 linux-maint baseline status --json --stale-days 30
+linux-maint baseline refresh --plan
+linux-maint baseline refresh --plan --json --stale-days 30 --kinds ports,configs
 # status output also shows attention items and refresh guidance
 
 # Run history (fast; uses run_index.jsonl)
@@ -241,6 +243,7 @@ docs/schemas/report.json
 docs/schemas/history.json
 docs/schemas/run_index.json
 docs/schemas/baseline_status.json
+docs/schemas/baseline_refresh_plan.json
 docs/schemas/upgrade_check.json
 docs/schemas/upgrade_plan.json
 docs/schemas/inventory_lint.json

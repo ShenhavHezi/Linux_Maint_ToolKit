@@ -389,6 +389,8 @@ run_required "pack_logs_meta_paths_test" bash "$CORE_TEST_DIR/pack_logs_meta_pat
 run_required "pack_logs_repo_override_test" bash "$CORE_TEST_DIR/pack_logs_repo_override_test.sh"
 run_required "baseline_status_test" bash "$CORE_TEST_DIR/baseline_status_test.sh"
 run_required "baseline_status_human_test" bash "$CORE_TEST_DIR/baseline_status_human_test.sh"
+run_required "baseline_refresh_plan_test" bash "$CORE_TEST_DIR/baseline_refresh_plan_test.sh"
+run_required "baseline_refresh_plan_human_test" bash "$CORE_TEST_DIR/baseline_refresh_plan_human_test.sh"
 run_required "release_verify_test" bash "$RELEASE_TEST_DIR/release_verify_test.sh"
 run_required "release_verify_manifest_test" bash "$RELEASE_TEST_DIR/release_verify_manifest_test.sh"
 run_required "release_verify_members_test" bash "$RELEASE_TEST_DIR/release_verify_members_test.sh"

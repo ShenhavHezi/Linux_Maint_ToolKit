@@ -1798,6 +1798,14 @@ CERTS_SCAN_EXTS: comma-separated extensions to include (default crt,cer,pem).
   - Schema:
     - `docs/schemas/baseline_status.json` — JSON schema for `linux-maint baseline status --json`.
 
+- `linux-maint baseline refresh --plan`: preview which baseline kinds should be refreshed before writing.
+  - `--json`: emit machine-readable refresh preview.
+  - `--stale-days N`: mark baselines stale when their newest file is older than `N` days.
+  - `--kinds ports,configs,users,sudoers`: limit the preview to selected baseline kinds.
+  - `--local-only`: append `--local-only` to the suggested refresh commands.
+  - Schema:
+    - `docs/schemas/baseline_refresh_plan.json` — JSON schema for `linux-maint baseline refresh --plan --json`.
+
 - `linux-maint baseline <ports|configs|users|sudoers> --update` *(root required in installed mode)*: capture/update baselines (per-host).
   - `--progress|--no-progress`: enable/disable per-host progress (overrides `LM_PROGRESS`).
 

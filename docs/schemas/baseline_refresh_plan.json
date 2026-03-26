@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "linux-maint baseline refresh --plan --json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "baseline_refresh_plan_json_contract_version",
+    "cfg_dir",
+    "summary_file",
+    "stale_days",
+    "local_only",
+    "items",
+    "summary",
+    "warnings",
+    "next_steps",
+    "result"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "baseline_refresh_plan_json_contract_version": { "type": "integer", "minimum": 1 },
+    "cfg_dir": { "type": "string" },
+    "summary_file": { "type": "string" },
+    "stale_days": { "type": "integer", "minimum": 1 },
+    "local_only": { "type": "boolean" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind",
+          "path",
+          "exists",
+          "readable",
+          "file_count",
+          "latest_mtime_epoch",
+          "age_seconds",
+          "stale",
+          "support_file",
+          "support_exists",
+          "latest_status",
+          "latest_reason",
+          "changed_hosts",
+          "recommended_refresh",
+          "refresh_reasons",
+          "command"
+        ],
+        "properties": {
+          "kind": { "type": "string", "enum": ["ports", "configs", "users", "sudoers"] },
+          "path": { "type": "string" },
+          "exists": { "type": "boolean" },
+          "readable": { "type": "boolean" },
+          "file_count": { "type": "integer", "minimum": 0 },
+          "latest_mtime_epoch": { "type": ["integer", "null"] },
+          "age_seconds": { "type": ["integer", "null"], "minimum": 0 },
+          "stale": { "type": "boolean" },
+          "support_file": { "type": ["string", "null"] },
+          "support_exists": { "type": ["boolean", "null"] },
+          "latest_status": { "type": ["string", "null"] },
+          "latest_reason": { "type": ["string", "null"] },
+          "changed_hosts": { "type": "integer", "minimum": 0 },
+          "recommended_refresh": { "type": "boolean" },
+          "refresh_reasons": { "type": "array", "items": { "type": "string" } },
+          "command": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["selected_kinds", "refresh_candidates", "blocked", "clean"],
+      "properties": {
+        "selected_kinds": { "type": "integer", "minimum": 0 },
+        "refresh_candidates": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 },
+        "clean": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "next_steps": { "type": "array", "items": { "type": "string" } },
+    "result": { "type": "string", "enum": ["OK", "WARN"] }
+  },
+  "additionalProperties": false
+}
