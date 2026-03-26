@@ -68,7 +68,7 @@ Use this order if you are operating the toolkit on a real system.
 - [ARTIFACTS.md](ARTIFACTS.md)
 - [UPGRADE.md](UPGRADE.md)
 - [release_notes/README.md](release_notes/README.md)
-- Release notes (latest): `docs/release_notes/release_notes_v0.3.7.md`, `docs/release_notes/release_notes_v0.3.6.md`
+- Release notes (latest): `docs/release_notes/release_notes_v0.3.8.md`, `docs/release_notes/release_notes_v0.3.7.md`
 
 ## Menu and CLI Help
 
