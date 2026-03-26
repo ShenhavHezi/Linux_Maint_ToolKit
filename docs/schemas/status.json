@@ -75,6 +75,23 @@
         "additionalProperties": true
       }
     },
+    "inventory": {
+      "type": "object",
+      "required": ["meta_file", "meta_present", "meta_readable", "result", "summary", "coverage", "warnings"],
+      "properties": {
+        "meta_file": { "type": ["string", "null"] },
+        "meta_present": { "type": "boolean" },
+        "meta_readable": { "type": "boolean" },
+        "result": { "type": "string", "enum": ["OK", "WARN", "ERROR"] },
+        "summary": { "type": "object" },
+        "coverage": { "type": "object" },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
     "reason_rollup": {
       "type": "array",
       "items": {

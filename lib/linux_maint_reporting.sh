@@ -1013,6 +1013,11 @@ linux_maint_cmd_status() {
     PROM=0
     STRICT=0
     OUTPUT_PATH=""
+    local inventory_cfg_dir inventory_meta_file inventory_servers_file inventory_hosts_dir inventory_json=""
+    local inventory_result="" inventory_warning_count=0 inventory_hosts=0 inventory_metadata_hosts=0
+    local inventory_missing_hosts=0 inventory_extra_hosts=0 inventory_invalid_rows=0 inventory_coverage_percent=0
+    local inventory_roles="" inventory_envs="" inventory_tags="" inventory_meta_present=0 inventory_meta_readable=0
+    local inventory_meta_path="" inventory_show=0
 
 
     while [[ $# -gt 0 ]]; do
@@ -1171,6 +1176,61 @@ print(f"linux_maint_last_run_timestamp {run_epoch}")
 PY
       exit 0
     fi
+
+    inventory_cfg_dir="$(linux_maint_effective_cfg_dir)"
+    inventory_meta_file="${LM_INVENTORY_META:-$(linux_maint_effective_inventory_meta_file)}"
+    inventory_servers_file="${LM_SERVERLIST:-$inventory_cfg_dir/servers.txt}"
+    inventory_hosts_dir="${LM_HOSTS_DIR:-$inventory_cfg_dir/hosts.d}"
+    inventory_json="$(linux_maint_inventory_snapshot_json "$inventory_cfg_dir" "$inventory_meta_file" "$inventory_servers_file" "$inventory_hosts_dir")"
+    while IFS='=' read -r k v; do
+      case "$k" in
+        result) inventory_result="$v" ;;
+        warning_count) inventory_warning_count="$v" ;;
+        inventory_hosts) inventory_hosts="$v" ;;
+        metadata_hosts) inventory_metadata_hosts="$v" ;;
+        missing_metadata_hosts) inventory_missing_hosts="$v" ;;
+        extra_metadata_hosts) inventory_extra_hosts="$v" ;;
+        invalid_rows) inventory_invalid_rows="$v" ;;
+        coverage_percent) inventory_coverage_percent="$v" ;;
+        roles) inventory_roles="$v" ;;
+        envs) inventory_envs="$v" ;;
+        tags) inventory_tags="$v" ;;
+        meta_present) inventory_meta_present="$v" ;;
+        meta_readable) inventory_meta_readable="$v" ;;
+        meta_file) inventory_meta_path="$v" ;;
+        show) inventory_show="$v" ;;
+      esac
+    done < <(
+      INVENTORY_JSON="$inventory_json" python3 - <<'PY'
+import json
+import os
+
+try:
+    payload = json.loads(os.environ.get("INVENTORY_JSON", "") or "{}")
+except Exception:
+    payload = {}
+summary = payload.get("summary") or {}
+coverage = payload.get("coverage") or {}
+inventory_hosts = int(summary.get("inventory_hosts", 0) or 0)
+meta_present = 1 if payload.get("meta_present") else 0
+show = 1 if inventory_hosts > 0 or meta_present else 0
+print(f"result={payload.get('result', 'WARN')}")
+print(f"warning_count={len(payload.get('warnings') or [])}")
+print(f"inventory_hosts={inventory_hosts}")
+print(f"metadata_hosts={int(summary.get('metadata_hosts', 0) or 0)}")
+print(f"missing_metadata_hosts={int(summary.get('missing_metadata_hosts', 0) or 0)}")
+print(f"extra_metadata_hosts={int(summary.get('extra_metadata_hosts', 0) or 0)}")
+print(f"invalid_rows={int(summary.get('invalid_rows', 0) or 0)}")
+print(f"coverage_percent={int(summary.get('coverage_percent', 0) or 0)}")
+print(f"roles={','.join(coverage.get('roles') or [])}")
+print(f"envs={','.join(coverage.get('envs') or [])}")
+print(f"tags={','.join((coverage.get('tags') or [])[:8])}")
+print(f"meta_present={1 if payload.get('meta_present') else 0}")
+print(f"meta_readable={1 if payload.get('meta_readable') else 0}")
+print(f"meta_file={payload.get('meta_file', '')}")
+print(f"show={show}")
+PY
+    )
 
     # Optional strict validation of summary lines (ensure monitor/host/status are valid).
     if [[ "$STRICT" -eq 1 ]]; then
@@ -1455,7 +1515,7 @@ PY
         fi
       fi
 
-      STATUS_HISTORY_WARNINGS="$history_warnings_json" python3 - "$MODE" "$status_file" "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" <<'PY'
+      STATUS_HISTORY_WARNINGS="$history_warnings_json" STATUS_INVENTORY_JSON="$inventory_json" python3 - "$MODE" "$status_file" "$summary_file" "$ONLY" "$PROB_N" "$HOST_FILTER" "$MONITOR_FILTER" "$MATCH_MODE" "$REASONS_N" <<'PY'
 import json, os, re, sys
 
 mode, status_path, summary_path, only, limit, host_filter, monitor_filter, match_mode, reasons_limit = sys.argv[1:10]
@@ -1464,6 +1524,7 @@ reasons_limit=int(reasons_limit)
 redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
 redact_json_strict = os.environ.get("LM_REDACT_JSON_STRICT","0") in ("1","true","TRUE","yes","YES")
 history_warnings_raw = os.environ.get("STATUS_HISTORY_WARNINGS", "")
+inventory_raw = os.environ.get("STATUS_INVENTORY_JSON", "")
 
 def read_kv(path):
     d={}
@@ -1531,6 +1592,12 @@ def matched(value, flt):
         sys.exit(2)
 
 status=read_kv(status_path)
+try:
+    inventory = json.loads(inventory_raw) if inventory_raw else {}
+except Exception:
+    inventory = {}
+if not isinstance(inventory, dict):
+    inventory = {}
 run_id = ""
 if isinstance(status, dict):
     run_id = status.get("run_id", "")
@@ -1604,6 +1671,16 @@ out={
     'problems': problems[:limit],
     'runtime_warnings': runtime_warnings,
 }
+if inventory:
+    out['inventory'] = {
+        'meta_file': inventory.get('meta_file'),
+        'meta_present': bool(inventory.get('meta_present')),
+        'meta_readable': bool(inventory.get('meta_readable')),
+        'result': inventory.get('result') or 'WARN',
+        'summary': inventory.get('summary') or {},
+        'coverage': inventory.get('coverage') or {},
+        'warnings': inventory.get('warnings') or [],
+    }
 if history_warnings_raw:
     warnings = []
     for raw in history_warnings_raw.splitlines():
@@ -1691,6 +1768,17 @@ PY
       else
         echo "No status file: $status_file"
       fi
+    fi
+
+    if [[ "$inventory_show" -eq 1 ]]; then
+      echo ""; section "Inventory metadata"
+      echo "result=${inventory_result:-WARN}"
+      echo "meta_file=${inventory_meta_path:-$inventory_meta_file}"
+      echo "inventory_hosts=${inventory_hosts:-0} metadata_hosts=${inventory_metadata_hosts:-0} coverage=${inventory_coverage_percent:-0}%"
+      echo "missing_metadata_hosts=${inventory_missing_hosts:-0} extra_metadata_hosts=${inventory_extra_hosts:-0} invalid_rows=${inventory_invalid_rows:-0}"
+      [[ -n "${inventory_roles:-}" ]] && echo "available_roles=${inventory_roles}"
+      [[ -n "${inventory_envs:-}" ]] && echo "available_envs=${inventory_envs}"
+      [[ -n "${inventory_tags:-}" ]] && echo "available_tags=${inventory_tags}"
     fi
 
     fi
@@ -2176,6 +2264,9 @@ PY
         echo "next_step: linux-maint doctor"
         echo "next_step: linux-maint status --verbose"
       fi
+      if [[ "${inventory_show:-0}" -eq 1 && "${inventory_result:-OK}" != "OK" ]]; then
+        echo "next_step: linux-maint inventory lint"
+      fi
       if [[ "$history_warning_count" -gt 0 ]]; then
         echo "next_step: linux-maint status --since 1d"
       fi
@@ -2184,6 +2275,11 @@ PY
       echo "overall=$status_overall"
       echo "exit_code=$status_exit"
       echo "history_warnings=$history_warning_count"
+      if [[ "${inventory_show:-0}" -eq 1 ]]; then
+        echo "inventory_result=${inventory_result:-WARN}"
+        echo "inventory_warnings=${inventory_warning_count:-0}"
+        echo "inventory_coverage=${inventory_metadata_hosts:-0}/${inventory_hosts:-0}"
+      fi
       echo "result=$status_overall"
       case "$status_overall" in
         OK) echo "${C_GREEN}status ok${C_RESET}" ;;

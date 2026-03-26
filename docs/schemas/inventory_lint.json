@@ -4,8 +4,11 @@
   "type": "object",
   "required": [
     "schema_version",
+    "inventory_snapshot_version",
     "inventory_lint_json_contract_version",
     "meta_file",
+    "meta_present",
+    "meta_readable",
     "cfg_dir",
     "servers_file",
     "hosts_dir",
@@ -17,8 +20,11 @@
   ],
   "properties": {
     "schema_version": { "type": "integer", "minimum": 1 },
+    "inventory_snapshot_version": { "type": "integer", "minimum": 1 },
     "inventory_lint_json_contract_version": { "type": "integer", "minimum": 1 },
     "meta_file": { "type": "string" },
+    "meta_present": { "type": "boolean" },
+    "meta_readable": { "type": "boolean" },
     "cfg_dir": { "type": "string" },
     "servers_file": { "type": "string" },
     "hosts_dir": { "type": "string" },
@@ -40,7 +46,8 @@
         "groups",
         "roles",
         "envs",
-        "tags"
+        "tags",
+        "coverage_percent"
       ],
       "properties": {
         "inventory_hosts": { "type": "integer", "minimum": 0 },
@@ -52,7 +59,8 @@
         "groups": { "type": "integer", "minimum": 0 },
         "roles": { "type": "integer", "minimum": 0 },
         "envs": { "type": "integer", "minimum": 0 },
-        "tags": { "type": "integer", "minimum": 0 }
+        "tags": { "type": "integer", "minimum": 0 },
+        "coverage_percent": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
     },

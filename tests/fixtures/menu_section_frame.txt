@@ -11,21 +11,21 @@
  │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
  │  log=/tmp/linux_maint_menu_render_fixture/logs     │    ╰────────────────────────────────────────────────────╯
  │  state=/tmp/linux_maint_state_fixture              │
- │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
- │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Action preview                                    │
- ╰────────────────────────────────────────────────────╯    │  Opens the live dashboard view.                    │
-                                                           │                                                    │
- ╭────────────────────────────────────────────────────╮    │  Reads:                                            │
- │                                                    │    │  - latest status/report artifacts from             │
- │  Recommended start                                 │    │  /tmp/linux_maint_menu_render_fixture/logs         │
- │  Recommended first action: first_setup             │    │                                                    │
- │  - Dashboard for the live operations view          │    │  Writes:                                           │
- │  - Problems for the latest non-OK rows             │    │  - none                                            │
- │  - Report when you need a short operator summary   │    │                                                    │
- │                                                    │    │  Likely next step:                                 │
- ╰────────────────────────────────────────────────────╯    │    Jump to problems or report if you need a        │
-                                                           │  narrower answer.                                  │
+ │  config=missing  inventory=missing                 │    ╭────────────────────────────────────────────────────╮
+ │  metadata=missing  summary=yes  history=no         │    │                                                    │
+ │  logs=no                                           │    │  Action preview                                    │
+ │                                                    │    │  Opens the live dashboard view.                    │
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           │  Reads:                                            │
+ ╭────────────────────────────────────────────────────╮    │  - latest status/report artifacts from             │
+ │                                                    │    │  /tmp/linux_maint_menu_render_fixture/logs         │
+ │  Recommended start                                 │    │                                                    │
+ │  Recommended first action: first_setup             │    │  Writes:                                           │
+ │  - Dashboard for the live operations view          │    │  - none                                            │
+ │  - Problems for the latest non-OK rows             │    │                                                    │
+ │  - Report when you need a short operator summary   │    │  Likely next step:                                 │
+ │                                                    │    │    Jump to problems or report if you need a        │
+ ╰────────────────────────────────────────────────────╯    │  narrower answer.                                  │
                                                            │                                                    │
                                                            ╰────────────────────────────────────────────────────╯
 

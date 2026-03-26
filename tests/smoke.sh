@@ -183,6 +183,7 @@ run_required "summary_command_test" bash "$REPORTING_TEST_DIR/summary_command_te
 run_required_if_cmd perl "summary_invalid_status_test" bash "$REPORTING_TEST_DIR/summary_invalid_status_test.sh"
 run_required "status_summary_test" bash "$REPORTING_TEST_DIR/status_summary_test.sh"
 run_required "status_guidance_summary_test" bash "$REPORTING_TEST_DIR/status_guidance_summary_test.sh"
+run_required "status_inventory_coverage_test" bash "$REPORTING_TEST_DIR/status_inventory_coverage_test.sh"
 run_required "status_repo_missing_summary_hints_test" bash "$REPORTING_TEST_DIR/status_repo_missing_summary_hints_test.sh"
 run_required "status_last_color_test" bash "$REPORTING_TEST_DIR/status_last_color_test.sh"
 run_required "status_group_by_test" bash "$REPORTING_TEST_DIR/status_group_by_test.sh"

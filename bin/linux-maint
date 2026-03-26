@@ -390,6 +390,7 @@ tui_gum_context_panel(){
 tui_gum_context_panel_render(){
   local status_json="${1:-}" width="${2:-110}"
   local snapshot mode cfg_dir log_dir state_dir overall ok warn crit unk skip age shortcuts preview config_dir_exists inventory_ready summary_ready log_ready history_ready
+  local inventory_meta_state inventory_hosts inventory_metadata_hosts inventory_missing_hosts inventory_role_count inventory_env_count inventory_tag_count
   snapshot="$(tui_context_snapshot "$status_json")"
   while IFS='=' read -r k v; do
     case "$k" in
@@ -408,6 +409,13 @@ tui_gum_context_panel_render(){
       preview) preview="$v" ;;
       config_dir_exists) config_dir_exists="$v" ;;
       inventory_ready) inventory_ready="$v" ;;
+      inventory_meta_state) inventory_meta_state="$v" ;;
+      inventory_hosts) inventory_hosts="$v" ;;
+      inventory_metadata_hosts) inventory_metadata_hosts="$v" ;;
+      inventory_missing_hosts) inventory_missing_hosts="$v" ;;
+      inventory_role_count) inventory_role_count="$v" ;;
+      inventory_env_count) inventory_env_count="$v" ;;
+      inventory_tag_count) inventory_tag_count="$v" ;;
       summary_ready) summary_ready="$v" ;;
       log_ready) log_ready="$v" ;;
       history_ready) history_ready="$v" ;;
@@ -417,9 +425,15 @@ tui_gum_context_panel_render(){
   local shortcuts_label="off" preview_label="off"
   tui_bool_enabled "${shortcuts:-0}" && shortcuts_label="on"
   tui_bool_enabled "${preview:-0}" && preview_label="on"
-  local config_label="missing" inventory_label="missing" summary_label="no" history_label="no" logs_label="no"
+  local config_label="missing" inventory_label="missing" metadata_label="missing" summary_label="no" history_label="no" logs_label="no"
   [[ "${config_dir_exists:-0}" == "1" ]] && config_label="ready"
   [[ "${inventory_ready:-0}" == "1" ]] && inventory_label="ready"
+  case "${inventory_meta_state:-missing}" in
+    ok) metadata_label="ok" ;;
+    warn) metadata_label="warn" ;;
+    error) metadata_label="error" ;;
+    *) metadata_label="missing" ;;
+  esac
   [[ "${summary_ready:-0}" == "1" ]] && summary_label="yes"
   [[ "${history_ready:-0}" == "1" ]] && history_label="yes"
   [[ "${log_ready:-0}" == "1" ]] && logs_label="yes"
@@ -431,11 +445,19 @@ tui_gum_context_panel_render(){
     OK) overall_color="#22c55e" ;;
   esac
 
-  local line1 line2 line3
+  local line1 line2 line3 line4
   line1="mode=${mode:-unknown}  overall=$(gum style --bold --foreground "$overall_color" "${overall:-UNKNOWN}")  last_run=$(tui_format_age_seconds "${age:--1}")  shortcuts=$shortcuts_label  preview=$preview_label"
   line2="cfg=${cfg_dir:-?}  log=${log_dir:-?}  state=${state_dir:-?}"
-  line3="config=$config_label  inventory=$inventory_label  summary=$summary_label  history=$history_label  logs=$logs_label"
-  tui_gum_card_render "Active context" "#334155" "$(printf '%s\n%s\n%s' "$line1" "$line2" "$line3")" "$width"
+  line3="config=$config_label  inventory=$inventory_label  metadata=$metadata_label  summary=$summary_label  history=$history_label  logs=$logs_label"
+  line4=""
+  if [[ "${inventory_hosts:-0}" -gt 0 || "${inventory_metadata_hosts:-0}" -gt 0 ]]; then
+    line4="coverage=${inventory_metadata_hosts:-0}/${inventory_hosts:-0}  missing=${inventory_missing_hosts:-0}  roles=${inventory_role_count:-0} envs=${inventory_env_count:-0} tags=${inventory_tag_count:-0}"
+  fi
+  if [[ -n "$line4" ]]; then
+    tui_gum_card_render "Active context" "#334155" "$(printf '%s\n%s\n%s\n%s' "$line1" "$line2" "$line3" "$line4")" "$width"
+  else
+    tui_gum_card_render "Active context" "#334155" "$(printf '%s\n%s\n%s' "$line1" "$line2" "$line3")" "$width"
+  fi
 }
 
 resolve_menu_shortcut_tag(){
@@ -668,6 +690,7 @@ tui_section_empty_state_body(){
 
 tui_fallback_menu_prompt_body(){
   local prompt="$1" context="${2:-main}" status_json snapshot mode overall age cfg_dir log_dir summary_ready inventory_ready history_ready recommended focus preview_line
+  local inventory_meta_state inventory_hosts inventory_metadata_hosts inventory_role_count inventory_env_count inventory_tag_count
   status_json="$(tui_status_snapshot_json)"
   snapshot="$(tui_context_snapshot "$status_json")"
   mode="$(tui_snapshot_value "$snapshot" mode)"
@@ -677,6 +700,12 @@ tui_fallback_menu_prompt_body(){
   log_dir="$(tui_snapshot_value "$snapshot" log_dir)"
   summary_ready="$(tui_snapshot_value "$snapshot" summary_ready)"
   inventory_ready="$(tui_snapshot_value "$snapshot" inventory_ready)"
+  inventory_meta_state="$(tui_snapshot_value "$snapshot" inventory_meta_state)"
+  inventory_hosts="$(tui_snapshot_value "$snapshot" inventory_hosts)"
+  inventory_metadata_hosts="$(tui_snapshot_value "$snapshot" inventory_metadata_hosts)"
+  inventory_role_count="$(tui_snapshot_value "$snapshot" inventory_role_count)"
+  inventory_env_count="$(tui_snapshot_value "$snapshot" inventory_env_count)"
+  inventory_tag_count="$(tui_snapshot_value "$snapshot" inventory_tag_count)"
   history_ready="$(tui_snapshot_value "$snapshot" history_ready)"
   recommended="$(tui_section_recommended_action "$context" "$status_json")"
   focus="$(tui_section_preview_body "$context" "$status_json" | head -n 2 | tail -n 1)"
@@ -687,10 +716,16 @@ tui_fallback_menu_prompt_body(){
   printf '  %s\n' "$(tui_fallback_section_summary "$context")"
   printf '\nState:\n'
   printf '  mode=%s  overall=%s  last_run=%s\n' "${mode:-unknown}" "${overall:-UNKNOWN}" "$(tui_format_age_seconds "${age:--1}")"
-  printf '  inventory=%s  summary=%s  history=%s\n' \
+  printf '  inventory=%s  metadata=%s  summary=%s  history=%s\n' \
     "$( [[ "${inventory_ready:-0}" == "1" ]] && printf ready || printf missing )" \
+    "${inventory_meta_state:-missing}" \
     "$( [[ "${summary_ready:-0}" == "1" ]] && printf yes || printf no )" \
     "$( [[ "${history_ready:-0}" == "1" ]] && printf yes || printf no )"
+  if [[ "${inventory_hosts:-0}" -gt 0 || "${inventory_metadata_hosts:-0}" -gt 0 ]]; then
+    printf '  coverage=%s/%s  roles=%s envs=%s tags=%s\n' \
+      "${inventory_metadata_hosts:-0}" "${inventory_hosts:-0}" \
+      "${inventory_role_count:-0}" "${inventory_env_count:-0}" "${inventory_tag_count:-0}"
+  fi
   printf '  cfg=%s\n' "${cfg_dir:-?}"
   printf '  log=%s\n' "${log_dir:-?}"
   printf '\nRecommended now:\n'
@@ -2068,7 +2103,11 @@ tui_gum_main_landing_compact(){
     boot_snapshot="$(tui_bootstrap_state_snapshot)"
     printf '  overview=NOT_STARTED  last_run=missing\n' >&2
     printf '  cfg=%s\n' "$(tui_snapshot_value "$boot_snapshot" cfg_dir)" >&2
-    printf '  inventory=%s\n' "$( [[ "$(tui_snapshot_value "$boot_snapshot" inventory_ready)" == "1" ]] && printf ready || printf missing )" >&2
+    printf '  inventory=%s  metadata=%s  coverage=%s/%s\n' \
+      "$( [[ "$(tui_snapshot_value "$boot_snapshot" inventory_ready)" == "1" ]] && printf ready || printf missing )" \
+      "$(tui_snapshot_value "$boot_snapshot" inventory_meta_state)" \
+      "$(tui_snapshot_value "$boot_snapshot" inventory_metadata_hosts)" \
+      "$(tui_snapshot_value "$boot_snapshot" inventory_hosts)" >&2
     printf '  summary=no  history=%s  logs=%s\n' \
       "$( [[ "$(tui_snapshot_value "$boot_snapshot" history_ready)" == "1" ]] && printf yes || printf no )" \
       "$( [[ "$(tui_snapshot_value "$boot_snapshot" log_ready)" == "1" ]] && printf yes || printf no )" >&2

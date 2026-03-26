@@ -31,6 +31,7 @@ Key flags:
     current_incident is best after you have a summary or wrapper log
     escalation is best after report/JSON/log artifacts exist
   Workflow notes:
+    Overview and the context panel surface inventory metadata coverage when inventory_meta.csv is present
     Triage keeps drilldown, logs, doctor, and focused recovery in one workspace
     Share keeps report/export tasks close to quick reference and troubleshooting docs
   Global gum controls:

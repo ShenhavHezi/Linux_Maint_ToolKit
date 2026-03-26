@@ -58,6 +58,10 @@ out="$(tui_fallback_menu_prompt_body "Run checks" "run")"
 
 mkdir -p "$LM_CFG_DIR"
 printf '%s\n' "localhost" > "$LM_CFG_DIR/servers.txt"
+cat > "$LM_CFG_DIR/inventory_meta.csv" <<'EOF'
+host,tags,role,env
+localhost,ops;web,web,prod
+EOF
 cat > "$LOG_DIR/full_health_monitor_summary_latest.json" <<'JSON'
 {"rows":[{"monitor":"service_monitor","host":"web-1","status":"WARN","reason":"service_inactive"}],"problems":[{"monitor":"service_monitor","host":"web-1","status":"WARN","reason":"service_inactive"}],"reason_rollup":[{"reason":"service_inactive","count":1}],"totals":{"OK":0,"WARN":1,"CRIT":0,"UNKNOWN":0,"SKIP":0},"meta":{"overall":"WARN"}}
 JSON
@@ -70,6 +74,16 @@ out="$(tui_fallback_menu_prompt_body "Repair" "repair")"
 }
 [[ "$out" == *"start=incident"* ]] || {
   echo "fallback prompt should recommend incident in repair context" >&2
+  echo "$out" >&2
+  exit 1
+}
+[[ "$out" == *"metadata=ok"* ]] || {
+  echo "fallback prompt should expose inventory metadata state" >&2
+  echo "$out" >&2
+  exit 1
+}
+[[ "$out" == *"coverage=1/1"* ]] || {
+  echo "fallback prompt should expose inventory coverage counts" >&2
   echo "$out" >&2
   exit 1
 }

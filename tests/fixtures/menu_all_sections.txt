@@ -13,24 +13,24 @@
  │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
  │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
  │  ogs  state=/tmp/linux_maint_state_fixture         │
- │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
- │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Action preview                                    │
- ╰────────────────────────────────────────────────────╯    │  Command preview: Quickstart: first setup          │
-                                                           │                                                    │
- ╭────────────────────────────────────────────────────╮    │  Command:                                          │
- │                                                    │    │    linux-maint init --minimal                      │
- │  Recommended start                                 │    │                                                    │
- │  Recommended first action: first_setup             │    │  Risk:                                             │
- │  - Use the bootstrap wizard to create config,      │    │    Changes system                                  │
- │  validate readiness, and preview the first run     │    │                                                    │
- │  - Current incident is best after you already      │    │  Reads:                                            │
- │  have a summary or active failure                  │    │  - starter templates from the repo/install         │
- │  - Escalation is most useful once report, JSON,    │    │  template directory                                │
- │  or bundle artifacts exist                         │    │  - current target config root                      │
- │                                                    │    │  /tmp/linux_maint_cfg_fixture                      │
+ │  config=missing  inventory=missing                 │    ╭────────────────────────────────────────────────────╮
+ │  metadata=missing  summary=yes  history=no         │    │                                                    │
+ │  logs=no                                           │    │  Action preview                                    │
+ │                                                    │    │  Command preview: Quickstart: first setup          │
  ╰────────────────────────────────────────────────────╯    │                                                    │
-                                                           │  Writes:                                           │
+                                                           │  Command:                                          │
+ ╭────────────────────────────────────────────────────╮    │    linux-maint init --minimal                      │
+ │                                                    │    │                                                    │
+ │  Recommended start                                 │    │  Risk:                                             │
+ │  Recommended first action: first_setup             │    │    Changes system                                  │
+ │  - Use the bootstrap wizard to create config,      │    │                                                    │
+ │  validate readiness, and preview the first run     │    │  Reads:                                            │
+ │  - Current incident is best after you already      │    │  - starter templates from the repo/install         │
+ │  have a summary or active failure                  │    │  template directory                                │
+ │  - Escalation is most useful once report, JSON,    │    │  - current target config root                      │
+ │  or bundle artifacts exist                         │    │  /tmp/linux_maint_cfg_fixture                      │
+ │                                                    │    │                                                    │
+ ╰────────────────────────────────────────────────────╯    │  Writes:                                           │
                                                            │  - starter config files under                      │
                                                            │  /tmp/linux_maint_cfg_fixture                      │
                                                            │  - may overwrite existing templates only when --   │
@@ -59,21 +59,21 @@
  │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
  │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
  │  ogs  state=/tmp/linux_maint_state_fixture         │
- │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
- │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Action preview                                    │
- ╰────────────────────────────────────────────────────╯    │  Opens the live dashboard view.                    │
-                                                           │                                                    │
- ╭────────────────────────────────────────────────────╮    │  Reads:                                            │
- │                                                    │    │  - latest status/report artifacts from             │
- │  Recommended start                                 │    │  /tmp/linux_maint_menu_render_fixture_probe/logs   │
- │  Recommended first action: first_setup             │    │                                                    │
- │  - Dashboard for the live operations view          │    │  Writes:                                           │
- │  - Problems for the latest non-OK rows             │    │  - none                                            │
- │  - Report when you need a short operator summary   │    │                                                    │
- │                                                    │    │  Likely next step:                                 │
- ╰────────────────────────────────────────────────────╯    │    Jump to problems or report if you need a        │
-                                                           │  narrower answer.                                  │
+ │  config=missing  inventory=missing                 │    ╭────────────────────────────────────────────────────╮
+ │  metadata=missing  summary=yes  history=no         │    │                                                    │
+ │  logs=no                                           │    │  Action preview                                    │
+ │                                                    │    │  Opens the live dashboard view.                    │
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           │  Reads:                                            │
+ ╭────────────────────────────────────────────────────╮    │  - latest status/report artifacts from             │
+ │                                                    │    │  /tmp/linux_maint_menu_render_fixture_probe/logs   │
+ │  Recommended start                                 │    │                                                    │
+ │  Recommended first action: first_setup             │    │  Writes:                                           │
+ │  - Dashboard for the live operations view          │    │  - none                                            │
+ │  - Problems for the latest non-OK rows             │    │                                                    │
+ │  - Report when you need a short operator summary   │    │  Likely next step:                                 │
+ │                                                    │    │    Jump to problems or report if you need a        │
+ ╰────────────────────────────────────────────────────╯    │  narrower answer.                                  │
                                                            │                                                    │
                                                            ╰────────────────────────────────────────────────────╯
 
@@ -94,24 +94,24 @@
  │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
  │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
  │  ogs  state=/tmp/linux_maint_state_fixture         │
- │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
- │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Action preview                                    │
- ╰────────────────────────────────────────────────────╯    │  Command preview: linux-maint run                  │
-                                                           │                                                    │
- ╭────────────────────────────────────────────────────╮    │  Command:                                          │
- │                                                    │    │    linux-maint run                                 │
- │  Recommended start                                 │    │                                                    │
- │  Recommended first action: first_setup             │    │  Risk:                                             │
- │  - Before a live run, create or review config in   │    │    Changes system                                  │
- │  /tmp/linux_maint_cfg_fixture                      │    │                                                    │
- │  - Add targets in                                  │    │  Reads:                                            │
- │  /tmp/linux_maint_cfg_fixture/servers.txt or       │    │  - config from /tmp/linux_maint_cfg_fixture        │
- │  under /tmp/linux_maint_cfg_fixture/hosts.d        │    │  - inventory from                                  │
- │  - Use plan once the inventory is ready            │    │  /tmp/linux_maint_cfg_fixture/servers.txt and      │
- │                                                    │    │  /tmp/linux_maint_cfg_fixture/hosts.d              │
- ╰────────────────────────────────────────────────────╯    │  - monitor scripts and current policy settings     │
-                                                           │                                                    │
+ │  config=missing  inventory=missing                 │    ╭────────────────────────────────────────────────────╮
+ │  metadata=missing  summary=yes  history=no         │    │                                                    │
+ │  logs=no                                           │    │  Action preview                                    │
+ │                                                    │    │  Command preview: linux-maint run                  │
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           │  Command:                                          │
+ ╭────────────────────────────────────────────────────╮    │    linux-maint run                                 │
+ │                                                    │    │                                                    │
+ │  Recommended start                                 │    │  Risk:                                             │
+ │  Recommended first action: first_setup             │    │    Changes system                                  │
+ │  - Before a live run, create or review config in   │    │                                                    │
+ │  /tmp/linux_maint_cfg_fixture                      │    │  Reads:                                            │
+ │  - Add targets in                                  │    │  - config from /tmp/linux_maint_cfg_fixture        │
+ │  /tmp/linux_maint_cfg_fixture/servers.txt or       │    │  - inventory from                                  │
+ │  under /tmp/linux_maint_cfg_fixture/hosts.d        │    │  /tmp/linux_maint_cfg_fixture/servers.txt and      │
+ │  - Use plan once the inventory is ready            │    │  /tmp/linux_maint_cfg_fixture/hosts.d              │
+ │                                                    │    │  - monitor scripts and current policy settings     │
+ ╰────────────────────────────────────────────────────╯    │                                                    │
                                                            │  Writes:                                           │
                                                            │  - run artifacts under                             │
                                                            │  /tmp/linux_maint_menu_render_fixture_probe/logs   │
@@ -142,22 +142,23 @@
  │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
  │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
  │  ogs  state=/tmp/linux_maint_state_fixture         │
- │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
- │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Action preview                                    │
- ╰────────────────────────────────────────────────────╯    │  Guide: incident response workflow [i]             │
-                                                           │                                                    │
- ╭────────────────────────────────────────────────────╮    │  Reads:                                            │
- │                                                    │    │  - context-dependent inputs for this action        │
- │  Recommended start                                 │    │                                                    │
- │  Recommended first action: first_setup             │    │  Writes:                                           │
- │  Current triage: connectivity triage: reason       │    │  - none until the action resolves into a command   │
- │  explain + focused status + network rerun          │    │                                                    │
- │  - Start with drilldown when you need to narrow    │    │  Likely next step:                                 │
- │  the failure                                       │    │    Open the action if it matches your current      │
- │  - Use doctor or focused_run once you know where   │    │  operator task.                                    │
- │  to intervene                                      │    │                                                    │
- │                                                    │    ╰────────────────────────────────────────────────────╯
+ │  config=missing  inventory=missing                 │    ╭────────────────────────────────────────────────────╮
+ │  metadata=missing  summary=yes  history=no         │    │                                                    │
+ │  logs=no                                           │    │  Action preview                                    │
+ │                                                    │    │  Guide: incident response workflow [i]             │
+ ╰────────────────────────────────────────────────────╯    │                                                    │
+                                                           │  Reads:                                            │
+ ╭────────────────────────────────────────────────────╮    │  - context-dependent inputs for this action        │
+ │                                                    │    │                                                    │
+ │  Recommended start                                 │    │  Writes:                                           │
+ │  Recommended first action: first_setup             │    │  - none until the action resolves into a command   │
+ │  Current triage: connectivity triage: reason       │    │                                                    │
+ │  explain + focused status + network rerun          │    │  Likely next step:                                 │
+ │  - Start with drilldown when you need to narrow    │    │    Open the action if it matches your current      │
+ │  the failure                                       │    │  operator task.                                    │
+ │  - Use doctor or focused_run once you know where   │    │                                                    │
+ │  to intervene                                      │    ╰────────────────────────────────────────────────────╯
+ │                                                    │
  ╰────────────────────────────────────────────────────╯
 
 
@@ -177,22 +178,22 @@
  │  cfg=/tmp/linux_maint_cfg_fixture                  │    │                                                    │
  │  log=/tmp/linux_maint_menu_render_fixture_probe/l  │    ╰────────────────────────────────────────────────────╯
  │  ogs  state=/tmp/linux_maint_state_fixture         │
- │  config=missing  inventory=missing  summary=yes    │    ╭────────────────────────────────────────────────────╮
- │  history=no  logs=no                               │    │                                                    │
- │                                                    │    │  Action preview                                    │
- ╰────────────────────────────────────────────────────╯    │  Share: short report summary [r]                   │
-                                                           │                                                    │
- ╭────────────────────────────────────────────────────╮    │  Reads:                                            │
- │                                                    │    │  - context-dependent inputs for this action        │
- │  Recommended start                                 │    │                                                    │
- │  Recommended first action: report                  │    │  Writes:                                           │
- │  - Report and export JSON for handoff              │    │  - none until the action resolves into a command   │
- │  - Pack logs when you need an escalation bundle    │    │                                                    │
- │  - Quick reference and troubleshooting stay close  │    │  Likely next step:                                 │
- │  to the artifacts                                  │    │    Open the action if it matches your current      │
- │                                                    │    │  operator task.                                    │
+ │  config=missing  inventory=missing                 │    ╭────────────────────────────────────────────────────╮
+ │  metadata=missing  summary=yes  history=no         │    │                                                    │
+ │  logs=no                                           │    │  Action preview                                    │
+ │                                                    │    │  Share: short report summary [r]                   │
  ╰────────────────────────────────────────────────────╯    │                                                    │
-                                                           ╰────────────────────────────────────────────────────╯
+                                                           │  Reads:                                            │
+ ╭────────────────────────────────────────────────────╮    │  - context-dependent inputs for this action        │
+ │                                                    │    │                                                    │
+ │  Recommended start                                 │    │  Writes:                                           │
+ │  Recommended first action: report                  │    │  - none until the action resolves into a command   │
+ │  - Report and export JSON for handoff              │    │                                                    │
+ │  - Pack logs when you need an escalation bundle    │    │  Likely next step:                                 │
+ │  - Quick reference and troubleshooting stay close  │    │    Open the action if it matches your current      │
+ │  to the artifacts                                  │    │  operator task.                                    │
+ │                                                    │    │                                                    │
+ ╰────────────────────────────────────────────────────╯    ╰────────────────────────────────────────────────────╯
 
 
   Use arrows + Enter. Search, previews, and quick help are available in the chooser. Esc back.

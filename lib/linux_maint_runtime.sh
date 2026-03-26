@@ -76,6 +76,254 @@ linux_maint_effective_inventory_meta_file() {
   printf '%s/inventory_meta.csv' "$(linux_maint_effective_cfg_dir)"
 }
 
+linux_maint_inventory_snapshot_json() {
+  local cfg_dir="${1:-$(linux_maint_effective_cfg_dir)}"
+  local meta_file="${2:-${LM_INVENTORY_META:-$(linux_maint_effective_inventory_meta_file)}}"
+  local servers_file="${3:-${LM_SERVERLIST:-$cfg_dir/servers.txt}}"
+  local hosts_dir="${4:-${LM_HOSTS_DIR:-$cfg_dir/hosts.d}}"
+  META_FILE="$meta_file" CFG_DIR="$cfg_dir" SERVERS_FILE="$servers_file" HOSTS_DIR="$hosts_dir" python3 - <<'PY'
+import csv
+import json
+import os
+import re
+from collections import Counter
+from pathlib import Path
+
+meta_file = Path(os.environ["META_FILE"])
+cfg_dir = os.environ["CFG_DIR"]
+servers_file = Path(os.environ["SERVERS_FILE"])
+hosts_dir = Path(os.environ["HOSTS_DIR"])
+
+expected_columns = ["host", "tags", "role", "env"]
+warnings = []
+next_steps = []
+invalid_rows = []
+duplicate_hosts = []
+missing_metadata_hosts = []
+extra_metadata_hosts = []
+roles = Counter()
+envs = Counter()
+tags = Counter()
+inventory_hosts = set()
+metadata_hosts = []
+metadata_hosts_set = set()
+groups = set()
+
+def add_warning(msg):
+    if msg not in warnings:
+        warnings.append(msg)
+
+def add_next(msg):
+    if msg not in next_steps:
+        next_steps.append(msg)
+
+def load_hosts_file(path):
+    hosts = set()
+    if not path.is_file():
+        return hosts
+    for raw in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = raw.split("#", 1)[0].replace(",", " ").strip()
+        if not line:
+            continue
+        for token in line.split():
+            if token:
+                hosts.add(token)
+    return hosts
+
+inventory_hosts.update(load_hosts_file(servers_file))
+if hosts_dir.is_dir():
+    for group_file in sorted(hosts_dir.glob("*.txt")):
+        groups.add(group_file.stem)
+        inventory_hosts.update(load_hosts_file(group_file))
+
+if meta_file.exists() and not os.access(meta_file, os.R_OK):
+    payload = {
+        "schema_version": 1,
+        "inventory_snapshot_version": 1,
+        "inventory_lint_json_contract_version": 1,
+        "meta_file": str(meta_file),
+        "meta_present": True,
+        "meta_readable": False,
+        "cfg_dir": cfg_dir,
+        "servers_file": str(servers_file),
+        "hosts_dir": str(hosts_dir),
+        "header_ok": False,
+        "unknown_columns": [],
+        "duplicate_hosts": [],
+        "invalid_rows": [],
+        "missing_metadata_hosts": [],
+        "extra_metadata_hosts": [],
+        "summary": {
+            "inventory_hosts": len(inventory_hosts),
+            "metadata_hosts": 0,
+            "duplicate_hosts": 0,
+            "missing_metadata_hosts": 0,
+            "extra_metadata_hosts": 0,
+            "invalid_rows": 0,
+            "groups": len(groups),
+            "roles": 0,
+            "envs": 0,
+            "tags": 0,
+            "coverage_percent": 0,
+        },
+        "coverage": {"roles": [], "envs": [], "tags": []},
+        "warnings": [],
+        "next_steps": ["fix permissions on inventory_meta.csv and rerun inventory lint"],
+        "error": "inventory metadata is unreadable",
+        "result": "ERROR",
+    }
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    raise SystemExit(0)
+
+header_ok = False
+unknown_columns = []
+if meta_file.is_file():
+    rows = meta_file.read_text(encoding="utf-8", errors="ignore").splitlines()
+    active_rows = []
+    for raw in rows:
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        active_rows.append(raw)
+    if active_rows:
+        try:
+            reader = csv.reader(active_rows)
+            header = [cell.strip().lower() for cell in next(reader, [])]
+        except Exception as exc:
+            add_warning(f"inventory_meta.csv is not valid CSV: {exc}")
+            add_next("fix CSV syntax in inventory_meta.csv")
+            header = []
+            reader = []
+        if header:
+            header_ok = header[:4] == expected_columns and len(header) == 4
+            unknown_columns = [col for col in header if col not in expected_columns]
+            if not header_ok:
+                add_warning("inventory_meta.csv header should be exactly: host,tags,role,env")
+                add_next("rewrite the header to host,tags,role,env")
+            if unknown_columns:
+                add_warning("inventory_meta.csv contains unknown columns: " + ",".join(unknown_columns))
+                add_next("remove unknown columns from inventory_meta.csv")
+            row_num = 1
+            host_counts = Counter()
+            for raw_row in reader:
+                row_num += 1
+                row = [cell.strip() for cell in raw_row]
+                if not row or not any(row):
+                    continue
+                while len(row) < 4:
+                    row.append("")
+                host, tag_field, role, env = row[:4]
+                if not host:
+                    invalid_rows.append(f"line {row_num}: empty host")
+                    continue
+                if host.lower() == "host":
+                    invalid_rows.append(f"line {row_num}: duplicate header row")
+                    continue
+                host_counts[host] += 1
+                metadata_hosts.append(host)
+                metadata_hosts_set.add(host)
+                role_l = role.lower()
+                env_l = env.lower()
+                if role_l:
+                    roles[role_l] += 1
+                if env_l:
+                    envs[env_l] += 1
+                bad_tag_format = False
+                normalized = tag_field.replace("|", ";")
+                if " " in normalized:
+                    bad_tag_format = True
+                parts = [part.strip().lower() for part in normalized.split(";")]
+                if any(part == "" for part in parts if normalized != ""):
+                    bad_tag_format = True
+                for part in parts:
+                    if not part:
+                        continue
+                    if not re.match(r"^[A-Za-z0-9._-]+$", part):
+                        bad_tag_format = True
+                    tags[part] += 1
+                if bad_tag_format:
+                    invalid_rows.append(f"line {row_num}: invalid tag formatting for host {host}")
+                if not role_l:
+                    invalid_rows.append(f"line {row_num}: missing role for host {host}")
+                if not env_l:
+                    invalid_rows.append(f"line {row_num}: missing env for host {host}")
+            duplicate_hosts = sorted(host for host, count in host_counts.items() if count > 1)
+            if duplicate_hosts:
+                add_warning("inventory_meta.csv contains duplicate hosts: " + ",".join(duplicate_hosts))
+                add_next("deduplicate hosts in inventory_meta.csv")
+    else:
+        add_warning("inventory_meta.csv is empty")
+        add_next("populate inventory_meta.csv with host,tags,role,env rows or remove it")
+else:
+    add_warning("inventory_meta.csv is missing")
+    add_next("create inventory_meta.csv if you want role/env/tag targeting and coverage reporting")
+
+if invalid_rows:
+    add_warning(f"inventory_meta.csv has {len(invalid_rows)} invalid or incomplete rows")
+    add_next("fix invalid rows in inventory_meta.csv")
+
+if inventory_hosts:
+    missing_metadata_hosts = sorted(inventory_hosts - metadata_hosts_set)
+    extra_metadata_hosts = sorted(metadata_hosts_set - inventory_hosts)
+    if missing_metadata_hosts:
+        add_warning(f"{len(missing_metadata_hosts)} inventory hosts are missing metadata")
+        add_next("add metadata rows for missing inventory hosts")
+    if extra_metadata_hosts:
+        add_warning(f"{len(extra_metadata_hosts)} metadata hosts are not present in servers.txt or hosts.d")
+        add_next("remove stale metadata rows or add those hosts back to inventory")
+else:
+    add_warning("no inventory hosts were found in servers.txt or hosts.d")
+    add_next("add hosts to servers.txt or hosts.d before relying on inventory targeting")
+
+inventory_host_count = len(inventory_hosts)
+metadata_host_count = len(metadata_hosts_set)
+coverage_percent = 0
+if inventory_host_count > 0:
+    coverage_percent = int(round((metadata_host_count / inventory_host_count) * 100))
+
+result = "OK" if not warnings else "WARN"
+payload = {
+    "schema_version": 1,
+    "inventory_snapshot_version": 1,
+    "inventory_lint_json_contract_version": 1,
+    "meta_file": str(meta_file),
+    "meta_present": meta_file.is_file(),
+    "meta_readable": True,
+    "cfg_dir": cfg_dir,
+    "servers_file": str(servers_file),
+    "hosts_dir": str(hosts_dir),
+    "header_ok": header_ok,
+    "unknown_columns": unknown_columns,
+    "duplicate_hosts": duplicate_hosts,
+    "invalid_rows": invalid_rows,
+    "missing_metadata_hosts": missing_metadata_hosts,
+    "extra_metadata_hosts": extra_metadata_hosts,
+    "summary": {
+        "inventory_hosts": inventory_host_count,
+        "metadata_hosts": metadata_host_count,
+        "duplicate_hosts": len(duplicate_hosts),
+        "missing_metadata_hosts": len(missing_metadata_hosts),
+        "extra_metadata_hosts": len(extra_metadata_hosts),
+        "invalid_rows": len(invalid_rows),
+        "groups": len(groups),
+        "roles": len(roles),
+        "envs": len(envs),
+        "tags": len(tags),
+        "coverage_percent": coverage_percent,
+    },
+    "coverage": {
+        "roles": sorted(roles),
+        "envs": sorted(envs),
+        "tags": sorted(tags),
+    },
+    "warnings": warnings,
+    "next_steps": next_steps,
+    "result": result,
+}
+print(json.dumps(payload, indent=2, sort_keys=True))
+PY
+}
+
 linux_maint_effective_log_dir() {
   linux_maint_env_or_mode_default LOG_DIR "$REPO_LOG_DIR" "/var/log/health"
 }

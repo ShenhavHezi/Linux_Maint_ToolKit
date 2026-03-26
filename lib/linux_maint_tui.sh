@@ -208,6 +208,15 @@ tui_status_snapshot_json() {
   fi
 }
 
+tui_inventory_snapshot_json() {
+  local cfg_dir meta_file servers_file hosts_dir
+  cfg_dir="$(tui_effective_cfg_dir)"
+  meta_file="${LM_INVENTORY_META:-$(linux_maint_effective_inventory_meta_file)}"
+  servers_file="$(tui_effective_serverlist_path)"
+  hosts_dir="$(tui_effective_hosts_dir)"
+  linux_maint_inventory_snapshot_json "$cfg_dir" "$meta_file" "$servers_file" "$hosts_dir"
+}
+
 tui_has_inventory_config() {
   local serverlist hosts_dir
   serverlist="$(tui_effective_serverlist_path)"
@@ -260,6 +269,8 @@ tui_context_snapshot() {
   if [[ -z "$status_json" ]]; then
     status_json="$(tui_status_snapshot_json)"
   fi
+  local inventory_json
+  inventory_json="$(tui_inventory_snapshot_json)"
   local log_file cfg_dir log_dir state_dir config_dir_exists inventory_ready summary_ready log_ready history_ready
   log_file="$(tui_latest_log_path)"
   cfg_dir="$(tui_effective_cfg_dir)"
@@ -275,7 +286,7 @@ tui_context_snapshot() {
   tui_has_summary_snapshot && summary_ready=1
   tui_has_latest_log && log_ready=1
   tui_has_history_artifacts && history_ready=1
-  STATUS_JSON="$status_json" MODE_LOCAL="$MODE" LOG_FILE="$log_file" CFG_DIR_LOCAL="$cfg_dir" LOG_DIR_LOCAL="$log_dir" STATE_DIR_LOCAL="$state_dir" \
+  STATUS_JSON="$status_json" INVENTORY_JSON="$inventory_json" MODE_LOCAL="$MODE" LOG_FILE="$log_file" CFG_DIR_LOCAL="$cfg_dir" LOG_DIR_LOCAL="$log_dir" STATE_DIR_LOCAL="$state_dir" \
     SHORTCUTS_LOCAL="${LM_TUI_SHORTCUTS:-1}" PREVIEW_LOCAL="${LM_TUI_PREVIEW:-1}" CONFIG_DIR_EXISTS_LOCAL="$config_dir_exists" \
     INVENTORY_READY_LOCAL="$inventory_ready" SUMMARY_READY_LOCAL="$summary_ready" LOG_READY_LOCAL="$log_ready" HISTORY_READY_LOCAL="$history_ready" python3 - <<'PY'
 import json
@@ -289,6 +300,12 @@ try:
     data = json.loads(raw) if raw else {}
 except Exception:
     data = {}
+try:
+    inventory = json.loads(os.environ.get("INVENTORY_JSON", "") or "{}")
+except Exception:
+    inventory = {}
+if not isinstance(inventory, dict):
+    inventory = {}
 totals_in = data.get("totals") or {}
 if not totals_in and (data.get("rows") or []):
     for row in data.get("rows") or []:
@@ -344,6 +361,29 @@ print(f"inventory_ready={os.environ.get('INVENTORY_READY_LOCAL', '0')}")
 print(f"summary_ready={os.environ.get('SUMMARY_READY_LOCAL', '0')}")
 print(f"log_ready={os.environ.get('LOG_READY_LOCAL', '0')}")
 print(f"history_ready={os.environ.get('HISTORY_READY_LOCAL', '0')}")
+summary = inventory.get("summary") or {}
+coverage = inventory.get("coverage") or {}
+inventory_hosts = int(summary.get("inventory_hosts", 0) or 0)
+metadata_hosts = int(summary.get("metadata_hosts", 0) or 0)
+meta_present = bool(inventory.get("meta_present"))
+result = str(inventory.get("result") or "WARN").lower()
+if not inventory_hosts and not meta_present:
+    inventory_state = "missing"
+elif result == "error":
+    inventory_state = "error"
+elif result == "ok":
+    inventory_state = "ok"
+else:
+    inventory_state = "warn"
+print(f"inventory_meta_state={inventory_state}")
+print(f"inventory_meta_present={1 if meta_present else 0}")
+print(f"inventory_hosts={inventory_hosts}")
+print(f"inventory_metadata_hosts={metadata_hosts}")
+print(f"inventory_missing_hosts={int(summary.get('missing_metadata_hosts', 0) or 0)}")
+print(f"inventory_coverage_percent={int(summary.get('coverage_percent', 0) or 0)}")
+print(f"inventory_role_count={len(coverage.get('roles') or [])}")
+print(f"inventory_env_count={len(coverage.get('envs') or [])}")
+print(f"inventory_tag_count={len(coverage.get('tags') or [])}")
 PY
 }
 
@@ -353,7 +393,7 @@ tui_snapshot_value() {
 }
 
 tui_bootstrap_state_snapshot() {
-  local cfg_dir serverlist hosts_dir summary_json log_file index_file history_db
+  local cfg_dir serverlist hosts_dir summary_json log_file index_file history_db inventory_json
   local config_dir_exists=0 inventory_ready=0 summary_ready=0 log_ready=0 history_ready=0 optional_skips_present=0
   cfg_dir="$(tui_effective_cfg_dir)"
   serverlist="$(tui_effective_serverlist_path)"
@@ -367,6 +407,7 @@ tui_bootstrap_state_snapshot() {
   [[ -s "$summary_json" ]] && summary_ready=1
   [[ -s "$log_file" ]] && log_ready=1
   tui_has_history_artifacts && history_ready=1
+  inventory_json="$(tui_inventory_snapshot_json)"
   if expected_skips_text "$cfg_dir" >/dev/null 2>&1; then
     optional_skips_present=1
   fi
@@ -383,6 +424,35 @@ tui_bootstrap_state_snapshot() {
   printf 'log_ready=%s\n' "$log_ready"
   printf 'history_ready=%s\n' "$history_ready"
   printf 'optional_skips_present=%s\n' "$optional_skips_present"
+  INVENTORY_JSON="$inventory_json" python3 - <<'PY'
+import json
+import os
+try:
+    payload = json.loads(os.environ.get("INVENTORY_JSON", "") or "{}")
+except Exception:
+    payload = {}
+summary = payload.get("summary") or {}
+coverage = payload.get("coverage") or {}
+inventory_hosts = int(summary.get("inventory_hosts", 0) or 0)
+meta_present = bool(payload.get("meta_present"))
+result = str(payload.get("result") or "WARN").lower()
+if not inventory_hosts and not meta_present:
+    state = "missing"
+elif result == "error":
+    state = "error"
+elif result == "ok":
+    state = "ok"
+else:
+    state = "warn"
+print(f"inventory_meta_state={state}")
+print(f"inventory_hosts={inventory_hosts}")
+print(f"inventory_metadata_hosts={int(summary.get('metadata_hosts', 0) or 0)}")
+print(f"inventory_missing_hosts={int(summary.get('missing_metadata_hosts', 0) or 0)}")
+print(f"inventory_coverage_percent={int(summary.get('coverage_percent', 0) or 0)}")
+print(f"inventory_role_count={len(coverage.get('roles') or [])}")
+print(f"inventory_env_count={len(coverage.get('envs') or [])}")
+print(f"inventory_tag_count={len(coverage.get('tags') or [])}")
+PY
 }
 
 tui_optional_skip_lines() {
