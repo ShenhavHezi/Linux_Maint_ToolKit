@@ -483,12 +483,12 @@ fi
 
 # Sudo-gated tests
 if sudo -n true >/dev/null 2>&1; then
-  bash "$WRAPPER_TEST_DIR/wrapper_artifacts_test.sh" >/dev/null
-  bash "$REPORTING_TEST_DIR/status_json_test.sh" >/dev/null
-  bash "$REPORTING_TEST_DIR/status_quiet_test.sh" >/dev/null
-  bash "$REPORTING_TEST_DIR/status_contract_test.sh" >/dev/null
-  bash "$ROOT_DIR/tests/summary_reason_lint.sh" >/dev/null
-  bash "$CORE_TEST_DIR/doctor_fix_json_test.sh" >/dev/null
+  run_required "wrapper_artifacts_test" bash "$WRAPPER_TEST_DIR/wrapper_artifacts_test.sh"
+  run_required "status_json_test" bash "$REPORTING_TEST_DIR/status_json_test.sh"
+  run_required "status_quiet_test" bash "$REPORTING_TEST_DIR/status_quiet_test.sh"
+  run_required "status_contract_test" bash "$REPORTING_TEST_DIR/status_contract_test.sh"
+  run_required "summary_reason_lint" bash "$ROOT_DIR/tests/summary_reason_lint.sh"
+  run_required "doctor_fix_json_test" bash "$CORE_TEST_DIR/doctor_fix_json_test.sh"
   run_required "prom_textfile_output_test" bash "$ROOT_DIR/tests/prom_textfile_output_test.sh"
 else
   skipped_optional=1
