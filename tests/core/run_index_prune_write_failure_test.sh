@@ -17,7 +17,26 @@ JSON
 chmod 500 "$workdir"
 
 set +e
-out="$(LM_RUN_INDEX_FILE="$index_file" bash "$LM" run-index --prune --keep 2 --json 2>&1)"
+if [[ "$(id -u)" -eq 0 ]]; then
+  if ! command -v su >/dev/null 2>&1 || ! getent passwd nobody >/dev/null 2>&1; then
+    echo "run-index prune write failure skipped under root: no su/nobody"
+    exit 0
+  fi
+  if ! su -s /bin/bash nobody -c "test -r '$LM'" >/dev/null 2>&1; then
+    # shellcheck source=../testlib.sh
+    . "$ROOT_DIR/tests/testlib.sh"
+    repo_copy="$workdir/repo"
+    testlib_copy_repo_worktree "$repo_copy"
+    chmod 0755 "$repo_copy"
+    chmod -R a+rX "$repo_copy"
+    LM="$repo_copy/bin/linux-maint"
+  fi
+  chmod 0555 "$workdir"
+  chmod 0644 "$index_file"
+  out="$(su -s /bin/bash nobody -c "LM_RUN_INDEX_FILE='$index_file' bash '$LM' run-index --prune --keep 2 --json" 2>&1)"
+else
+  out="$(LM_RUN_INDEX_FILE="$index_file" bash "$LM" run-index --prune --keep 2 --json 2>&1)"
+fi
 rc=$?
 set -e
 

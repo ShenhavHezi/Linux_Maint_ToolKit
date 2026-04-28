@@ -1,5 +1,5 @@
 # Roadmap
-Last updated: 2026-03-10
+Last updated: 2026-04-28
 
 ## How to use this file each session
 - `DONE`: implemented and validated with tests/docs.
@@ -59,6 +59,10 @@ Last updated: 2026-03-10
     - Proof: `tests/plugin_installed_default_index_test.sh`, `tests/plugin_verify_installed_version_test.sh`, `tests/plugin_registry_invalid_test.sh`, `tests/serve_invalid_json_upstream_test.sh`, `tests/federate_contract_validation_test.sh`, `tests/policy_lint_require_overall_test.sh`, `tests/predict_invalid_history_shape_test.sh`.
   - P1 installer rollback hardening: `install.sh` now supports testable override dirs, preserves the previous installed payload across mid-install failures, and restores systemd/logrotate artifacts if an upgrade aborts.
     - Proof: `tests/install/install_override_layout_test.sh`, `tests/install/install_rollback_prefix_failure_test.sh`, `tests/install/install_rollback_systemd_logrotate_failure_test.sh`, `docs/UPGRADE.md`.
+  - P1 audit export hardening: `audit-log --attest` now emits a chain-verified attestation artifact with audit-log SHA256, first/last chain hashes, event counts, overwrite protection, and read-only `--out` files for WORM/object-lock transfer.
+    - Proof: `tests/adminops/audit_log_attest_test.sh`, `docs/reference.md`, `docs/QUICK_REFERENCE.md`, `docs/schemas/audit_log.json`.
+  - P1 privilege telemetry hardening: wrapper runs now persist per-monitor privilege policy/result/euid telemetry in run state, summary JSON, and `linux-maint report`.
+    - Proof: `tests/run/run_privilege_telemetry_test.sh`, `docs/schemas/summary.json`, `docs/schemas/report.json`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 
@@ -93,11 +97,13 @@ Last updated: 2026-03-10
   - Redaction exists; dedicated denylist+entropy+context policy engine not fully implemented.
 - `PARTIAL` Per-monitor privilege policy (`requires_root`, `allow_sudo`, `no_sudo`).
   - Baseline enforcement in `linux-maint run` via `monitor_privilege_policy.conf`.
-  - Missing: immutable/audited policy decisions in run artifacts and remote host privilege telemetry.
+  - Run artifacts and reports now include local per-monitor policy/result/euid telemetry.
+  - Missing: remote host privilege telemetry and external policy attestation.
 - `PARTIAL` Immutable audit log stream for critical actions.
   - Baseline append-only audit stream added (`linux-maint audit-log`), with chained hashes and events for `run`, `doctor --fix`, `pack-logs`, plugin install/update/remove.
   - Added tamper verification command: `linux-maint audit-log --verify` (validates chain integrity).
-  - Missing: write-once filesystem controls and external attestation export.
+  - Added portable attestation export: `linux-maint audit-log --attest [--json] [--out FILE]` with SHA256, chain anchors, event counts, and read-only no-overwrite output files for WORM/object-lock transfer.
+  - Missing: native write-once filesystem controls and external signer/service integration.
 - `NEXT` Optional FIPS-friendly crypto mode checks.
 - `DONE` Security posture report command.
   - Proof: `linux-maint security-profile`, `tests/core/security_profile_command_test.sh`.
@@ -226,8 +232,8 @@ Last updated: 2026-03-10
   - flaky test detector/quarantine workflow.
 
 ## Next implementation queue (strict order)
-1. P1 security: promote audit stream to WORM-capable storage/export attestation workflow.
-2. P1 security: enrich per-monitor privilege telemetry in run artifacts and reports.
+1. P1 security: native write-once audit storage controls and external signer/service integration.
+2. P1 security: remote host privilege telemetry and external policy attestation.
 3. P2 UX: interactive remediator queue (host-by-host confirm/deny with safe defaults).
 4. P4 depth: calibration/feedback loop for `ai-assist` and `predict` confidence outputs.
 5. P3 hardening (final): managed remote keyring distribution + signed provenance service integration.

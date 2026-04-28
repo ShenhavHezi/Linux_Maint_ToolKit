@@ -253,11 +253,11 @@ EOF
       ;;
     audit-log)
       run_help_block \
-        "linux-maint audit-log [--last N] [--json] [--verify]" \
-        "Inspect or verify the append-only audit log used for high-value command traces." \
+        "linux-maint audit-log [--last N] [--json] [--verify|--attest] [--out FILE]" \
+        "Inspect, verify, or attest the append-only audit log used for high-value command traces." \
         "  - review recent automation hooks\n  - verify chain integrity after sensitive actions\n  - export machine-readable audit history" \
-        "  --last N    number of events to show (default 20)\n  --json      machine-readable output\n  --verify    verify the audit chain before printing events" \
-        "  linux-maint audit-log --last 20\n  linux-maint audit-log --verify\n  linux-maint audit-log --json"
+        "  --last N     number of events to show (default 20)\n  --json       machine-readable output\n  --verify     verify the audit chain before printing events\n  --attest     emit digest + chain attestation for external storage\n  --out FILE   with --attest, write read-only JSON and refuse overwrite" \
+        "  linux-maint audit-log --last 20\n  linux-maint audit-log --verify\n  linux-maint audit-log --attest --out /tmp/linux-maint-audit-attestation.json\n  linux-maint audit-log --json"
       ;;
     cm-hook)
       run_help_block \

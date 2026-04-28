@@ -1,15 +1,34 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "linux-maint audit-log --json",
+  "title": "linux-maint audit-log JSON outputs",
   "type": "object",
-  "required": ["audit_contract_version", "file", "events"],
+  "anyOf": [
+    { "required": ["audit_contract_version", "file", "events"] },
+    { "required": ["audit_attestation_contract_version", "file", "file_sha256", "last_chain_hash", "valid"] }
+  ],
   "properties": {
     "audit_contract_version": { "type": "integer" },
+    "audit_attestation_contract_version": { "type": "integer" },
     "file": { "type": "string" },
+    "schema_version": { "type": "integer" },
+    "generated_at_utc": { "type": "string" },
+    "valid": { "type": "boolean" },
+    "events_checked": { "type": "integer", "minimum": 0 },
+    "file_size_bytes": { "type": "integer", "minimum": 0 },
+    "file_sha256": { "type": "string" },
+    "first_chain_hash": { "type": ["string", "null"] },
+    "last_chain_hash": { "type": ["string", "null"] },
+    "first_event_ts": { "type": ["string", "null"] },
+    "last_event_ts": { "type": ["string", "null"] },
+    "errors": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
     "events": {
       "type": "array",
       "items": { "type": "object", "additionalProperties": true }
-    }
+    },
+    "worm_guidance": { "type": "object", "additionalProperties": true }
   },
   "additionalProperties": true
 }

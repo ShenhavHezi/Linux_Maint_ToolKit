@@ -36,6 +36,10 @@ run_status_human() {
 
 if [[ "$(id -u)" -eq 0 ]]; then
   if command -v su >/dev/null 2>&1 && id nobody >/dev/null 2>&1; then
+    if ! su -s /bin/bash nobody -c "test -r '$LM'" >/dev/null 2>&1; then
+      echo "status unreadable last_status skipped under root: repo path not readable by nobody"
+      exit 0
+    fi
     chmod 0755 "$workdir" "$log_dir" "$cfg_dir"
     chmod 0644 "$cfg_dir/servers.txt" "$cfg_dir/excluded.txt" "$cfg_dir/services.txt" "$log_dir/full_health_monitor_summary_latest.log"
     chmod 000 "$log_dir/last_status_full"

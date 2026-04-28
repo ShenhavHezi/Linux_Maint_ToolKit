@@ -80,6 +80,7 @@ linux-maint run --plan --json
 linux-maint run --retry 2 --host-timeout 10
 linux-maint run --strategy quorum --quorum-percent 80
 linux-maint run --drain-file <cfg_dir>/hosts_drain.txt --plan
+# Missing --group files fail with rc=2 instead of falling back to all/default hosts.
 
 # Resume a previous interrupted run (explicit id or latest from history)
 # Requires the saved run_state_<run_id>.log for that interrupted run.
@@ -90,6 +91,8 @@ cat >"<cfg_dir>/monitor_privilege_policy.conf" <<'EOF'
 health_monitor=requires_root
 service_monitor=no_sudo
 EOF
+# Reports and summary JSON include per-monitor privilege policy telemetry.
+linux-maint report --short
 
 # Interactive TUI menu (gum if present, else dialog/whiptail)
 linux-maint menu
@@ -211,6 +214,7 @@ linux-maint plugin remove my-plugin
 linux-maint audit-log --last 20
 linux-maint audit-log --verify
 linux-maint audit-log --verify --json
+linux-maint audit-log --attest --out /tmp/linux-maint-audit-attestation.json
 
 # Notification test helpers
 linux-maint notify --provider webhook --url https://example.invalid/hook --message "test" --dry-run

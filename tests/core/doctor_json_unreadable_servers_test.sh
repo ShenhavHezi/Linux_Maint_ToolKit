@@ -22,6 +22,10 @@ if [[ "$(id -u)" -eq 0 ]]; then
     echo "doctor json unreadable servers skipped under root: no su/nobody"
     exit 0
   fi
+  if ! su -s /bin/bash nobody -c "test -r '$LM'" >/dev/null 2>&1; then
+    echo "doctor json unreadable servers skipped under root: repo path not readable by nobody"
+    exit 0
+  fi
   chmod 755 "$cfg" "$logs" "$state" "$lock"
   chmod 777 "$logs" "$state" "$lock"
   chmod 600 "$cfg/servers.txt"

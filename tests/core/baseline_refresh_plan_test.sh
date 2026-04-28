@@ -16,10 +16,12 @@ printf 'root\n' > "$cfg/baselines/users/localhost.users"
 printf 'deadbeef\n' > "$cfg/baselines/sudoers/localhost.sudoers"
 printf '/etc/ssh/sshd_config\n' > "$cfg/config_paths.txt"
 
-touch -t 202401010101 "$cfg/baselines/ports/localhost.ports" \
+old_epoch="$(date -d '60 days ago' +%s)"
+fresh_epoch="$(date -d '10 days ago' +%s)"
+touch -d "@$old_epoch" "$cfg/baselines/ports/localhost.ports" \
   "$cfg/baselines/configs/localhost.hashes" \
   "$cfg/baselines/users/localhost.users"
-touch -t 202603010101 "$cfg/baselines/sudoers/localhost.sudoers"
+touch -d "@$fresh_epoch" "$cfg/baselines/sudoers/localhost.sudoers"
 
 cat > "$summary_dir/full_health_monitor_summary_latest.log" <<'EOF'
 monitor=ports_baseline_monitor host=localhost status=WARN reason=ports_baseline_changed new=1 removed=0

@@ -48,7 +48,15 @@ trap 'rm -f "$raw_matches"' EXIT
 
 if command -v rg >/dev/null 2>&1; then
   for pat in "${patterns[@]}"; do
-    rg -n --pcre2 --hidden --no-ignore-vcs --glob '!.git/**' --glob '!dist/**' -- "$pat" "$SCAN_DIR" >> "$raw_matches" || true
+    rg -n --pcre2 --hidden --no-ignore-vcs --no-messages \
+      --glob '!.git/**' \
+      --glob '!dist/**' \
+      --glob '!**/.tmp_test/**' \
+      --glob '!**/.logs/**' \
+      --glob '!**/.logs_*/**' \
+      --glob '!**/.etc_linux_maint/**' \
+      --glob '!**/__pycache__/**' \
+      -- "$pat" "$SCAN_DIR" >> "$raw_matches" || true
   done
 else
   # Fallback for minimal images (e.g., bash-compat matrix) that do not have ripgrep.
@@ -58,11 +66,11 @@ scan_dir = sys.argv[1]
 out_path = sys.argv[2]
 patterns = [re.compile(p) for p in sys.argv[3:]]
 
-skip_dirs = {'.git', 'dist'}
+skip_dirs = {'.git', 'dist', '.tmp_test', '.logs', '.etc_linux_maint', '__pycache__'}
 
 with open(out_path, 'a', encoding='utf-8') as out:
     for root, dirs, files in os.walk(scan_dir):
-        dirs[:] = [d for d in dirs if d not in skip_dirs]
+        dirs[:] = [d for d in dirs if d not in skip_dirs and not d.startswith('.logs_')]
         for fn in files:
             path = os.path.join(root, fn)
             rel = os.path.relpath(path, scan_dir)

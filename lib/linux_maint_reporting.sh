@@ -232,6 +232,7 @@ linux_maint_cmd_report() {
     fi
 
     status_file="$(linux_maint_reporting_status_file)"
+    summary_json_file="$(linux_maint_reporting_summary_json_latest)"
 
     tmp_status="$(mktemp -p "$TMPDIR" linux_maint_report_status.XXXXXX.json)"
     tmp_trend="$(mktemp -p "$TMPDIR" linux_maint_report_trend.XXXXXX.json)"
@@ -250,7 +251,7 @@ linux_maint_cmd_report() {
       fi
     fi
 
-    LM_COLOR="$REPORT_COLOR" REPORT_COMPACT="$REPORT_COMPACT" REPORT_SHORT="$REPORT_SHORT" REPORT_TABLE="$REPORT_TABLE" REPORT_NO_TREND="$REPORT_NO_TREND" REPORT_NO_SLOW="$REPORT_NO_SLOW" REPORT_NO_REASONS="$REPORT_NO_REASONS" REPORT_NO_PROBLEMS="$REPORT_NO_PROBLEMS" REPORT_EXPECTED_SKIPS="$REPORT_EXPECTED_SKIPS" REPORT_REDACT="$REPORT_REDACT" REPORT_STATUS_RC="$status_rc" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
+    LM_COLOR="$REPORT_COLOR" REPORT_COMPACT="$REPORT_COMPACT" REPORT_SHORT="$REPORT_SHORT" REPORT_TABLE="$REPORT_TABLE" REPORT_NO_TREND="$REPORT_NO_TREND" REPORT_NO_SLOW="$REPORT_NO_SLOW" REPORT_NO_REASONS="$REPORT_NO_REASONS" REPORT_NO_PROBLEMS="$REPORT_NO_PROBLEMS" REPORT_EXPECTED_SKIPS="$REPORT_EXPECTED_SKIPS" REPORT_REDACT="$REPORT_REDACT" REPORT_STATUS_RC="$status_rc" REPORT_SUMMARY_JSON="$summary_json_file" python3 - "$tmp_status" "$tmp_trend" "$tmp_runtimes" "$REPORT_JSON" <<'PY'
 import json, os, sys, re
 import re
 import builtins
@@ -270,6 +271,7 @@ expected_skips = os.environ.get("REPORT_EXPECTED_SKIPS","").strip()
 redact = os.environ.get("REPORT_REDACT","0") == "1"
 redact_json = os.environ.get("LM_REDACT_JSON","0") in ("1","true","TRUE","yes","YES")
 redact_json_strict = os.environ.get("LM_REDACT_JSON_STRICT","0") in ("1","true","TRUE","yes","YES")
+summary_json_path = os.environ.get("REPORT_SUMMARY_JSON","")
 
 def redact_line(s: str) -> str:
     pats = [
@@ -363,6 +365,10 @@ def read_json(p):
 status = read_json(status_path)
 trend = read_json(trend_path)
 runtimes = read_json(runtimes_path)
+summary_json_doc = read_json(summary_json_path) if summary_json_path else {}
+privilege = summary_json_doc.get("privilege", {}) if isinstance(summary_json_doc, dict) else {}
+if not isinstance(privilege, dict):
+    privilege = {}
 
 if status_rc != 0:
     print("ERROR: report requires a successful status --json snapshot", file=sys.stderr)
@@ -385,6 +391,7 @@ if json_mode:
         "status": status,
         "trend": trend,
         "runtimes": runtimes,
+        "privilege": privilege,
     }
     if redact_json or redact_json_strict:
         out = redact_json_obj(out)
@@ -401,6 +408,12 @@ baseline = status.get("baseline", {}) if isinstance(status, dict) else {}
 baseline_summary = baseline.get("summary", {}) if isinstance(baseline, dict) else {}
 baseline_result = baseline.get("result") if isinstance(baseline, dict) else None
 baseline_attention = len((baseline.get("attention_items") or [])) if isinstance(baseline, dict) else 0
+priv_summary = privilege.get("summary", {}) if isinstance(privilege, dict) else {}
+priv_monitors = privilege.get("monitors", []) if isinstance(privilege, dict) else []
+if not isinstance(priv_summary, dict):
+    priv_summary = {}
+if not isinstance(priv_monitors, list):
+    priv_monitors = []
 ov = color_status(overall)
 if short:
     print(header("=== linux-maint report (short) ==="))
@@ -444,6 +457,16 @@ if short:
                 int(baseline_summary.get("changed_hosts_total", 0) or 0),
             )
         )
+    if priv_summary:
+        print(
+            "\nprivilege: monitors={} ok={} violations={} not_configured={} invalid_policy={}".format(
+                int(priv_summary.get("total", 0) or 0),
+                int(priv_summary.get("ok", 0) or 0),
+                int(priv_summary.get("violations", 0) or 0),
+                int(priv_summary.get("not_configured", 0) or 0),
+                int(priv_summary.get("invalid_policy", 0) or 0),
+            )
+        )
     guidance = []
     if overall != "OK":
         guidance.extend(["linux-maint doctor", "linux-maint status --verbose"])
@@ -451,6 +474,8 @@ if short:
         guidance.append("linux-maint run")
     if baseline_result and baseline_result != "OK":
         guidance.append("linux-maint baseline refresh --plan")
+    if int(priv_summary.get("violations", 0) or 0) or int(priv_summary.get("invalid_policy", 0) or 0):
+        guidance.append("linux-maint run --plan")
     print("\n== Guidance ==")
     seen = set()
     for step in guidance:
@@ -510,6 +535,32 @@ if totals:
         print(line)
     if compact:
         raise SystemExit(0)
+
+if priv_summary:
+    section("privilege policy")
+    print(
+        "monitors={} ok={} violations={} not_configured={} invalid_policy={} policy_file={}".format(
+            int(priv_summary.get("total", 0) or 0),
+            int(priv_summary.get("ok", 0) or 0),
+            int(priv_summary.get("violations", 0) or 0),
+            int(priv_summary.get("not_configured", 0) or 0),
+            int(priv_summary.get("invalid_policy", 0) or 0),
+            privilege.get("policy_file") or "none",
+        )
+    )
+    attention = [
+        m for m in priv_monitors
+        if isinstance(m, dict) and m.get("result") in ("violation", "invalid_policy")
+    ]
+    for m in attention[:10]:
+        print(
+            "attention monitor={} policy={} result={} euid={}".format(
+                m.get("monitor", ""),
+                m.get("policy", ""),
+                m.get("result", ""),
+                m.get("euid", ""),
+            )
+        )
 
 problems = status.get("problems", [])
 if problems and not no_problems:
@@ -679,6 +730,8 @@ if rows and overall != "OK":
     guidance.append("linux-maint runtimes --last 5")
 if baseline_result and baseline_result != "OK":
     guidance.append("linux-maint baseline refresh --plan")
+if int(priv_summary.get("violations", 0) or 0) or int(priv_summary.get("invalid_policy", 0) or 0):
+    guidance.append("linux-maint run --plan")
 print("\n== Guidance ==")
 seen = set()
 for step in guidance:

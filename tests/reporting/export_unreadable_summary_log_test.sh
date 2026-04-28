@@ -34,6 +34,10 @@ run_export() {
 
 if [[ "$(id -u)" -eq 0 ]]; then
   if command -v su >/dev/null 2>&1 && id nobody >/dev/null 2>&1; then
+    if ! su -s /bin/bash nobody -c "test -r '$LM'" >/dev/null 2>&1; then
+      echo "export unreadable summary log skipped under root: repo path not readable by nobody"
+      exit 0
+    fi
     chmod 0755 "$workdir" "$log_dir" "$cfg_dir"
     chmod 0644 "$log_dir/last_status_full"
     chmod 0644 "$cfg_dir/servers.txt" "$cfg_dir/excluded.txt" "$cfg_dir/services.txt"

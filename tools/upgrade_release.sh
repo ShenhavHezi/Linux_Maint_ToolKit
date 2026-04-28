@@ -111,6 +111,27 @@ for line in lines:
         count += 1
         if count >= limit:
             break
+if count == 0 and section_name.lower() == "compatibility notes":
+    in_upgrade_section = False
+    in_compat_list = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            in_upgrade_section = stripped.lower() == "## upgrade and compatibility notes"
+            in_compat_list = False
+            continue
+        if not in_upgrade_section:
+            continue
+        if stripped == "- Compatibility notes:":
+            in_compat_list = True
+            continue
+        if in_compat_list and stripped.startswith("- ") and line.startswith("  "):
+            print(stripped[2:])
+            count += 1
+            if count >= limit:
+                break
+        elif in_compat_list and stripped.startswith("- ") and not line.startswith("  "):
+            break
 PY
 }
 

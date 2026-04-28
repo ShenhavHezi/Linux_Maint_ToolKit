@@ -3988,6 +3988,7 @@ case "$subcmd" in
 
     run_apply_mode_defaults
     run_validate_execution_args
+    run_validate_group_selection
     run_prepare_resume_state
     run_prepare_host_selection
     cfg_dir="$(resolve_run_cfg_dir)"

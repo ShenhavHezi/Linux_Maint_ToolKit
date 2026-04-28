@@ -7,6 +7,7 @@
     "report_json_contract_version": { "type": "integer", "minimum": 1 },
     "status": { "type": "object" },
     "trend": { "type": "object" },
-    "runtimes": { "type": "object" }
+    "runtimes": { "type": "object" },
+    "privilege": { "type": "object" }
   }
 }

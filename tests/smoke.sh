@@ -11,6 +11,14 @@ set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 TEST_TMP="${LM_TEST_TMPDIR:-$ROOT_DIR/.tmp_test}"
+SMOKE_TMP_CLEANUP=""
+if [[ -z "${LM_TEST_TMPDIR:-}" && "$(id -u)" -eq 0 ]] && command -v su >/dev/null 2>&1 && getent passwd nobody >/dev/null 2>&1; then
+  if ! su -s /bin/bash nobody -c "test -r '$ROOT_DIR/bin/linux-maint'" >/dev/null 2>&1; then
+    TEST_TMP="$(mktemp -d -p /tmp linux_maint_smoke.XXXXXX)"
+    chmod 0755 "$TEST_TMP"
+    SMOKE_TMP_CLEANUP="$TEST_TMP"
+  fi
+fi
 RUN_TEST_DIR="$ROOT_DIR/tests/run"
 REPORTING_TEST_DIR="$ROOT_DIR/tests/reporting"
 ADVANCED_TEST_DIR="$ROOT_DIR/tests/advanced"
@@ -23,6 +31,9 @@ WRAPPER_TEST_DIR="$ROOT_DIR/tests/wrapper"
 CORE_TEST_DIR="$ROOT_DIR/tests/core"
 RUNTIME_TEST_DIR="$ROOT_DIR/tests/runtime"
 mkdir -p "$TEST_TMP"
+if [[ -n "$SMOKE_TMP_CLEANUP" ]]; then
+  trap 'rm -rf "$SMOKE_TMP_CLEANUP" 2>/dev/null || true' EXIT
+fi
 export TMPDIR="$TEST_TMP"
 export LC_ALL="${LC_ALL:-C}"
 export TZ="${TZ:-UTC}"
@@ -249,6 +260,7 @@ run_required "audit_log_command_test" bash "$ADMINOPS_TEST_DIR/audit_log_command
 run_required "audit_log_verify_tamper_test" bash "$ADMINOPS_TEST_DIR/audit_log_verify_tamper_test.sh"
 run_required "audit_log_concurrency_test" bash "$ADMINOPS_TEST_DIR/audit_log_concurrency_test.sh"
 run_required "audit_log_json_schema_test" bash "$ADMINOPS_TEST_DIR/audit_log_json_schema_test.sh"
+run_required "audit_log_attest_test" bash "$ADMINOPS_TEST_DIR/audit_log_attest_test.sh"
 run_required "serve_command_test" bash "$ADVANCED_TEST_DIR/serve_command_test.sh"
 run_required "serve_command_timeout_test" bash "$ADVANCED_TEST_DIR/serve_command_timeout_test.sh"
 run_required "serve_bind_failure_test" bash "$ADVANCED_TEST_DIR/serve_bind_failure_test.sh"
@@ -305,6 +317,7 @@ run_required "list_monitors_test" bash "$INSPECT_TEST_DIR/list_monitors_test.sh"
 run_required "lint_summary_test" bash "$INSPECT_TEST_DIR/lint_summary_test.sh"
 run_required "run_plan_json_test" bash "$RUN_TEST_DIR/run_plan_json_test.sh"
 run_required "run_plan_repo_cfg_defaults_test" bash "$RUN_TEST_DIR/run_plan_repo_cfg_defaults_test.sh"
+run_required "run_missing_group_test" bash "$RUN_TEST_DIR/run_missing_group_test.sh"
 run_required "run_inventory_meta_filters_test" bash "$RUN_TEST_DIR/run_inventory_meta_filters_test.sh"
 run_required "run_inventory_meta_empty_filter_test" bash "$RUN_TEST_DIR/run_inventory_meta_empty_filter_test.sh"
 run_required "inventory_lint_command_test" bash "$RUN_TEST_DIR/inventory_lint_command_test.sh"
@@ -313,6 +326,7 @@ run_required "run_plan_strategy_fields_test" bash "$RUN_TEST_DIR/run_plan_strate
 run_required "run_maintenance_window_gate_test" bash "$RUN_TEST_DIR/run_maintenance_window_gate_test.sh"
 run_required "run_drain_file_plan_test" bash "$ROOT_DIR/tests/run_drain_file_plan_test.sh"
 run_required "run_monitor_privilege_policy_test" bash "$RUN_TEST_DIR/run_monitor_privilege_policy_test.sh"
+run_required "run_privilege_telemetry_test" bash "$RUN_TEST_DIR/run_privilege_telemetry_test.sh"
 run_required "monitor_order_test" bash "$RUNTIME_TEST_DIR/monitor_order_test.sh"
 run_required "color_precedence_test" bash "$ROOT_DIR/tests/color_precedence_test.sh"
 run_required "progress_tty_test" bash "$ROOT_DIR/tests/progress_tty_test.sh"

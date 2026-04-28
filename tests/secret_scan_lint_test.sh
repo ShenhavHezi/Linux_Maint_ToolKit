@@ -31,6 +31,9 @@ echo "$out_fail" | grep -q 'Potential secrets detected:'
 
 # Allowlist should suppress known fixture line.
 echo 'secret.txt:1:aws_key = AKIAABCDEFGHIJKLMNOP' > "$workdir/allowlist.txt"
+mkdir -p "$workdir/src/.tmp_test" "$workdir/src/.logs"
+printf '%s%s%s\n' '-----BEGIN ' 'PRIVATE KEY' '-----' > "$workdir/src/.tmp_test/generated.log"
+printf '%s%s%s\n' '-----BEGIN ' 'PRIVATE KEY' '-----' > "$workdir/src/.logs/generated.log"
 out_ok="$(bash "$ROOT_DIR/tools/secret_scan.sh" --path "$workdir/src" --allowlist "$workdir/allowlist.txt")"
 echo "$out_ok" | grep -q '^secret scan ok$'
 

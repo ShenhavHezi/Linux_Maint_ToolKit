@@ -525,6 +525,7 @@ Prerequisites (any one):
   - If `--tag`, `--role`, or `--env` match zero hosts, `run` exits `2` with the requested filters and available metadata values.
   - Optional monitor privilege policy file: `${LM_MONITOR_PRIV_POLICY_FILE:-<cfg_dir>/monitor_privilege_policy.conf}`.
     - Format: `monitor=requires_root|allow_sudo|no_sudo`.
+    - Runs persist per-monitor privilege telemetry in summary JSON and `linux-maint report`, including policy, result, runner euid, and violation counts.
 
 - `linux-maint inventory lint`: validate inventory metadata coverage before filtered runs.
   - `--json`: machine-readable lint output.
@@ -1019,9 +1020,11 @@ Schema:
   - `--json` emits command/render/rc fields for automation.
   - intended as adapter baseline for config-management orchestration.
 
-- `linux-maint audit-log [--last N] [--json] [--verify]`:
+- `linux-maint audit-log [--last N] [--json] [--verify|--attest] [--out FILE]`:
   - reads append-only audit events for critical actions (`run`, `doctor --fix`, `pack-logs`, plugin install/update/remove).
   - `--verify` validates chained `prev_hash`/`chain_hash` integrity and exits non-zero on tamper/parse failures.
+  - `--attest` emits an audit attestation with the audit log SHA256, first/last chain hashes, event count, and validity result.
+  - `--attest --out FILE` writes the attestation as read-only JSON and refuses to overwrite an existing file, so operators can move it to WORM/object-lock storage.
   - override path with `LM_AUDIT_LOG`.
 
 - `linux-maint serve [--host H] [--port N]`:

@@ -260,6 +260,8 @@ export TMPDIR
 
 tmp_report="$TMPDIR/full_health_monitor_report.$$"
 tmp_summary="$TMPDIR/full_health_monitor_summary.$$"
+privilege_file="$TMPDIR/linux_maint_privilege.$$"
+: > "$privilege_file" 2>/dev/null || true
 
 cleanup_tmpdir() {
   if [[ "${__lm_lock_meta_cleanup:-0}" -eq 1 && -n "${lock_meta_file:-}" ]]; then
@@ -319,6 +321,89 @@ MONITOR_TIMEOUTS_FILE="${MONITOR_TIMEOUTS_FILE:-$CFG_DIR/monitor_timeouts.conf}"
 # Optional per-monitor runtime warn thresholds (seconds)
 # Example file: /etc/linux_maint/monitor_runtime_warn.conf
 MONITOR_RUNTIME_WARN_FILE="${MONITOR_RUNTIME_WARN_FILE:-$CFG_DIR/monitor_runtime_warn.conf}"
+
+# Optional per-monitor privilege policy telemetry. Enforcement happens in the
+# CLI planner; the wrapper records what was in effect for audit/report outputs.
+MONITOR_PRIVILEGE_POLICY_FILE="${LM_MONITOR_PRIV_POLICY_FILE:-$CFG_DIR/monitor_privilege_policy.conf}"
+
+lm_trim() {
+  local s="${1:-}"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+
+lm_artifact_token() {
+  local s="${1:-}"
+  s="${s//$'\t'/_}"
+  s="${s// /_}"
+  s="${s//$'\n'/_}"
+  printf '%s' "$s"
+}
+
+get_monitor_privilege_policy() {
+  local monitor_name="$1"
+  local policy_file="$MONITOR_PRIVILEGE_POLICY_FILE"
+  local line key val
+  [[ -f "$policy_file" && -r "$policy_file" ]] || { printf 'default\n'; return 0; }
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%%#*}"
+    line="$(lm_trim "$line")"
+    [[ -n "$line" && "$line" == *=* ]] || continue
+    key="$(lm_trim "${line%%=*}")"
+    val="$(lm_trim "${line#*=}")"
+    case "$key" in
+      "$monitor_name"|"$monitor_name.sh")
+        printf '%s\n' "${val:-default}"
+        return 0
+        ;;
+    esac
+  done < "$policy_file"
+
+  printf 'default\n'
+}
+
+monitor_privilege_result() {
+  local policy="$1"
+  local euid
+  euid="$(id -u 2>/dev/null || printf '%s' "${EUID:-}")"
+  case "$policy" in
+    requires_root)
+      [[ "$euid" == "0" ]] && printf 'ok\n' || printf 'violation\n'
+      ;;
+    no_sudo)
+      [[ "$euid" == "0" ]] && printf 'violation\n' || printf 'ok\n'
+      ;;
+    allow_sudo)
+      printf 'ok\n'
+      ;;
+    default|"")
+      printf 'not_configured\n'
+      ;;
+    *)
+      printf 'invalid_policy\n'
+      ;;
+  esac
+}
+
+record_monitor_privilege() {
+  local monitor_name="$1"
+  local policy="$2"
+  local result="$3"
+  local euid user source
+  euid="$(id -u 2>/dev/null || printf '%s' "${EUID:-unknown}")"
+  user="$(id -un 2>/dev/null || printf 'unknown')"
+  source="$MONITOR_PRIVILEGE_POLICY_FILE"
+  [[ "$policy" == "default" || "$policy" == "not_configured" ]] && source="none"
+  printf 'monitor=%s policy=%s result=%s euid=%s user=%s source=%s\n' \
+    "$(lm_artifact_token "$monitor_name")" \
+    "$(lm_artifact_token "${policy:-default}")" \
+    "$(lm_artifact_token "${result:-unknown}")" \
+    "$(lm_artifact_token "$euid")" \
+    "$(lm_artifact_token "$user")" \
+    "$(lm_artifact_token "$source")" >> "$privilege_file" 2>/dev/null || true
+}
 
 get_monitor_timeout_secs(){
   local monitor_name="$1" # without .sh
@@ -741,6 +826,9 @@ total_scripts=${#scripts[@]}
 idx=0
 for s in "${scripts[@]}"; do
   monitor_name="${s%.sh}"
+  privilege_policy="$(get_monitor_privilege_policy "$monitor_name")"
+  privilege_result="$(monitor_privilege_result "$privilege_policy")"
+  record_monitor_privilege "$monitor_name" "$privilege_policy" "$privilege_result"
   set +e
   idx=$((idx+1))
   progress_render "$idx" "$total_scripts" "${s%.sh}"
@@ -779,7 +867,7 @@ for s in "${scripts[@]}"; do
   esac
   [ "$rc" -gt "$worst" ] && worst="$rc"
   if [[ -d "$run_state_file" ]] || ! {
-    echo "monitor=$monitor_name status=$mon_status rc=$rc completed_epoch=$(lm_now_epoch)"
+    echo "monitor=$monitor_name status=$mon_status rc=$rc completed_epoch=$(lm_now_epoch) privilege_policy=$privilege_policy privilege_result=$privilege_result euid=$(id -u 2>/dev/null || echo "${EUID:-unknown}")"
   } >> "$run_state_file" 2>/dev/null; then
     run_state_warn_msg="${run_state_warn_msg:-run state write failed: $run_state_file}"
   fi
@@ -936,6 +1024,30 @@ fi
   echo "timestamp=$(lm_now_iso)"
   echo "overall=$overall exit_code=$worst ok=$ok warn=$warn crit=$crit unknown=$unk skipped=$skipped"
   echo "fleet_hosts_ok=$hosts_ok fleet_hosts_warn=$hosts_warn fleet_hosts_crit=$hosts_crit fleet_hosts_unknown=$hosts_unknown fleet_hosts_skipped=$hosts_skip"
+  if [[ -s "$privilege_file" ]]; then
+    echo ""
+    echo "Privilege policy"
+    awk '
+      BEGIN { total=0; ok=0; violations=0; not_configured=0; invalid=0 }
+      /^monitor=/ {
+        total++
+        result="unknown"
+        policy="default"
+        for (i=1; i<=NF; i++) {
+          split($i, a, "=")
+          if (a[1] == "result") result=a[2]
+          if (a[1] == "policy") policy=a[2]
+        }
+        if (result == "ok") ok++
+        else if (result == "violation") violations++
+        else if (result == "not_configured") not_configured++
+        else if (result == "invalid_policy") invalid++
+      }
+      END {
+        printf "monitors=%d ok=%d violations=%d not_configured=%d invalid_policy=%d\n", total, ok, violations, not_configured, invalid
+      }
+    ' "$privilege_file" 2>/dev/null || true
+  fi
 
   echo ""
   echo "Top CRIT/WARN/UNKNOWN (from monitor= lines)"
@@ -1064,7 +1176,7 @@ artifact_warn() {
 # Also write JSON + Prometheus outputs (best-effort)
 sidecar_err="$TMPDIR/sidecar_error.$$"
 # shellcheck disable=SC2031
-if ! SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" LM_HOSTS_OK="${hosts_ok:-0}" LM_HOSTS_WARN="${hosts_warn:-0}" LM_HOSTS_CRIT="${hosts_crit:-0}" LM_HOSTS_UNKNOWN="${hosts_unknown:-0}" LM_HOSTS_SKIPPED="${hosts_skip:-0}" LM_OVERALL="$overall" LM_EXIT_CODE="$worst" LM_STATUS_FILE="$STATUS_FILE" LM_RUNTIME_FILE="$runtime_file" LM_RUNTIME_WARN_COUNT="$runtime_warn_count" LM_RUN_EPOCH="$ts_epoch" LM_RUN_ID="$LM_RUN_ID" python3 - 2>"$sidecar_err" <<'PY'
+if ! SUMMARY_FILE="$SUMMARY_FILE" SUMMARY_JSON_FILE="$SUMMARY_JSON_FILE" SUMMARY_JSON_LATEST_FILE="$SUMMARY_JSON_LATEST_FILE" PROM_FILE="$PROM_FILE" LM_HOSTS_OK="${hosts_ok:-0}" LM_HOSTS_WARN="${hosts_warn:-0}" LM_HOSTS_CRIT="${hosts_crit:-0}" LM_HOSTS_UNKNOWN="${hosts_unknown:-0}" LM_HOSTS_SKIPPED="${hosts_skip:-0}" LM_OVERALL="$overall" LM_EXIT_CODE="$worst" LM_STATUS_FILE="$STATUS_FILE" LM_RUNTIME_FILE="$runtime_file" LM_RUNTIME_WARN_COUNT="$runtime_warn_count" LM_RUN_EPOCH="$ts_epoch" LM_RUN_ID="$LM_RUN_ID" LM_PRIVILEGE_FILE="$privilege_file" LM_PRIVILEGE_POLICY_FILE="$MONITOR_PRIVILEGE_POLICY_FILE" LM_RUNNER_EUID="$(id -u 2>/dev/null || echo "${EUID:-}")" LM_RUNNER_USER="$(id -un 2>/dev/null || echo unknown)" python3 - 2>"$sidecar_err" <<'PY'
 import json, os, sys, tempfile
 import time
 from datetime import datetime
@@ -1084,6 +1196,10 @@ exit_code=int(os.environ.get("LM_EXIT_CODE","3"))
 runtime_file=os.environ.get("LM_RUNTIME_FILE")
 runtime_warn_count=int(os.environ.get("LM_RUNTIME_WARN_COUNT","0"))
 run_epoch=os.environ.get("LM_RUN_EPOCH","")
+privilege_file=os.environ.get("LM_PRIVILEGE_FILE","")
+privilege_policy_file=os.environ.get("LM_PRIVILEGE_POLICY_FILE","")
+runner_euid=os.environ.get("LM_RUNNER_EUID","")
+runner_user=os.environ.get("LM_RUNNER_USER","")
 
 def parse_kv(line):
     parts=line.strip().split()
@@ -1123,7 +1239,56 @@ meta = read_status_file(status_file) if status_file else {}
 if run_id and "run_id" not in meta:
     meta["run_id"] = run_id
 
-payload = rows if legacy else {"schema_version": 1, "run_id": run_id, "meta": meta, "rows": rows}
+def parse_privilege(path):
+    entries=[]
+    summary={
+        "total": 0,
+        "ok": 0,
+        "violations": 0,
+        "not_configured": 0,
+        "invalid_policy": 0,
+        "unknown": 0,
+    }
+    if path and os.path.exists(path):
+        try:
+            with open(path,"r",encoding="utf-8",errors="ignore") as f:
+                for line in f:
+                    if not line.startswith("monitor="):
+                        continue
+                    d=parse_kv(line)
+                    if not d:
+                        continue
+                    if str(d.get("euid","")).isdigit():
+                        d["euid"] = int(d["euid"])
+                    entries.append(d)
+                    summary["total"] += 1
+                    result=d.get("result","unknown")
+                    if result == "ok":
+                        summary["ok"] += 1
+                    elif result == "violation":
+                        summary["violations"] += 1
+                    elif result == "not_configured":
+                        summary["not_configured"] += 1
+                    elif result == "invalid_policy":
+                        summary["invalid_policy"] += 1
+                    else:
+                        summary["unknown"] += 1
+        except Exception:
+            summary["unknown"] += 1
+    euid_value = runner_euid
+    if str(euid_value).isdigit():
+        euid_value = int(euid_value)
+    return {
+        "schema_version": 1,
+        "policy_file": privilege_policy_file if privilege_policy_file else None,
+        "runner_euid": euid_value,
+        "runner_user": runner_user,
+        "summary": summary,
+        "monitors": entries,
+    }
+
+privilege = parse_privilege(privilege_file)
+payload = rows if legacy else {"schema_version": 1, "run_id": run_id, "meta": meta, "rows": rows, "privilege": privilege}
 errors = []
 
 if json_file:

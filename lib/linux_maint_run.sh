@@ -516,6 +516,23 @@ run_validate_execution_args(){
   fi
 }
 
+run_validate_group_selection(){
+  local group_file=""
+  [[ -n "${LM_GROUP:-}" ]] || return 0
+  group_file="${LM_HOSTS_DIR:-/etc/linux_maint/hosts.d}/${LM_GROUP}.txt"
+  if [[ ! -f "$group_file" ]]; then
+    echo "ERROR: run group not found: $LM_GROUP" >&2
+    echo "Expected group file: $group_file" >&2
+    echo "Hint: create $group_file or run without --group" >&2
+    exit 2
+  fi
+  if [[ ! -r "$group_file" ]]; then
+    echo "ERROR: run group is unreadable: $group_file" >&2
+    echo "Hint: fix group file permissions or choose a different --group" >&2
+    exit 2
+  fi
+}
+
 run_prepare_host_selection(){
   local meta_file host_count host
   declare -ga RUN_RESOLVED_HOSTS_ARRAY=()
@@ -740,14 +757,9 @@ run_debug_dump(){
 
 emit_run_plan(){
   local local_monitors="$1"
-  local gf first h m inventory_meta_present inventory_host_count inventory_match_count
+  local first h m inventory_meta_present inventory_host_count inventory_match_count
   local available_roles available_envs available_tags
   local -a _hosts=() _inventory_lines=() _roles=() _envs=() _tags=()
-
-  if [[ -n "${LM_GROUP:-}" ]]; then
-    gf="${LM_HOSTS_DIR:-/etc/linux_maint/hosts.d}/${LM_GROUP}.txt"
-    [[ -f "$gf" ]] || echo "NOTE: LM_GROUP=$LM_GROUP but group file not found: $gf (will fall back)" >&2
-  fi
 
   if [[ "${#RUN_RESOLVED_HOSTS_ARRAY[@]}" -gt 0 ]]; then
     _hosts=("${RUN_RESOLVED_HOSTS_ARRAY[@]}")

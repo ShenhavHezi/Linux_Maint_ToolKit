@@ -30,6 +30,45 @@
         },
         "additionalProperties": true
       }
+    },
+    "privilege": {
+      "type": "object",
+      "required": ["schema_version", "summary", "monitors"],
+      "properties": {
+        "schema_version": { "type": "integer", "minimum": 1 },
+        "policy_file": { "type": ["string", "null"] },
+        "runner_euid": { "type": ["integer", "string"] },
+        "runner_user": { "type": "string" },
+        "summary": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer", "minimum": 0 },
+            "ok": { "type": "integer", "minimum": 0 },
+            "violations": { "type": "integer", "minimum": 0 },
+            "not_configured": { "type": "integer", "minimum": 0 },
+            "invalid_policy": { "type": "integer", "minimum": 0 },
+            "unknown": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": true
+        },
+        "monitors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["monitor", "policy", "result"],
+            "properties": {
+              "monitor": { "type": "string" },
+              "policy": { "type": "string" },
+              "result": { "type": "string" },
+              "euid": { "type": ["integer", "string"] },
+              "user": { "type": "string" },
+              "source": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
     }
   },
   "additionalProperties": true

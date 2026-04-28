@@ -208,7 +208,7 @@ PY
 }
 
 linux_maint_cmd_audit_log() {
-  local AL_LAST=50 AL_JSON=0 AL_VERIFY=0
+  local AL_LAST=50 AL_JSON=0 AL_VERIFY=0 AL_ATTEST=0 AL_OUT=""
   local AL_FILE=""
 
   while [[ $# -gt 0 ]]; do
@@ -216,16 +216,144 @@ linux_maint_cmd_audit_log() {
       --last) AL_LAST="$2"; shift 2;;
       --json) AL_JSON=1; shift 1;;
       --verify) AL_VERIFY=1; shift 1;;
+      --attest) AL_ATTEST=1; shift 1;;
+      --out) AL_OUT="$2"; shift 2;;
       -h|--help) command_usage audit-log; exit 0;;
       *) echo "Unknown audit-log flag: $1" >&2; exit 2;;
     esac
   done
 
   [[ "$AL_LAST" =~ ^[0-9]+$ ]] || { echo "ERROR: --last must be integer" >&2; exit 2; }
+  if [[ -n "$AL_OUT" && "$AL_ATTEST" -ne 1 ]]; then
+    echo "ERROR: --out is only supported with --attest" >&2
+    exit 2
+  fi
+  if [[ "$AL_VERIFY" -eq 1 && "$AL_ATTEST" -eq 1 ]]; then
+    echo "ERROR: --verify and --attest are mutually exclusive" >&2
+    exit 2
+  fi
   AL_FILE="$(audit_log_path)"
   if [[ ! -f "$AL_FILE" ]]; then
     echo "No audit log found: $AL_FILE" >&2
     exit 1
+  fi
+
+  if [[ "$AL_ATTEST" -eq 1 ]]; then
+    python3 - "$AL_FILE" "$AL_OUT" "$AL_JSON" <<'PY'
+import datetime
+import hashlib
+import json
+import os
+import sys
+import tempfile
+
+path, out_path, json_out = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
+rows = []
+errors = []
+raw_data = b""
+
+try:
+    with open(path, "rb") as f:
+        raw_data = f.read()
+except OSError as exc:
+    print(f"ERROR: cannot read audit log: {exc}", file=sys.stderr)
+    raise SystemExit(2)
+
+for line_no, raw in enumerate(raw_data.splitlines(), 1):
+    s = raw.decode("utf-8", "ignore").strip()
+    if not s:
+        continue
+    try:
+        obj = json.loads(s)
+    except Exception:
+        errors.append(f"line {line_no}: invalid_json")
+        continue
+    rows.append((line_no, obj))
+
+prev_chain = ""
+first_chain = ""
+last_chain = ""
+for line_no, obj in rows:
+    stored_prev = str(obj.get("prev_hash", "") or "")
+    stored_chain = str(obj.get("chain_hash", "") or "")
+    if stored_prev != prev_chain:
+        errors.append(f"line {line_no}: prev_hash mismatch")
+    base = dict(obj)
+    base.pop("prev_hash", None)
+    base.pop("chain_hash", None)
+    material = (stored_prev + "|" + json.dumps(base, sort_keys=True, separators=(",", ":"))).encode("utf-8", "ignore")
+    calc = hashlib.sha256(material).hexdigest()
+    if stored_chain != calc:
+        errors.append(f"line {line_no}: chain_hash mismatch")
+    if not first_chain:
+        first_chain = stored_chain
+    last_chain = stored_chain
+    prev_chain = stored_chain
+
+valid = len(errors) == 0 and len(rows) > 0
+events = [obj for _, obj in rows]
+payload = {
+    "schema_version": 1,
+    "audit_attestation_contract_version": 1,
+    "file": path,
+    "generated_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+    "valid": valid,
+    "events_checked": len(rows),
+    "file_size_bytes": len(raw_data),
+    "file_sha256": hashlib.sha256(raw_data).hexdigest(),
+    "first_chain_hash": first_chain or None,
+    "last_chain_hash": last_chain or None,
+    "first_event_ts": events[0].get("ts_utc") if events else None,
+    "last_event_ts": events[-1].get("ts_utc") if events else None,
+    "errors": errors,
+    "worm_guidance": {
+        "out_file_read_only": bool(out_path),
+        "overwrite_refused": True,
+        "recommended_storage": "copy this attestation and the source audit log to append-only or object-lock storage"
+    },
+}
+
+encoded = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+if out_path:
+    if os.path.exists(out_path):
+        print(f"ERROR: attestation output already exists: {out_path}", file=sys.stderr)
+        raise SystemExit(2)
+    out_dir = os.path.dirname(out_path) or "."
+    os.makedirs(out_dir, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".audit_attest.", dir=out_dir)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(encoded)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(tmp, 0o444)
+        os.replace(tmp, out_path)
+        os.chmod(out_path, 0o444)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+if json_out:
+    print(encoded, end="")
+else:
+    print("=== linux-maint audit-log attestation ===")
+    print(f"file={path}")
+    if out_path:
+        print(f"out={out_path}")
+    print(f"valid={str(valid).lower()}")
+    print(f"events_checked={len(rows)}")
+    print(f"file_sha256={payload['file_sha256']}")
+    print(f"last_chain_hash={payload['last_chain_hash'] or ''}")
+    if errors:
+        for e in errors[:20]:
+            print(f"- {e}")
+
+raise SystemExit(0 if valid else 2)
+PY
+    exit $?
   fi
 
   if [[ "$AL_VERIFY" -eq 1 ]]; then

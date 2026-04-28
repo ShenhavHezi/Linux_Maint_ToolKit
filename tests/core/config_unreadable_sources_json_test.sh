@@ -13,6 +13,10 @@ if [[ "$(id -u)" -eq 0 ]]; then
     echo "config unreadable sources json skipped under root: no su/nobody"
     exit 0
   fi
+  if ! su -s /bin/bash nobody -c "test -r '$LM'" >/dev/null 2>&1; then
+    echo "config unreadable sources json skipped under root: repo path not readable by nobody"
+    exit 0
+  fi
   chmod 755 "$cfg"
   chmod 600 "$cfg/linux-maint.conf"
   set +e

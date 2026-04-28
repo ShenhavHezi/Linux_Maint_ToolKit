@@ -218,7 +218,7 @@ linux_maint_cmd_doctor() {
         command -v journalctl >/dev/null 2>&1 || add_pkg "systemd"
       fi
 
-      if [[ "${#missing_pkgs[@]:-0}" -gt 0 ]]; then
+      if [[ "${#missing_pkgs[@]}" -gt 0 ]]; then
         if [[ "$DOCTOR_DRY_RUN" -eq 1 ]]; then
           fix_actions+=("deps: would install ${missing_pkgs[*]}")
           record_fix_action "install_deps" "${missing_pkgs[*]}" "dry_run"

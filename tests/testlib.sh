@@ -35,10 +35,10 @@ testlib_init_git_repo() {
   (
     cd "$repo" || exit
     git -c init.defaultBranch=main init >/dev/null
-    git config user.name test
-    git config user.email test@example.com
-    git add .
-    git commit -m "test repo" >/dev/null
+    git -c "safe.directory=$repo" config user.name test
+    git -c "safe.directory=$repo" config user.email test@example.com
+    git -c "safe.directory=$repo" add .
+    git -c "safe.directory=$repo" commit -m "test repo" >/dev/null
   )
 }
 
@@ -128,7 +128,13 @@ testlib_build_release_tarball() {
   testlib_init_git_repo "$repo"
   (
     cd "$repo" || exit
+    GIT_CONFIG_COUNT=1 \
+    GIT_CONFIG_KEY_0=safe.directory \
+    GIT_CONFIG_VALUE_0="$repo" \
     bash ./tools/gen_build_info.sh >/dev/null 2>&1
+    GIT_CONFIG_COUNT=1 \
+    GIT_CONFIG_KEY_0=safe.directory \
+    GIT_CONFIG_VALUE_0="$repo" \
     OUTDIR="$repo/dist" bash ./tools/make_tarball.sh >/dev/null
   )
 }
