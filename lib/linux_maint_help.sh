@@ -202,11 +202,11 @@ command_usage(){
         "  linux-maint self-check\n  linux-maint self-check --strict\n  linux-maint self-check --json" ;;
     security-profile)
       run_help_block \
-        "linux-maint security-profile [--json] [--strict]" \
+        "linux-maint security-profile [--json] [--strict] [--fips]" \
         "Inspect security-sensitive configuration, permissions, and policy posture." \
         "  - verify secure defaults after setup\n  - audit operator posture before rollout" \
-        "  --json      machine-readable output\n  --strict    raise the bar for advisory findings" \
-        "  linux-maint security-profile\n  linux-maint security-profile --strict\n  linux-maint security-profile --json" ;;
+        "  --json      machine-readable output\n  --strict    fail when posture checks fail\n  --fips      include FIPS-mode and weak-crypto posture checks" \
+        "  linux-maint security-profile\n  linux-maint security-profile --strict\n  linux-maint security-profile --fips --json" ;;
     check)
       run_help_block \
         "linux-maint check [--json]" \

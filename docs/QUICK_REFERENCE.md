@@ -191,6 +191,7 @@ linux-maint self-check --strict
 # Security posture profile
 linux-maint security-profile
 linux-maint security-profile --strict
+linux-maint security-profile --fips --strict
 
 # Policy gate for CI/deploy checks
 linux-maint gate --policy policy.conf

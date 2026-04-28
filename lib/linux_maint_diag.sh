@@ -138,13 +138,14 @@ PY
 }
 
 linux_maint_cmd_security_profile() {
-  local SP_JSON=0 SP_STRICT=0
+  local SP_JSON=0 SP_STRICT=0 SP_FIPS=0
   local CFG_DIR LOG_DIR_SP STATE_DIR_SP LOCK_DIR_SP
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json) SP_JSON=1; shift 1;;
       --strict) SP_STRICT=1; shift 1;;
+      --fips) SP_FIPS=1; shift 1;;
       -h|--help)
         command_usage security-profile
         exit 0;;
@@ -157,8 +158,9 @@ linux_maint_cmd_security_profile() {
   STATE_DIR_SP="$(linux_maint_effective_state_dir /tmp /var/lib/linux_maint)"
   LOCK_DIR_SP="$(linux_maint_effective_lock_dir /tmp /var/lock)"
 
-  MODE="$MODE" CFG_DIR="$CFG_DIR" LOG_DIR_SP="$LOG_DIR_SP" STATE_DIR_SP="$STATE_DIR_SP" LOCK_DIR_SP="$LOCK_DIR_SP" SP_JSON="$SP_JSON" SP_STRICT="$SP_STRICT" python3 - <<'PY'
+  MODE="$MODE" CFG_DIR="$CFG_DIR" LOG_DIR_SP="$LOG_DIR_SP" STATE_DIR_SP="$STATE_DIR_SP" LOCK_DIR_SP="$LOCK_DIR_SP" SP_JSON="$SP_JSON" SP_STRICT="$SP_STRICT" SP_FIPS="$SP_FIPS" python3 - <<'PY'
 import json, os, pathlib, shutil, stat, sys
+import re
 
 mode = os.environ.get("MODE","")
 cfg_dir = os.environ.get("CFG_DIR","/etc/linux_maint")
@@ -167,6 +169,7 @@ state_dir = os.environ.get("STATE_DIR_SP","/var/lib/linux_maint")
 lock_dir = os.environ.get("LOCK_DIR_SP","/var/lock")
 json_mode = os.environ.get("SP_JSON","0") == "1"
 strict = os.environ.get("SP_STRICT","0") == "1"
+fips_requested = os.environ.get("SP_FIPS","0") == "1"
 
 def path_mode(path):
     p = pathlib.Path(path)
@@ -187,8 +190,53 @@ def bad_perms(path):
         return "group_writable"
     return "ok"
 
+def truthy(value):
+    return str(value).strip().lower() in ("1", "true", "yes", "on", "enabled")
+
+def falsey(value):
+    return str(value).strip().lower() in ("0", "false", "no", "off", "disabled")
+
+def detect_fips_enabled():
+    override = os.environ.get("LM_FIPS_ENABLED")
+    if override is not None:
+        if truthy(override):
+            return True, "env_override=enabled"
+        if falsey(override):
+            return False, "env_override=disabled"
+        return None, f"env_override=invalid:{override}"
+
+    status_file = pathlib.Path(os.environ.get("LM_FIPS_STATUS_FILE", "/proc/sys/crypto/fips_enabled"))
+    try:
+        value = status_file.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return False, f"status_file_missing:{status_file}"
+    except PermissionError:
+        return None, f"status_file_unreadable:{status_file}"
+    except Exception as exc:
+        return None, f"status_file_error:{type(exc).__name__}"
+
+    if value == "1":
+        return True, f"status_file={status_file}"
+    if value == "0":
+        return False, f"status_file={status_file}"
+    return None, f"status_file_invalid:{status_file}:{value}"
+
+def weak_ssh_crypto_detail(ssh_opts):
+    if not ssh_opts.strip():
+        return ""
+    patterns = {
+        "weak_ciphers": r"Ciphers=.*(3des-cbc|arcfour|arcfour128|arcfour256|aes128-cbc|aes192-cbc|aes256-cbc|blowfish-cbc|cast128-cbc|rijndael-cbc@lysator\.liu\.se)",
+        "weak_kex": r"KexAlgorithms=.*(diffie-hellman-group1-sha1|diffie-hellman-group14-sha1|diffie-hellman-group-exchange-sha1)",
+        "weak_macs": r"MACs=.*(hmac-md5|hmac-md5-96|hmac-sha1|hmac-sha1-96|umac-64@openssh\.com)",
+    }
+    for name, pattern in patterns.items():
+        if re.search(pattern, ssh_opts, flags=re.IGNORECASE):
+            return name
+    return ""
+
 ssh_mode = os.environ.get("LM_SSH_KNOWN_HOSTS_MODE","accept-new")
 allowlist_strict = os.environ.get("LM_SSH_ALLOWLIST_STRICT","0").lower() in ("1","true","yes","on")
+fips_enabled, fips_detail = detect_fips_enabled()
 
 checks = []
 def add(name, ok, detail=""):
@@ -203,12 +251,20 @@ add("ssh_allowlist_strict", allowlist_strict, f"enabled={allowlist_strict}")
 add("gpg_present", shutil.which("gpg") is not None, "required for signed artifact workflows")
 add("sha256sum_present", shutil.which("sha256sum") is not None, "required for integrity checks")
 
+if fips_requested:
+    add("fips_mode_enabled", fips_enabled is True, fips_detail)
+    add("fips_sha256sum_present", shutil.which("sha256sum") is not None, "required for FIPS-friendly integrity checks")
+    weak_detail = weak_ssh_crypto_detail(os.environ.get("LM_SSH_OPTS", ""))
+    add("fips_ssh_opts_no_weak_crypto", weak_detail == "", weak_detail or "no weak SSH crypto overrides detected")
+
 ok = all(c["ok"] for c in checks)
 out = {
     "schema_version": 1,
     "security_profile_contract_version": 1,
     "mode": mode,
     "strict": strict,
+    "fips_requested": fips_requested,
+    "fips_enabled": fips_enabled,
     "ok": ok,
     "checks": checks,
 }

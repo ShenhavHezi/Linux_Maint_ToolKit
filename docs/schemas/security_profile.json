@@ -15,6 +15,8 @@
     "security_profile_contract_version": { "type": "integer", "const": 1 },
     "mode": { "type": "string" },
     "strict": { "type": "boolean" },
+    "fips_requested": { "type": "boolean" },
+    "fips_enabled": { "type": ["boolean", "null"] },
     "ok": { "type": "boolean" },
     "checks": {
       "type": "array",

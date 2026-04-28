@@ -905,8 +905,12 @@ Top-level keys:
 - `security_profile_contract_version` (integer, current value: `1`)
 - `mode` (string: `repo` or `installed`)
 - `strict` (boolean; reflects `--strict`)
+- `fips_requested` (boolean; reflects `--fips`)
+- `fips_enabled` (boolean or null; detected from `/proc/sys/crypto/fips_enabled`, or `LM_FIPS_ENABLED` for tests/automation)
 - `ok` (boolean; overall success across all posture checks)
 - `checks` (array of named checks with `check`, `ok`, and `detail`)
+
+`--fips` adds opt-in posture checks for FIPS-mode detection, SHA-256 tooling, and weak SSH crypto overrides. Combine it with `--strict` when CI or rollout gates should fail on non-FIPS hosts or weak crypto settings.
 
 Compatibility policy:
 - Existing keys/types above are treated as stable for contract version `1`.

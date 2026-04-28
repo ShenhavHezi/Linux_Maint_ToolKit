@@ -107,7 +107,8 @@ Last updated: 2026-04-28
   - Added tamper verification command: `linux-maint audit-log --verify` (validates chain integrity).
   - Added portable attestation export: `linux-maint audit-log --attest [--json] [--out FILE]` with SHA256, chain anchors, event counts, and read-only no-overwrite output files for WORM/object-lock transfer.
   - Missing: native write-once filesystem controls and external signer/service integration.
-- `NEXT` Optional FIPS-friendly crypto mode checks.
+- `DONE` Optional FIPS-friendly crypto mode checks.
+  - Proof: `tests/core/security_profile_command_test.sh`.
 - `DONE` Security posture report command.
   - Proof: `linux-maint security-profile`, `tests/core/security_profile_command_test.sh`.
 
