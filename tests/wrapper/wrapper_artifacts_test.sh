@@ -28,6 +28,10 @@ for f in "${req[@]}"; do
     echo "MISSING artifact: $f" >&2
     missing=1
   fi
+  if [ -e "$f" ] && [ ! -r "$f" ]; then
+    echo "UNREADABLE artifact: $f" >&2
+    missing=1
+  fi
   # basic non-empty for log/summary/status
   case "$f" in
     *.log|*/last_status_full)

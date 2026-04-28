@@ -1150,6 +1150,9 @@ if [[ ! -s "$SUMMARY_FILE" ]]; then
     printf '%s\n' "$warn_line" >> "$logfile" 2>/dev/null || true
   fi
 fi
+if [[ -s "$SUMMARY_FILE" ]]; then
+  chmod 0644 "$SUMMARY_FILE" 2>/dev/null || true
+fi
 summary_latest_target="$SUMMARY_FILE"
 if [[ "$(dirname -- "$SUMMARY_LATEST_FILE")" == "$(dirname -- "$SUMMARY_FILE")" ]]; then
   summary_latest_target="$(basename -- "$SUMMARY_FILE")"
@@ -1300,6 +1303,10 @@ if json_file:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2, sort_keys=True)
         os.replace(tmp, json_file)
+        try:
+            os.chmod(json_file, 0o644)
+        except Exception:
+            pass
     except Exception:
         if tmp and os.path.exists(tmp):
             try:
@@ -1484,6 +1491,10 @@ if prom_file and rows:
             if prom_format == "openmetrics":
                 f.write("# EOF\n")
         os.replace(prom_tmp, prom_file)
+        try:
+            os.chmod(prom_file, 0o644)
+        except Exception:
+            pass
     except Exception:
         if prom_tmp and os.path.exists(prom_tmp):
             try:
