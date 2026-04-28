@@ -6,6 +6,14 @@ This project uses a lightweight changelog. Each release should add a short entry
 
 - (add changes here)
 
+## 2026-04-28
+
+- Release v0.3.9
+- Hardened `linux-maint run --group` so missing group files fail closed instead of falling back to default hosts.
+- Added `linux-maint audit-log --attest` for portable audit-log attestation exports with SHA256, chain anchors, overwrite protection, and read-only output files.
+- Added per-monitor privilege telemetry to run-state artifacts, wrapper summary JSON, and `linux-maint report`.
+- Tightened CI/test reliability around smoke enforcement, date-stable fixtures, root/private-home permission tests, and generated-state secret scanning.
+
 ## 2026-03-26
 
 - Release v0.3.8

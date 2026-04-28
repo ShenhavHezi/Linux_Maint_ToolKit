@@ -6,6 +6,7 @@ Use this page when you want the shortest path to recent releases and upgrade con
 
 | Version | Focus | Open |
 | --- | --- | --- |
+| `v0.3.9` | see release notes | [release_notes_v0.3.9.md](release_notes_v0.3.9.md) |
 | `v0.3.8` | see release notes | [release_notes_v0.3.8.md](release_notes_v0.3.8.md) |
 | `v0.3.7` | upgrade checks strengthened, baseline visibility improved, run planning clarified, CLI output polished | [release_notes_v0.3.7.md](release_notes_v0.3.7.md) |
 | `v0.3.6` | maintainability split, grouped tests, stricter advanced validation, release-discipline fixes | [release_notes_v0.3.6.md](release_notes_v0.3.6.md) |
@@ -25,6 +26,7 @@ If you are upgrading:
 
 ## Full history
 
+- [release_notes_v0.3.9.md](release_notes_v0.3.9.md)
 - [release_notes_v0.3.8.md](release_notes_v0.3.8.md)
 - [release_notes_v0.3.7.md](release_notes_v0.3.7.md)
 - [release_notes_v0.3.6.md](release_notes_v0.3.6.md)
