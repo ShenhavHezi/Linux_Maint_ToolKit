@@ -63,6 +63,8 @@ Last updated: 2026-04-28
     - Proof: `tests/adminops/audit_log_attest_test.sh`, `docs/reference.md`, `docs/QUICK_REFERENCE.md`, `docs/schemas/audit_log.json`.
   - P1 privilege telemetry hardening: wrapper runs now persist per-monitor privilege policy/result/euid telemetry in run state, summary JSON, and `linux-maint report`.
     - Proof: `tests/run/run_privilege_telemetry_test.sh`, `docs/schemas/summary.json`, `docs/schemas/report.json`.
+  - P1 scale-planning fixture: `run --simulate-hosts N --plan` now generates deterministic synthetic host plans for bounded-runtime fleet planning tests without SSH or inventory mutation.
+    - Proof: `tests/run/run_plan_simulate_hosts_test.sh`.
 - Resume-from-next-session:
   - Focus on remaining items below in order: security hardening gaps -> operator UX depth -> advanced quality/calibration.
 
@@ -88,7 +90,8 @@ Last updated: 2026-04-28
   - Static file path is present; dynamic/cloud adapters (AWS/GCP/Azure) not implemented.
 - `DONE` Maintenance windows + drain file gating.
   - Proof: `tests/run/run_maintenance_window_gate_test.sh`, `tests/run_drain_file_plan_test.sh`.
-- `NEXT` 1k-host simulation fixture with deterministic bounded runtime.
+- `DONE` 1k-host simulation fixture with deterministic bounded runtime.
+  - Proof: `tests/run/run_plan_simulate_hosts_test.sh`.
 
 ## P1 - Security hardening
 - `PARTIAL` Signed artifacts + verification flow.

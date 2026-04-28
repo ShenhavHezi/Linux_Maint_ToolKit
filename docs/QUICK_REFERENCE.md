@@ -82,6 +82,9 @@ linux-maint run --strategy quorum --quorum-percent 80
 linux-maint run --drain-file <cfg_dir>/hosts_drain.txt --plan
 # Missing --group files fail with rc=2 instead of falling back to all/default hosts.
 
+# Deterministic scale planning without touching SSH or real inventory
+linux-maint run --simulate-hosts 1000 --plan --json
+
 # Resume a previous interrupted run (explicit id or latest from history)
 # Requires the saved run_state_<run_id>.log for that interrupted run.
 linux-maint run --resume latest

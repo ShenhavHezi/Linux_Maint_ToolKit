@@ -519,6 +519,7 @@ Prerequisites (any one):
   - `--respect-maintenance`: skip run outside configured maintenance window file (`maintenance_windows.conf`).
   - `--allow-concurrent`: allow overlapping runs (skip lock).
   - `--lock-timeout N`: wait up to `N` seconds for the run lock (default 60).
+  - `--simulate-hosts N`: plan-only synthetic host list (`sim-host-000001`...) for deterministic scale testing without SSH or inventory mutation.
   - in repo mode, host resolution defaults to `$REPO_ROOT/.etc_linux_maint/{servers.txt,excluded.txt,hosts.d}` when `LM_SERVERLIST`, `LM_EXCLUDED`, and `LM_HOSTS_DIR` are unset.
   - optional inventory metadata file: `${LM_INVENTORY_META:-<cfg_dir>/inventory_meta.csv}` with `host,tags,role,env`.
   - `run --plan --json` also reports inventory metadata presence, host counts, and discovered role/env/tag values.

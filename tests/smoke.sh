@@ -316,6 +316,7 @@ run_required "menu_stdin_guard_test" bash "$MENU_TEST_DIR/menu_stdin_guard_test.
 run_required "list_monitors_test" bash "$INSPECT_TEST_DIR/list_monitors_test.sh"
 run_required "lint_summary_test" bash "$INSPECT_TEST_DIR/lint_summary_test.sh"
 run_required "run_plan_json_test" bash "$RUN_TEST_DIR/run_plan_json_test.sh"
+run_required "run_plan_simulate_hosts_test" bash "$RUN_TEST_DIR/run_plan_simulate_hosts_test.sh"
 run_required "run_plan_repo_cfg_defaults_test" bash "$RUN_TEST_DIR/run_plan_repo_cfg_defaults_test.sh"
 run_required "run_missing_group_test" bash "$RUN_TEST_DIR/run_missing_group_test.sh"
 run_required "run_inventory_meta_filters_test" bash "$RUN_TEST_DIR/run_inventory_meta_filters_test.sh"

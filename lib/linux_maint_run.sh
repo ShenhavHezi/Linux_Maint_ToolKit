@@ -16,6 +16,7 @@ parse_run_args(){
   RUN_TAGS=""
   RUN_ROLE=""
   RUN_ENV=""
+  RUN_SIMULATE_HOSTS=0
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -27,6 +28,8 @@ parse_run_args(){
         RUN_ROLE="$2"; shift 2;;
       --env)
         RUN_ENV="$2"; shift 2;;
+      --simulate-hosts)
+        RUN_SIMULATE_HOSTS="$2"; shift 2;;
       --hosts)
         tmpf="$(make_list_tmpfile "$2" hosts)"; LM_SERVERLIST="$tmpf"; export LM_SERVERLIST; shift 2;;
       --exclude)
@@ -501,6 +504,20 @@ run_validate_execution_args(){
     echo "ERROR: --env requires a non-empty value" >&2
     exit 2
   fi
+  if [[ -n "${RUN_SIMULATE_HOSTS:-}" && "${RUN_SIMULATE_HOSTS}" != "0" ]]; then
+    if [[ ! "${RUN_SIMULATE_HOSTS}" =~ ^[0-9]+$ ]] || (( RUN_SIMULATE_HOSTS < 1 || RUN_SIMULATE_HOSTS > 100000 )); then
+      echo "ERROR: --simulate-hosts must be an integer in range 1..100000" >&2
+      exit 2
+    fi
+    if [[ "${PLAN_ONLY:-0}" -ne 1 ]]; then
+      echo "ERROR: --simulate-hosts is only supported with --plan/--dry-run" >&2
+      exit 2
+    fi
+    if [[ -n "${RUN_TAGS:-}${RUN_ROLE:-}${RUN_ENV:-}" ]]; then
+      echo "ERROR: --simulate-hosts cannot be combined with inventory filters" >&2
+      exit 2
+    fi
+  fi
   case "${LM_EXEC_STRATEGY:-fail-soft}" in
     fail-soft|fail-fast|quorum) ;;
     *)
@@ -536,6 +553,38 @@ run_validate_group_selection(){
 run_prepare_host_selection(){
   local meta_file host_count host
   declare -ga RUN_RESOLVED_HOSTS_ARRAY=()
+
+  if [[ "${RUN_SIMULATE_HOSTS:-0}" -gt 0 ]]; then
+    mapfile -t RUN_RESOLVED_HOSTS_ARRAY < <(
+      awk -v n="$RUN_SIMULATE_HOSTS" 'BEGIN { for (i = 1; i <= n; i++) printf "sim-host-%06d\n", i }'
+    )
+    RUN_HOST_COUNT="${#RUN_RESOLVED_HOSTS_ARRAY[@]}"
+    export RUN_HOST_COUNT
+    RUN_INVENTORY_CONTEXT_JSON="$(
+      python3 - "$RUN_SIMULATE_HOSTS" <<'PY'
+import json, sys
+
+count = int(sys.argv[1])
+print(json.dumps({
+    "meta_file": "",
+    "meta_present": False,
+    "meta_readable": False,
+    "filters": {"tag": None, "role": None, "env": None},
+    "resolved_hosts": [],
+    "resolved_host_count": count,
+    "inventory_host_count": count,
+    "inventory_match_count": count,
+    "available_roles": [],
+    "available_envs": [],
+    "available_tags": [],
+    "simulated": True,
+    "simulated_host_count": count,
+}, sort_keys=True))
+PY
+    )"
+    export RUN_INVENTORY_CONTEXT_JSON
+    return 0
+  fi
 
   meta_file="${LM_INVENTORY_META:-$(linux_maint_effective_inventory_meta_file)}"
   if [[ -n "${RUN_TAGS:-}${RUN_ROLE:-}${RUN_ENV:-}" ]]; then
@@ -736,6 +785,7 @@ run_debug_dump(){
   echo "RUN_TAGS=${RUN_TAGS:-}"
   echo "RUN_ROLE=${RUN_ROLE:-}"
   echo "RUN_ENV=${RUN_ENV:-}"
+  echo "RUN_SIMULATE_HOSTS=${RUN_SIMULATE_HOSTS:-0}"
   echo "LM_LOCAL_ONLY=${LM_LOCAL_ONLY:-}"
   echo "LM_MONITORS=${LM_MONITORS:-}"
   echo "LM_SSH_OPTS=${LM_SSH_OPTS:-}"
@@ -758,7 +808,7 @@ run_debug_dump(){
 emit_run_plan(){
   local local_monitors="$1"
   local first h m inventory_meta_present inventory_host_count inventory_match_count
-  local available_roles available_envs available_tags
+  local available_roles available_envs available_tags simulated simulated_host_count
   local -a _hosts=() _inventory_lines=() _roles=() _envs=() _tags=()
 
   if [[ "${#RUN_RESOLVED_HOSTS_ARRAY[@]}" -gt 0 ]]; then
@@ -777,6 +827,8 @@ print(f"inventory_match_count={ctx.get('inventory_match_count', 0)}")
 print(f"available_roles={','.join(ctx.get('available_roles') or [])}")
 print(f"available_envs={','.join(ctx.get('available_envs') or [])}")
 print(f"available_tags={','.join((ctx.get('available_tags') or [])[:8])}")
+print(f"simulated={1 if ctx.get('simulated') else 0}")
+print(f"simulated_host_count={ctx.get('simulated_host_count', 0)}")
 PY
     )
     local item key value
@@ -790,6 +842,8 @@ PY
         available_roles) available_roles="$value" ;;
         available_envs) available_envs="$value" ;;
         available_tags) available_tags="$value" ;;
+        simulated) simulated="$value" ;;
+        simulated_host_count) simulated_host_count="$value" ;;
       esac
     done
   fi
@@ -831,6 +885,8 @@ PY
     printf '"inventory_meta_present":%s,' "$([[ "${inventory_meta_present:-0}" == "1" ]] && echo true || echo false)"
     printf '"inventory_host_count":%s,' "${inventory_host_count:-0}"
     printf '"inventory_match_count":%s,' "${inventory_match_count:-0}"
+    printf '"simulated":%s,' "$([[ "${simulated:-0}" == "1" ]] && echo true || echo false)"
+    printf '"simulated_host_count":%s,' "${simulated_host_count:-0}"
     printf '"resolved_host_count":%s,' "${#_hosts[@]}"
     printf '"limit":%s,' "${LIMIT:-0}"
     printf '"shuffle":%s,' "$([[ "${SHUFFLE:-0}" -eq 1 ]] && echo true || echo false)"
@@ -886,6 +942,9 @@ PY
   if [[ -t 1 ]]; then
     section "run plan"
     echo "mode=${MODE} local_only=${LM_LOCAL_ONLY:-false} parallel=${LM_MAX_PARALLEL:-0}"
+    if [[ "${simulated:-0}" == "1" ]]; then
+      echo "simulation=hosts count=${simulated_host_count:-${#_hosts[@]}}"
+    fi
     [[ -n "${LM_GROUP:-}" ]] && echo "group=${LM_GROUP}"
     [[ -n "${RUN_TAGS:-}" ]] && echo "tag_filter=${RUN_TAGS}"
     [[ -n "${RUN_ROLE:-}" ]] && echo "role_filter=${RUN_ROLE}"
