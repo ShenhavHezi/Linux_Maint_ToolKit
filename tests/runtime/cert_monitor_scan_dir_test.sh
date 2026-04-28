@@ -24,6 +24,9 @@ openssl req -x509 -newkey rsa:2048 -sha256 -days 1 -nodes \
 # Ignore the long-lived cert
 printf '%s\n' 'long.crt' > "$workdir/ignore.txt"
 
+# Exercise the scanner from a directory that contains matching cert names. The
+# monitor must pass "*.crt" to find without letting the shell expand it first.
+pushd "$workdir" >/dev/null
 out="$(
   env \
     LINUX_MAINT_LIB="$ROOT_DIR/lib/linux_maint.sh" \
@@ -36,6 +39,7 @@ out="$(
     LM_CERT_CRIT_DAYS=7 \
     bash "$ROOT_DIR/monitors/cert_monitor.sh" 2>/dev/null
 )"
+popd >/dev/null
 
 # Must emit summary line
 echo "$out" | grep -q '^monitor=cert_monitor ' || { echo "missing summary" >&2; echo "$out" >&2; exit 1; }

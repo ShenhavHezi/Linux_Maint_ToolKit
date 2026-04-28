@@ -95,22 +95,22 @@ scan_cert_files() {
   [ -n "$dir" ] || return 0
   [ -d "$dir" ] || return 0
 
-  local find_expr=""
+  local -a find_expr=()
   IFS=',' read -r -a exts <<< "$exts_csv"
   for e in "${exts[@]}"; do
     e="$(printf '%s' "$e" | tr -d '[:space:]')"
     [ -z "$e" ] && continue
-    if [ -n "$find_expr" ]; then
-      find_expr+=" -o "
+    if [ "${#find_expr[@]}" -gt 0 ]; then
+      find_expr+=( -o )
     fi
-    find_expr+=" -iname *.$e "
+    find_expr+=( -iname "*.$e" )
   done
+  [ "${#find_expr[@]}" -gt 0 ] || return 0
 
-  # shellcheck disable=SC2086
   while IFS= read -r p; do
     is_ignored_path "$p" && continue
     printf '%s\n' "$p"
-  done < <(find "$dir" -type f \( $find_expr \) 2>/dev/null)
+  done < <(find "$dir" -type f \( "${find_expr[@]}" \) 2>/dev/null)
 }
 
 check_cert_file() {
@@ -285,29 +285,31 @@ ALERTS_FILE="$(lm_mktemp cert_monitor.alerts.XXXXXX)"
 checked=0
 warn=0
 crit=0
-while IFS= read -r raw; do
-  raw="$(echo "$raw" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-  [ -z "$raw" ] && continue
-  [[ "$raw" =~ ^# ]] && continue
+if [ -s "$TARGETS_FILE" ]; then
+  while IFS= read -r raw; do
+    raw="$(echo "$raw" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [ -z "$raw" ] && continue
+    [[ "$raw" =~ ^# ]] && continue
 
-  IFS='|' read -r HOST PORT SNI STARTTLS <<<"$(parse_target_line "$raw")"
-  checked=$((checked+1))
-  res="$(check_one "$HOST" "$PORT" "$SNI" "$STARTTLS")"
+    IFS='|' read -r HOST PORT SNI STARTTLS <<<"$(parse_target_line "$raw")"
+    checked=$((checked+1))
+    res="$(check_one "$HOST" "$PORT" "$SNI" "$STARTTLS")"
 
-  status="$(printf "%s\n" "$res" | awk '{for(i=1;i<=NF;i++) if($i ~ /^status=/){print substr($i,8)}}')"
-  days="$(  printf "%s\n" "$res" | awk '{for(i=1;i<=NF;i++) if($i ~ /^days=/){print substr($i,6)}}')"
-  verify="$(printf "%s\n" "$res" | awk '{for(i=1;i<=NF;i++) if($i ~ /^verify=/){print substr($i,8)}}')"
-  note="$(  printf "%s\n" "$res" | awk '{for(i=1;i<=NF;i++) if($i ~ /^note=/){print substr($i,6)}}')"
+    status="$(printf "%s\n" "$res" | awk '{for(i=1;i<=NF;i++) if($i ~ /^status=/){print substr($i,8)}}')"
+    days="$(  printf "%s\n" "$res" | awk '{for(i=1;i<=NF;i++) if($i ~ /^days=/){print substr($i,6)}}')"
+    verify="$(printf "%s\n" "$res" | awk '{for(i=1;i<=NF;i++) if($i ~ /^verify=/){print substr($i,8)}}')"
+    note="$(  printf "%s\n" "$res" | awk '{for(i=1;i<=NF;i++) if($i ~ /^note=/){print substr($i,6)}}')"
 
-  lm_info "[$status] $HOST:$PORT (SNI=$SNI) days_left=${days:-?} verify=$verify ${note:+note=$note}"
+    lm_info "[$status] $HOST:$PORT (SNI=$SNI) days_left=${days:-?} verify=$verify ${note:+note=$note}"
 
-  [ "$status" = "WARN" ] && warn=$((warn+1))
-  [ "$status" = "CRIT" ] && crit=$((crit+1))
+    [ "$status" = "WARN" ] && warn=$((warn+1))
+    [ "$status" = "CRIT" ] && crit=$((crit+1))
 
-  if [ "$status" = "WARN" ] || [ "$status" = "CRIT" ]; then
-    printf "%s|%s|%s|%s|%s|%s\n" "$HOST:$PORT" "$SNI" "${days:-?}" "$verify" "$status" "$note" >> "$ALERTS_FILE"
-  fi
-done < "$TARGETS_FILE"
+    if [ "$status" = "WARN" ] || [ "$status" = "CRIT" ]; then
+      printf "%s|%s|%s|%s|%s|%s\n" "$HOST:$PORT" "$SNI" "${days:-?}" "$verify" "$status" "$note" >> "$ALERTS_FILE"
+    fi
+  done < "$TARGETS_FILE"
+fi
 
 # Optional: scan a directory for cert files and evaluate their expiration (offline).
 if [ -n "$CERTS_SCAN_DIR" ]; then
